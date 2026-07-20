@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3 - 2026-07-20
+
+- Prevent running CI jobs from being canceled when another commit or workflow run is queued.
+- Prevent running multi-architecture release builds from being canceled by newer runs.
+- Keep the 60-minute release timeout for reliable AMD64 and ARM64 image publishing.
+- Add ready-to-use GitHub release notes for this maintenance release.
+
 ## 0.2.2
 
 - Simplified and hardened the GHCR release workflow.
