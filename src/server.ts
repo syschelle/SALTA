@@ -54,7 +54,7 @@ export function buildServer(registry: DeviceRegistry, adapter: MockAdapter) {
     }
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.1.0", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.2.0", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
     try {
       await pool.query("select 1");

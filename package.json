@@ -1,7 +1,7 @@
 {
   "name": "salta",
-  "version": "0.1.1",
-  "description": "Smart-home Abstraction and Local Transport Architecture",
+  "version": "0.2.0",
+  "description": "SALTA local-first smart-home control plane",
   "private": false,
   "type": "module",
   "engines": {
