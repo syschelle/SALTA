@@ -5,9 +5,10 @@
 # output can be copied into both target runtime images.
 FROM --platform=$BUILDPLATFORM node:24-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
+RUN ! grep -q "packages.applied-caas-gateway\|internal.api.openai.org" package-lock.json
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --no-audit --no-fund
+    npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
 
 FROM deps AS build
 COPY tsconfig.json ./

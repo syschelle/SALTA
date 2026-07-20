@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.5 - 2026-07-20
+
+### Fixed
+
+- Replaced internal package registry URLs in `package-lock.json` with the public npm registry.
+- Prevented `npm ci` from hanging in GitHub Actions and Docker Buildx.
+- Added a fail-fast check for accidental internal registry URLs.
+- Added an explicit public npm registry configuration.
+
+
 ## 0.2.3 - 2026-07-20
 
 - Prevent running CI jobs from being canceled when another commit or workflow run is queued.
