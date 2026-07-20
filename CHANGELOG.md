@@ -1,13 +1,23 @@
 # Changelog
 
-## 0.3.0-alpha.4
+## [0.3.0-alpha.5]
+
+### Added
+- Existing rooms can be edited inline on the Rooms page.
+
+### Fixed
+- Replaced uneven Unicode navigation glyphs with aligned SVG icons.
+- Corrected visible and health endpoint version reporting.
+
+
+## 0.3.0-alpha.5
 
 - Fixed inconsistent navigation indentation by reserving a fixed icon column.
 - Added the installed SALTA version to the sidebar.
 - Added an accessible hamburger button and off-canvas sidebar for smaller screens.
 - Added backdrop, Escape-key closing and correct ARIA expanded state.
 
-## 0.3.0-alpha.4
+## 0.3.0-alpha.5
 
 ### Changed
 

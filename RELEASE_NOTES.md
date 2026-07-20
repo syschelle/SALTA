@@ -1,14 +1,20 @@
-# SALTA v0.3.0-alpha.4
-
-## Fixed
-
-- Navigation icons now use a fixed-width column, so all labels align consistently.
-- Automationen and Diagnose are no longer visually indented.
+# SALTA v0.3.0-alpha.5
 
 ## Added
 
-- The installed version is displayed in the sidebar footer.
-- Smaller screens now provide a hamburger button that opens the complete sidebar.
-- The mobile sidebar supports backdrop click, Escape key, focus restoration and ARIA state.
+- Existing rooms can now be edited directly on the Rooms page.
+- Room name and icon can be changed without deleting or recreating the room.
+- Inline edit mode includes Save and Cancel actions.
 
-This is a pre-release.
+## Fixed
+
+- Replaced uneven Unicode navigation glyphs with consistently sized SVG icons.
+- All sidebar labels now start at the same horizontal position.
+- Corrected the health endpoint version and visible application version.
+
+## Docker
+
+- linux/amd64
+- linux/arm64
+
+This is a pre-release build.

@@ -4,3 +4,17 @@ nav a,nav button{display:flex;align-items:center;gap:11px;width:100%;border:0;ba
 @media(max-width:1000px){body{display:block;padding-bottom:82px}aside{display:flex;position:fixed;left:0;top:0;bottom:0;z-index:70;width:min(300px,86vw);height:100dvh;transform:translateX(-105%);transition:transform .22s ease;box-shadow:16px 0 42px rgba(20,32,55,.18)}body.menu-open aside{transform:translateX(0)}.menu-toggle{display:inline-grid;place-items:center}.menu-close{display:inline-flex}.sidebar-backdrop{display:block;position:fixed;inset:0;z-index:65;background:rgba(18,27,39,.38);backdrop-filter:blur(2px)}.sidebar-backdrop[hidden]{display:none}main{padding:76px 25px 25px}.stats{grid-template-columns:repeat(2,1fr)}.mobile-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:fixed;left:0;right:0;bottom:0;z-index:40;background:rgba(255,255,255,.96);border-top:1px solid var(--line);padding:7px max(8px,env(safe-area-inset-right)) calc(7px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));backdrop-filter:blur(14px);box-shadow:0 -8px 24px rgba(20,32,55,.08)}.mobile-nav a,.mobile-nav button{display:flex;flex-direction:column;justify-content:center;gap:3px;min-height:54px;padding:5px 3px;text-align:center;border-radius:10px;font-size:20px}.mobile-nav small{font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.toast{right:16px;left:16px;bottom:94px;text-align:center}}
 @media(max-width:620px){.grid,.stats{grid-template-columns:1fr}.page-header,header,.section-head,.welcome-panel{align-items:flex-start;gap:16px;flex-direction:column}.filters{align-items:stretch;flex-direction:column;width:100%}.filters select,.search{width:100%}.search{display:flex}.search input{width:100%}.room-row{align-items:flex-start}.settings-card{padding:20px}.form-actions button{width:100%}}
 @media(max-width:420px){.mobile-nav small{font-size:9px}}
+/* v0.3.0-alpha.5: pixel-consistent navigation icons and editable rooms */
+nav a,nav button{display:grid;grid-template-columns:22px minmax(0,1fr);align-items:center;column-gap:12px}
+nav a>.nav-icon,nav button>.nav-icon{width:22px;height:22px;display:grid;place-items:center;justify-self:center}
+nav .nav-icon svg{width:18px;height:18px;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+nav a>span:last-child,nav button>span:last-child{justify-self:start;line-height:1.25}
+.room-row{display:block}
+.room-summary{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.room-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.secondary{background:#eef1f5;color:var(--text)}
+.room-edit-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,.45fr) auto;gap:12px;align-items:end}
+.room-edit-form label{display:grid;gap:7px;font-weight:700}
+.room-edit-form input{font-weight:400}
+.room-edit-form[hidden],.room-summary[hidden]{display:none}
+@media(max-width:620px){.room-summary{align-items:flex-start;flex-direction:column}.room-actions{width:100%;justify-content:flex-start}.room-edit-form{grid-template-columns:1fr}.room-edit-form .room-actions{justify-content:stretch}.room-edit-form .room-actions button{flex:1}}

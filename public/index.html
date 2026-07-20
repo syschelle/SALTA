@@ -13,14 +13,14 @@
 <aside id="sidebar">
   <div class="sidebar-head"><div class="brand"><span class="logo">S</span><div><b>SALTA</b><small>Local by design</small></div></div><button id="menuClose" class="menu-close" type="button" aria-label="Navigation schließen">×</button></div>
   <nav aria-label="Hauptnavigation">
-    <a href="#overview" data-nav="overview"><span aria-hidden="true">⌂</span><span>Übersicht</span></a>
-    <a href="#devices" data-nav="devices"><span aria-hidden="true">◫</span><span>Geräte</span></a>
-    <a href="#rooms" data-nav="rooms"><span aria-hidden="true">▦</span><span>Räume</span></a>
-    <button type="button" data-nav="automations" onclick="showUnavailable('Automationen')"><span aria-hidden="true">⌁</span><span>Automationen</span></button>
-    <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span aria-hidden="true">◉</span><span>Diagnose</span></button>
-    <a href="#settings" data-nav="settings"><span aria-hidden="true">⚙</span><span>Einstellungen</span></a>
+    <a href="#overview" data-nav="overview"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg></span><span>Übersicht</span></a>
+    <a href="#devices" data-nav="devices"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg></span><span>Geräte</span></a>
+    <a href="#rooms" data-nav="rooms"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16"/></svg></span><span>Räume</span></a>
+    <button type="button" data-nav="automations" onclick="showUnavailable('Automationen')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h5l2 3h9M4 16h5l2-3h9"/><circle cx="4" cy="8" r="1"/><circle cx="4" cy="16" r="1"/></svg></span><span>Automationen</span></button>
+    <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></span><span>Diagnose</span></button>
+    <a href="#settings" data-nav="settings"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2V9.6h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8 3.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V2h4v.1A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 8a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg></span><span>Einstellungen</span></a>
   </nav>
-  <div class="sidebar-footer"><div class="status"><i></i> System online</div><div class="version" aria-label="Installierte Version">Version <strong>0.3.0-alpha.4</strong></div></div>
+  <div class="sidebar-footer"><div class="status"><i></i> System online</div><div class="version" aria-label="Installierte Version">Version <strong>0.3.0-alpha.5</strong></div></div>
 </aside>
 
 <main>
@@ -57,11 +57,11 @@
 </main>
 
 <nav class="mobile-nav" aria-label="Mobile Hauptnavigation">
-  <a href="#overview" data-nav="overview"><span aria-hidden="true">⌂</span><small>Übersicht</small></a>
-  <a href="#devices" data-nav="devices"><span aria-hidden="true">◫</span><small>Geräte</small></a>
-  <a href="#rooms" data-nav="rooms"><span aria-hidden="true">▦</span><small>Räume</small></a>
-  <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span aria-hidden="true">◉</span><small>Diagnose</small></button>
-  <a href="#settings" data-nav="settings"><span aria-hidden="true">⚙</span><small>Einstellungen</small></a>
+  <a href="#overview" data-nav="overview"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg></span><small>Übersicht</small></a>
+  <a href="#devices" data-nav="devices"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg></span><small>Geräte</small></a>
+  <a href="#rooms" data-nav="rooms"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16"/></svg></span><small>Räume</small></a>
+  <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></span><small>Diagnose</small></button>
+  <a href="#settings" data-nav="settings"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2V9.6h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8 3.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V2h4v.1A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 8a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg></span><small>Einstellungen</small></a>
 </nav>
 
 <dialog id="deviceDialog"><form method="dialog"><div class="dialog-head"><div><h2 id="deviceDialogTitle">Gerät</h2><p class="muted">Raum und Authentifizierung konfigurieren.</p></div><button class="icon-button" aria-label="Dialog schließen">×</button></div><label>Raum<select id="deviceRoom"></select></label><label>Zugangsdaten<select id="credentialMode"><option value="inherit">Globale Shelly-Zugangsdaten</option><option value="custom">Eigene Zugangsdaten</option><option value="none">Keine Authentifizierung</option></select></label><label>Benutzername<input id="deviceUsername" autocomplete="username"></label><label>Passwort<input id="devicePassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label><button type="button" onclick="saveDeviceConfig()">Speichern</button></form></dialog>
