@@ -2,7 +2,7 @@ import type { Device, DeviceCommand } from "./types.js";
 import { DeviceRegistry } from "./registry.js";
 
 const now=()=>new Date().toISOString();
-const base=(d: Omit<Device,"lastSeen"|"lastEvent">):Device=>({...d,lastSeen:now(),lastEvent:now()});
+const base=(d: Omit<Device,"lastSeen"|"lastEvent"|"credentialMode"|"passwordConfigured">):Device=>({...d,credentialMode:"inherit",passwordConfigured:false,lastSeen:now(),lastEvent:now()});
 
 export class MockAdapter {
   private timer?: NodeJS.Timeout;

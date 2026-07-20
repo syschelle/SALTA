@@ -163,3 +163,27 @@ SALTA uses host networking so HomeKit mDNS and future local discovery protocols 
 ## License
 
 MIT
+
+## v0.3.0-alpha.1: Rooms and Shelly credentials
+
+SALTA now treats rooms as first-class entities. Rooms can be created and deleted from the dashboard, devices can be assigned to a room, and unassigned devices remain visible under **Nicht zugeordnet**.
+
+Shelly authentication supports three device modes:
+
+- `inherit`: use the global Shelly username and password
+- `custom`: use credentials stored specifically for the device
+- `none`: connect without authentication
+
+Global credentials are available under **Einstellungen**. Device-specific settings are available through **Konfigurieren** on each device card.
+
+Passwords are encrypted with AES-256-GCM before being stored in PostgreSQL. Configure a stable secret in `.env`:
+
+```env
+SALTA_ENCRYPTION_KEY=replace-with-a-long-random-secret
+```
+
+Back up this key together with the database. Losing it makes encrypted device passwords unrecoverable. Password values are never returned by the REST API.
+
+### Current alpha limitation
+
+This release prepares the data model and user interface for Shelly integration. Physical Shelly discovery, generation detection and control are planned for the following v0.3.0 alpha releases.

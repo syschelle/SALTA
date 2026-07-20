@@ -42,6 +42,7 @@ services:
       HOMEKIT_PORT: ${HOMEKIT_PORT:-51826}
       HOMEKIT_USERNAME: ${HOMEKIT_USERNAME:-02:42:53:41:4C:54}
       MOCK_EVENT_INTERVAL_MS: ${MOCK_EVENT_INTERVAL_MS:-5000}
+      SALTA_ENCRYPTION_KEY: ${SALTA_ENCRYPTION_KEY:?Set SALTA_ENCRYPTION_KEY in .env}
     network_mode: host
     security_opt:
       - no-new-privileges:true
