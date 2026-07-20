@@ -8,12 +8,15 @@ COPY tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
+FROM deps AS production-deps
+RUN npm prune --omit=dev --no-audit --no-fund && npm cache clean --force
+
 FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup -S salta && adduser -S salta -G salta
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund --omit=dev && npm cache clean --force
+COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY public ./public
 RUN chown -R salta:salta /app

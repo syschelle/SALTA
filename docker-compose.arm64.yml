@@ -1,0 +1,5 @@
+services:
+  postgres:
+    platform: linux/arm64
+  salta:
+    platform: linux/arm64

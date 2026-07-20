@@ -21,10 +21,19 @@ if [ ! -f .env ]; then
   chmod 600 .env
   echo "Created .env with generated credentials."
   echo "Web login: admin / ${admin_password}"
+  echo
+  echo "IMPORTANT: Edit SALTA_IMAGE in .env before continuing."
+  exit 0
 fi
 
-docker compose pull --ignore-buildable || true
-docker compose up -d --build --remove-orphans
+if grep -q '^SALTA_IMAGE=ghcr.io/your-github-name/' .env; then
+  echo "Set SALTA_IMAGE in .env to your real lowercase GHCR image path first." >&2
+  echo "Example: SALTA_IMAGE=ghcr.io/example/salta:latest" >&2
+  exit 1
+fi
+
+docker compose pull
+docker compose up -d --remove-orphans
 
 echo
 echo "SALTA is starting."

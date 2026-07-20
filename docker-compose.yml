@@ -18,15 +18,11 @@ services:
       retries: 20
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
-    networks:
-      - database
     security_opt:
       - no-new-privileges:true
 
   salta:
-    build:
-      context: .
-    image: salta:${SALTA_VERSION:-0.2.0}
+    image: ${SALTA_IMAGE:?Set SALTA_IMAGE in .env, for example ghcr.io/your-user/salta:latest}
     container_name: salta
     restart: unless-stopped
     depends_on:
@@ -58,7 +54,3 @@ services:
 
 volumes:
   salta_postgres_data:
-
-networks:
-  database:
-    internal: true

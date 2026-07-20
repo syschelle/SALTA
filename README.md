@@ -2,66 +2,115 @@
 
 > **Smart-home Abstraction & Local Transport Architecture**
 
-SALTA is a local-first smart-home integration platform. The current `v0.1.0` release is a deployable prototype with a modern web dashboard, PostgreSQL persistence, mock devices, a REST API and optional Apple HomeKit publication.
+SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API, mock devices and an optional HomeKit bridge.
 
 > Your home. Your hardware. Your rules.
 
-## Current status
+## Release status
 
-This is an early public prototype. It demonstrates SALTA's architecture and deployment model. Real Shelly, deCONZ and OpenCCU adapters are planned, but are not included in `v0.1.0`.
+`v0.2.1` is an early alpha foundation. Real Shelly, deCONZ and OpenCCU adapters are still under development.
 
-Included mock devices:
+## Supported architectures
 
-- Shelly Plug S-style outlet
-- Shelly 1-style switch
-- Shelly 3EM-style energy meter
-- Shelly 2PM Gen4-style shutter
-- Classic HomeMatic-style thermostat
-- deCONZ-style Zigbee light
-- deCONZ-style motion sensor
+The GitHub release workflow publishes one multi-architecture container image for:
 
-## Requirements
+- `linux/amd64` — Intel and AMD PCs, servers and NAS systems
+- `linux/arm64` — Raspberry Pi 5 and other 64-bit ARM systems
 
-- A Linux host
-- Docker Engine
-- Docker Compose plugin
-- Ports `8099` and optionally `51826` available
+Docker automatically pulls the correct image for the host. The normal `docker-compose.yml` works on both architectures.
 
-Native Linux is recommended because later integrations require HomeKit mDNS, Shelly CoIoT and OpenCCU callback traffic.
+## Publish the container image
 
-## One-command deployment
+Push a version tag to GitHub:
+
+```bash
+git add .
+git commit -m "Release SALTA v0.2.1"
+git push origin main
+git tag -a v0.2.1 -m "SALTA v0.2.1"
+git push origin v0.2.1
+```
+
+GitHub Actions builds and publishes:
+
+```text
+ghcr.io/<github-owner>/<repository>:0.2.1
+ghcr.io/<github-owner>/<repository>:0.2
+ghcr.io/<github-owner>/<repository>:latest
+```
+
+After the first successful workflow run, make the package public under **GitHub → Packages → SALTA → Package settings**, unless you intentionally want a private package.
+
+## Deploy with the prebuilt image
+
+Clone the repository on the target host:
+
+```bash
+git clone https://github.com/<github-owner>/<repository>.git
+cd <repository>
+```
+
+Create the environment file and generated passwords:
+
+```bash
+chmod +x deploy.sh update.sh backup.sh restore.sh
+./deploy.sh
+```
+
+On the first run, `deploy.sh` creates `.env` and stops so you can set the image path:
+
+```env
+SALTA_IMAGE=ghcr.io/<github-owner>/<repository>:latest
+```
+
+Run it again:
 
 ```bash
 ./deploy.sh
 ```
 
-The script:
-
-- creates `.env` on the first run
-- generates random PostgreSQL and web passwords
-- builds the SALTA image
-- starts PostgreSQL and SALTA
-- prints the web address and initial login
-
-Open:
+SALTA is then available at:
 
 ```text
 http://<docker-host>:8099
 ```
 
-## Manual deployment
+No Node.js, npm or local application build is required on the deployment host.
+
+## Architecture-specific deployment
+
+The universal command is recommended:
 
 ```bash
-cp .env.example .env
+docker compose pull
+docker compose up -d
 ```
 
-Replace both `CHANGE_ME` values in `.env`, then run:
+To explicitly pin Raspberry Pi 5 / ARM64:
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.arm64.yml pull
+docker compose -f docker-compose.yml -f docker-compose.arm64.yml up -d
 ```
 
-Check the deployment:
+To explicitly pin Intel/AMD x86-64:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.amd64.yml pull
+docker compose -f docker-compose.yml -f docker-compose.amd64.yml up -d
+```
+
+## Local development build
+
+For development only, build from source with the optional override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+Production and Raspberry Pi deployments should use the prebuilt GHCR image instead.
+
+## Status and logs
 
 ```bash
 docker compose ps
@@ -75,21 +124,14 @@ curl http://localhost:8099/api/health
 ./update.sh
 ```
 
-## Backup
+The update script pulls repository changes and the newest configured container image without rebuilding locally.
+
+## Backup and restore
 
 ```bash
 ./backup.sh
-```
-
-Backups are written to the local `backups/` directory in PostgreSQL custom format.
-
-## Restore
-
-```bash
 ./restore.sh backups/salta-YYYYMMDD-HHMMSS.dump
 ```
-
-Restoring replaces matching database objects. Create a fresh backup first.
 
 ## HomeKit
 
@@ -108,99 +150,15 @@ Then restart:
 docker compose up -d
 ```
 
-The SALTA application uses host networking so HomeKit and future local discovery protocols can work reliably on Linux. PostgreSQL remains bound to `127.0.0.1` only.
-
-## API
-
-Public health endpoints:
-
-```text
-GET /api/health
-GET /api/readiness
-```
-
-Authenticated endpoints:
-
-```text
-GET   /api/devices
-GET   /api/devices/:id
-PATCH /api/devices/:id/config
-POST  /api/devices/:id/command
-GET   /api/commands
-GET   /api/adapters
-POST  /api/adapters/mock/reconcile
-```
-
-Example:
-
-```bash
-curl -u admin:'YOUR_PASSWORD' \
-  -X POST http://localhost:8099/api/devices/mock:plug-s:office/command \
-  -H 'content-type: application/json' \
-  -d '{"capability":"toggle"}'
-```
-
-## Architecture
-
-```text
-Apple Home (optional)
-        │
-   HomeKit bridge
-        │
-┌───────┴────────────────────────────┐
-│              SALTA                 │
-│ Device registry · REST API · UI    │
-│ Commands · Adapter abstraction     │
-└───────────────┬────────────────────┘
-                │
-          Mock adapter
-                │
-           PostgreSQL
-```
+SALTA uses host networking so HomeKit mDNS and future local discovery protocols work reliably on Linux. PostgreSQL remains bound to `127.0.0.1`.
 
 ## Security
 
-- The dashboard and control API use HTTP Basic authentication when `ADMIN_PASSWORD` is set.
-- `deploy.sh` generates passwords automatically.
-- PostgreSQL is exposed only on the Docker host loopback interface.
-- The container runs as an unprivileged user and enables `no-new-privileges`.
+- Replace all placeholder values in `.env`.
 - Do not expose SALTA directly to the public internet.
-- For access outside the LAN, use a VPN such as WireGuard or Tailscale, or a properly secured reverse proxy with TLS.
-
-Basic authentication is suitable for a trusted LAN prototype but should be replaced by session-based authentication before broader production use.
-
-## Repository release
-
-To create the first GitHub release:
-
-```bash
-git add .
-git commit -m "Release SALTA v0.1.0 prototype"
-git branch -M main
-git remote add origin git@github.com:YOUR_ACCOUNT/salta.git
-git push -u origin main
-git tag -a v0.1.0 -m "SALTA v0.1.0"
-git push origin v0.1.0
-```
-
-Pushing the tag runs the included GitHub Actions workflow and publishes multi-platform container images to GitHub Container Registry:
-
-```text
-ghcr.io/YOUR_ACCOUNT/salta:0.1.0
-ghcr.io/YOUR_ACCOUNT/salta:latest
-```
-
-## Roadmap
-
-- Shelly Gen 1 HTTP and CoIoT adapter
-- Shelly RPC and WebSocket adapter
-- Shelly 2PM Gen4 cover support
-- Phoscon/deCONZ REST and WebSocket adapter
-- OpenCCU BidCos-RF XML-RPC adapter
-- Persistent HomeKit pairing storage hardening
-- Local automation engine
-- Session-based web authentication
-- Audit and diagnostics views
+- Use a VPN or a secured TLS reverse proxy for remote access.
+- Keep the PostgreSQL port bound to loopback.
+- The SALTA container runs as an unprivileged user.
 
 ## License
 

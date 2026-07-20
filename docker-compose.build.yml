@@ -1,0 +1,5 @@
+services:
+  salta:
+    image: salta:local
+    build:
+      context: .
