@@ -1,0 +1,105 @@
+import Fastify from "fastify";
+import fastifyStatic from "@fastify/static";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import { join } from "node:path";
+import { z } from "zod";
+import type { DeviceRegistry } from "./registry.js";
+import type { MockAdapter } from "./mock-adapter.js";
+import { pool } from "./db.js";
+import { config } from "./config.js";
+
+const commandSchema = z.object({
+  capability: z.string().min(1).max(80),
+  value: z.union([z.string(), z.number(), z.boolean()]).optional()
+});
+const patchSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  room: z.string().max(120).optional(),
+  homekitEnabled: z.boolean().optional()
+}).strict();
+
+function safeEqual(actual: string, expected: string): boolean {
+  const a = Buffer.from(actual);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+export function buildServer(registry: DeviceRegistry, adapter: MockAdapter) {
+  const app = Fastify({
+    logger: { level: config.LOG_LEVEL },
+    genReqId: () => randomUUID(),
+    bodyLimit: 64 * 1024
+  });
+  const publicDir = join(process.cwd(), "public");
+  void app.register(fastifyStatic, { root: publicDir, prefix: "/" });
+
+  app.addHook("onRequest", async (request, reply) => {
+    if (!config.ADMIN_PASSWORD || request.url === "/api/health" || request.url === "/api/readiness") return;
+    const header = request.headers.authorization;
+    if (!header?.startsWith("Basic ")) {
+      reply.header("WWW-Authenticate", 'Basic realm="SALTA"');
+      return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Authentication required", requestId: request.id } });
+    }
+    try {
+      const decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
+      const separator = decoded.indexOf(":");
+      const username = separator >= 0 ? decoded.slice(0, separator) : "";
+      const password = separator >= 0 ? decoded.slice(separator + 1) : "";
+      if (!safeEqual(username, config.ADMIN_USERNAME) || !safeEqual(password, config.ADMIN_PASSWORD)) {
+        reply.header("WWW-Authenticate", 'Basic realm="SALTA"');
+        return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } });
+      }
+    } catch {
+      return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } });
+    }
+  });
+
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.1.0", time: new Date().toISOString() }));
+  app.get("/api/readiness", async (_request, reply) => {
+    try {
+      await pool.query("select 1");
+      return { status: "ready", components: { database: "up", mockAdapter: "up", devices: registry.all().length } };
+    } catch {
+      return reply.code(503).send({ status: "not-ready", components: { database: "down" } });
+    }
+  });
+  app.get("/api/devices", async () => registry.all());
+  app.get<{ Params: { id: string } }>("/api/devices/:id", async (request, reply) => {
+    const device = registry.get(request.params.id);
+    if (!device) return reply.code(404).send({ error: { code: "DEVICE_NOT_FOUND", message: "Device not found", requestId: request.id } });
+    return device;
+  });
+  app.patch<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/config", async (request, reply) => {
+    const parsed = patchSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
+    try { return await registry.patch(request.params.id, parsed.data); }
+    catch { return reply.code(404).send({ error: { code: "DEVICE_NOT_FOUND", message: "Device not found", requestId: request.id } }); }
+  });
+  app.post<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/command", async (request, reply) => {
+    const parsed = commandSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
+    const id = randomUUID();
+    try {
+      await pool.query("insert into commands(id,device_id,capability,value,source,status) values($1,$2,$3,$4,$5,$6)", [id, request.params.id, parsed.data.capability, JSON.stringify(parsed.data.value ?? null), "api", "requested"]);
+      const device = await adapter.command({ deviceId: request.params.id, capability: parsed.data.capability, value: parsed.data.value, source: "api" });
+      await pool.query("update commands set status='confirmed',updated_at=now() where id=$1", [id]);
+      return { commandId: id, status: "confirmed", device };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "COMMAND_FAILED";
+      await pool.query("update commands set status='failed',error=$2,updated_at=now() where id=$1", [id, message]).catch(() => undefined);
+      return reply.code(message === "DEVICE_NOT_FOUND" ? 404 : 400).send({ error: { code: message, message, requestId: request.id } });
+    }
+  });
+  app.get("/api/commands", async () => (await pool.query("select * from commands order by created_at desc limit 100")).rows);
+  app.post("/api/adapters/mock/reconcile", async () => { await adapter.reconcile(); return { status: "ok" }; });
+  app.get("/api/adapters", async () => [{ id: "mock", name: "Mock Adapter", status: "connected", devices: registry.all().length }]);
+  app.setErrorHandler((error, request, reply) => {
+    request.log.error({ err: error }, "Unhandled request error");
+    return reply.code(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error", requestId: request.id } });
+  });
+  app.setNotFoundHandler((request, reply) => {
+    if (request.url.startsWith("/api/")) return reply.code(404).send({ error: { code: "NOT_FOUND", message: "Route not found", requestId: request.id } });
+    return reply.sendFile("index.html");
+  });
+  return app;
+}

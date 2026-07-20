@@ -1,0 +1,64 @@
+name: salta
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: salta-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-salta}
+      POSTGRES_USER: ${POSTGRES_USER:-salta}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - salta_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-salta} -d ${POSTGRES_DB:-salta}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
+    networks:
+      - database
+    security_opt:
+      - no-new-privileges:true
+
+  salta:
+    build:
+      context: .
+    image: salta:${SALTA_VERSION:-0.1.0}
+    container_name: salta
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      WEB_HOST: 0.0.0.0
+      WEB_PORT: ${WEB_PORT:-8099}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgres://${POSTGRES_USER:-salta}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_HOST_PORT:-5433}/${POSTGRES_DB:-salta}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      HOMEKIT_ENABLED: ${HOMEKIT_ENABLED:-false}
+      HOMEKIT_NAME: ${HOMEKIT_NAME:-SALTA Bridge}
+      HOMEKIT_PIN: ${HOMEKIT_PIN:-031-45-154}
+      HOMEKIT_PORT: ${HOMEKIT_PORT:-51826}
+      HOMEKIT_USERNAME: ${HOMEKIT_USERNAME:-02:42:53:41:4C:54}
+      MOCK_EVENT_INTERVAL_MS: ${MOCK_EVENT_INTERVAL_MS:-5000}
+    network_mode: host
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:${WEB_PORT:-8099}/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  salta_postgres_data:
+
+networks:
+  database:
+    internal: true

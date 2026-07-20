@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>SALTA · Local Smart Home</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<aside>
+  <div class="brand"><span class="logo">S</span><div><b>SALTA</b><small>Local by design</small></div></div>
+  <nav><a class="active">Übersicht</a><a>Geräte</a><a>Automationen</a><a>Diagnose</a><a>Einstellungen</a></nav>
+  <div class="status"><i></i> System online</div>
+</aside>
+<main>
+  <header><div><p class="eyebrow">SMART-HOME ABSTRACTION & LOCAL TRANSPORT</p><h1>Dein Zuhause. Lokal.</h1><p class="muted">Alle Systeme auf einen Blick – ohne Cloud-Zwang.</p></div><button onclick="reconcile()">↻ Synchronisieren</button></header>
+  <section class="stats"><article><span>Geräte</span><strong id="deviceCount">–</strong><small>registriert</small></article><article><span>Erreichbar</span><strong id="reachableCount">–</strong><small>online</small></article><article><span>Aktuelle Leistung</span><strong id="power">–</strong><small>Watt</small></article><article><span>Adapter</span><strong>1</strong><small>verbunden</small></article></section>
+  <section class="section-head"><div><h2>Geräte</h2><p class="muted">Direkte Steuerung und Live-Status</p></div><label class="search">⌕ <input id="filter" placeholder="Gerät suchen"></label></section>
+  <section id="devices" class="grid"></section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -2,323 +2,206 @@
 
 > **Smart-home Abstraction & Local Transport Architecture**
 
-A local-first smart home integration platform that puts **you** back in control.
+SALTA is a local-first smart-home integration platform. The current `v0.1.0` release is a deployable prototype with a modern web dashboard, PostgreSQL persistence, mock devices, a REST API and optional Apple HomeKit publication.
 
-SALTA is a modern, modular and vendor-independent smart home platform designed to integrate multiple local ecosystems into a single, reliable automation layer—without requiring cloud services or a monolithic home automation system.
+> Your home. Your hardware. Your rules.
 
----
+## Current status
 
-## Why SALTA?
+This is an early public prototype. It demonstrates SALTA's architecture and deployment model. Real Shelly, deCONZ and OpenCCU adapters are planned, but are not included in `v0.1.0`.
 
-Most smart home ecosystems become increasingly dependent on cloud services, vendor-specific apps, or large automation platforms.
+Included mock devices:
 
-SALTA takes a different approach.
+- Shelly Plug S-style outlet
+- Shelly 1-style switch
+- Shelly 3EM-style energy meter
+- Shelly 2PM Gen4-style shutter
+- Classic HomeMatic-style thermostat
+- deCONZ-style Zigbee light
+- deCONZ-style motion sensor
 
-Instead of replacing your existing infrastructure, SALTA connects and orchestrates it.
+## Requirements
 
-Every system continues doing what it does best while SALTA provides a unified device model, automation layer, diagnostics and HomeKit integration.
+- A Linux host
+- Docker Engine
+- Docker Compose plugin
+- Ports `8099` and optionally `51826` available
 
----
+Native Linux is recommended because later integrations require HomeKit mDNS, Shelly CoIoT and OpenCCU callback traffic.
 
-# Philosophy
+## One-command deployment
 
-SALTA is built around a few simple principles.
-
-* 🏠 **Local First** – Your home continues working without Internet access.
-* 🔒 **Privacy by Design** – Your data stays inside your network.
-* 🔌 **Vendor Independent** – Use the devices you already own.
-* 🧩 **Modular** – Every integration is an isolated adapter.
-* ⚡ **Event Driven** – Instant updates instead of heavy polling.
-* 🛡️ **Reliable** – Automatic reconnects and state reconciliation.
-* 🍎 **HomeKit Native** – Apple Home is the preferred user interface.
-* 🤖 **AI Optional** – AI is an assistant, never a dependency.
-
----
-
-# Supported Platforms (Roadmap)
-
-## Shelly
-
-* Shelly Plug S
-* Shelly 1
-* Shelly 3EM Gen1
-* Shelly 2PM Gen4 (Cover Mode)
-
-## Zigbee
-
-Using an existing **Phoscon / deCONZ** installation.
-
-Supported device types include:
-
-* Lights
-* Smart Plugs
-* Motion Sensors
-* Contact Sensors
-* Temperature Sensors
-* Humidity Sensors
-* Buttons
-* Groups
-
----
-
-## HomeMatic
-
-Using an existing **OpenCCU** installation.
-
-Initial focus:
-
-* Classic HomeMatic thermostats
-
-Future support:
-
-* Additional HomeMatic devices
-* Homematic IP
-
----
-
-## Apple HomeKit
-
-Using **HAP-NodeJS**
-
-Supported accessory types include:
-
-* Lights
-* Outlets
-* Switches
-* Thermostats
-* Window Coverings
-* Sensors
-* Motion Sensors
-* Contact Sensors
-
----
-
-# Architecture
-
-```text
-                     Apple Home
-                          │
-                    HomeKit Bridge
-                          │
-        ┌─────────────────┴─────────────────┐
-        │                                   │
-        │            SALTA Core             │
-        │                                   │
-        ├───────────────────────────────────┤
-        │ Device Registry                   │
-        │ Event Bus                         │
-        │ Command Service                   │
-        │ Automation Engine                 │
-        │ Diagnostics                       │
-        │ REST API                          │
-        │ Web UI                            │
-        └──────┬──────────────┬─────────────┘
-               │              │
-      ┌────────┘              └─────────┐
-      │                                 │
- Shelly Adapter                  deCONZ Adapter
-      │                                 │
-      └──────────────┬──────────────────┘
-                     │
-              OpenCCU Adapter
-
-                     │
-                 PostgreSQL
+```bash
+./deploy.sh
 ```
 
----
+The script:
 
-# Technology Stack
+- creates `.env` on the first run
+- generates random PostgreSQL and web passwords
+- builds the SALTA image
+- starts PostgreSQL and SALTA
+- prints the web address and initial login
 
-## Backend
+Open:
 
-* TypeScript
-* Node.js
-* Fastify
-* PostgreSQL
-* HAP-NodeJS
-* Docker
-* Docker Compose
+```text
+http://<docker-host>:8099
+```
 
-## Frontend
+## Manual deployment
 
-* Modern responsive Web UI
-* Flat Design
-* Mobile-friendly
-* Dark Mode support
+```bash
+cp .env.example .env
+```
 
-## Infrastructure
+Replace both `CHANGE_ME` values in `.env`, then run:
 
-* PostgreSQL
-* REST API
-* WebSockets
-* Structured Logging
-* Health Checks
-* Metrics
-* Docker
+```bash
+docker compose up -d --build
+```
 
----
+Check the deployment:
 
-# Design Goals
+```bash
+docker compose ps
+docker compose logs -f salta
+curl http://localhost:8099/api/health
+```
 
-SALTA is designed to be:
+## Updating
 
-* Local-first
-* Cloud-independent
-* Event-driven
-* Modular
-* Extensible
-* Reliable
-* Secure
-* Observable
-* Easy to self-host
+```bash
+./update.sh
+```
 
-Every integration runs independently.
+## Backup
 
-If one adapter fails, the remaining integrations continue operating.
+```bash
+./backup.sh
+```
 
----
+Backups are written to the local `backups/` directory in PostgreSQL custom format.
 
-# Planned Features
+## Restore
 
-## Core
+```bash
+./restore.sh backups/salta-YYYYMMDD-HHMMSS.dump
+```
 
-* Unified device registry
-* Adapter framework
-* Persistent device model
-* PostgreSQL persistence
-* Diagnostics
-* Audit log
-* User management
+Restoring replaces matching database objects. Create a fresh backup first.
 
-## Integrations
+## HomeKit
 
-* Shelly
-* Phoscon / deCONZ
-* OpenCCU
-* Apple HomeKit
+HomeKit is disabled by default. Enable it in `.env`:
 
-Planned future integrations:
+```env
+HOMEKIT_ENABLED=true
+HOMEKIT_NAME=SALTA Bridge
+HOMEKIT_PIN=031-45-154
+HOMEKIT_PORT=51826
+```
 
-* Matter
-* MQTT
-* KNX
-* Modbus
-* Philips Hue
-* ESPHome
-* Tasmota
+Then restart:
 
----
+```bash
+docker compose up -d
+```
 
-## Automation
+The SALTA application uses host networking so HomeKit and future local discovery protocols can work reliably on Linux. PostgreSQL remains bound to `127.0.0.1` only.
 
-* Local automation engine
-* Event-based triggers
-* Time-based triggers
-* Conditions
-* Actions
-* Scheduler
+## API
 
----
+Public health endpoints:
 
-## AI (Optional)
+```text
+GET /api/health
+GET /api/readiness
+```
 
-AI is completely optional.
+Authenticated endpoints:
 
-When enabled it may assist with:
+```text
+GET   /api/devices
+GET   /api/devices/:id
+PATCH /api/devices/:id/config
+POST  /api/devices/:id/command
+GET   /api/commands
+GET   /api/adapters
+POST  /api/adapters/mock/reconcile
+```
 
-* Diagnostics
-* Automation creation
-* Device discovery
-* Natural language control
-* Configuration suggestions
+Example:
 
-The smart home must continue functioning normally when AI is disabled or unavailable.
-
----
-
-# Current Status
-
-🚧 **Early Development**
-
-Current focus:
-
-* Core architecture
-* PostgreSQL persistence
-* Device registry
-* Mock adapters
-* HomeKit bridge
-* REST API
-* Responsive Web UI
-* Docker deployment
-
----
-
-# Project Goals
-
-SALTA is **not** another monolithic smart home platform.
-
-It does not try to replace Phoscon, OpenCCU or Shelly.
-
-Instead, SALTA provides a modern orchestration layer that connects existing local systems into one unified platform.
-
-Think of SALTA as the operating system for your smart home.
-
----
-
-# Name
-
-**SALTA**
-
-**S**mart-home
-**A**bstraction &
-**L**ocal
-**T**ransport
-**A**rchitecture
-
-The name reflects the project's purpose:
-
-A lightweight platform that abstracts different smart-home ecosystems while keeping all communication local.
-
----
-
-# Contributing
-
-Contributions, ideas and discussions are welcome.
-
-The project aims to remain:
-
-* Open Source
-* Modular
-* Well documented
-* Easy to extend
-* Easy to self-host
-
----
-
-# License
-
-License to be determined.
-
-Current candidates:
-
-* MIT
-* Apache 2.0
-
----
-
-# Vision
-
-> **Your home. Your hardware. Your rules.**
-
-SALTA believes your smart home should belong to you.
-
-No mandatory cloud.
-
-No vendor lock-in.
-
-No subscriptions.
-
-No unnecessary complexity.
-
-Just a fast, reliable and local smart home platform.
+```bash
+curl -u admin:'YOUR_PASSWORD' \
+  -X POST http://localhost:8099/api/devices/mock:plug-s:office/command \
+  -H 'content-type: application/json' \
+  -d '{"capability":"toggle"}'
+```
+
+## Architecture
+
+```text
+Apple Home (optional)
+        │
+   HomeKit bridge
+        │
+┌───────┴────────────────────────────┐
+│              SALTA                 │
+│ Device registry · REST API · UI    │
+│ Commands · Adapter abstraction     │
+└───────────────┬────────────────────┘
+                │
+          Mock adapter
+                │
+           PostgreSQL
+```
+
+## Security
+
+- The dashboard and control API use HTTP Basic authentication when `ADMIN_PASSWORD` is set.
+- `deploy.sh` generates passwords automatically.
+- PostgreSQL is exposed only on the Docker host loopback interface.
+- The container runs as an unprivileged user and enables `no-new-privileges`.
+- Do not expose SALTA directly to the public internet.
+- For access outside the LAN, use a VPN such as WireGuard or Tailscale, or a properly secured reverse proxy with TLS.
+
+Basic authentication is suitable for a trusted LAN prototype but should be replaced by session-based authentication before broader production use.
+
+## Repository release
+
+To create the first GitHub release:
+
+```bash
+git add .
+git commit -m "Release SALTA v0.1.0 prototype"
+git branch -M main
+git remote add origin git@github.com:YOUR_ACCOUNT/salta.git
+git push -u origin main
+git tag -a v0.1.0 -m "SALTA v0.1.0"
+git push origin v0.1.0
+```
+
+Pushing the tag runs the included GitHub Actions workflow and publishes multi-platform container images to GitHub Container Registry:
+
+```text
+ghcr.io/YOUR_ACCOUNT/salta:0.1.0
+ghcr.io/YOUR_ACCOUNT/salta:latest
+```
+
+## Roadmap
+
+- Shelly Gen 1 HTTP and CoIoT adapter
+- Shelly RPC and WebSocket adapter
+- Shelly 2PM Gen4 cover support
+- Phoscon/deCONZ REST and WebSocket adapter
+- OpenCCU BidCos-RF XML-RPC adapter
+- Persistent HomeKit pairing storage hardening
+- Local automation engine
+- Session-based web authentication
+- Audit and diagnostics views
+
+## License
+
+MIT
