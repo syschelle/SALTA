@@ -4,7 +4,6 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
 import { z } from "zod";
 import type { DeviceRegistry } from "./registry.js";
-import type { MockAdapter } from "./mock-adapter.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
 import { createRoom, deleteRoom, getGlobalShellyCredentials, getShellySettings, listRooms, pool, updateRoom, updateShellySettings } from "./db.js";
 import { config } from "./config.js";
@@ -30,7 +29,7 @@ function safeEqual(actual: string, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export function buildServer(registry: DeviceRegistry, mockAdapter: MockAdapter, shellyAdapter: ShellyAdapter) {
+export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter) {
   const app = Fastify({ logger: { level: config.LOG_LEVEL }, genReqId: () => randomUUID(), bodyLimit: 64 * 1024 });
   const publicDir = join(process.cwd(), "public");
   void app.register(fastifyStatic, { root: publicDir, prefix: "/" });
@@ -46,9 +45,9 @@ export function buildServer(registry: DeviceRegistry, mockAdapter: MockAdapter, 
     } catch { return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.0", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.1", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
-    try { await pool.query("select 1"); return { status: "ready", components: { database: "up", mockAdapter: "up", shellyAdapter: "up", devices: registry.all().length } }; }
+    try { await pool.query("select 1"); return { status: "ready", components: { database: "up", shellyAdapter: "up", devices: registry.all().length } }; }
     catch { return reply.code(503).send({ status: "not-ready", components: { database: "down" } }); }
   });
 
@@ -92,8 +91,8 @@ export function buildServer(registry: DeviceRegistry, mockAdapter: MockAdapter, 
     try {
       await pool.query("insert into commands(id,device_id,capability,value,source,status) values($1,$2,$3,$4,$5,$6)", [id, request.params.id, parsed.data.capability, JSON.stringify(parsed.data.value ?? null), "api", "requested"]);
       const current=registry.get(request.params.id); if(!current) throw new Error("DEVICE_NOT_FOUND");
-      const target=current.source==="shelly"?shellyAdapter:mockAdapter;
-      const device = await target.command({ deviceId: request.params.id, capability: parsed.data.capability, value: parsed.data.value, source: "api" });
+      if(current.source!=="shelly") throw new Error("ADAPTER_NOT_SUPPORTED");
+      const device = await shellyAdapter.command({ deviceId: request.params.id, capability: parsed.data.capability, value: parsed.data.value, source: "api" });
       await pool.query("update commands set status='confirmed',updated_at=now() where id=$1", [id]); return { commandId: id, status: "confirmed", device };
     } catch (error) {
       const message = error instanceof Error ? error.message : "COMMAND_FAILED"; await pool.query("update commands set status='failed',error=$2,updated_at=now() where id=$1", [id, message]).catch(() => undefined);
@@ -101,7 +100,6 @@ export function buildServer(registry: DeviceRegistry, mockAdapter: MockAdapter, 
     }
   });
   app.get("/api/commands", async () => (await pool.query("select * from commands order by created_at desc limit 100")).rows);
-  app.post("/api/adapters/mock/reconcile", async () => { await mockAdapter.reconcile(); return { status: "ok" }; });
   app.post("/api/adapters/shelly/reconcile", async () => { await shellyAdapter.reconcile(); return { status: "ok" }; });
   app.post<{Body:unknown}>("/api/adapters/shelly/discover",async(request,reply)=>{
     const parsed=shellyDiscoverySchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
@@ -113,7 +111,7 @@ export function buildServer(registry: DeviceRegistry, mockAdapter: MockAdapter, 
     try { let username=parsed.data.username??"",password=parsed.data.password??""; if(parsed.data.credentialMode==="inherit"){const global=await getGlobalShellyCredentials();username=global.username;password=global.password;} if(parsed.data.credentialMode==="none"){username="";password="";} const room=parsed.data.roomId?(await listRooms()).find(x=>x.id===parsed.data.roomId)?.name:undefined; return reply.code(201).send(await shellyAdapter.add(parsed.data.host,username,password,parsed.data.name,parsed.data.roomId??undefined,room,parsed.data.credentialMode)); }
     catch(error){const message=error instanceof Error?error.message:"SHELLY_ADD_FAILED";return reply.code(message==="AUTHENTICATION_FAILED"?401:400).send({error:{code:message,message,requestId:request.id}});}
   });
-  app.get("/api/adapters", async () => [{ id: "shelly", name: "Shelly", status: "connected", devices: registry.all().filter(x=>x.source==="shelly").length },{ id: "mock", name: "Mock Adapter", status: "connected", devices: registry.all().filter(x=>x.source==="mock").length }]);
+  app.get("/api/adapters", async () => [{ id: "shelly", name: "Shelly", status: "connected", devices: registry.all().filter(x=>x.source==="shelly").length }]);
   app.setErrorHandler((error, request, reply) => { request.log.error({ err: error }, "Unhandled request error"); return reply.code(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error", requestId: request.id } }); });
   app.setNotFoundHandler((request, reply) => request.url.startsWith("/api/") ? reply.code(404).send({ error: { code: "NOT_FOUND", message: "Route not found", requestId: request.id } }) : reply.sendFile("index.html"));
   return app;

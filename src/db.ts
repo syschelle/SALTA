@@ -70,6 +70,7 @@ export async function migrate(): Promise<void> {
     await pool.query("INSERT INTO rooms(id,name) VALUES($1,$2) ON CONFLICT(name) DO NOTHING", [randomUUID(), row.room]);
   }
   await pool.query(`UPDATE devices d SET room_id=r.id FROM rooms r WHERE d.room_id IS NULL AND d.room=r.name`);
+  await pool.query("DELETE FROM devices WHERE source='mock'");
 }
 
 export async function upsertDevice(d: Device): Promise<void> {

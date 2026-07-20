@@ -1,13 +1,13 @@
 import { Accessory, Bridge, Categories, Characteristic, Service, uuid } from "@homebridge/hap-nodejs";
 import type { Device } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
-import type { MockAdapter } from "./mock-adapter.js";
+import type { ShellyAdapter } from "./shelly-adapter.js";
 import { config } from "./config.js";
 
 export class HomeKitBridge {
   private bridge?: Bridge;
   private accessories = new Map<string, Accessory>();
-  constructor(private registry:DeviceRegistry, private adapter:MockAdapter){}
+  constructor(private registry:DeviceRegistry, private adapter:ShellyAdapter){}
   start():void{
     if(!config.HOMEKIT_ENABLED) return;
     this.bridge=new Bridge(config.HOMEKIT_NAME, uuid.generate("salta:bridge"));

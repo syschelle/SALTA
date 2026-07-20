@@ -2,18 +2,9 @@
 
 > **Smart-home Abstraction & Local Transport Architecture**
 
-SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API, mock devices and an optional HomeKit bridge.
+SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API and an optional HomeKit bridge.
 
 > Your home. Your hardware. Your rules.
-
-## Shelly devices
-
-SALTA 0.4.0 can add and control Shelly Gen1 and RPC-based Gen2/Gen3/Gen4 devices. Open **Devices**, select **Add Shelly**, and either enter an IP address/hostname or scan a `/24` network such as `192.168.178.0/24`.
-
-Global credentials are configured under **Settings → Shelly**. During onboarding, each device can inherit those credentials, use its own credentials, or connect without authentication.
-
-The Docker host must have direct network access to the Shelly devices.
-
 
 ## Release status
 

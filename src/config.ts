@@ -14,7 +14,6 @@ const schema = z.object({
   HOMEKIT_PIN: z.string().regex(/^\d{3}-\d{2}-\d{3}$/).default("031-45-154"),
   HOMEKIT_PORT: z.coerce.number().int().min(1).max(65535).default(51826),
   HOMEKIT_USERNAME: z.string().regex(/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i).default("02:42:53:41:4C:54"),
-  MOCK_EVENT_INTERVAL_MS: z.coerce.number().int().min(500).default(5000),
   SALTA_ENCRYPTION_KEY: z.string().min(16).default("change-this-local-encryption-key")
 });
 
