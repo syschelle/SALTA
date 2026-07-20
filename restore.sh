@@ -4,5 +4,5 @@ if [ "$#" -ne 1 ]; then echo "Usage: ./restore.sh backups/file.dump" >&2; exit 1
 set -a
 . ./.env
 set +a
-cat "$1" | docker compose exec -T postgres pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+cat "$1" | docker compose -f docker-compose.yml -f docker-compose.image.yml exec -T postgres pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"
 echo "Restore completed."

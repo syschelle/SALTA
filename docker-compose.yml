@@ -22,7 +22,6 @@ services:
       - no-new-privileges:true
 
   salta:
-    image: ${SALTA_IMAGE:?Set SALTA_IMAGE in .env, for example ghcr.io/your-user/salta:latest}
     container_name: salta
     restart: unless-stopped
     depends_on:

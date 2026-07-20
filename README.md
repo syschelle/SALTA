@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.4` provides production-oriented local Shelly discovery, generation detection, state polling and device control for Gen1 through Gen4 devices.
+`v0.4.6` is the current stable release. It provides local Shelly discovery, generation-aware device detection, persistent device management, live status values, device control and an optional HomeKit bridge.
 
 ## Supported architectures
 
@@ -17,7 +17,7 @@ The GitHub release workflow publishes one multi-architecture container image for
 - `linux/amd64` — Intel and AMD PCs, servers and NAS systems
 - `linux/arm64` — Raspberry Pi 5 and other 64-bit ARM systems
 
-Docker automatically pulls the correct image for the host. The normal `docker-compose.yml` works on both architectures.
+Docker automatically pulls the correct image for the host. The same `docker-compose.image.yml` override works on both architectures.
 
 ## Publish the container image
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "Release SALTA v0.4.4"
+git commit -m "release: SALTA v0.4.6"
 git push origin main
-git tag -a v0.4.4 -m "SALTA v0.4.4"
-git push origin v0.4.4
+git tag -a v0.4.6 -m "SALTA v0.4.6"
+git push origin v0.4.6
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.4
+ghcr.io/<github-owner>/<repository>:0.4.6
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -77,28 +77,16 @@ http://<docker-host>:8099
 
 No Node.js, npm or local application build is required on the deployment host.
 
-## Architecture-specific deployment
+## Multi-architecture image deployment
 
-The universal command is recommended:
-
-```bash
-docker compose pull
-docker compose up -d
-```
-
-To explicitly pin Raspberry Pi 5 / ARM64:
+Use the common Compose definition together with the image override:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.arm64.yml pull
-docker compose -f docker-compose.yml -f docker-compose.arm64.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.image.yml pull
+docker compose -f docker-compose.yml -f docker-compose.image.yml up -d
 ```
 
-To explicitly pin Intel/AMD x86-64:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.amd64.yml pull
-docker compose -f docker-compose.yml -f docker-compose.amd64.yml up -d
-```
+No architecture-specific Compose file is required. Docker automatically selects the `linux/amd64` or `linux/arm64` image variant that matches the host.
 
 ## Local development build
 
@@ -113,8 +101,8 @@ Production and Raspberry Pi deployments should use the prebuilt GHCR image inste
 ## Status and logs
 
 ```bash
-docker compose ps
-docker compose logs -f salta
+docker compose -f docker-compose.yml -f docker-compose.image.yml ps
+docker compose -f docker-compose.yml -f docker-compose.image.yml logs -f salta
 curl http://localhost:8099/api/health
 ```
 
@@ -147,7 +135,7 @@ HOMEKIT_PORT=51826
 Then restart:
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.image.yml up -d
 ```
 
 SALTA uses host networking so HomeKit mDNS and future local discovery protocols work reliably on Linux. PostgreSQL remains bound to `127.0.0.1`.
@@ -164,26 +152,18 @@ SALTA uses host networking so HomeKit mDNS and future local discovery protocols 
 
 MIT
 
-## v0.3.0-alpha.1: Rooms and Shelly credentials
+## Shelly support
 
-SALTA now treats rooms as first-class entities. Rooms can be created and deleted from the dashboard, devices can be assigned to a room, and unassigned devices remain visible under **Nicht zugeordnet**.
+SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Device detection records the model, generation, firmware, hostname, address, MAC address, channel count and supported functions. Depending on the device, the dashboard displays switch or cover state together with available power, energy, voltage, current, frequency and temperature values.
 
-Shelly authentication supports three device modes:
+## Rooms and credentials
+
+Rooms are first-class entities. Devices can be assigned to rooms, while unassigned devices remain visible under **Nicht zugeordnet**.
+
+Shelly authentication supports three modes:
 
 - `inherit`: use the global Shelly username and password
-- `custom`: use credentials stored specifically for the device
+- `custom`: use encrypted credentials stored for the device
 - `none`: connect without authentication
 
-Global credentials are available under **Einstellungen**. Device-specific settings are available through **Konfigurieren** on each device card.
-
-Passwords are encrypted with AES-256-GCM before being stored in PostgreSQL. Configure a stable secret in `.env`:
-
-```env
-SALTA_ENCRYPTION_KEY=replace-with-a-long-random-secret
-```
-
-Back up this key together with the database. Losing it makes encrypted device passwords unrecoverable. Password values are never returned by the REST API.
-
-### Shelly device support
-
-SALTA detects Shelly Gen1 through Gen4 devices locally, stores their technical metadata, polls current state and measurements, and supports switching, dimming and cover commands according to the detected component type.
+Passwords are encrypted with AES-256-GCM before being stored in PostgreSQL. Configure and back up a stable `SALTA_ENCRYPTION_KEY` in `.env`. Password values are never returned by the REST API.

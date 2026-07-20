@@ -1,5 +1,0 @@
-services:
-  postgres:
-    platform: linux/amd64
-  salta:
-    platform: linux/amd64

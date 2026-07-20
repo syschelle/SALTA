@@ -1,15 +1,29 @@
 # Changelog
 
-## 0.4.4
+All notable changes to SALTA are documented in this file.
 
-- Corrected Shelly component priority so covers and lights are not misclassified as switches.
-- Added outlet detection for Shelly plugs and support for standalone EM, EM1 and PM1 energy meters.
-- Added current power, energy, voltage, current, frequency and temperature parsing across Gen1 and RPC devices.
-- Aggregated multi-channel and multi-phase energy meter values.
-- Persisted generation, firmware, hostname, MAC address, component, channel and capability metadata.
-- Fixed database upserts so corrected device types and source metadata are applied to existing records.
-- Updated dashboard value formatting and total current-power calculation.
-- Added seven automated Shelly parser tests.
+## 0.4.6
+
+- Added `docker-compose.image.yml` as the single production image override.
+- Removed the architecture-specific `docker-compose.arm64.yml` and `docker-compose.amd64.yml` files.
+- Relied on the GHCR multi-architecture manifest for automatic host architecture selection.
+- Updated deploy, update, backup and restore scripts to use the unified image Compose configuration.
+- Updated README, GHCR documentation, release notes and release commands for v0.4.6.
+
+## 0.4.5
+
+- Corrected Shelly device type detection for covers, lights, outlets, switches and dedicated energy meters.
+- Prioritized cover and light components before generic switch components during RPC detection.
+- Added outlet classification for Shelly Plug, Plug S and PowerStrip model families.
+- Added support for separate `PM1`, `EM1` and `EM` measurement components.
+- Added aggregation of multi-channel and multi-phase power and energy values.
+- Displayed current power, energy, voltage, current, frequency and temperature values with appropriate units.
+- Prevented unavailable measurements from being displayed as artificial zero values.
+- Updated persisted device types during status synchronization when improved detection returns a different type.
+- Rebuilt HomeKit accessories with the correct service after a detected device type change.
+- Used detected Shelly component kinds and IDs for RPC control commands.
+- Added automated parser tests for Gen1 and Gen2+ device detection and live values.
+- Updated release documentation and GHCR publishing instructions for v0.4.5.
 
 ## 0.4.2
 

@@ -1,30 +1,20 @@
-# SALTA v0.4.4
+# SALTA v0.4.6
 
-SALTA v0.4.4 corrects Shelly device classification and restores current state and measurement values in the dashboard.
+SALTA v0.4.6 simplifies container deployment by replacing the architecture-specific Compose overrides with one multi-architecture image override.
 
-## Fixed
+## Highlights
 
-- Cover and light components are detected before generic switch components.
-- Shelly plugs and power strips are classified as outlets instead of generic switches.
-- Dedicated EM, EM1 and PM1 components are recognized as energy meters.
-- Multi-channel and multi-phase power values are aggregated correctly.
-- Separate power-meter components are merged with their associated switch or light channel.
-- Existing database records receive corrected device types during reconciliation.
-- Missing measurements are no longer displayed as artificial zero values.
-- Commands use the detected RPC component namespace and component ID.
-
-## Improvements
-
-- Current power, energy, voltage, current, frequency and temperature values include correct units in the dashboard.
-- The overview power indicator includes metered switches, outlets, lights and energy meters.
-- Shelly generation, firmware, hostname, MAC address, channel count and capability metadata are stored persistently.
-- State reconciliation starts immediately and runs without overlapping polling cycles.
-- Added parser tests for Gen1, Gen2, Gen3 and cover/energy scenarios.
-
-## Database migration
-
-The migration adds nullable Shelly metadata columns to the existing `devices` table. No manual migration steps are required.
+- Added `docker-compose.image.yml` for GHCR image deployments
+- Removed `docker-compose.arm64.yml`
+- Removed `docker-compose.amd64.yml`
+- Docker now selects the matching `linux/amd64` or `linux/arm64` image automatically
+- Updated deployment, update, backup and restore scripts to use the image override
+- Updated documentation and examples for the unified Compose workflow
 
 ## Compatibility
 
-Existing devices and room assignments remain intact. After startup, SALTA reconciles registered Shelly devices and updates their detected type and current state automatically.
+No database migration is required. Existing `.env` files remain compatible. The `SALTA_IMAGE` variable can continue to pin a specific version such as `ghcr.io/syschelle/salta:0.4.6`.
+
+## Publishing
+
+Pushing the Git tag `v0.4.6` triggers the `Publish SALTA container` GitHub Actions workflow. The workflow publishes multi-architecture images for `linux/amd64` and `linux/arm64` with the tags `0.4.6`, `0.4` and `latest`.

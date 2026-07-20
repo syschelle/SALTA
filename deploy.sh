@@ -22,21 +22,15 @@ if [ ! -f .env ]; then
   echo "Created .env with generated credentials."
   echo "Web login: admin / ${admin_password}"
   echo
-  echo "IMPORTANT: Edit SALTA_IMAGE in .env before continuing."
+  echo "Review .env, then run ./deploy.sh again."
   exit 0
 fi
 
-if grep -q '^SALTA_IMAGE=ghcr.io/your-github-name/' .env; then
-  echo "Set SALTA_IMAGE in .env to your real lowercase GHCR image path first." >&2
-  echo "Example: SALTA_IMAGE=ghcr.io/example/salta:latest" >&2
-  exit 1
-fi
-
-docker compose pull
-docker compose up -d --remove-orphans
+docker compose -f docker-compose.yml -f docker-compose.image.yml pull
+docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --remove-orphans
 
 echo
 echo "SALTA is starting."
 echo "Open: http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo localhost):$(grep '^WEB_PORT=' .env | cut -d= -f2)"
-echo "Status: docker compose ps"
-echo "Logs:   docker compose logs -f salta"
+echo "Status: docker compose -f docker-compose.yml -f docker-compose.image.yml ps"
+echo "Logs:   docker compose -f docker-compose.yml -f docker-compose.image.yml logs -f salta"

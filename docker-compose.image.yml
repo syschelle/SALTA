@@ -1,0 +1,3 @@
+services:
+  salta:
+    image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:latest}
