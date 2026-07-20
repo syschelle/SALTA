@@ -1,7 +1,13 @@
-FROM node:24-alpine AS deps
+# syntax=docker/dockerfile:1.7
+
+# Install and compile on the GitHub runner architecture, not under ARM64 QEMU.
+# SALTA currently ships JavaScript dependencies only, so the resulting build
+# output can be copied into both target runtime images.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
 
 FROM deps AS build
 COPY tsconfig.json ./
@@ -9,8 +15,10 @@ COPY src ./src
 RUN npm run build
 
 FROM deps AS production-deps
-RUN npm prune --omit=dev --no-audit --no-fund && npm cache clean --force
+RUN npm prune --omit=dev --no-audit --no-fund \
+    && npm cache clean --force
 
+# This final stage is created separately for every requested target platform.
 FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production

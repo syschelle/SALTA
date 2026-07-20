@@ -1,14 +1,21 @@
-# SALTA v0.2.3
+# SALTA v0.2.4
 
 ## Fixed
 
-- Prevented GitHub Actions CI runs from being canceled during `npm ci`.
-- Prevented running multi-architecture release builds from being canceled by newer workflow runs.
-- Improved reliability of AMD64 and ARM64 container publishing.
+- Prevented dependency installation from running under ARM64 QEMU during multi-architecture builds.
+- Reduced the amount of duplicated work in AMD64 and ARM64 container builds.
+- Kept release workflows from canceling an active build.
+- Increased the release-job timeout for first-time, uncached builds.
+
+## Changed
+
+- Docker dependency installation and TypeScript compilation now run on the native GitHub runner architecture.
+- The final runtime image is still produced separately for `linux/amd64` and `linux/arm64`.
+- GitHub Actions cache export uses `mode=min` to reduce post-build upload time.
 
 ## Docker
 
 - linux/amd64
 - linux/arm64
 
-This maintenance release fixes workflow cancellation behavior. No functional SALTA application changes are included.
+Create a new `v0.2.4` tag after pushing these changes. Re-running an older tag uses the workflow stored in that older tagged commit and will not apply this fix.

@@ -23,3 +23,11 @@ Supported platforms:
 After the first successful publish, open the package settings on GitHub and set the package visibility to **Public** when anonymous pulls are desired.
 
 A job that remains **Pending** has not started building and cannot create a package. Check repository or organization Actions settings, billing/minute limits, and runner availability.
+
+## Important: tags contain their workflow version
+
+A GitHub Actions run uses the workflow file from the commit referenced by the event. Re-running an old release tag therefore does not pick up workflow fixes committed later. Push the fixes first, then create a new tag such as `v0.2.4`.
+
+## Multi-architecture build performance
+
+The dependency and TypeScript build stages use Docker's `BUILDPLATFORM`. This keeps `npm ci` on the native GitHub runner instead of executing it through ARM64 QEMU. Only the final lightweight runtime stage is resolved for each target platform.

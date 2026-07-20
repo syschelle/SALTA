@@ -42,3 +42,12 @@
 ## 0.1.0 - 2026-07-20
 
 Initial public prototype release.
+
+## [0.2.4] - 2026-07-20
+
+### Fixed
+
+- Run npm dependency installation on the native build platform instead of ARM64 QEMU.
+- Avoid duplicated dependency installation during multi-platform image generation.
+- Increase the release workflow timeout and reduce cache-export overhead.
+
