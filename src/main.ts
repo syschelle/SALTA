@@ -4,6 +4,7 @@ import { DeviceRegistry } from "./registry.js";
 import { MockAdapter } from "./mock-adapter.js";
 import { HomeKitBridge } from "./homekit.js";
 import { buildServer } from "./server.js";
+import { ShellyAdapter } from "./shelly-adapter.js";
 
 async function main(): Promise<void> {
   await migrate();
@@ -13,10 +14,13 @@ async function main(): Promise<void> {
   const adapter = new MockAdapter(registry, config.MOCK_EVENT_INTERVAL_MS);
   await adapter.start();
 
+  const shelly = new ShellyAdapter(registry);
+  shelly.start();
+
   const homekit = new HomeKitBridge(registry, adapter);
   homekit.start();
 
-  const server = buildServer(registry, adapter);
+  const server = buildServer(registry, adapter, shelly);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   server.log.info({ port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED }, "SALTA started");
   if (!config.ADMIN_PASSWORD) server.log.warn("ADMIN_PASSWORD is empty; web authentication is disabled");
@@ -28,6 +32,7 @@ async function main(): Promise<void> {
     server.log.info({ signal }, "Shutting down SALTA");
     await server.close();
     homekit.stop();
+    shelly.stop();
     await adapter.stop();
     await pool.end();
   };

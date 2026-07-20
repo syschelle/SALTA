@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.3.0-alpha.5]
+## [0.4.0]
 
 ### Added
 - Existing rooms can be edited inline on the Rooms page.
@@ -10,14 +10,14 @@
 - Corrected visible and health endpoint version reporting.
 
 
-## 0.3.0-alpha.5
+## 0.4.0
 
 - Fixed inconsistent navigation indentation by reserving a fixed icon column.
 - Added the installed SALTA version to the sidebar.
 - Added an accessible hamburger button and off-canvas sidebar for smaller screens.
 - Added backdrop, Escape-key closing and correct ARIA expanded state.
 
-## 0.3.0-alpha.5
+## 0.4.0
 
 ### Changed
 
@@ -52,3 +52,19 @@
 ## 0.2.5
 
 - Fixed inaccessible npm registry URLs in the lockfile.
+
+## [0.4.0] - 2026-07-20
+
+### Added
+- Real Shelly adapter with Gen1 REST and RPC device detection.
+- Manual device onboarding by IP address or hostname.
+- User-initiated `/24` network discovery.
+- Shelly status polling and online/offline detection.
+- Switch, light, cover and energy capabilities.
+- Dashboard onboarding flow with room and credential selection.
+- Persistent host, model and generation metadata.
+
+### Changed
+- Device commands are routed to the correct adapter.
+- Synchronization now refreshes both mock and Shelly devices.
+- Application and health endpoint version updated to 0.4.0.

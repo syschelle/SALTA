@@ -17,6 +17,9 @@ export interface Device {
   sourceId: string;
   type: DeviceType;
   name: string;
+  host?: string;
+  generation?: "gen1" | "rpc";
+  model?: string;
   roomId?: string;
   room?: string;
   reachable: boolean;

@@ -1,7 +1,7 @@
 import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
-import { encryptSecret } from "./security/secrets.js";
+import { decryptSecret, encryptSecret } from "./security/secrets.js";
 import type { CredentialMode, Device, Room, ShellySettings } from "./types.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
@@ -22,6 +22,9 @@ export async function migrate(): Promise<void> {
       source_id text NOT NULL,
       type text NOT NULL,
       name text NOT NULL,
+      host text,
+      generation text,
+      model text,
       room text,
       room_id uuid REFERENCES rooms(id) ON DELETE SET NULL,
       reachable boolean NOT NULL DEFAULT true,
@@ -35,6 +38,9 @@ export async function migrate(): Promise<void> {
       last_event timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS host text;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS generation text;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS model text;
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS room_id uuid REFERENCES rooms(id) ON DELETE SET NULL;
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS credential_mode text NOT NULL DEFAULT 'inherit';
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS credential_username text;
@@ -75,17 +81,17 @@ export async function upsertDevice(d: Device): Promise<void> {
     d.roomId = roomId ?? undefined;
   }
   await pool.query(`INSERT INTO devices
-    (id,source,source_id,type,name,room,room_id,reachable,state,capabilities,homekit_enabled,credential_mode,credential_username,last_seen,last_event,updated_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,now())
-    ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, room=EXCLUDED.room, room_id=EXCLUDED.room_id, reachable=EXCLUDED.reachable,
+    (id,source,source_id,type,name,host,generation,model,room,room_id,reachable,state,capabilities,homekit_enabled,credential_mode,credential_username,last_seen,last_event,updated_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,now())
+    ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, host=EXCLUDED.host, generation=EXCLUDED.generation, model=EXCLUDED.model, room=EXCLUDED.room, room_id=EXCLUDED.room_id, reachable=EXCLUDED.reachable,
     state=EXCLUDED.state, capabilities=EXCLUDED.capabilities, homekit_enabled=EXCLUDED.homekit_enabled,
     credential_mode=EXCLUDED.credential_mode, credential_username=EXCLUDED.credential_username,
     last_seen=EXCLUDED.last_seen, last_event=EXCLUDED.last_event, updated_at=now()`,
-    [d.id,d.source,d.sourceId,d.type,d.name,d.room??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent]);
+    [d.id,d.source,d.sourceId,d.type,d.name,d.host??null,d.generation??null,d.model??null,d.room??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent]);
 }
 
 export async function listDevices(): Promise<Device[]> {
-  const r=await pool.query(`SELECT d.id,d.source,d.source_id as "sourceId",d.type,d.name,d.room_id as "roomId",r.name as room,d.reachable,d.state,d.capabilities,
+  const r=await pool.query(`SELECT d.id,d.source,d.source_id as "sourceId",d.type,d.name,d.host,d.generation,d.model,d.room_id as "roomId",r.name as room,d.reachable,d.state,d.capabilities,
     d.homekit_enabled as "homekitEnabled",d.credential_mode as "credentialMode",d.credential_username as "credentialUsername",
     (d.credential_password IS NOT NULL AND d.credential_password <> '') as "passwordConfigured",
     d.last_seen as "lastSeen",d.last_event as "lastEvent"
@@ -135,4 +141,17 @@ export async function updateShellySettings(username: string, password?: string):
   await pool.query(`INSERT INTO adapter_settings(adapter_id,username,encrypted_password) VALUES('shelly',$1,$2)
     ON CONFLICT(adapter_id) DO UPDATE SET username=EXCLUDED.username,encrypted_password=EXCLUDED.encrypted_password,updated_at=now()`,[username,encrypted]);
   return { username, passwordConfigured: Boolean(encrypted) };
+}
+
+export async function getDeviceCredentials(id: string): Promise<{username:string;password:string}> {
+  const result=await pool.query(`SELECT d.credential_mode,d.credential_username,d.credential_password,a.username as global_username,a.encrypted_password as global_password FROM devices d LEFT JOIN adapter_settings a ON a.adapter_id='shelly' WHERE d.id=$1`,[id]);
+  const row=result.rows[0]; if(!row) return {username:"",password:""};
+  if(row.credential_mode==='none') return {username:"",password:""};
+  if(row.credential_mode==='custom') return {username:row.credential_username??"",password:row.credential_password?decryptSecret(row.credential_password):""};
+  return {username:row.global_username??"",password:row.global_password?decryptSecret(row.global_password):""};
+}
+
+export async function getGlobalShellyCredentials(): Promise<{username:string;password:string}> {
+  const result=await pool.query("SELECT username,encrypted_password FROM adapter_settings WHERE adapter_id='shelly'"); const row=result.rows[0];
+  return {username:row?.username??"",password:row?.encrypted_password?decryptSecret(row.encrypted_password):""};
 }
