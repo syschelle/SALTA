@@ -32,7 +32,9 @@ function escapeHtml(v){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':
 function routeFromHash(){const value=location.hash.replace('#','');return pages.includes(value)?value:defaultPage}
 function setActiveNavigation(page){document.querySelectorAll('[data-nav]').forEach(item=>{const active=item.dataset.nav===page;item.classList.toggle('active',active);if(active)item.setAttribute('aria-current','page');else item.removeAttribute('aria-current')})}
 async function showPage(page,{focus=false}={}){const target=pages.includes(page)?page:defaultPage;document.querySelectorAll('[data-page]').forEach(section=>section.hidden=section.dataset.page!==target);setActiveNavigation(target);if(target==='settings')await loadShellySettings();if(focus){document.querySelector(`[data-page="${target}"] h1`)?.focus({preventScroll:true})}window.scrollTo({top:0,behavior:'instant'})}
-function navigate(){showPage(routeFromHash())}
+function openMenu(){document.body.classList.add('menu-open');sidebarBackdrop.hidden=false;menuToggle.setAttribute('aria-expanded','true');menuClose.focus()}
+function closeMenu({restoreFocus=false}={}){document.body.classList.remove('menu-open');sidebarBackdrop.hidden=true;menuToggle.setAttribute('aria-expanded','false');if(restoreFocus)menuToggle.focus()}
+function navigate(){showPage(routeFromHash());closeMenu()}
 function showUnavailable(name){notify(`${name} folgt in einer kommenden SALTA-Version.`)}
 function notify(message,error=false){toast.textContent=message;toast.classList.toggle('error',error);toast.classList.add('show');clearTimeout(notify.timer);notify.timer=setTimeout(()=>toast.classList.remove('show'),2600)}
 
@@ -40,6 +42,11 @@ filter.addEventListener('input',renderDevices);roomFilter.addEventListener('chan
 roomForm.addEventListener('submit',event=>{event.preventDefault();createRoom().catch(e=>notify(e.message,true))});
 shellyForm.addEventListener('submit',event=>{event.preventDefault();saveShelly().catch(e=>notify(e.message,true))});
 window.addEventListener('hashchange',navigate);
+menuToggle.addEventListener('click',openMenu);
+menuClose.addEventListener('click',()=>closeMenu({restoreFocus:true}));
+sidebarBackdrop.addEventListener('click',()=>closeMenu({restoreFocus:true}));
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.body.classList.contains('menu-open'))closeMenu({restoreFocus:true})});
+document.querySelectorAll('#sidebar [data-nav]').forEach(item=>item.addEventListener('click',()=>{if(matchMedia('(max-width: 1000px)').matches)closeMenu()}));
 deviceDialog.addEventListener('close',()=>setActiveNavigation(routeFromHash()));
 
 navigate();load();setInterval(load,5000);

@@ -8,8 +8,10 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<aside>
-  <div class="brand"><span class="logo">S</span><div><b>SALTA</b><small>Local by design</small></div></div>
+<button id="menuToggle" class="menu-toggle" type="button" aria-label="Navigation öffnen" aria-controls="sidebar" aria-expanded="false"><span aria-hidden="true">☰</span></button>
+<div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
+<aside id="sidebar">
+  <div class="sidebar-head"><div class="brand"><span class="logo">S</span><div><b>SALTA</b><small>Local by design</small></div></div><button id="menuClose" class="menu-close" type="button" aria-label="Navigation schließen">×</button></div>
   <nav aria-label="Hauptnavigation">
     <a href="#overview" data-nav="overview"><span aria-hidden="true">⌂</span><span>Übersicht</span></a>
     <a href="#devices" data-nav="devices"><span aria-hidden="true">◫</span><span>Geräte</span></a>
@@ -18,7 +20,7 @@
     <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span aria-hidden="true">◉</span><span>Diagnose</span></button>
     <a href="#settings" data-nav="settings"><span aria-hidden="true">⚙</span><span>Einstellungen</span></a>
   </nav>
-  <div class="status"><i></i> System online</div>
+  <div class="sidebar-footer"><div class="status"><i></i> System online</div><div class="version" aria-label="Installierte Version">Version <strong>0.3.0-alpha.4</strong></div></div>
 </aside>
 
 <main>

@@ -1,6 +1,13 @@
 # Changelog
 
-## 0.3.0-alpha.3
+## 0.3.0-alpha.4
+
+- Fixed inconsistent navigation indentation by reserving a fixed icon column.
+- Added the installed SALTA version to the sidebar.
+- Added an accessible hamburger button and off-canvas sidebar for smaller screens.
+- Added backdrop, Escape-key closing and correct ARIA expanded state.
+
+## 0.3.0-alpha.4
 
 ### Changed
 
