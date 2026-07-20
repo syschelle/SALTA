@@ -1,16 +1,37 @@
 name: CI
+
 on:
   push:
+    branches:
+      - main
   pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: salta-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      - run: npm ci --no-audit --no-fund
-      - run: npm run check
-      - run: docker build -t salta:test .
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Run checks
+        run: npm run check

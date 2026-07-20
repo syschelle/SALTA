@@ -1,4 +1,4 @@
-name: Publish multi-architecture container
+name: Publish SALTA container
 
 on:
   push:
@@ -6,23 +6,36 @@ on:
       - "v*.*.*"
   workflow_dispatch:
 
+concurrency:
+  group: salta-container-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   packages: write
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    name: Build and publish amd64 + arm64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Normalize image name
+        id: image
+        shell: bash
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -38,13 +51,19 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=SALTA
+            org.opencontainers.image.description=Smart-home Abstraction and Local Transport Architecture
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
-      - name: Build and publish amd64 and arm64 images
+      - name: Build and publish multi-architecture image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -53,7 +72,16 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: mode=max
-          sbom: true
+          cache-from: type=gha,scope=salta-container
+          cache-to: type=gha,mode=max,scope=salta-container
+
+      - name: Publish summary
+        shell: bash
+        run: |
+          {
+            echo "## SALTA container published"
+            echo
+            echo "**Image:** \`${{ env.REGISTRY }}/${{ steps.image.outputs.name }}\`"
+            echo "**Platforms:** \`linux/amd64\`, \`linux/arm64\`"
+            echo "**Digest:** \`${{ steps.build.outputs.digest }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

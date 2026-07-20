@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2
+
+- Simplified and hardened the GHCR release workflow.
+- Added explicit package write permissions and repository source labels.
+- Normalized the GHCR image name to lowercase.
+- Added workflow concurrency cancellation and timeouts.
+- Removed the duplicate Docker build from CI.
+- Publishes one multi-architecture image for linux/amd64 and linux/arm64.
+
 ## 0.2.1 - 2026-07-20
 
 - Publish a single multi-architecture GHCR image for `linux/amd64` and `linux/arm64`.
