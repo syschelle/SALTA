@@ -1,7 +1,7 @@
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund
 
 FROM deps AS build
 COPY tsconfig.json ./
@@ -12,8 +12,8 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup -S salta && adduser -S salta -G salta
-COPY package.json package-lock.json* ./
-RUN npm install --omit=dev && npm cache clean --force
+COPY package.json package-lock.json ./
+RUN npm ci --no-audit --no-fund --omit=dev && npm cache clean --force
 COPY --from=build /app/dist ./dist
 COPY public ./public
 RUN chown -R salta:salta /app

@@ -20,7 +20,6 @@ export class HomeKitBridge {
     if(!this.bridge || !d.homekitEnabled) return;
     let a=this.accessories.get(d.id);
     if(!a){ a=new Accessory(d.name,uuid.generate(`salta:${d.id}`)); this.addService(a,d); this.bridge.addBridgedAccessory(a); this.accessories.set(d.id,a); }
-    a.updateReachability(d.reachable);
     const service=a.services.find(s=>s.UUID!==Service.AccessoryInformation.UUID); if(!service) return;
     if("on" in d.state) service.updateCharacteristic(Characteristic.On,Boolean(d.state.on));
     if("brightness" in d.state) service.updateCharacteristic(Characteristic.Brightness,Number(d.state.brightness));

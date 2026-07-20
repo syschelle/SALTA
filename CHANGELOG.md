@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1
+
+- Fix invalid HAP-NodeJS dependency version.
+- Add a reproducible npm lockfile.
+- Use `npm ci` in Docker and CI builds.
+- Update HomeKit bridge code for HAP-NodeJS 2.x compatibility.
+
 ## 0.1.0 - 2026-07-20
 
 Initial public prototype release.
