@@ -1,16 +1,20 @@
-# SALTA v0.4.1
+# SALTA v0.4.2
 
-This maintenance release removes all built-in demonstration devices from SALTA.
+SALTA v0.4.2 improves the Shelly onboarding and device configuration experience.
 
-## Fixed
+## Improvements
 
-- Removed the mock adapter and all automatically generated demo devices.
-- Existing devices with the `mock` source are automatically deleted during database migration.
-- Removed the mock adapter from the health, readiness, adapter and reconciliation APIs.
-- Synchronization now refreshes Shelly devices only.
-- HomeKit commands are routed directly to the Shelly adapter.
-- Removed the obsolete `MOCK_EVENT_INTERVAL_MS` setting.
+- Completely redesigned **Add Shelly** dialog
+- Clear separation between connection details and authentication
+- Full-width, vertically aligned form fields
+- Descriptive authentication choices
+- Custom username and password fields only appear when required
+- Separate and clearer network discovery workflow
+- Progress feedback while testing a connection or scanning a network
+- Responsive layout for desktop, tablet and mobile
+- Consistent dialog design for device configuration
+- Improved labels, helper text, keyboard focus and accessibility attributes
 
-## Upgrade notes
+## Compatibility
 
-No manual database cleanup is required. When SALTA starts after the upgrade, previously stored demonstration devices are removed automatically. Real Shelly devices, rooms and settings remain unchanged.
+This release does not change the Shelly API, database model or stored devices. It can be installed directly over SALTA v0.4.1.
