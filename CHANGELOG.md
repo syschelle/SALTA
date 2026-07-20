@@ -1,14 +1,19 @@
 # Changelog
 
-## 0.3.0-alpha.2
+## 0.3.0-alpha.3
+
+### Changed
+
+- Converted Rooms from a modal dialog into a dedicated responsive page.
+- Converted Settings and global Shelly credentials from a modal dialog into a dedicated responsive page.
+- Separated Overview, Devices, Rooms and Settings into hash-routed application pages.
+- Kept device-specific configuration in a focused device dialog.
 
 ### Fixed
 
-- Added a visible active state to desktop and mobile navigation.
-- Added `aria-current` state for accessible navigation feedback.
-- Replaced the hidden mobile sidebar with a responsive bottom navigation.
-- Kept Rooms and Settings highlighted while their dialogs are open.
-- Added hash and scroll synchronization for Overview and Devices.
+- Navigation highlighting now follows the actual page on desktop and mobile.
+- Direct links such as `#rooms` and `#settings` open the correct page.
+- Room and Shelly forms now provide in-page feedback without reopening dialogs.
 
 ## 0.3.0-alpha.1
 

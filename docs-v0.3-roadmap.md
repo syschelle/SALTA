@@ -12,7 +12,13 @@
 - Authentication resolver
 - Connection tests and diagnostics
 
-## alpha.3 — Discovery
+## alpha.3 — Page navigation and responsive management UI
+
+- Rooms as a dedicated page.
+- Settings as a dedicated page.
+- Responsive hash-based navigation.
+
+## alpha.4 — Discovery
 - Manual host onboarding
 - mDNS discovery
 - Device generation and capability detection

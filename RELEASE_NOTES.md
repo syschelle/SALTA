@@ -1,16 +1,20 @@
-# SALTA v0.3.0-alpha.2
+# SALTA v0.3.0-alpha.3
+
+## Changed
+
+- Rooms are now a full application page instead of a modal window.
+- Settings are now a full application page instead of a modal window.
+- Overview, Devices, Rooms and Settings use responsive hash-based page navigation.
+- Added dedicated room list, room creation and Shelly settings layouts.
 
 ## Fixed
 
-- Added clear active highlighting to all navigation entries.
-- Added a responsive mobile bottom navigation instead of hiding navigation entirely.
-- Added accessible `aria-current` states and keyboard focus styles.
-- Navigation now follows Overview and Devices while scrolling.
-- Rooms and Settings remain highlighted while their dialogs are open.
+- Active navigation always reflects the currently visible page.
+- Mobile navigation opens the same full pages as desktop navigation.
 
 ## Docker
 
 - linux/amd64
 - linux/arm64
 
-This pre-release improves navigation clarity and mobile usability.
+This is a pre-release for testing the revised SALTA information architecture.
