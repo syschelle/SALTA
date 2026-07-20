@@ -1,9 +1,48 @@
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#111827"><title>SALTA · Local Smart Home</title><link rel="stylesheet" href="/styles.css"></head><body>
-<aside><div class="brand"><span class="logo">S</span><div><b>SALTA</b><small>Local by design</small></div></div><nav><a class="active">Übersicht</a><a>Geräte</a><a onclick="openRooms()">Räume</a><a>Automationen</a><a>Diagnose</a><a onclick="openShelly()">Einstellungen</a></nav><div class="status"><i></i> System online</div></aside>
-<main><header><div><p class="eyebrow">SMART-HOME ABSTRACTION & LOCAL TRANSPORT</p><h1>Dein Zuhause. Lokal.</h1><p class="muted">Alle Systeme auf einen Blick – ohne Cloud-Zwang.</p></div><button onclick="reconcile()">↻ Synchronisieren</button></header>
-<section class="stats"><article><span>Geräte</span><strong id="deviceCount">–</strong><small>registriert</small></article><article><span>Erreichbar</span><strong id="reachableCount">–</strong><small>online</small></article><article><span>Aktuelle Leistung</span><strong id="power">–</strong><small>Watt</small></article><article><span>Räume</span><strong id="roomCount">–</strong><small>konfiguriert</small></article></section>
-<section class="section-head"><div><h2>Geräte</h2><p class="muted">Direkte Steuerung und Live-Status</p></div><div class="filters"><select id="roomFilter"><option value="">Alle Räume</option></select><label class="search">⌕ <input id="filter" placeholder="Gerät suchen"></label></div></section><section id="devices" class="grid"></section></main>
-<dialog id="roomDialog"><form method="dialog"><div class="dialog-head"><div><h2>Räume</h2><p class="muted">Geräte früh und eindeutig organisieren.</p></div><button class="icon-button">×</button></div><div id="roomList" class="room-list"></div><div class="form-row"><input id="newRoomName" placeholder="Neuer Raum"><input id="newRoomIcon" placeholder="Icon" value="home"><button type="button" onclick="createRoom()">Hinzufügen</button></div></form></dialog>
-<dialog id="shellyDialog"><form method="dialog"><div class="dialog-head"><div><h2>Shelly-Zugangsdaten</h2><p class="muted">Globale Standardwerte; Geräte können sie überschreiben.</p></div><button class="icon-button">×</button></div><label>Benutzername<input id="shellyUsername" autocomplete="username"></label><label>Passwort<input id="shellyPassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label><p id="shellyPasswordState" class="muted"></p><button type="button" onclick="saveShelly()">Speichern</button></form></dialog>
-<dialog id="deviceDialog"><form method="dialog"><div class="dialog-head"><div><h2 id="deviceDialogTitle">Gerät</h2><p class="muted">Raum und Authentifizierung konfigurieren.</p></div><button class="icon-button">×</button></div><label>Raum<select id="deviceRoom"></select></label><label>Zugangsdaten<select id="credentialMode"><option value="inherit">Globale Shelly-Zugangsdaten</option><option value="custom">Eigene Zugangsdaten</option><option value="none">Keine Authentifizierung</option></select></label><label>Benutzername<input id="deviceUsername" autocomplete="username"></label><label>Passwort<input id="devicePassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label><button type="button" onclick="saveDeviceConfig()">Speichern</button></form></dialog>
-<script src="/app.js"></script></body></html>
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#111827">
+  <title>SALTA · Local Smart Home</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<aside>
+  <div class="brand"><span class="logo">S</span><div><b>SALTA</b><small>Local by design</small></div></div>
+  <nav aria-label="Hauptnavigation">
+    <a href="#overview" data-nav="overview"><span aria-hidden="true">⌂</span><span>Übersicht</span></a>
+    <a href="#devices" data-nav="devices"><span aria-hidden="true">◫</span><span>Geräte</span></a>
+    <button type="button" data-nav="rooms" onclick="openRooms()"><span aria-hidden="true">▦</span><span>Räume</span></button>
+    <button type="button" data-nav="automations" onclick="showUnavailable('Automationen')"><span aria-hidden="true">⌁</span><span>Automationen</span></button>
+    <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span aria-hidden="true">◉</span><span>Diagnose</span></button>
+    <button type="button" data-nav="settings" onclick="openShelly()"><span aria-hidden="true">⚙</span><span>Einstellungen</span></button>
+  </nav>
+  <div class="status"><i></i> System online</div>
+</aside>
+
+<main>
+  <header id="overview">
+    <div><p class="eyebrow">SMART-HOME ABSTRACTION & LOCAL TRANSPORT</p><h1>Dein Zuhause. Lokal.</h1><p class="muted">Alle Systeme auf einen Blick – ohne Cloud-Zwang.</p></div>
+    <button onclick="reconcile()">↻ Synchronisieren</button>
+  </header>
+  <section class="stats"><article><span>Geräte</span><strong id="deviceCount">–</strong><small>registriert</small></article><article><span>Erreichbar</span><strong id="reachableCount">–</strong><small>online</small></article><article><span>Aktuelle Leistung</span><strong id="power">–</strong><small>Watt</small></article><article><span>Räume</span><strong id="roomCount">–</strong><small>konfiguriert</small></article></section>
+  <section id="devices" class="section-head"><div><h2>Geräte</h2><p class="muted">Direkte Steuerung und Live-Status</p></div><div class="filters"><select id="roomFilter"><option value="">Alle Räume</option></select><label class="search">⌕ <input id="filter" placeholder="Gerät suchen"></label></div></section>
+  <section id="deviceGrid" class="grid"></section>
+</main>
+
+<nav class="mobile-nav" aria-label="Mobile Hauptnavigation">
+  <a href="#overview" data-nav="overview"><span aria-hidden="true">⌂</span><small>Übersicht</small></a>
+  <a href="#devices" data-nav="devices"><span aria-hidden="true">◫</span><small>Geräte</small></a>
+  <button type="button" data-nav="rooms" onclick="openRooms()"><span aria-hidden="true">▦</span><small>Räume</small></button>
+  <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span aria-hidden="true">◉</span><small>Diagnose</small></button>
+  <button type="button" data-nav="settings" onclick="openShelly()"><span aria-hidden="true">⚙</span><small>Einstellungen</small></button>
+</nav>
+
+<dialog id="roomDialog"><form method="dialog"><div class="dialog-head"><div><h2>Räume</h2><p class="muted">Geräte früh und eindeutig organisieren.</p></div><button class="icon-button" aria-label="Dialog schließen">×</button></div><div id="roomList" class="room-list"></div><div class="form-row"><input id="newRoomName" placeholder="Neuer Raum"><input id="newRoomIcon" placeholder="Icon" value="home"><button type="button" onclick="createRoom()">Hinzufügen</button></div></form></dialog>
+<dialog id="shellyDialog"><form method="dialog"><div class="dialog-head"><div><h2>Shelly-Zugangsdaten</h2><p class="muted">Globale Standardwerte; Geräte können sie überschreiben.</p></div><button class="icon-button" aria-label="Dialog schließen">×</button></div><label>Benutzername<input id="shellyUsername" autocomplete="username"></label><label>Passwort<input id="shellyPassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label><p id="shellyPasswordState" class="muted"></p><button type="button" onclick="saveShelly()">Speichern</button></form></dialog>
+<dialog id="deviceDialog"><form method="dialog"><div class="dialog-head"><div><h2 id="deviceDialogTitle">Gerät</h2><p class="muted">Raum und Authentifizierung konfigurieren.</p></div><button class="icon-button" aria-label="Dialog schließen">×</button></div><label>Raum<select id="deviceRoom"></select></label><label>Zugangsdaten<select id="credentialMode"><option value="inherit">Globale Shelly-Zugangsdaten</option><option value="custom">Eigene Zugangsdaten</option><option value="none">Keine Authentifizierung</option></select></label><label>Benutzername<input id="deviceUsername" autocomplete="username"></label><label>Passwort<input id="devicePassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label><button type="button" onclick="saveDeviceConfig()">Speichern</button></form></dialog>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="/app.js"></script>
+</body>
+</html>

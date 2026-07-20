@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0-alpha.2
+
+### Fixed
+
+- Added a visible active state to desktop and mobile navigation.
+- Added `aria-current` state for accessible navigation feedback.
+- Replaced the hidden mobile sidebar with a responsive bottom navigation.
+- Kept Rooms and Settings highlighted while their dialogs are open.
+- Added hash and scroll synchronization for Overview and Devices.
+
 ## 0.3.0-alpha.1
 
 ### Added
