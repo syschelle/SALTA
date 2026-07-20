@@ -1,101 +1,296 @@
 import { createHash } from "node:crypto";
-import type { Device, DeviceCommand, DeviceState, DeviceType } from "./types.js";
+import type { Device, DeviceCommand, ShellyComponentKind } from "./types.js";
 import { DeviceRegistry } from "./registry.js";
 import { getDeviceCredentials } from "./db.js";
+import { detectGen1Shelly, detectRpcShelly } from "./shelly-parser.js";
 
 const now = () => new Date().toISOString();
 const timeoutMs = 3500;
 
-type ProbeResult = { host: string; generation: "gen1" | "rpc"; model: string; sourceId: string; name: string; device: Device };
+type JsonRecord = Record<string, unknown>;
+type Generation = NonNullable<Device["generation"]>;
+type ProbeResult = { host: string; generation: Generation; model: string; sourceId: string; name: string; device: Device };
 
-function authHeader(username: string, password: string): Record<string,string> {
+function record(value: unknown): JsonRecord {
+  return value !== null && typeof value === "object" && !Array.isArray(value) ? value as JsonRecord : {};
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function authHeader(username: string, password: string): Record<string, string> {
   if (!username && !password) return {};
   return { authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}` };
 }
-async function requestJson(url:string, username="", password="", method="GET", body?:unknown):Promise<any>{
-  const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),timeoutMs);
-  try{
-    const response=await fetch(url,{method,headers:{accept:"application/json","content-type":"application/json",...authHeader(username,password)},body:body===undefined?undefined:JSON.stringify(body),signal:controller.signal});
-    if(!response.ok) throw new Error(response.status===401?"AUTHENTICATION_FAILED":`HTTP_${response.status}`);
-    return await response.json();
-  } finally { clearTimeout(timer); }
+
+async function requestJson(url: string, username = "", password = "", method = "GET", body?: unknown): Promise<unknown> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: { accept: "application/json", "content-type": "application/json", ...authHeader(username, password) },
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(response.status === 401 ? "AUTHENTICATION_FAILED" : `HTTP_${response.status}`);
+    return await response.json() as unknown;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new Error("DETECTION_TIMEOUT");
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
-function idFor(host:string,sourceId:string){ return `shelly:${createHash("sha1").update(`${host}:${sourceId}`).digest("hex").slice(0,20)}`; }
-function gen1Type(status:any,settings:any):DeviceType{
-  if(Array.isArray(status?.rollers)&&status.rollers.length) return "windowCovering";
-  if(Array.isArray(status?.lights)&&status.lights.length) return "light";
-  if(status?.emeters || status?.em) return "energyMeter";
-  return "switch";
+
+function idFor(host: string, sourceId: string): string {
+  return `shelly:${createHash("sha1").update(`${host}:${sourceId}`).digest("hex").slice(0, 20)}`;
 }
-function gen1State(status:any,type:DeviceType):DeviceState{
-  if(type==="windowCovering"){const r=status.rollers?.[0]??{};return {currentPosition:Number(r.current_pos??0),targetPosition:Number(r.current_pos??0),positionState:r.state??"stopped",power:Number(r.power??0)};}
-  if(type==="light"){const l=status.lights?.[0]??{};return {on:Boolean(l.ison),brightness:Number(l.brightness??0),power:Number(l.power??0)};}
-  if(type==="energyMeter"){const phases=status.emeters??[];return {totalPower:phases.reduce((n:number,x:any)=>n+Number(x.power??0),0),importEnergy:phases.reduce((n:number,x:any)=>n+Number(x.total??0),0)};}
-  const r=status.relays?.[0]??{};return {on:Boolean(r.ison),power:Number(status.meters?.[0]?.power??0),energy:Number(status.meters?.[0]?.total??0)};
+
+function rpcGeneration(info: JsonRecord): Generation {
+  const generation = Number(info.gen);
+  if (generation === 2 || generation === 3 || generation === 4) return `gen${generation}`;
+  return "rpc";
 }
-function caps(type:DeviceType):string[]{
-  if(type==="windowCovering") return ["open","close","stop","setTargetPosition"];
-  if(type==="light") return ["turnOn","turnOff","toggle","setBrightness"];
-  if(type==="energyMeter") return [];
-  return ["turnOn","turnOff","toggle"];
+
+function rpcNamespace(kind: ShellyComponentKind | undefined): string {
+  switch (kind) {
+    case "cover": return "Cover";
+    case "light": return "Light";
+    case "rgb": return "RGB";
+    case "rgbw": return "RGBW";
+    case "cct": return "CCT";
+    default: return "Switch";
+  }
 }
-function rpcComponent(status:any){
-  const entries=Object.entries(status??{});
-  return entries.find(([k])=>/^switch:\d+$/.test(k)) ?? entries.find(([k])=>/^light:\d+$/.test(k)) ?? entries.find(([k])=>/^cover:\d+$/.test(k)) ?? entries.find(([k])=>/^em:\d+$/.test(k));
-}
-function rpcType(key:string):DeviceType { return key.startsWith("cover:")?"windowCovering":key.startsWith("light:")?"light":key.startsWith("em:")?"energyMeter":"switch"; }
-function rpcState(key:string,value:any):DeviceState{
-  if(key.startsWith("cover:")) return {currentPosition:Number(value.current_pos??0),targetPosition:Number(value.target_pos??value.current_pos??0),positionState:value.state??"stopped",power:Number(value.apower??0)};
-  if(key.startsWith("light:")) return {on:Boolean(value.output),brightness:Number(value.brightness??0),power:Number(value.apower??0),energy:Number(value.aenergy?.total??0)};
-  if(key.startsWith("em:")) return {totalPower:Number(value.total_act_power??0),powerL1:Number(value.a_act_power??0),powerL2:Number(value.b_act_power??0),powerL3:Number(value.c_act_power??0)};
-  return {on:Boolean(value.output),power:Number(value.apower??0),energy:Number(value.aenergy?.total??0),temperature:Number(value.temperature?.tC??0)};
+
+function statesEqual(a: Device["state"], b: Device["state"]): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 export class ShellyAdapter {
-  private timer?:NodeJS.Timeout;
-  constructor(private registry:DeviceRegistry){}
-  start(){ this.timer=setInterval(()=>void this.reconcile(),15000); }
-  stop(){ if(this.timer) clearInterval(this.timer); }
-  async probe(host:string, username="", password=""):Promise<ProbeResult>{
-    const clean=host.trim().replace(/^https?:\/\//,"").replace(/\/$/,"");
-    try{
-      const info=await requestJson(`http://${clean}/rpc/Shelly.GetDeviceInfo`,username,password);
-      const status=await requestJson(`http://${clean}/rpc/Shelly.GetStatus`,username,password);
-      const component=rpcComponent(status); if(!component) throw new Error("UNSUPPORTED_SHELLY_DEVICE");
-      const [key,value]=component; const type=rpcType(key); const sourceId=String(info.id??clean);
-      const device:Device={id:idFor(clean,sourceId),source:"shelly",sourceId,type,name:String(info.name||info.model||sourceId),host:clean,generation:"rpc",model:String(info.model??"Shelly RPC"),reachable:true,state:rpcState(key,value),capabilities:caps(type),homekitEnabled:true,credentialMode:"inherit",passwordConfigured:false,lastSeen:now(),lastEvent:now()};
-      return {host:clean,generation:"rpc",model:device.model!,sourceId,name:device.name,device};
-    }catch(rpcError){
-      if(rpcError instanceof Error && rpcError.message==="AUTHENTICATION_FAILED") throw rpcError;
-      const [settings,status]=await Promise.all([requestJson(`http://${clean}/settings`,username,password),requestJson(`http://${clean}/status`,username,password)]);
-      const type=gen1Type(status,settings); const sourceId=String(settings.device?.mac??settings.device?.hostname??clean);
-      const device:Device={id:idFor(clean,sourceId),source:"shelly",sourceId,type,name:String(settings.name||settings.device?.hostname||sourceId),host:clean,generation:"gen1",model:String(settings.device?.type??"Shelly Gen1"),reachable:true,state:gen1State(status,type),capabilities:caps(type),homekitEnabled:true,credentialMode:"inherit",passwordConfigured:false,lastSeen:now(),lastEvent:now()};
-      return {host:clean,generation:"gen1",model:device.model!,sourceId,name:device.name,device};
+  private timer?: NodeJS.Timeout;
+  private reconcileTask?: Promise<void>;
+
+  constructor(private registry: DeviceRegistry) {}
+
+  start(): void {
+    void this.reconcile();
+    this.timer = setInterval(() => void this.reconcile(), 10_000);
+  }
+
+  stop(): void {
+    if (this.timer) clearInterval(this.timer);
+  }
+
+  async probe(host: string, username = "", password = ""): Promise<ProbeResult> {
+    const clean = host.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+    try {
+      const rawInfo = await requestJson(`http://${clean}/rpc/Shelly.GetDeviceInfo`, username, password);
+      const rawStatus = await requestJson(`http://${clean}/rpc/Shelly.GetStatus`, username, password, "POST");
+      const info = record(rawInfo);
+      const detection = detectRpcShelly(info, rawStatus);
+      const sourceId = stringValue(info.id) ?? clean;
+      const model = stringValue(info.app) ?? stringValue(info.model) ?? "Shelly RPC";
+      const name = stringValue(info.name) ?? model ?? sourceId;
+      const timestamp = now();
+      const device: Device = {
+        id: idFor(clean, sourceId),
+        source: "shelly",
+        sourceId,
+        type: detection.type,
+        name,
+        host: clean,
+        generation: rpcGeneration(info),
+        model,
+        firmwareVersion: stringValue(info.ver) ?? stringValue(info.fw_id),
+        hostname: sourceId,
+        macAddress: stringValue(info.mac),
+        componentKind: detection.componentKind,
+        componentId: detection.componentId,
+        channelCount: detection.channelCount,
+        powerMetering: detection.powerMetering,
+        coverSupport: detection.coverSupport,
+        switchSupport: detection.switchSupport,
+        lightSupport: detection.lightSupport,
+        inputSupport: detection.inputSupport,
+        reachable: true,
+        state: detection.state,
+        capabilities: detection.capabilities,
+        homekitEnabled: true,
+        credentialMode: "inherit",
+        passwordConfigured: false,
+        lastSeen: timestamp,
+        lastEvent: timestamp
+      };
+      return { host: clean, generation: device.generation ?? "rpc", model, sourceId, name, device };
+    } catch (rpcError) {
+      if (rpcError instanceof Error && rpcError.message === "AUTHENTICATION_FAILED") throw rpcError;
+      try {
+        const [rawSettings, rawStatus] = await Promise.all([
+          requestJson(`http://${clean}/settings`, username, password),
+          requestJson(`http://${clean}/status`, username, password)
+        ]);
+        const settings = record(rawSettings);
+        const deviceSettings = record(settings.device);
+        const detection = detectGen1Shelly(settings, rawStatus);
+        const sourceId = stringValue(deviceSettings.mac) ?? stringValue(deviceSettings.hostname) ?? clean;
+        const model = stringValue(deviceSettings.type) ?? "Shelly Gen1";
+        const name = stringValue(settings.name) ?? stringValue(deviceSettings.hostname) ?? sourceId;
+        const timestamp = now();
+        const device: Device = {
+          id: idFor(clean, sourceId),
+          source: "shelly",
+          sourceId,
+          type: detection.type,
+          name,
+          host: clean,
+          generation: "gen1",
+          model,
+          firmwareVersion: stringValue(settings.fw),
+          hostname: stringValue(deviceSettings.hostname),
+          macAddress: stringValue(deviceSettings.mac),
+          componentKind: detection.componentKind,
+          componentId: detection.componentId,
+          channelCount: detection.channelCount,
+          powerMetering: detection.powerMetering,
+          coverSupport: detection.coverSupport,
+          switchSupport: detection.switchSupport,
+          lightSupport: detection.lightSupport,
+          inputSupport: detection.inputSupport,
+          reachable: true,
+          state: detection.state,
+          capabilities: detection.capabilities,
+          homekitEnabled: true,
+          credentialMode: "inherit",
+          passwordConfigured: false,
+          lastSeen: timestamp,
+          lastEvent: timestamp
+        };
+        return { host: clean, generation: "gen1", model, sourceId, name, device };
+      } catch (gen1Error) {
+        if (gen1Error instanceof Error) throw gen1Error;
+        throw rpcError;
+      }
     }
   }
-  async add(host:string,username="",password="",name?:string,roomId?:string,room?:string,credentialMode:"inherit"|"custom"|"none"="inherit"){
-    const result=await this.probe(host,username,password); const device={...result.device,name:name?.trim()||result.device.name,roomId,room,credentialMode,credentialUsername:credentialMode==="custom"?username:undefined,passwordConfigured:credentialMode==="custom"&&Boolean(password)};
-    await this.registry.set(device); if(credentialMode==="custom") await this.registry.patchCredentials(device.id,"custom",username,password); return device;
+
+  async add(host: string, username = "", password = "", name?: string, roomId?: string, room?: string, credentialMode: "inherit" | "custom" | "none" = "inherit"): Promise<Device> {
+    const result = await this.probe(host, username, password);
+    const device: Device = {
+      ...result.device,
+      name: name?.trim() || result.device.name,
+      roomId,
+      room,
+      credentialMode,
+      credentialUsername: credentialMode === "custom" ? username : undefined,
+      passwordConfigured: credentialMode === "custom" && Boolean(password)
+    };
+    await this.registry.set(device);
+    if (credentialMode === "custom") await this.registry.patchCredentials(device.id, "custom", username, password);
+    return device;
   }
-  async discover(prefix:string,username="",password=""){
-    const match=prefix.trim().match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})\.(?:0\/24|\d{1,3})$/); if(!match) throw new Error("INVALID_SUBNET");
-    const hosts=Array.from({length:254},(_,i)=>`${match[1]}.${i+1}`); const found:ProbeResult[]=[]; let index=0;
-    const workers=Array.from({length:24},async()=>{while(index<hosts.length){const host=hosts[index++];if(!host) continue;try{found.push(await this.probe(host,username,password));}catch{}}}); await Promise.all(workers); return found.map(({device,...item})=>item);
+
+  async discover(prefix: string, username = "", password = ""): Promise<Omit<ProbeResult, "device">[]> {
+    const match = prefix.trim().match(/^(\d{1,3}\.\d{1,3}\.\d{1,3})\.(?:0\/24|\d{1,3})$/);
+    if (!match) throw new Error("INVALID_SUBNET");
+    const hosts = Array.from({ length: 254 }, (_, index) => `${match[1]}.${index + 1}`);
+    const found: ProbeResult[] = [];
+    let index = 0;
+    const workers = Array.from({ length: 24 }, async () => {
+      while (index < hosts.length) {
+        const host = hosts[index++];
+        if (!host) continue;
+        try { found.push(await this.probe(host, username, password)); } catch { /* Ignore non-Shelly hosts. */ }
+      }
+    });
+    await Promise.all(workers);
+    return found.map(({ device: _device, ...item }) => item);
   }
-  async refresh(device:Device){
-    if(!device.host) return device; const credentials=await getDeviceCredentials(device.id); try{const probed=await this.probe(device.host,credentials.username,credentials.password); const next={...device,...probed.device,id:device.id,name:device.name,roomId:device.roomId,room:device.room,credentialMode:device.credentialMode,credentialUsername:device.credentialUsername,passwordConfigured:device.passwordConfigured,lastSeen:now()}; await this.registry.set(next); return next;}catch{const next={...device,reachable:false,lastSeen:now()};await this.registry.set(next);return next;}
+
+  async refresh(device: Device): Promise<Device> {
+    if (!device.host) return device;
+    const credentials = await getDeviceCredentials(device.id);
+    try {
+      const probed = await this.probe(device.host, credentials.username, credentials.password);
+      const seenAt = now();
+      const next: Device = {
+        ...device,
+        ...probed.device,
+        id: device.id,
+        name: device.name,
+        roomId: device.roomId,
+        room: device.room,
+        homekitEnabled: device.homekitEnabled,
+        credentialMode: device.credentialMode,
+        credentialUsername: device.credentialUsername,
+        passwordConfigured: device.passwordConfigured,
+        lastSeen: seenAt,
+        lastEvent: statesEqual(device.state, probed.device.state) ? device.lastEvent : seenAt
+      };
+      await this.registry.set(next);
+      return next;
+    } catch {
+      const next = { ...device, reachable: false, lastSeen: now() };
+      await this.registry.set(next);
+      return next;
+    }
   }
-  async reconcile(){for(const d of this.registry.all().filter(x=>x.source==="shelly")) await this.refresh(d);}
-  async command(c:DeviceCommand):Promise<Device>{
-    const d=this.registry.get(c.deviceId); if(!d||d.source!=="shelly"||!d.host) throw new Error("DEVICE_NOT_FOUND"); if(!d.capabilities.includes(c.capability)) throw new Error("CAPABILITY_NOT_SUPPORTED");
-    const cr=await getDeviceCredentials(d.id); const h=`http://${d.host}`;
-    if(d.generation==="rpc"){
-      const kind=d.type==="windowCovering"?"Cover":d.type==="light"?"Light":"Switch"; let method="";let params:any={id:0};
-      if(c.capability==="toggle") {method=`${kind}.Toggle`;} else if(c.capability==="turnOn"||c.capability==="turnOff"){method=`${kind}.Set`;params.on=c.capability==="turnOn";} else if(c.capability==="setBrightness"){method="Light.Set";params.on=true;params.brightness=Number(c.value);} else if(c.capability==="open"||c.capability==="close"||c.capability==="stop"){method=`Cover.${c.capability.charAt(0).toUpperCase()+c.capability.slice(1)}`;} else if(c.capability==="setTargetPosition"){method="Cover.GoToPosition";params.pos=Number(c.value);} else throw new Error("CAPABILITY_NOT_SUPPORTED");
-      await requestJson(`${h}/rpc/${method}`,cr.username,cr.password,"POST",params);
+
+  reconcile(): Promise<void> {
+    if (this.reconcileTask) return this.reconcileTask;
+    this.reconcileTask = Promise.allSettled(
+      this.registry.all().filter(device => device.source === "shelly").map(device => this.refresh(device))
+    ).then(() => undefined).finally(() => {
+      this.reconcileTask = undefined;
+    });
+    return this.reconcileTask;
+  }
+
+  async command(command: DeviceCommand): Promise<Device> {
+    const device = this.registry.get(command.deviceId);
+    if (!device || device.source !== "shelly" || !device.host) throw new Error("DEVICE_NOT_FOUND");
+    if (!device.capabilities.includes(command.capability)) throw new Error("CAPABILITY_NOT_SUPPORTED");
+
+    const credentials = await getDeviceCredentials(device.id);
+    const host = `http://${device.host}`;
+    const componentId = device.componentId ?? 0;
+
+    if (device.generation !== "gen1") {
+      const namespace = rpcNamespace(device.componentKind);
+      let method = "";
+      const params: Record<string, unknown> = { id: componentId };
+      if (command.capability === "toggle") {
+        method = `${namespace}.Toggle`;
+      } else if (command.capability === "turnOn" || command.capability === "turnOff") {
+        method = `${namespace}.Set`;
+        params.on = command.capability === "turnOn";
+      } else if (command.capability === "setBrightness") {
+        method = `${namespace}.Set`;
+        params.on = true;
+        params.brightness = Number(command.value);
+      } else if (["open", "close", "stop"].includes(command.capability)) {
+        method = `Cover.${command.capability.charAt(0).toUpperCase()}${command.capability.slice(1)}`;
+      } else if (command.capability === "setTargetPosition") {
+        method = "Cover.GoToPosition";
+        params.pos = Number(command.value);
+      } else {
+        throw new Error("CAPABILITY_NOT_SUPPORTED");
+      }
+      await requestJson(`${host}/rpc/${method}`, credentials.username, credentials.password, "POST", params);
+    } else if (device.type === "windowCovering") {
+      const action = command.capability === "setTargetPosition" ? `to_pos&roller_pos=${Number(command.value)}` : command.capability;
+      await requestJson(`${host}/roller/${componentId}?go=${action}`, credentials.username, credentials.password);
+    } else if (device.type === "light") {
+      const turn = command.capability === "turnOn" ? "on" : command.capability === "turnOff" ? "off" : command.capability === "toggle" ? "toggle" : "on";
+      const gain = command.capability === "setBrightness" ? `&brightness=${Number(command.value)}` : "";
+      await requestJson(`${host}/light/${componentId}?turn=${turn}${gain}`, credentials.username, credentials.password);
     } else {
-      if(d.type==="windowCovering"){const action=c.capability==="setTargetPosition"?`to_pos&roller_pos=${Number(c.value)}`:c.capability;await requestJson(`${h}/roller/0?go=${action}`,cr.username,cr.password);} else if(d.type==="light"){const turn=c.capability==="turnOn"?"on":c.capability==="turnOff"?"off":c.capability==="toggle"?"toggle":"on";const gain=c.capability==="setBrightness"?`&brightness=${Number(c.value)}`:"";await requestJson(`${h}/light/0?turn=${turn}${gain}`,cr.username,cr.password);} else {const turn=c.capability==="turnOn"?"on":c.capability==="turnOff"?"off":"toggle";await requestJson(`${h}/relay/0?turn=${turn}`,cr.username,cr.password);}
+      const turn = command.capability === "turnOn" ? "on" : command.capability === "turnOff" ? "off" : "toggle";
+      await requestJson(`${host}/relay/${componentId}?turn=${turn}`, credentials.username, credentials.password);
     }
-    return this.refresh(d);
+
+    return this.refresh(device);
   }
 }

@@ -41,6 +41,17 @@ export async function migrate(): Promise<void> {
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS host text;
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS generation text;
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS model text;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS firmware_version text;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS hostname text;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS mac_address text;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS component_kind text;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS component_id integer;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS channel_count integer;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS power_metering boolean;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS cover_support boolean;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS switch_support boolean;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS light_support boolean;
+    ALTER TABLE devices ADD COLUMN IF NOT EXISTS input_support boolean;
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS room_id uuid REFERENCES rooms(id) ON DELETE SET NULL;
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS credential_mode text NOT NULL DEFAULT 'inherit';
     ALTER TABLE devices ADD COLUMN IF NOT EXISTS credential_username text;
@@ -82,17 +93,25 @@ export async function upsertDevice(d: Device): Promise<void> {
     d.roomId = roomId ?? undefined;
   }
   await pool.query(`INSERT INTO devices
-    (id,source,source_id,type,name,host,generation,model,room,room_id,reachable,state,capabilities,homekit_enabled,credential_mode,credential_username,last_seen,last_event,updated_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,now())
-    ON CONFLICT (id) DO UPDATE SET name=EXCLUDED.name, host=EXCLUDED.host, generation=EXCLUDED.generation, model=EXCLUDED.model, room=EXCLUDED.room, room_id=EXCLUDED.room_id, reachable=EXCLUDED.reachable,
-    state=EXCLUDED.state, capabilities=EXCLUDED.capabilities, homekit_enabled=EXCLUDED.homekit_enabled,
-    credential_mode=EXCLUDED.credential_mode, credential_username=EXCLUDED.credential_username,
-    last_seen=EXCLUDED.last_seen, last_event=EXCLUDED.last_event, updated_at=now()`,
-    [d.id,d.source,d.sourceId,d.type,d.name,d.host??null,d.generation??null,d.model??null,d.room??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent]);
+    (id,source,source_id,type,name,host,generation,model,firmware_version,hostname,mac_address,component_kind,component_id,channel_count,power_metering,cover_support,switch_support,light_support,input_support,room,room_id,reachable,state,capabilities,homekit_enabled,credential_mode,credential_username,last_seen,last_event,updated_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,now())
+    ON CONFLICT (id) DO UPDATE SET source=EXCLUDED.source, source_id=EXCLUDED.source_id, type=EXCLUDED.type, name=EXCLUDED.name,
+    host=EXCLUDED.host, generation=EXCLUDED.generation, model=EXCLUDED.model, firmware_version=EXCLUDED.firmware_version,
+    hostname=EXCLUDED.hostname, mac_address=EXCLUDED.mac_address, component_kind=EXCLUDED.component_kind, component_id=EXCLUDED.component_id,
+    channel_count=EXCLUDED.channel_count, power_metering=EXCLUDED.power_metering, cover_support=EXCLUDED.cover_support,
+    switch_support=EXCLUDED.switch_support, light_support=EXCLUDED.light_support, input_support=EXCLUDED.input_support,
+    room=EXCLUDED.room, room_id=EXCLUDED.room_id, reachable=EXCLUDED.reachable, state=EXCLUDED.state,
+    capabilities=EXCLUDED.capabilities, homekit_enabled=EXCLUDED.homekit_enabled, credential_mode=EXCLUDED.credential_mode,
+    credential_username=EXCLUDED.credential_username, last_seen=EXCLUDED.last_seen, last_event=EXCLUDED.last_event, updated_at=now()`,
+    [d.id,d.source,d.sourceId,d.type,d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,d.room??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent]);
 }
 
 export async function listDevices(): Promise<Device[]> {
-  const r=await pool.query(`SELECT d.id,d.source,d.source_id as "sourceId",d.type,d.name,d.host,d.generation,d.model,d.room_id as "roomId",r.name as room,d.reachable,d.state,d.capabilities,
+  const r=await pool.query(`SELECT d.id,d.source,d.source_id as "sourceId",d.type,d.name,d.host,d.generation,d.model,
+    d.firmware_version as "firmwareVersion",d.hostname,d.mac_address as "macAddress",d.component_kind as "componentKind",
+    d.component_id as "componentId",d.channel_count as "channelCount",d.power_metering as "powerMetering",
+    d.cover_support as "coverSupport",d.switch_support as "switchSupport",d.light_support as "lightSupport",d.input_support as "inputSupport",
+    d.room_id as "roomId",r.name as room,d.reachable,d.state,d.capabilities,
     d.homekit_enabled as "homekitEnabled",d.credential_mode as "credentialMode",d.credential_username as "credentialUsername",
     (d.credential_password IS NOT NULL AND d.credential_password <> '') as "passwordConfigured",
     d.last_seen as "lastSeen",d.last_event as "lastEvent"

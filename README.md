@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.2.1` is an early alpha foundation. Real Shelly, deCONZ and OpenCCU adapters are still under development.
+`v0.4.4` provides production-oriented local Shelly discovery, generation detection, state polling and device control for Gen1 through Gen4 devices.
 
 ## Supported architectures
 
@@ -25,17 +25,17 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "Release SALTA v0.2.1"
+git commit -m "Release SALTA v0.4.4"
 git push origin main
-git tag -a v0.2.1 -m "SALTA v0.2.1"
-git push origin v0.2.1
+git tag -a v0.4.4 -m "SALTA v0.4.4"
+git push origin v0.4.4
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.2.1
-ghcr.io/<github-owner>/<repository>:0.2
+ghcr.io/<github-owner>/<repository>:0.4.4
+ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
 
@@ -184,6 +184,6 @@ SALTA_ENCRYPTION_KEY=replace-with-a-long-random-secret
 
 Back up this key together with the database. Losing it makes encrypted device passwords unrecoverable. Password values are never returned by the REST API.
 
-### Current alpha limitation
+### Shelly device support
 
-This release prepares the data model and user interface for Shelly integration. Physical Shelly discovery, generation detection and control are planned for the following v0.3.0 alpha releases.
+SALTA detects Shelly Gen1 through Gen4 devices locally, stores their technical metadata, polls current state and measurements, and supports switching, dimming and cover commands according to the detected component type.

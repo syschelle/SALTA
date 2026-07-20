@@ -7,6 +7,7 @@ import { config } from "./config.js";
 export class HomeKitBridge {
   private bridge?: Bridge;
   private accessories = new Map<string, Accessory>();
+  private accessoryTypes = new Map<string, Device["type"]>();
   constructor(private registry:DeviceRegistry, private adapter:ShellyAdapter){}
   start():void{
     if(!config.HOMEKIT_ENABLED) return;
@@ -19,7 +20,19 @@ export class HomeKitBridge {
   private sync(d:Device):void{
     if(!this.bridge || !d.homekitEnabled) return;
     let a=this.accessories.get(d.id);
-    if(!a){ a=new Accessory(d.name,uuid.generate(`salta:${d.id}`)); this.addService(a,d); this.bridge.addBridgedAccessory(a); this.accessories.set(d.id,a); }
+    if(a && this.accessoryTypes.get(d.id)!==d.type){
+      this.bridge.removeBridgedAccessory(a);
+      this.accessories.delete(d.id);
+      this.accessoryTypes.delete(d.id);
+      a=undefined;
+    }
+    if(!a){
+      a=new Accessory(d.name,uuid.generate(`salta:${d.id}`));
+      this.addService(a,d);
+      this.bridge.addBridgedAccessory(a);
+      this.accessories.set(d.id,a);
+      this.accessoryTypes.set(d.id,d.type);
+    }
     const service=a.services.find(s=>s.UUID!==Service.AccessoryInformation.UUID); if(!service) return;
     if("on" in d.state) service.updateCharacteristic(Characteristic.On,Boolean(d.state.on));
     if("brightness" in d.state) service.updateCharacteristic(Characteristic.Brightness,Number(d.state.brightness));

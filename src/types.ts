@@ -1,6 +1,7 @@
 export type DeviceType = "outlet" | "switch" | "energyMeter" | "windowCovering" | "thermostat" | "light" | "motionSensor";
 export type DeviceState = Record<string, string | number | boolean | null>;
 export type CredentialMode = "inherit" | "custom" | "none";
+export type ShellyComponentKind = "switch" | "light" | "cover" | "rgb" | "rgbw" | "cct" | "em" | "em1" | "pm1";
 
 export interface Room {
   id: string;
@@ -18,8 +19,19 @@ export interface Device {
   type: DeviceType;
   name: string;
   host?: string;
-  generation?: "gen1" | "rpc";
+  generation?: "gen1" | "gen2" | "gen3" | "gen4" | "rpc";
   model?: string;
+  firmwareVersion?: string;
+  hostname?: string;
+  macAddress?: string;
+  componentKind?: ShellyComponentKind;
+  componentId?: number;
+  channelCount?: number;
+  powerMetering?: boolean;
+  coverSupport?: boolean;
+  switchSupport?: boolean;
+  lightSupport?: boolean;
+  inputSupport?: boolean;
   roomId?: string;
   room?: string;
   reachable: boolean;
