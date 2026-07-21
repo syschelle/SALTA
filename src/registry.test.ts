@@ -64,6 +64,22 @@ describe("DeviceRegistry removal", () => {
     expect(dbMocks.deleteDevice).toHaveBeenCalledTimes(2);
   });
 
+
+  it("does not fail persistence when an integration listener throws", async () => {
+    const registry = new DeviceRegistry();
+    const listenerError = vi.fn();
+    registry.on("device", () => { throw new Error("HOMEKIT_SYNC_FAILED"); });
+    registry.on("listenerError", listenerError);
+
+    await expect(registry.set(device)).resolves.toBeUndefined();
+
+    expect(registry.get(device.id)).toEqual(device);
+    expect(listenerError).toHaveBeenCalledWith(expect.objectContaining({
+      event: "device",
+      deviceId: device.id
+    }));
+  });
+
   it("allows a deliberately re-added device after restore", async () => {
     const registry = new DeviceRegistry();
     await registry.set(device);

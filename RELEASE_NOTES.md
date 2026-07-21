@@ -1,29 +1,29 @@
-# SALTA v0.4.7
+# SALTA v0.4.8
 
-SALTA v0.4.7 adds safe, persistent removal of Shelly devices from the web interface.
+SALTA v0.4.8 fixes the Shelly onboarding error experience and strengthens re-adding devices after removal.
 
 ## Improvements
 
-- Shelly devices can now be removed from their configuration dialog.
-- The confirmation clearly explains that only the SALTA registration is removed; the physical Shelly device is not reset or switched.
-- Removed devices disappear immediately from the dashboard and device count.
-- Associated command history is removed automatically by the existing database cascade.
-- HomeKit accessories belonging to removed devices are detached from the SALTA bridge.
-- A concurrent status refresh cannot recreate a device while it is being deleted.
-- A removed Shelly can be added again later through the normal add-device workflow.
+- Add-device errors are now displayed directly inside the open dialog instead of behind it.
+- The error panel remains visible and includes an API request reference when available.
+- Clear messages are provided for unreachable devices, authentication failures, timeouts, unsupported Shelly responses and invalid custom credentials.
+- A custom credential mode now requires a username before the request is sent to the adapter.
+- Optional integration listener failures can no longer turn a successfully persisted device into an apparent onboarding failure.
+- A deleted Shelly can be added again with the same generated device ID.
 
-## API
+## API behavior
 
-A new endpoint is available:
+Shelly onboarding errors now use stable structured error codes and appropriate HTTP status codes, including:
 
-```http
-DELETE /api/devices/:id
-```
+- `AUTHENTICATION_FAILED`
+- `DEVICE_UNREACHABLE`
+- `DETECTION_TIMEOUT`
+- `UNSUPPORTED_DEVICE`
+- `USERNAME_REQUIRED`
+- `DEVICE_ADD_FAILED`
 
-A successful deletion returns HTTP `204 No Content`. Unknown device IDs return HTTP `404` with a structured JSON error.
+## Quality assurance
 
-## Updating
+The release includes 18 automated tests covering device parsing, deletion, re-adding, registry race protection, API deletion and Shelly onboarding errors.
 
 No manual database migration is required.
-
-Pushing the Git tag `v0.4.7` triggers the `Publish SALTA container` workflow and publishes multi-architecture images for `linux/amd64` and `linux/arm64` with the tags `0.4.7`, `0.4` and `latest`.

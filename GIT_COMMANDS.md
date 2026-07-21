@@ -1,4 +1,4 @@
-# SALTA v0.4.7 – Git and Release Commands
+# SALTA v0.4.8 – Git and Release Commands
 
 ## 1. Prepare and verify
 
@@ -9,42 +9,43 @@ git pull --ff-only origin main
 git status
 npm ci
 npm run check
+node --check public/app.js
 ```
 
-## 2. Commit and push v0.4.7
+## 2. Commit and push v0.4.8
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.7"
+git commit -m "release: SALTA v0.4.8"
 git push origin main
 ```
 
 ## 3. Create and push the release tag
 
 ```bash
-git tag -a v0.4.7 -m "SALTA v0.4.7"
-git push origin v0.4.7
+git tag -a v0.4.8 -m "SALTA v0.4.8"
+git push origin v0.4.8
 ```
 
-Pushing `v0.4.7` starts `.github/workflows/release.yml` and publishes the multi-architecture container images.
+Pushing `v0.4.8` starts `.github/workflows/release.yml` and publishes the multi-architecture container images.
 
 Expected tags:
 
 ```text
-ghcr.io/syschelle/salta:0.4.7
+ghcr.io/syschelle/salta:0.4.8
 ghcr.io/syschelle/salta:0.4
 ghcr.io/syschelle/salta:latest
 ```
 
 ## 4. Create the GitHub release
 
-Run this command from the directory containing `SALTA-v0.4.7.zip`:
+Run this command from the directory containing `SALTA-v0.4.8.zip`:
 
 ```bash
-gh release create v0.4.7 \
-  --title "SALTA v0.4.7" \
+gh release create v0.4.8 \
+  --title "SALTA v0.4.8" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.4.7.zip
+  ./SALTA-v0.4.8.zip
 ```
 
 ## 5. Update an installation
@@ -52,7 +53,7 @@ gh release create v0.4.7 \
 To pin the release explicitly in `.env`:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.7
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.8
 ```
 
 Then run:
@@ -66,7 +67,7 @@ curl -s http://127.0.0.1:8099/api/health
 ## 6. Verify the release
 
 ```bash
-git show v0.4.7 --no-patch
-git ls-remote --tags origin refs/tags/v0.4.7
-gh release view v0.4.7
+git show v0.4.8 --no-patch
+git ls-remote --tags origin refs/tags/v0.4.8
+gh release view v0.4.8
 ```

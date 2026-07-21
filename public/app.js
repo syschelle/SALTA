@@ -7,7 +7,18 @@ const labels={on:'Status',brightness:'Helligkeit',power:'Leistung',energy:'Energ
 const fmt=(k,v)=>{if(typeof v==='boolean')return v?'Ein':'Aus';if(typeof v!=='number')return String(v);const value=Math.round(v*10)/10;const lower=k.toLowerCase();const unit=lower.includes('temperature')?' °C':lower.includes('position')||k==='brightness'||k==='battery'?' %':lower.includes('power')?' W':k==='energy'?' Wh':k==='voltage'?' V':k==='current'?' A':k==='frequency'?' Hz':'';return `${value}${unit}`};
 const displayedState=d=>Object.entries(d.state||{}).filter(([,value])=>value!==null&&value!==undefined&&!(typeof value==='number'&&!Number.isFinite(value))).slice(0,4);
 
-async function api(url,options){const r=await fetch(url,options);if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error?.message||`HTTP ${r.status}`)}return r.status===204?null:r.json()}
+async function api(url,options){
+  const response=await fetch(url,options);
+  if(!response.ok){
+    const payload=await response.json().catch(()=>({}));
+    const error=new Error(payload.error?.message||`HTTP ${response.status}`);
+    error.code=payload.error?.code||`HTTP_${response.status}`;
+    error.status=response.status;
+    error.requestId=payload.error?.requestId;
+    throw error;
+  }
+  return response.status===204?null:response.json();
+}
 async function load(){
   try{
     [all,rooms]=await Promise.all([api('/api/devices'),api('/api/rooms')]);
@@ -37,13 +48,57 @@ async function saveDeviceConfig(){if(!selectedDevice)return;await api(`/api/devi
 async function removeSelectedDevice(){if(!selectedDevice)return;const device=selectedDevice;if(!confirm(`„${device.name}“ wirklich aus SALTA löschen?\n\nDas Shelly-Gerät selbst bleibt unverändert und kann später erneut hinzugefügt werden.`))return;const original=deleteDeviceButton.textContent;deleteDeviceButton.disabled=true;deleteDeviceButton.textContent='Gerät wird gelöscht …';try{await api(`/api/devices/${encodeURIComponent(device.id)}`,{method:'DELETE'});deviceDialog.close();selectedDevice=null;await load();notify('Shelly-Gerät wurde aus SALTA gelöscht.')}finally{deleteDeviceButton.disabled=false;deleteDeviceButton.textContent=original}}
 
 let shellyMode='manual';
-function openAddShelly(){shellyRoom.innerHTML='<option value="">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');addShellyForm.reset();document.querySelector('input[name="shellyCredentialMode"][value="inherit"]').checked=true;toggleCustomShellyCredentials();setShellyMode('manual');addShellyDialog.showModal();shellyHost.focus()}
-function setShellyMode(mode){shellyMode=mode;manualShellyFields.hidden=mode!=='manual';discoveryShellyFields.hidden=mode!=='discovery';manualTab.classList.toggle('active',mode==='manual');discoveryTab.classList.toggle('active',mode==='discovery');manualTab.setAttribute('aria-selected',String(mode==='manual'));discoveryTab.setAttribute('aria-selected',String(mode==='discovery'));shellyHost.required=mode==='manual';if(mode==='discovery')shellySubnet.focus()}
+function clearAddShellyFeedback(){
+  addShellyFeedback.hidden=true;
+  addShellyFeedback.textContent='';
+  addShellyFeedback.classList.remove('success');
+}
+function friendlyShellyError(error){
+  const messages={
+    AUTHENTICATION_FAILED:'Authentifizierung fehlgeschlagen. Prüfe den ausgewählten Zugangsmodus sowie Benutzername und Passwort.',
+    DEVICE_UNREACHABLE:'Das Shelly-Gerät ist unter dieser Adresse nicht erreichbar. Prüfe IP-Adresse, Netzwerk und Stromversorgung.',
+    DETECTION_TIMEOUT:'Die Geräteerkennung hat zu lange gedauert. Prüfe die Verbindung und versuche es erneut.',
+    UNSUPPORTED_DEVICE:'Unter dieser Adresse wurde keine unterstützte Shelly-Schnittstelle erkannt.',
+    INVALID_REQUEST:'Die eingegebenen Gerätedaten sind unvollständig oder ungültig.',
+    USERNAME_REQUIRED:'Für eigene Zugangsdaten ist ein Benutzername erforderlich.',
+    SHELLY_HTTP_ERROR:'Das Shelly-Gerät hat mit einem unerwarteten HTTP-Fehler geantwortet.',
+    DEVICE_ADD_FAILED:'Das Gerät konnte nicht in SALTA gespeichert werden.'
+  };
+  const code=error?.code||'';
+  const message=messages[code]||error?.message||'Das Shelly-Gerät konnte nicht hinzugefügt werden.';
+  return error?.requestId?`${message} Referenz: ${error.requestId}`:message;
+}
+function showAddShellyError(error){
+  addShellyFeedback.textContent=friendlyShellyError(error);
+  addShellyFeedback.hidden=false;
+  addShellyFeedback.classList.remove('success');
+  addShellyFeedback.scrollIntoView({block:'nearest',behavior:'smooth'});
+  addShellyFeedback.focus({preventScroll:true});
+}
+function openAddShelly(){shellyRoom.innerHTML='<option value="">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');addShellyForm.reset();document.querySelector('input[name="shellyCredentialMode"][value="inherit"]').checked=true;clearAddShellyFeedback();toggleCustomShellyCredentials();setShellyMode('manual');addShellyDialog.showModal();shellyHost.focus()}
+function setShellyMode(mode){shellyMode=mode;clearAddShellyFeedback();manualShellyFields.hidden=mode!=='manual';discoveryShellyFields.hidden=mode!=='discovery';manualTab.classList.toggle('active',mode==='manual');discoveryTab.classList.toggle('active',mode==='discovery');manualTab.setAttribute('aria-selected',String(mode==='manual'));discoveryTab.setAttribute('aria-selected',String(mode==='discovery'));shellyHost.required=mode==='manual';if(mode==='discovery')shellySubnet.focus()}
 function selectedShellyCredentialMode(){return document.querySelector('input[name="shellyCredentialMode"]:checked')?.value||'inherit'}
 function toggleCustomShellyCredentials(){customShellyCredentials.hidden=selectedShellyCredentialMode()!=='custom'}
 function toggleDeviceCredentials(){deviceCredentialFields.hidden=credentialMode.value!=='custom'}
-async function addShelly(){const original=addShellyButton.textContent;addShellyButton.disabled=true;addShellyButton.textContent='Verbindung wird geprüft …';try{const body={host:shellyHost.value.trim(),name:shellyDeviceName.value.trim()||undefined,roomId:shellyRoom.value||null,credentialMode:selectedShellyCredentialMode(),username:shellyDeviceUsername.value||undefined,password:shellyDevicePassword.value||undefined};await api('/api/adapters/shelly/devices',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});addShellyDialog.close();await load();notify('Shelly-Gerät wurde hinzugefügt.')}finally{addShellyButton.disabled=false;addShellyButton.textContent=original}}
-async function discoverShellys(){const subnet=shellySubnet.value.trim();if(!subnet)return;const original=discoverShellyButton.textContent;discoverShellyButton.disabled=true;discoverShellyButton.textContent='Netzwerk wird durchsucht …';discoveryResults.innerHTML='<p class="muted">Die Suche läuft. Bitte einen Moment warten …</p>';try{const result=await api('/api/adapters/shelly/discover',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subnet})});discoveryResults.innerHTML=result.devices.length?result.devices.map(d=>`<div class="discovery-item"><div><strong>${escapeHtml(d.name)}</strong><small>${escapeHtml(d.model)} · ${escapeHtml(d.host)} · ${escapeHtml(d.generation)}</small></div><button type="button" onclick="useDiscoveredHost('${escapeHtml(d.host)}','${escapeHtml(d.name)}')">Auswählen</button></div>`).join(''):'<div class="empty-state compact"><strong>Keine Shelly-Geräte gefunden</strong><p class="muted">Prüfe das Netzwerk und versuche es erneut.</p></div>'}catch(error){discoveryResults.innerHTML='';notify(error.message,true)}finally{discoverShellyButton.disabled=false;discoverShellyButton.textContent=original}}
+async function addShelly(){
+  const original=addShellyButton.textContent;
+  clearAddShellyFeedback();
+  addShellyButton.disabled=true;
+  addShellyButton.textContent='Verbindung wird geprüft …';
+  try{
+    const body={host:shellyHost.value.trim(),name:shellyDeviceName.value.trim()||undefined,roomId:shellyRoom.value||null,credentialMode:selectedShellyCredentialMode(),username:shellyDeviceUsername.value||undefined,password:shellyDevicePassword.value||undefined};
+    await api('/api/adapters/shelly/devices',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    addShellyDialog.close();
+    await load();
+    notify('Shelly-Gerät wurde hinzugefügt.');
+  }catch(error){
+    showAddShellyError(error);
+  }finally{
+    addShellyButton.disabled=false;
+    addShellyButton.textContent=original;
+  }
+}
+async function discoverShellys(){const subnet=shellySubnet.value.trim();if(!subnet)return;const original=discoverShellyButton.textContent;clearAddShellyFeedback();discoverShellyButton.disabled=true;discoverShellyButton.textContent='Netzwerk wird durchsucht …';discoveryResults.innerHTML='<p class="muted">Die Suche läuft. Bitte einen Moment warten …</p>';try{const result=await api('/api/adapters/shelly/discover',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({subnet})});discoveryResults.innerHTML=result.devices.length?result.devices.map(d=>`<div class="discovery-item"><div><strong>${escapeHtml(d.name)}</strong><small>${escapeHtml(d.model)} · ${escapeHtml(d.host)} · ${escapeHtml(d.generation)}</small></div><button type="button" onclick="useDiscoveredHost('${escapeHtml(d.host)}','${escapeHtml(d.name)}')">Auswählen</button></div>`).join(''):'<div class="empty-state compact"><strong>Keine Shelly-Geräte gefunden</strong><p class="muted">Prüfe das Netzwerk und versuche es erneut.</p></div>'}catch(error){discoveryResults.innerHTML='';showAddShellyError(error)}finally{discoverShellyButton.disabled=false;discoverShellyButton.textContent=original}}
 function useDiscoveredHost(host,name){shellyHost.value=host;shellyDeviceName.value=name;setShellyMode('manual')}
 function escapeHtml(v){return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
 function routeFromHash(){const value=location.hash.replace('#','');return pages.includes(value)?value:defaultPage}

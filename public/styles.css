@@ -71,3 +71,10 @@ button[disabled]{opacity:.62;cursor:wait}
   .dialog-actions button{width:100%}
 }
 @media(max-width:700px){.danger-zone-content{align-items:stretch;flex-direction:column;padding-left:0}.danger-button{width:100%}}
+/* Add-device feedback */
+.workflow-dialog{max-height:calc(100dvh - 28px);overflow:auto}
+.dialog-feedback{margin:16px 28px 0;padding:13px 15px;border:1px solid #e8aeb6;border-radius:12px;background:#fff1f2;color:#8f1d2c;font-size:14px;font-weight:650;line-height:1.5;white-space:pre-wrap}
+.dialog-feedback[hidden]{display:none}
+.dialog-feedback:focus{outline:3px solid rgba(180,35,50,.18);outline-offset:2px}
+.dialog-feedback.success{border-color:#a8d9c2;background:#eefaf4;color:#166b47}
+@media(max-width:620px){.dialog-feedback{margin:12px 20px 0}}

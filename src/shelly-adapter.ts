@@ -34,10 +34,15 @@ async function requestJson(url: string, username = "", password = "", method = "
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: controller.signal
     });
-    if (!response.ok) throw new Error(response.status === 401 ? "AUTHENTICATION_FAILED" : `HTTP_${response.status}`);
-    return await response.json() as unknown;
+    if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "AUTHENTICATION_FAILED" : `HTTP_${response.status}`);
+    try {
+      return await response.json() as unknown;
+    } catch {
+      throw new Error("INVALID_DEVICE_RESPONSE");
+    }
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") throw new Error("DETECTION_TIMEOUT");
+    if (error instanceof TypeError) throw new Error("DEVICE_UNREACHABLE");
     throw error;
   } finally {
     clearTimeout(timer);

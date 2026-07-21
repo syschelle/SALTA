@@ -24,6 +24,27 @@ const shellyAddSchema = z.object({ host:z.string().trim().min(1).max(255), name:
 const shellyDiscoverySchema = z.object({ subnet:z.string().trim().min(7).max(32) }).strict();
 const shellySettingsSchema = z.object({ username: z.string().max(120).default(""), password: z.string().max(512).optional() }).strict();
 
+
+function shellyRequestError(error: unknown): { status: number; code: string; message: string } {
+  const rawCode = error instanceof Error ? error.message : "SHELLY_REQUEST_FAILED";
+  switch (rawCode) {
+    case "AUTHENTICATION_FAILED":
+      return { status: 401, code: rawCode, message: "Authentication failed. Check the selected Shelly credentials." };
+    case "DEVICE_UNREACHABLE":
+      return { status: 502, code: rawCode, message: "The Shelly device is unreachable at the specified address." };
+    case "DETECTION_TIMEOUT":
+      return { status: 504, code: rawCode, message: "Shelly device detection timed out." };
+    case "INVALID_DEVICE_RESPONSE":
+    case "UNSUPPORTED_SHELLY_DEVICE":
+      return { status: 422, code: "UNSUPPORTED_DEVICE", message: "The device returned an unsupported response." };
+    case "HTTP_404":
+      return { status: 422, code: "UNSUPPORTED_DEVICE", message: "No supported Shelly API was detected at the specified address." };
+    default:
+      if (rawCode.startsWith("HTTP_")) return { status: 502, code: "SHELLY_HTTP_ERROR", message: `The Shelly device returned ${rawCode.replace("HTTP_", "HTTP ")}.` };
+      return { status: 500, code: "DEVICE_ADD_FAILED", message: "The Shelly device could not be added to SALTA." };
+  }
+}
+
 function safeEqual(actual: string, expected: string): boolean {
   const a = Buffer.from(actual); const b = Buffer.from(expected);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -45,7 +66,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch { return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.7", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.8", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
     try { await pool.query("select 1"); return { status: "ready", components: { database: "up", shellyAdapter: "up", devices: registry.all().length } }; }
     catch { return reply.code(503).send({ status: "not-ready", components: { database: "down" } }); }
@@ -118,9 +139,21 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     catch(error){const message=error instanceof Error?error.message:"DISCOVERY_FAILED";return reply.code(400).send({error:{code:message,message,requestId:request.id}});}
   });
   app.post<{Body:unknown}>("/api/adapters/shelly/devices",async(request,reply)=>{
-    const parsed=shellyAddSchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
-    try { let username=parsed.data.username??"",password=parsed.data.password??""; if(parsed.data.credentialMode==="inherit"){const global=await getGlobalShellyCredentials();username=global.username;password=global.password;} if(parsed.data.credentialMode==="none"){username="";password="";} const room=parsed.data.roomId?(await listRooms()).find(x=>x.id===parsed.data.roomId)?.name:undefined; return reply.code(201).send(await shellyAdapter.add(parsed.data.host,username,password,parsed.data.name,parsed.data.roomId??undefined,room,parsed.data.credentialMode)); }
-    catch(error){const message=error instanceof Error?error.message:"SHELLY_ADD_FAILED";return reply.code(message==="AUTHENTICATION_FAILED"?401:400).send({error:{code:message,message,requestId:request.id}});}
+    const parsed=shellyAddSchema.safeParse(request.body);
+    if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message ?? "Invalid device data",requestId:request.id}});
+    if(parsed.data.credentialMode==="custom" && !parsed.data.username?.trim()) return reply.code(400).send({error:{code:"USERNAME_REQUIRED",message:"A username is required for custom credentials",requestId:request.id}});
+    try {
+      let username=parsed.data.username??"",password=parsed.data.password??"";
+      if(parsed.data.credentialMode==="inherit"){const global=await getGlobalShellyCredentials();username=global.username;password=global.password;}
+      if(parsed.data.credentialMode==="none"){username="";password="";}
+      const room=parsed.data.roomId?(await listRooms()).find(x=>x.id===parsed.data.roomId)?.name:undefined;
+      return reply.code(201).send(await shellyAdapter.add(parsed.data.host,username,password,parsed.data.name,parsed.data.roomId??undefined,room,parsed.data.credentialMode));
+    } catch(error) {
+      const response=shellyRequestError(error);
+      if(response.status>=500) request.log.error({err:error,host:parsed.data.host},"Shelly device add failed");
+      else request.log.warn({code:response.code,host:parsed.data.host},"Shelly device add rejected");
+      return reply.code(response.status).send({error:{code:response.code,message:response.message,requestId:request.id}});
+    }
   });
   app.get("/api/adapters", async () => [{ id: "shelly", name: "Shelly", status: "connected", devices: registry.all().filter(x=>x.source==="shelly").length }]);
   app.setErrorHandler((error, request, reply) => { request.log.error({ err: error }, "Unhandled request error"); return reply.code(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error", requestId: request.id } }); });

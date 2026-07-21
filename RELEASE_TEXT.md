@@ -1,63 +1,69 @@
-# SALTA v0.4.7
+# SALTA v0.4.8
 
-SALTA v0.4.7 adds safe and persistent removal of Shelly devices directly from the web interface.
+SALTA v0.4.8 fixes Shelly device onboarding feedback and improves reliability when a removed device is added again.
 
 ## Highlights
 
-- Remove Shelly devices from the device configuration dialog
-- Immediate removal from the dashboard and device registry
-- Automatic cleanup of associated command history
-- Automatic removal of the corresponding HomeKit accessory
-- Protection against devices being recreated by a concurrent status refresh
-- Removed devices can be added again later
+- Add-device errors are now shown inside the open Shelly dialog
+- Clear messages for unreachable devices, authentication failures and timeouts
+- Reliable re-adding of previously removed Shelly devices
+- Structured API error codes and request references
+- Improved isolation between core device persistence and optional integrations
+- Expanded automated test coverage
 
-## Device Removal
+## Add-Device Dialog
 
-Open a Shelly device, select **Configure**, and use the new **Remove device from SALTA** action.
+Previously, onboarding failures were displayed through the global toast notification. Native modal dialogs are rendered in the browser's top layer, so the red toast could appear behind the open dialog and remain unreadable.
 
-A confirmation explains that this action removes only the SALTA registration and locally stored device data. The physical Shelly device is not reset, switched off or otherwise modified.
+SALTA now displays onboarding errors directly inside the dialog. The message remains visible until the user changes the onboarding mode, retries the request or closes the dialog.
 
-After confirmation, SALTA removes:
+The dialog provides clear feedback for:
 
-- The persistent device record
-- Device-specific stored credentials
-- Associated command history
-- The in-memory device entry
-- The corresponding HomeKit accessory
+- Unreachable devices
+- Authentication failures
+- Detection timeouts
+- Unsupported Shelly responses
+- Invalid form data
+- Missing usernames for custom credentials
+- Unexpected persistence failures
+
+When the API provides a request ID, it is included as a reference for log correlation.
+
+## Device Re-Adding
+
+A Shelly device removed from SALTA can be added again through the normal onboarding workflow. The release adds adapter-level coverage proving that the same physical device and generated SALTA device ID can be restored after deletion.
+
+Optional integration listeners, such as HomeKit synchronization, are isolated from core persistence. A listener failure no longer causes an otherwise successful device registration to be reported as failed.
 
 ## API
 
-The release adds:
+The Shelly onboarding endpoint continues to use:
 
 ```http
-DELETE /api/devices/:id
+POST /api/adapters/shelly/devices
 ```
 
-Successful removal returns:
+Errors now return stable codes and appropriate HTTP statuses, including:
 
 ```text
-204 No Content
+AUTHENTICATION_FAILED
+DEVICE_UNREACHABLE
+DETECTION_TIMEOUT
+UNSUPPORTED_DEVICE
+USERNAME_REQUIRED
+DEVICE_ADD_FAILED
 ```
-
-Unknown devices return a structured `404` response.
-
-## Reliability
-
-Device deletion is protected against concurrent adapter refreshes. If a Shelly status request is already running while the device is removed, the stale result cannot restore the deleted device.
-
-A deliberately re-added Shelly is accepted normally through the existing add-device workflow.
 
 ## Quality Assurance
 
-The release includes automated tests for:
+The following checks completed successfully:
 
-- Persistent device removal
-- In-memory registry cleanup
-- Removal events
-- Stale refresh protection
-- Deliberate device re-adding
-
-TypeScript strict type checking, the automated test suite and the production build are executed before release packaging.
+- TypeScript strict type check
+- 18 automated tests
+- Production build
+- Frontend JavaScript syntax validation
+- Shell script syntax validation
+- Compose YAML parsing
 
 ## Updating
 
@@ -66,7 +72,7 @@ No manual database migration is required.
 To pin this release explicitly:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.7
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.8
 ```
 
 Then update with:
@@ -79,7 +85,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.7
+0.4.8
 0.4
 latest
 ```
@@ -87,7 +93,7 @@ latest
 ## Git Tag
 
 ```text
-v0.4.7
+v0.4.8
 ```
 
 ## Full Changelog

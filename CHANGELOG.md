@@ -2,6 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.8
+
+- Added an inline, accessible error panel inside the Shelly add-device dialog so failures are no longer hidden behind the modal.
+- Added clear user-facing messages for unreachable devices, authentication failures, detection timeouts, unsupported responses and invalid credentials.
+- Preserved structured API error codes, HTTP status and request IDs in the frontend API client.
+- Added stable backend error mapping and logging for Shelly onboarding failures.
+- Added validation requiring a username when custom Shelly credentials are selected.
+- Prevented optional integration listener failures from aborting successful device persistence.
+- Added integration coverage proving that a deleted Shelly can be added again with the same device ID.
+- Added API tests for successful onboarding and structured add-device errors.
+
 ## 0.4.7
 
 - Added a device removal action to the Shelly device configuration dialog.
