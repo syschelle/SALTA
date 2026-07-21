@@ -53,6 +53,17 @@ describe("ShellyAdapter device lifecycle", () => {
     expect(dbMocks.deleteDevice).toHaveBeenCalledWith(first.id);
   });
 
+  it("preserves a configured presentation type during status refreshes", async () => {
+    const registry = new DeviceRegistry();
+    const adapter = new ShellyAdapter(registry);
+
+    const added = (await adapter.add("192.168.1.50", "", "", "Extractor", undefined, undefined, "none"))[0]!;
+    await registry.patch(added.id, { presentationType: "fan" });
+    const refreshed = await adapter.refresh(registry.get(added.id)!);
+
+    expect(refreshed.presentationType).toBe("fan");
+  });
+
   it("reports unreachable devices with a stable error code", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
     const adapter = new ShellyAdapter(new DeviceRegistry());

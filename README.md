@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.16` is the current stable release. It provides local Shelly discovery, generation-aware and profile-aware device detection, persistent device and room management, multi-channel 2PM support, calibrated cover-position sliders, live status values, device control, persistent light and dark themes, and an optional HomeKit bridge.
+`v0.4.17` is the current stable release. It provides local Shelly discovery, generation-aware and profile-aware device detection, persistent device and room management, multi-channel 2PM support, calibrated cover-position sliders, live status values, device control, configurable device functions, persistent light and dark themes, and an optional HomeKit bridge.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.16"
+git commit -m "release: SALTA v0.4.17"
 git push origin main
-git tag -a v0.4.16 -m "SALTA v0.4.16"
-git push origin v0.4.16
+git tag -a v0.4.17 -m "SALTA v0.4.17"
+git push origin v0.4.17
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.16
+ghcr.io/<github-owner>/<repository>:0.4.17
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -164,6 +164,10 @@ SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Dev
 ### Multi-profile and multi-channel devices
 
 For compatible Shelly 2PM devices, SALTA reads the active `switch` or `cover` profile. In switch profile, each switch component is registered as an independent device card and can be renamed separately. In cover profile, the paired outputs are represented as one window-covering device. Channel names configured on the Shelly are imported when available.
+
+### Configurable device functions
+
+Compatible on/off devices can be presented as **Automatic**, **Light**, **Switch**, **Outlet** or **Fan** from the device configuration dialog. The physical Shelly type, component ID, measurements and command routing remain unchanged. The selected function controls the SALTA card icon and label as well as the HomeKit service type. Existing devices remain in Automatic mode until changed.
 
 ## Device removal
 

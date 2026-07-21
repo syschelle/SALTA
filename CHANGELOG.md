@@ -2,6 +2,18 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.17
+
+- Added a configurable logical device function for compatible on/off Shelly devices.
+- Added Automatic, Light, Switch, Outlet and Fan presentation options to the shared device configuration dialog.
+- Kept physical Shelly detection and command routing separate from user-selected dashboard and HomeKit presentation.
+- Added HomeKit `Lightbulb`, `Switch`, `Outlet` and `Fanv2` service mappings.
+- Added automatic HomeKit service rebuilding when a device function changes.
+- Persisted the selected function through the automatic `presentation_type` database schema extension.
+- Preserved configured functions during Shelly status refreshes and repeated onboarding.
+- Rejected incompatible presentation assignments for non-switchable devices.
+- Added automated frontend, API, adapter, persistence and HomeKit regression coverage.
+
 ## 0.4.16
 
 - Added a live light/dark theme switch to the sidebar.

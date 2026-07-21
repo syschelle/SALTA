@@ -13,6 +13,6 @@ describe("device display-name editing", () => {
   it("loads and saves the name for every device type", () => {
     expect(source).toContain("deviceName.value=selectedDevice.name");
     expect(source).toContain("const name=deviceName.value.trim()");
-    expect(source).toContain("JSON.stringify({name,roomId:deviceRoom.value||null})");
+    expect(source).toContain("JSON.stringify({name,roomId:deviceRoom.value||null,presentationType})");
   });
 });

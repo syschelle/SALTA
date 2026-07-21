@@ -90,7 +90,7 @@ button[disabled]{opacity:.62;cursor:wait}
 .cover-position-unavailable{margin-top:16px;padding:12px 14px;border-radius:11px;background:var(--subtle-bg);color:var(--muted);font-size:13px;line-height:1.45}
 
 
-/* v0.4.16: persistent light and dark themes */
+/* v0.4.17: persistent themes and configurable device presentation */
 html[data-theme="dark"]{color-scheme:dark;--bg:#0d1117;--card:#151b23;--text:#edf2f7;--muted:#98a4b3;--line:#2a3441;--accent:#7aa2ff;--green:#35c98a;--button-bg:#7aa2ff;--button-text:#0b1220;--input-bg:#10161e;--sidebar-bg:#111821;--subtle-bg:#111821;--accent-bg:#1b2942;--hover-bg:#1a222d;--dialog-tabs-bg:#111821;--empty-bg:#151b23;--mobile-nav-bg:rgba(17,24,33,.96);--toast-bg:#273241;--toast-text:#f7f9fc;--shadow-card:0 8px 26px rgba(0,0,0,.22);--shadow-hover:0 14px 34px rgba(0,0,0,.32);--shadow-floating:0 26px 86px rgba(0,0,0,.5);--backdrop:rgba(0,0,0,.58)}
 body,aside,.mobile-nav,.stats article,.device,.panel,.settings-nav,dialog,.search,input,select,.theme-toggle{transition:background-color .18s ease,color .18s ease,border-color .18s ease,box-shadow .18s ease}
 input,select,textarea{color:var(--text)}

@@ -1,56 +1,76 @@
-# SALTA v0.4.16
+# SALTA v0.4.17
 
-SALTA v0.4.16 adds persistent light and dark themes to the web interface.
+SALTA v0.4.17 adds configurable logical device functions for switchable Shelly devices and improves HomeKit preparation.
 
 ## Highlights
 
-- Live light/dark theme switching
-- Complete dark styling across the application
-- Theme preference remembered for one year
-- No light-theme flash during page loading
-- Accessible theme control and reduced-motion support
-- Browser theme color updated automatically
+- Present compatible Shelly devices as a light, switch, outlet or fan
+- Keep automatic type detection as the default
+- Use the selected function in both SALTA and HomeKit
+- Preserve the physical Shelly type and command target internally
+- Persist the selected function in PostgreSQL
+- Rebuild the HomeKit service automatically after a function change
+- Prevent unsupported assignments for meters, sensors and window coverings
 
-## Appearance Control
+## Device Function Configuration
 
-The SALTA sidebar now includes an appearance switch. Selecting **Dark theme** or **Light theme** updates the complete interface immediately without reloading the page.
+Open a compatible device and select **Configure**. The new **Device function** section offers:
 
-The selected appearance applies to:
+- Automatic
+- Light
+- Switch
+- Outlet
+- Fan
 
-- Dashboard statistics and panels
-- Device and room cards
-- Navigation and mobile navigation
-- Forms, filters and search fields
-- Shelly onboarding and configuration dialogs
-- Window-covering controls
-- Status, warning and error messages
+Automatic mode keeps the type detected from the Shelly model and component. A manual selection changes the logical presentation only. It does not modify the Shelly firmware profile, relay wiring, channel assignment, measurement capabilities or command routing.
 
-## Persistent Preference
+The selector is available for devices that provide independent on/off control, including common Shelly 1, Shelly 1PM, Plug S and compatible relay channels.
 
-SALTA stores the selected appearance in the functional browser cookie:
+## Dashboard
 
-```text
-salta_theme=light|dark
-```
+The selected function controls the icon and type label shown on the SALTA device card. Live state, power and energy values continue to come from the physically detected Shelly component.
 
-The cookie is scoped to the SALTA application path, uses `SameSite=Lax`, and expires after one year. When SALTA is served over HTTPS, the cookie also uses the `Secure` attribute.
+## HomeKit
 
-The saved theme is applied in the document head before the stylesheet loads. This prevents the interface from briefly rendering in the light theme before switching to dark mode.
+SALTA maps the selected function to the corresponding HAP service:
 
-The preference remains local to the browser and is not stored in PostgreSQL or transmitted to external services.
+- Light → `Lightbulb`
+- Switch → `Switch`
+- Outlet → `Outlet`
+- Fan → `Fanv2`
 
-## Accessibility
+Changing the function causes SALTA to rebuild the bridged accessory service with the same stable accessory identity.
 
-The theme switch is a native keyboard-accessible button with a descriptive label and `aria-pressed` state. SALTA also updates `color-scheme` so supported browser controls match the active theme. Theme transitions are disabled when `prefers-reduced-motion` is enabled.
+A relay represented as a fan remains an on/off fan. Variable fan speed is not exposed unless a future adapter provides a real speed-control capability.
+
+## Safety and Compatibility
+
+SALTA keeps the physically detected device type separate from the selected presentation type. This prevents a logical HomeKit or dashboard choice from changing low-level Shelly commands.
+
+Energy meters, motion sensors, thermostats and window coverings cannot be assigned an incompatible relay function.
+
+Existing devices default to **Automatic**, so current installations retain their previous behavior after updating.
+
+## Database Migration
+
+The `presentation_type` column is added automatically during startup. No manual database migration is required.
+
+## Quality Assurance
+
+The following checks completed successfully:
+
+- TypeScript strict type check
+- 58 automated tests
+- Production build
+- Frontend JavaScript syntax validation
+- Shell script syntax validation
 
 ## Updating
 
-No manual database migration is required.
-
-To pin this release:
+Keep the existing `SALTA_ENCRYPTION_KEY` unchanged. To pin this release:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.16
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.17
 ```
 
 Then run:
@@ -60,20 +80,10 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml pull
 docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-recreate --remove-orphans
 ```
 
-## Quality Assurance
-
-The following checks completed successfully:
-
-- TypeScript strict type check
-- Automated tests
-- Production build
-- Frontend JavaScript syntax validation
-- Shell script syntax validation
-
 ## Container Tags
 
 ```text
-0.4.16
+0.4.17
 0.4
 latest
 ```
@@ -81,7 +91,7 @@ latest
 ## Git Tag
 
 ```text
-v0.4.16
+v0.4.17
 ```
 
 ## Full Changelog

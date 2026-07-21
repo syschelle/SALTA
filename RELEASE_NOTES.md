@@ -1,27 +1,9 @@
-# SALTA v0.4.16
+# SALTA v0.4.17
 
-SALTA v0.4.16 adds persistent light and dark themes to the web interface.
+SALTA v0.4.17 adds configurable logical device functions for switchable Shelly devices.
 
-## Added
+A Shelly relay, outlet or light can now be presented as an automatically detected device, light, switch, outlet or fan. The physical Shelly type and command routing remain unchanged, while the selected function controls the dashboard icon, device label and HomeKit service.
 
-- A live appearance switch in the sidebar
-- A complete dark palette for dashboards, cards, dialogs, forms and navigation
-- One-year persistence through the functional `salta_theme` cookie
-- Early theme restoration before the stylesheet renders
-- Matching browser theme colors and native form-control appearance
+The release adds persistent storage for the selected function, automatic schema migration, HomeKit `Lightbulb`, `Switch`, `Outlet` and `Fanv2` mappings, and protection against assigning these functions to non-switchable devices such as energy meters or window coverings.
 
-## Accessibility
-
-The theme control exposes a descriptive label and pressed state to assistive technologies. Theme transitions are disabled when the browser requests reduced motion.
-
-## Privacy
-
-The selected appearance is stored only in the user's browser. It is not written to PostgreSQL and is not sent to external services.
-
-## Compatibility
-
-No database migration is required. Existing installations start in the light theme until a user selects the dark theme.
-
-## Quality assurance
-
-The release passes TypeScript strict checking, automated tests, frontend JavaScript syntax validation and the production build.
+No manual database migration is required.

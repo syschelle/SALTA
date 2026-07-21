@@ -50,7 +50,7 @@ export class DeviceRegistry extends EventEmitter {
     }
   }
 
-  async patch(id: string, patch: Partial<Pick<Device,"name"|"roomId"|"room"|"homekitEnabled">>): Promise<Device> {
+  async patch(id: string, patch: Partial<Pick<Device,"name"|"roomId"|"room"|"homekitEnabled"|"presentationType">>): Promise<Device> {
     const current=this.devices.get(id); if(!current) throw new Error("DEVICE_NOT_FOUND");
     const next={...current,...patch}; await this.set(next); return next;
   }

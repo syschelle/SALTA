@@ -1,4 +1,5 @@
 export type DeviceType = "outlet" | "switch" | "energyMeter" | "windowCovering" | "thermostat" | "light" | "motionSensor";
+export type DevicePresentationType = "auto" | "outlet" | "switch" | "light" | "fan";
 export type DeviceState = Record<string, string | number | boolean | null>;
 export type CredentialMode = "inherit" | "custom" | "none";
 export type ShellyComponentKind = "switch" | "light" | "cover" | "rgb" | "rgbw" | "cct" | "em" | "em1" | "pm1";
@@ -17,6 +18,7 @@ export interface Device {
   source: string;
   sourceId: string;
   type: DeviceType;
+  presentationType?: DevicePresentationType;
   name: string;
   host?: string;
   generation?: "gen1" | "gen2" | "gen3" | "gen4" | "rpc";

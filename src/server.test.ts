@@ -100,6 +100,44 @@ describe("PATCH /api/devices/:id/config", () => {
       room: undefined
     });
   });
+  it("assigns a fan presentation type to an on/off Shelly relay", async () => {
+    const current = {
+      id: "shelly:relay", type: "switch", capabilities: ["turnOn", "turnOff", "toggle"]
+    };
+    const updatedDevice = { ...current, presentationType: "fan" };
+    const patch = vi.fn(async () => updatedDevice as never);
+    const server = createServer(vi.fn(), vi.fn(), { get: () => current as never, patch });
+
+    const response = await server.inject({
+      method: "PATCH",
+      url: "/api/devices/shelly%3Arelay/config",
+      payload: { presentationType: "fan" }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(patch).toHaveBeenCalledWith("shelly:relay", {
+      presentationType: "fan",
+      roomId: undefined,
+      room: undefined
+    });
+  });
+
+  it("rejects presentation overrides for non-switchable devices", async () => {
+    const current = { id: "shelly:3em", type: "energyMeter", capabilities: [] };
+    const patch = vi.fn();
+    const server = createServer(vi.fn(), vi.fn(), { get: () => current as never, patch });
+
+    const response = await server.inject({
+      method: "PATCH",
+      url: "/api/devices/shelly%3A3em/config",
+      payload: { presentationType: "fan" }
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: "PRESENTATION_TYPE_NOT_SUPPORTED" } });
+    expect(patch).not.toHaveBeenCalled();
+  });
+
 });
 
 

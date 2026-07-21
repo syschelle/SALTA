@@ -7,12 +7,14 @@ import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
 import { createRoom, deleteRoom, getGlobalShellyCredentials, getShellySettings, inspectCredentialEncryption, listRooms, pool, updateRoom, updateShellySettings } from "./db.js";
 import { config } from "./config.js";
+import { supportsPresentationOverride } from "./device-presentation.js";
 
 const commandSchema = z.object({ capability: z.string().min(1).max(80), value: z.union([z.string(), z.number(), z.boolean()]).optional() });
 const patchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   roomId: z.string().uuid().nullable().optional(),
-  homekitEnabled: z.boolean().optional()
+  homekitEnabled: z.boolean().optional(),
+  presentationType: z.enum(["auto", "outlet", "switch", "light", "fan"]).optional()
 }).strict();
 const credentialSchema = z.object({
   credentialMode: z.enum(["inherit","custom","none"]),
@@ -68,7 +70,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch { return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.16", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.17", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
     try {
       await pool.query("select 1");
@@ -114,6 +116,11 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   app.patch<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/config", async (request, reply) => {
     const parsed = patchSchema.safeParse(request.body); if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
     try {
+      if (parsed.data.presentationType && parsed.data.presentationType !== "auto") {
+        const current = registry.get(request.params.id);
+        if (!current) return reply.code(404).send({ error: { code: "DEVICE_NOT_FOUND", message: "Device not found", requestId: request.id } });
+        if (!supportsPresentationOverride(current)) return reply.code(409).send({ error: { code: "PRESENTATION_TYPE_NOT_SUPPORTED", message: "This device cannot be assigned a switch, outlet, light or fan function.", requestId: request.id } });
+      }
       let room: string | undefined;
       if (parsed.data.roomId) room=(await listRooms()).find(item=>item.id===parsed.data.roomId)?.name;
       return await registry.patch(request.params.id,{...parsed.data,roomId:parsed.data.roomId ?? undefined,room});

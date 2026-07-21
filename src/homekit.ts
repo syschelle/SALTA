@@ -3,11 +3,12 @@ import type { Device } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
 import { config } from "./config.js";
+import { resolvePresentationType, type ResolvedPresentationType } from "./device-presentation.js";
 
 export class HomeKitBridge {
   private bridge?: Bridge;
   private accessories = new Map<string, Accessory>();
-  private accessoryTypes = new Map<string, Device["type"]>();
+  private accessoryTypes = new Map<string, ResolvedPresentationType>();
   private accessoryNames = new Map<string, string>();
   constructor(private registry:DeviceRegistry, private adapter:ShellyAdapter){}
   start():void{
@@ -28,8 +29,9 @@ export class HomeKitBridge {
   }
   private sync(d:Device):void{
     if(!this.bridge || !d.homekitEnabled) return;
+    const serviceType=resolvePresentationType(d);
     let a=this.accessories.get(d.id);
-    if(a && (this.accessoryTypes.get(d.id)!==d.type || this.accessoryNames.get(d.id)!==d.name)){
+    if(a && (this.accessoryTypes.get(d.id)!==serviceType || this.accessoryNames.get(d.id)!==d.name)){
       this.bridge.removeBridgedAccessory(a);
       this.accessories.delete(d.id);
       this.accessoryTypes.delete(d.id);
@@ -38,35 +40,43 @@ export class HomeKitBridge {
     }
     if(!a){
       a=new Accessory(d.name,uuid.generate(`salta:${d.id}`));
-      this.addService(a,d);
+      this.addService(a,d,serviceType);
       this.bridge.addBridgedAccessory(a);
       this.accessories.set(d.id,a);
-      this.accessoryTypes.set(d.id,d.type);
+      this.accessoryTypes.set(d.id,serviceType);
       this.accessoryNames.set(d.id,d.name);
     }
     const service=a.services.find(s=>s.UUID!==Service.AccessoryInformation.UUID); if(!service) return;
-    if("on" in d.state) service.updateCharacteristic(Characteristic.On,Boolean(d.state.on));
-    if("brightness" in d.state) service.updateCharacteristic(Characteristic.Brightness,Number(d.state.brightness));
+    if("on" in d.state){
+      if(serviceType==="fan") service.updateCharacteristic(Characteristic.Active,Boolean(d.state.on)?Characteristic.Active.ACTIVE:Characteristic.Active.INACTIVE);
+      else service.updateCharacteristic(Characteristic.On,Boolean(d.state.on));
+      if(serviceType==="outlet") service.updateCharacteristic(Characteristic.OutletInUse,Boolean(d.state.on));
+    }
+    if("brightness" in d.state && serviceType==="light") service.updateCharacteristic(Characteristic.Brightness,Number(d.state.brightness));
     if("motion" in d.state) service.updateCharacteristic(Characteristic.MotionDetected,Boolean(d.state.motion));
     if("currentTemperature" in d.state) service.updateCharacteristic(Characteristic.CurrentTemperature,Number(d.state.currentTemperature));
     if("targetTemperature" in d.state) service.updateCharacteristic(Characteristic.TargetTemperature,Number(d.state.targetTemperature));
     if("currentPosition" in d.state) service.updateCharacteristic(Characteristic.CurrentPosition,Number(d.state.currentPosition));
     if("targetPosition" in d.state) service.updateCharacteristic(Characteristic.TargetPosition,Number(d.state.targetPosition));
   }
-  private addService(a:Accessory,d:Device):void{
+  private addService(a:Accessory,d:Device,serviceType:ResolvedPresentationType):void{
     let s:Service;
-    switch(d.type){
+    switch(serviceType){
       case "outlet": s=a.addService(Service.Outlet,d.name); break;
       case "switch": s=a.addService(Service.Switch,d.name); break;
       case "light": s=a.addService(Service.Lightbulb,d.name); break;
+      case "fan": s=a.addService(Service.Fanv2,d.name); break;
       case "motionSensor": s=a.addService(Service.MotionSensor,d.name); break;
       case "thermostat": s=a.addService(Service.Thermostat,d.name); break;
       case "windowCovering": s=a.addService(Service.WindowCovering,d.name); break;
       default: s=a.addService(Service.Switch,d.name); break;
     }
     const cmd=(capability:string,value?:unknown)=>void this.adapter.command({deviceId:d.id,capability,value:value as never,source:"homekit"}).catch(()=>undefined);
-    if(d.capabilities.includes("turnOn")) s.getCharacteristic(Characteristic.On).onSet(v=>cmd(v?"turnOn":"turnOff"));
-    if(d.capabilities.includes("setBrightness")) s.getCharacteristic(Characteristic.Brightness).onSet(v=>cmd("setBrightness",Number(v)));
+    if(d.capabilities.includes("turnOn")){
+      if(serviceType==="fan") s.getCharacteristic(Characteristic.Active).onSet(v=>cmd(Number(v)===Characteristic.Active.ACTIVE?"turnOn":"turnOff"));
+      else s.getCharacteristic(Characteristic.On).onSet(v=>cmd(v?"turnOn":"turnOff"));
+    }
+    if(serviceType==="light" && d.capabilities.includes("setBrightness")) s.getCharacteristic(Characteristic.Brightness).onSet(v=>cmd("setBrightness",Number(v)));
     if(d.capabilities.includes("setTargetTemperature")) s.getCharacteristic(Characteristic.TargetTemperature).onSet(v=>cmd("setTargetTemperature",Number(v)));
     if(d.capabilities.includes("setTargetPosition")) s.getCharacteristic(Characteristic.TargetPosition).onSet(v=>cmd("setTargetPosition",Number(v)));
   }
