@@ -1,52 +1,76 @@
-# SALTA v0.4.13
+# SALTA v0.4.14
 
-SALTA v0.4.13 improves Gen2+ Shelly onboarding and fixes compatibility with Shelly Plus 2PM devices that were incorrectly reported as unsupported.
+SALTA v0.4.14 adds profile-aware onboarding for multi-profile Shelly 2PM devices and exposes both switch channels as independent devices.
 
 ## Highlights
 
-- Reliable Shelly Plus 2PM detection
-- Public `/shelly` identity probing for Gen2, Gen3 and Gen4
-- RFC 7616 Digest authentication with SHA-256 support
-- Compatible parameterless RPC status requests
-- JSON-RPC frame fallback for firmware-specific endpoint behavior
-- Expanded automated adapter and parser coverage
+- Reads the active `switch` or `cover` profile from Shelly device information
+- Reads component configuration and channel names through `Shelly.GetConfig`
+- Creates two independent device cards for a 2PM in switch profile
+- Creates one window-covering device for a 2PM in cover profile
+- Routes commands and live values to the correct component ID
+- Preserves existing names and room assignments when a device is added again
 
-## Gen2+ Device Detection
+## Shelly 2PM Profiles
 
-SALTA now identifies Gen2, Gen3 and Gen4 devices through the public `/shelly` endpoint before requesting their full status. This avoids treating a status-call compatibility error as proof that the device is not a supported Shelly.
+Shelly Plus 2PM, Pro 2PM and compatible multi-profile devices can expose different component sets depending on their active profile.
 
-For parameterless methods such as `Shelly.GetStatus`, SALTA first uses the documented HTTP GET endpoint. If a firmware version rejects that endpoint with HTTP 400, 404 or 405, SALTA retries through `/rpc` with a complete JSON-RPC request frame.
+### Switch profile
 
-## Authentication
+When the device reports the `switch` profile, SALTA registers every `switch:<id>` component separately. A two-channel 2PM therefore appears as two independent devices, each with:
 
-Protected Gen2+ HTTP RPC calls now support RFC 7616 Digest authentication, including the SHA-256 algorithm used by current Shelly firmware.
+- Its own dashboard card
+- Its own on/off state
+- Its own power and energy values when available
+- Its own configurable SALTA display name
+- Its own command target (`Switch` component ID 0 or 1)
 
-Gen1 devices continue to use their existing Basic authentication flow.
+Names configured directly on the Shelly are imported from `Shelly.GetConfig`. When no channel name is configured, SALTA generates a numbered fallback name.
 
-## Shelly Plus 2PM
+### Cover profile
 
-The release adds explicit regression coverage for the Shelly Plus 2PM switch profile, including:
+When the device reports the `cover` profile, SALTA registers the unified `cover:0` component as one window-covering device. The two relay outputs are not shown as independent switches because the Shelly firmware controls them together as a motorized cover.
 
-- Device identification
-- Two detected switch channels
-- Current state and power parsing for the primary channel
-- Digest-authenticated status requests
-- JSON-RPC fallback behavior
+## Existing Installations
 
-The current SALTA device model registers the primary controllable channel and records the physical channel count. Independent dashboard cards and names for every channel remain separate multi-channel UI work.
+No manual database migration is required. SALTA adds the optional device-profile field automatically during startup.
 
-## Diagnostics
+A Shelly 2PM that was already added with an earlier SALTA version can be added again using the same IP address. SALTA keeps the existing primary device ID, preserves its current name and room when no replacement values are entered, and creates the missing second switch channel.
 
-Rejected onboarding attempts now record the original error object together with the request ID and device host in the structured SALTA log. This makes future reference IDs directly useful during troubleshooting.
+## API
+
+The existing onboarding endpoint remains:
+
+```http
+POST /api/adapters/shelly/devices
+```
+
+Its response now also contains:
+
+```json
+{
+  "addedDevices": 2
+}
+```
+
+for a two-channel switch profile. Existing primary-device response fields remain available for compatibility.
+
+## Quality Assurance
+
+The following checks completed successfully:
+
+- TypeScript strict type check
+- 40 automated tests
+- Production build
+- Frontend JavaScript syntax validation
+- Shell script syntax validation
 
 ## Updating
 
-No manual database migration is required.
-
-To pin this release:
+Keep the existing `SALTA_ENCRYPTION_KEY` unchanged. To pin this release:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.13
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.14
 ```
 
 Then run:
@@ -56,20 +80,10 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml pull
 docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-recreate --remove-orphans
 ```
 
-## Quality Assurance
-
-The following checks completed successfully:
-
-- TypeScript strict type check
-- 35 automated tests
-- Production build
-- Frontend JavaScript syntax validation
-- Shell script syntax validation
-
 ## Container Tags
 
 ```text
-0.4.13
+0.4.14
 0.4
 latest
 ```
@@ -77,7 +91,7 @@ latest
 ## Git Tag
 
 ```text
-v0.4.13
+v0.4.14
 ```
 
 ## Full Changelog

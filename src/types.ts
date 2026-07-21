@@ -24,6 +24,7 @@ export interface Device {
   firmwareVersion?: string;
   hostname?: string;
   macAddress?: string;
+  profile?: string;
   componentKind?: ShellyComponentKind;
   componentId?: number;
   channelCount?: number;

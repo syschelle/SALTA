@@ -30,6 +30,7 @@ describe("ShellyAdapter device lifecycle", () => {
       if (url.endsWith("/rpc/Shelly.GetStatus")) {
         return jsonResponse({ "switch:0": { output: false, apower: 0 } });
       }
+      if (url.endsWith("/rpc/Shelly.GetConfig")) return jsonResponse({});
       return jsonResponse({}, 404);
     }));
   });
@@ -42,9 +43,9 @@ describe("ShellyAdapter device lifecycle", () => {
     const registry = new DeviceRegistry();
     const adapter = new ShellyAdapter(registry);
 
-    const first = await adapter.add("192.168.1.50", "", "", "Test Shelly", undefined, undefined, "none");
+    const first = (await adapter.add("192.168.1.50", "", "", "Test Shelly", undefined, undefined, "none"))[0]!;
     await adapter.remove(first.id);
-    const second = await adapter.add("192.168.1.50", "", "", "Test Shelly", undefined, undefined, "none");
+    const second = (await adapter.add("192.168.1.50", "", "", "Test Shelly", undefined, undefined, "none"))[0]!;
 
     expect(second.id).toBe(first.id);
     expect(registry.get(first.id)).toEqual(second);
@@ -80,6 +81,13 @@ describe("ShellyAdapter Gen2+ probing", () => {
           "switch:1": { id: 1, output: false, apower: 0 }
         });
       }
+      if (url.endsWith("/rpc/Shelly.GetConfig")) {
+        return jsonResponse({
+          sys: { device: { name: "Kitchen 2PM" } },
+          "switch:0": { id: 0, name: "Ceiling" },
+          "switch:1": { id: 1, name: "Cabinet" }
+        });
+      }
       return jsonResponse({}, 404);
     }));
 
@@ -88,6 +96,9 @@ describe("ShellyAdapter Gen2+ probing", () => {
     expect(result.model).toBe("Plus2PM");
     expect(result.device.channelCount).toBe(2);
     expect(result.device.state).toMatchObject({ on: true, power: 18.2 });
+    const all = await new ShellyAdapter(new DeviceRegistry()).probeAll("192.168.1.60");
+    expect(all.map(item => item.device.name)).toEqual(["Ceiling", "Cabinet"]);
+    expect(all.map(item => item.device.componentId)).toEqual([0, 1]);
     expect(calls).toContainEqual({ url: "http://192.168.1.60/rpc/Shelly.GetStatus", method: "GET" });
     expect(calls.some(call => call.url.endsWith("/settings"))).toBe(false);
   });
@@ -141,5 +152,76 @@ describe("ShellyAdapter Gen2+ probing", () => {
     const result = await new ShellyAdapter(new DeviceRegistry()).probe("192.168.1.62");
     expect(result.device.channelCount).toBe(2);
     expect(result.device.state.on).toBe(false);
+  });
+});
+
+
+describe("ShellyAdapter multi-profile onboarding", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("registers two logical devices for a 2PM in switch profile", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/shelly")) return jsonResponse({ id: "plus2pm-multi", app: "Plus2PM", gen: 2, profile: "switch" });
+      if (url.endsWith("/rpc/Shelly.GetStatus")) return jsonResponse({
+        "switch:0": { id: 0, output: true, apower: 20 },
+        "switch:1": { id: 1, output: false, apower: 0 }
+      });
+      if (url.endsWith("/rpc/Shelly.GetConfig")) return jsonResponse({
+        "switch:0": { id: 0, name: "Main light" },
+        "switch:1": { id: 1, name: "Wall light" }
+      });
+      return jsonResponse({}, 404);
+    }));
+
+    const registry = new DeviceRegistry();
+    const devices = await new ShellyAdapter(registry).add("192.168.1.70", "", "", undefined, undefined, undefined, "none");
+
+    expect(devices).toHaveLength(2);
+    expect(registry.all()).toHaveLength(2);
+    expect(devices.map(device => device.name)).toEqual(["Main light", "Wall light"]);
+    expect(devices.map(device => device.componentId)).toEqual([0, 1]);
+    expect(devices[0]!.id).not.toBe(devices[1]!.id);
+  });
+
+  it("sends commands to the selected second switch channel", async () => {
+    const commandBodies: unknown[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/shelly")) return jsonResponse({ id: "plus2pm-command", app: "Plus2PM", gen: 2, profile: "switch" });
+      if (url.endsWith("/rpc/Shelly.GetStatus")) return jsonResponse({
+        "switch:0": { id: 0, output: false },
+        "switch:1": { id: 1, output: false }
+      });
+      if (url.endsWith("/rpc/Shelly.GetConfig")) return jsonResponse({});
+      if (url.endsWith("/rpc/Switch.Set") && init?.method === "POST") {
+        commandBodies.push(JSON.parse(String(init.body)));
+        return jsonResponse({ was_on: false });
+      }
+      return jsonResponse({}, 404);
+    }));
+
+    const registry = new DeviceRegistry();
+    const adapter = new ShellyAdapter(registry);
+    const devices = await adapter.add("192.168.1.72", "", "", undefined, undefined, undefined, "none");
+    await adapter.command({ deviceId: devices[1]!.id, capability: "turnOn", source: "api" });
+
+    expect(commandBodies).toContainEqual({ id: 1, on: true });
+  });
+
+  it("registers one window covering for a 2PM in cover profile", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/shelly")) return jsonResponse({ id: "plus2pm-cover", app: "Plus2PM", gen: 2, profile: "cover" });
+      if (url.endsWith("/rpc/Shelly.GetStatus")) return jsonResponse({ "cover:0": { id: 0, state: "stopped", current_pos: 55 } });
+      if (url.endsWith("/rpc/Shelly.GetConfig")) return jsonResponse({ "cover:0": { id: 0, name: "Shutter" } });
+      return jsonResponse({}, 404);
+    }));
+
+    const registry = new DeviceRegistry();
+    const devices = await new ShellyAdapter(registry).add("192.168.1.71", "", "", undefined, undefined, undefined, "none");
+
+    expect(devices).toHaveLength(1);
+    expect(devices[0]).toMatchObject({ type: "windowCovering", profile: "cover", name: "Shutter", componentId: 0 });
   });
 });

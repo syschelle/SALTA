@@ -2,6 +2,18 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.14
+
+- Added active `switch` and `cover` profile detection for Shelly 2PM-class devices.
+- Added `Shelly.GetConfig` retrieval for component configuration and channel names.
+- Registered every switch component as an independent SALTA device in switch profile.
+- Registered one unified window-covering device in cover profile.
+- Routed live state refreshes and commands to the matching component ID.
+- Persisted the detected device profile through an automatic database schema extension.
+- Preserved existing primary-device names and room assignments when a multi-channel device is added again without replacement values.
+- Added channel metadata to device cards and channel-aware onboarding feedback.
+- Added regression coverage for two-channel onboarding, cover onboarding and second-channel commands.
+
 ## 0.4.13
 
 - Improved Gen2, Gen3 and Gen4 onboarding through the public `/shelly` identity endpoint.

@@ -68,7 +68,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch { return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.13", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.14", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
     try {
       await pool.query("select 1");
@@ -166,7 +166,10 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       if(parsed.data.credentialMode==="inherit"){const global=await getGlobalShellyCredentials();username=global.username;password=global.password;}
       if(parsed.data.credentialMode==="none"){username="";password="";}
       const room=parsed.data.roomId?(await listRooms()).find(x=>x.id===parsed.data.roomId)?.name:undefined;
-      return reply.code(201).send(await shellyAdapter.add(parsed.data.host,username,password,parsed.data.name,parsed.data.roomId??undefined,room,parsed.data.credentialMode));
+      const devices=await shellyAdapter.add(parsed.data.host,username,password,parsed.data.name,parsed.data.roomId??undefined,room,parsed.data.credentialMode);
+      const primary=devices[0];
+      if(!primary) throw new Error("UNSUPPORTED_SHELLY_DEVICE");
+      return reply.code(201).send({...primary,addedDevices:devices.length});
     } catch(error) {
       const response=shellyRequestError(error);
       if(response.status>=500) request.log.error({err:error,host:parsed.data.host},"Shelly device add failed");

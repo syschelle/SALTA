@@ -11,6 +11,7 @@ type ComponentEntry = {
 
 export interface ShellyDetection {
   type: DeviceType;
+  profile?: string;
   state: DeviceState;
   capabilities: string[];
   componentKind?: ShellyComponentKind;
@@ -211,40 +212,14 @@ function energyMeterState(entries: ComponentEntry[]): DeviceState {
   return state;
 }
 
-export function detectRpcShelly(info: unknown, status: unknown): ShellyDetection {
-  const infoRecord = record(info);
-  const entries = componentEntries(status);
-  const identity = normalizeIdentity(infoRecord.app, infoRecord.model, infoRecord.name, infoRecord.id);
-  const profile = text(infoRecord.profile)?.toLowerCase();
-
-  const covers = entries.filter(entry => entry.kind === "cover");
-  const lights = entries.filter(entry => ["light", "rgb", "rgbw", "cct"].includes(entry.kind));
-  const switches = entries.filter(entry => entry.kind === "switch");
-  const energyMeters = entries.filter(entry => ["em", "em1", "pm1"].includes(entry.kind));
-  const inputs = Object.keys(record(status)).filter(key => /^input:\d+$/i.test(key));
-
-  let primary: ComponentEntry | undefined;
-  let type: DeviceType;
-  if ((profile === "cover" || covers.length > 0) && covers.length > 0) {
-    primary = covers[0];
-    type = "windowCovering";
-  } else if (lights.length > 0 || isLight(identity)) {
-    primary = lights[0];
-    type = "light";
-  } else if (isDedicatedEnergyMeter(identity) && energyMeters.length > 0) {
-    primary = energyMeters[0];
-    type = "energyMeter";
-  } else if (switches.length > 0) {
-    primary = switches[0];
-    type = isOutlet(identity) ? "outlet" : "switch";
-  } else if (energyMeters.length > 0) {
-    primary = energyMeters[0];
-    type = "energyMeter";
-  } else {
-    throw new Error("UNSUPPORTED_SHELLY_DEVICE");
-  }
-  if (!primary) throw new Error("UNSUPPORTED_SHELLY_DEVICE");
-
+function detectionForComponent(
+  type: DeviceType,
+  primary: ComponentEntry,
+  entries: ComponentEntry[],
+  profile: string | undefined,
+  channelCount: number,
+  inputSupport: boolean
+): ShellyDetection {
   let state: DeviceState;
   if (type === "windowCovering") {
     state = coverState(primary.value);
@@ -254,13 +229,14 @@ export function detectRpcShelly(info: unknown, status: unknown): ShellyDetection
     state = switchOrLightState(primary.value, meterFor(entries, primary.id), type === "light");
   }
 
-  const channelCount = type === "windowCovering" ? covers.length
-    : type === "light" ? lights.length
-      : type === "energyMeter" ? energyMeters.length
-        : switches.length;
+  const covers = entries.filter(entry => entry.kind === "cover");
+  const lights = entries.filter(entry => ["light", "rgb", "rgbw", "cct"].includes(entry.kind));
+  const switches = entries.filter(entry => entry.kind === "switch");
+  const energyMeters = entries.filter(entry => ["em", "em1", "pm1"].includes(entry.kind));
 
   return {
     type,
+    profile,
     state,
     capabilities: capabilities(type),
     componentKind: primary.kind,
@@ -270,8 +246,62 @@ export function detectRpcShelly(info: unknown, status: unknown): ShellyDetection
     coverSupport: covers.length > 0,
     switchSupport: switches.length > 0,
     lightSupport: lights.length > 0,
-    inputSupport: inputs.length > 0
+    inputSupport
   };
+}
+
+/**
+ * Detect every independently controllable logical device exposed by a Gen2+
+ * Shelly. Multi-profile two-channel devices expose one cover in cover profile
+ * and one logical switch per Switch component in switch profile.
+ */
+export function detectRpcShellyComponents(info: unknown, status: unknown): ShellyDetection[] {
+  const infoRecord = record(info);
+  const entries = componentEntries(status);
+  const identity = normalizeIdentity(infoRecord.app, infoRecord.model, infoRecord.name, infoRecord.id);
+  const declaredProfile = text(infoRecord.profile)?.toLowerCase();
+
+  const covers = entries.filter(entry => entry.kind === "cover").sort((a, b) => a.id - b.id);
+  const lights = entries.filter(entry => ["light", "rgb", "rgbw", "cct"].includes(entry.kind)).sort((a, b) => a.id - b.id);
+  const switches = entries.filter(entry => entry.kind === "switch").sort((a, b) => a.id - b.id);
+  const energyMeters = entries.filter(entry => ["em", "em1", "pm1"].includes(entry.kind)).sort((a, b) => a.id - b.id);
+  const inputs = Object.keys(record(status)).filter(key => /^input:\d+$/i.test(key));
+  const inputSupport = inputs.length > 0;
+
+  // The active component set is the most reliable fallback when older firmware
+  // omits profile from Shelly.GetDeviceInfo or /shelly.
+  const profile = declaredProfile ?? (covers.length > 0 ? "cover" : switches.length > 1 ? "switch" : undefined);
+
+  if ((profile === "cover" || covers.length > 0) && covers.length > 0) {
+    return [detectionForComponent("windowCovering", covers[0]!, entries, "cover", 1, inputSupport)];
+  }
+
+  if (lights.length > 0 || isLight(identity)) {
+    const primary = lights[0];
+    if (!primary) throw new Error("UNSUPPORTED_SHELLY_DEVICE");
+    return [detectionForComponent("light", primary, entries, profile, lights.length, inputSupport)];
+  }
+
+  if (isDedicatedEnergyMeter(identity) && energyMeters.length > 0) {
+    return [detectionForComponent("energyMeter", energyMeters[0]!, entries, profile, energyMeters.length, inputSupport)];
+  }
+
+  if (switches.length > 0) {
+    const type: DeviceType = isOutlet(identity) ? "outlet" : "switch";
+    return switches.map(primary => detectionForComponent(type, primary, entries, profile ?? "switch", switches.length, inputSupport));
+  }
+
+  if (energyMeters.length > 0) {
+    return [detectionForComponent("energyMeter", energyMeters[0]!, entries, profile, energyMeters.length, inputSupport)];
+  }
+
+  throw new Error("UNSUPPORTED_SHELLY_DEVICE");
+}
+
+export function detectRpcShelly(info: unknown, status: unknown): ShellyDetection {
+  const detection = detectRpcShellyComponents(info, status)[0];
+  if (!detection) throw new Error("UNSUPPORTED_SHELLY_DEVICE");
+  return detection;
 }
 
 function firstRecordItem(value: unknown): JsonRecord {

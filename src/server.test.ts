@@ -106,7 +106,7 @@ describe("PATCH /api/devices/:id/config", () => {
 describe("POST /api/adapters/shelly/devices", () => {
   it("adds a Shelly device without authentication", async () => {
     const addedDevice = { id: "shelly:test", name: "Test Shelly" };
-    const add = vi.fn(async () => addedDevice as never);
+    const add = vi.fn(async () => [addedDevice] as never);
     const server = createServer(vi.fn(), add);
 
     const response = await server.inject({
@@ -116,7 +116,7 @@ describe("POST /api/adapters/shelly/devices", () => {
     });
 
     expect(response.statusCode).toBe(201);
-    expect(response.json()).toEqual(addedDevice);
+    expect(response.json()).toEqual({ ...addedDevice, addedDevices: 1 });
     expect(add).toHaveBeenCalledWith("192.168.1.50", "", "", undefined, undefined, undefined, "none");
   });
 

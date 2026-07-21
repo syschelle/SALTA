@@ -51,7 +51,7 @@ async function refreshLiveData(){
 function renderFilters(){const current=roomFilter.value;roomFilter.innerHTML='<option value="">Alle Räume</option><option value="unassigned">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');roomFilter.value=current;}
 function filtered(){const q=filter.value.toLowerCase();const rf=roomFilter.value;return all.filter(d=>d.name.toLowerCase().includes(q)&&(!rf||(rf==='unassigned'?!d.roomId:d.roomId===rf)))}
 function actions(d){const a=[];if(d.capabilities.includes('toggle'))a.push(`<button onclick="cmd('${d.id}','toggle')">${d.state.on?'Ausschalten':'Einschalten'}</button>`);if(d.capabilities.includes('open'))a.push(`<button onclick="cmd('${d.id}','open')">Öffnen</button><button onclick="cmd('${d.id}','close')">Schließen</button>`);if(d.capabilities.includes('setTargetTemperature'))a.push(`<button onclick="temp('${d.id}',${d.state.targetTemperature})">Temperatur</button>`);a.push(`<button class="secondary" onclick="openDevice('${d.id}')">Konfigurieren</button>`);return a.join('')}
-function renderDevices(){deviceGrid.innerHTML=filtered().map(d=>{const values=displayedState(d);const model=d.model?` · ${escapeHtml(d.model)}`:'';return `<article class="device ${d.reachable?'':'offline'}"><div class="device-top"><div class="icon">${icons[d.type]||'•'}</div><div class="dot"></div></div><h3>${escapeHtml(d.name)}</h3><div class="meta">${escapeHtml(d.room||'Nicht zugeordnet')} · ${escapeHtml(typeLabels[d.type]||d.type)}${model}</div><div class="values">${values.length?values.map(([k,v])=>`<div class="value"><b>${fmt(k,v)}</b><small>${labels[k]||k}</small></div>`).join(''):'<p class="muted">Keine Messwerte verfügbar</p>'}</div><div class="actions">${actions(d)}</div></article>`}).join('')||'<article class="empty-state"><h3>Keine Geräte gefunden</h3><p class="muted">Passe Suche oder Raumfilter an.</p></article>'}
+function renderDevices(){deviceGrid.innerHTML=filtered().map(d=>{const values=displayedState(d);const model=d.model?` · ${escapeHtml(d.model)}`:'';const channel=d.profile==='switch'&&d.channelCount>1?` · Kanal ${Number(d.componentId||0)+1}`:'';return `<article class="device ${d.reachable?'':'offline'}"><div class="device-top"><div class="icon">${icons[d.type]||'•'}</div><div class="dot"></div></div><h3>${escapeHtml(d.name)}</h3><div class="meta">${escapeHtml(d.room||'Nicht zugeordnet')} · ${escapeHtml(typeLabels[d.type]||d.type)}${channel}${model}</div><div class="values">${values.length?values.map(([k,v])=>`<div class="value"><b>${fmt(k,v)}</b><small>${labels[k]||k}</small></div>`).join(''):'<p class="muted">Keine Messwerte verfügbar</p>'}</div><div class="actions">${actions(d)}</div></article>`}).join('')||'<article class="empty-state"><h3>Keine Geräte gefunden</h3><p class="muted">Passe Suche oder Raumfilter an.</p></article>'}
 function currentRoomEditDraft(){
   if(!editingRoomId)return null;
   const row=roomRow(editingRoomId);
@@ -195,10 +195,10 @@ async function addShelly(){
   addShellyButton.textContent='Verbindung wird geprüft …';
   try{
     const body={host:shellyHost.value.trim(),name:shellyDeviceName.value.trim()||undefined,roomId:shellyRoom.value||null,credentialMode:selectedShellyCredentialMode(),username:shellyDeviceUsername.value||undefined,password:shellyDevicePassword.value||undefined};
-    await api('/api/adapters/shelly/devices',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    const result=await api('/api/adapters/shelly/devices',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
     addShellyDialog.close();
     await load();
-    notify('Shelly-Gerät wurde hinzugefügt.');
+    notify(result.addedDevices>1?`${result.addedDevices} Shelly-Kanäle wurden als getrennte Geräte hinzugefügt.`:'Shelly-Gerät wurde hinzugefügt.');
   }catch(error){
     showAddShellyError(error);
   }finally{

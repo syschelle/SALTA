@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectGen1Shelly, detectRpcShelly } from "./shelly-parser.js";
+import { detectGen1Shelly, detectRpcShelly, detectRpcShellyComponents } from "./shelly-parser.js";
 
 describe("detectRpcShelly", () => {
   it("detects a Shelly plug as an outlet and exposes live measurements", () => {
@@ -202,4 +202,43 @@ it("detects both switch channels on a Shelly Plus 2PM", () => {
   expect(result.channelCount).toBe(2);
   expect(result.state).toMatchObject({ on: true, power: 12.4, voltage: 230.1, current: 0.06 });
   expect(result.inputSupport).toBe(true);
+});
+
+
+describe("detectRpcShellyComponents", () => {
+  it("creates two independent switch detections for a 2PM switch profile", () => {
+    const results = detectRpcShellyComponents(
+      { id: "shellyplus2pm-test", app: "Plus2PM", gen: 2, profile: "switch" },
+      {
+        "switch:0": { id: 0, output: true, apower: 15.2 },
+        "switch:1": { id: 1, output: false, apower: 3.1 },
+        "input:0": { id: 0, state: true },
+        "input:1": { id: 1, state: false }
+      }
+    );
+
+    expect(results).toHaveLength(2);
+    expect(results.map(result => result.componentId)).toEqual([0, 1]);
+    expect(results.map(result => result.state)).toEqual([
+      { on: true, power: 15.2 },
+      { on: false, power: 3.1 }
+    ]);
+    expect(results.every(result => result.profile === "switch" && result.channelCount === 2)).toBe(true);
+  });
+
+  it("creates one window covering detection for a 2PM cover profile", () => {
+    const results = detectRpcShellyComponents(
+      { id: "shellyplus2pm-cover", app: "Plus2PM", gen: 2, profile: "cover" },
+      { "cover:0": { id: 0, state: "stopped", current_pos: 42, target_pos: 42 } }
+    );
+
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({
+      type: "windowCovering",
+      profile: "cover",
+      componentKind: "cover",
+      componentId: 0,
+      channelCount: 1
+    });
+  });
 });

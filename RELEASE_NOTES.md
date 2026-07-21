@@ -1,24 +1,30 @@
-# SALTA v0.4.13
+# SALTA v0.4.14
 
-SALTA v0.4.13 improves Gen2+ Shelly onboarding, with a particular focus on Shelly Plus 2PM compatibility.
+SALTA v0.4.14 adds complete profile-aware onboarding for Shelly 2PM devices.
 
-## Fixed
+## Added
 
-- Shelly Plus 2PM devices are no longer rejected when their firmware does not accept an empty POST to `Shelly.GetStatus`.
-- Gen2, Gen3 and Gen4 devices are identified through the public `/shelly` endpoint before their protected status is requested.
-- Protected Gen2+ RPC calls now use RFC 7616 Digest authentication with SHA-256 instead of Basic authentication.
-- SALTA falls back to a complete JSON-RPC request frame when a method-specific GET endpoint is unavailable.
-- A device already identified as Gen2+ is no longer incorrectly reported as having no supported Shelly interface when only its status request fails.
-- Rejected onboarding attempts now include the underlying error in the structured container log.
+- Active device-profile detection through `/shelly` and `Shelly.GetDeviceInfo`
+- Component configuration and channel-name retrieval through `Shelly.GetConfig`
+- Separate logical devices for `switch:0` and `switch:1` in switch profile
+- A single unified window-covering device for `cover:0` in cover profile
+- Persistent storage of the detected profile
+- Channel information in the device-card metadata
+- A channel-aware onboarding success message
 
-## Shelly Plus 2PM
+## Reliability
 
-The parser recognizes the Plus 2PM switch profile and both available switch channels. The current device model continues to register the primary controllable channel while retaining the detected channel count for subsequent multi-channel UI work.
+- Commands for the second switch card are sent with component ID `1`.
+- Live refresh selects the matching component instead of always using channel 0.
+- Re-adding an existing 2PM preserves the existing primary name and room when no new values are supplied.
+- Existing single-channel devices and Gen1 devices remain unchanged.
 
 ## Compatibility
 
-No database migration is required. Gen1 Basic authentication remains supported.
+No manual migration is required. The database schema is extended automatically during startup.
+
+An existing 2PM can be added again using the same address to create its missing second switch channel.
 
 ## Quality assurance
 
-The release passes TypeScript strict checking, 35 automated tests, frontend JavaScript syntax validation and the production build.
+The release passes TypeScript strict checking, 40 automated tests, frontend JavaScript syntax validation and the production build.

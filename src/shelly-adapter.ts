@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Device, DeviceCommand, ShellyComponentKind } from "./types.js";
 import { DeviceRegistry } from "./registry.js";
 import { getDeviceCredentials } from "./db.js";
-import { detectGen1Shelly, detectRpcShelly } from "./shelly-parser.js";
+import { detectGen1Shelly, detectRpcShellyComponents } from "./shelly-parser.js";
 
 const now = () => new Date().toISOString();
 const timeoutMs = 3500;
@@ -152,6 +152,28 @@ function idFor(host: string, sourceId: string): string {
   return `shelly:${createHash("sha1").update(`${host}:${sourceId}`).digest("hex").slice(0, 20)}`;
 }
 
+
+function rpcProfile(info: JsonRecord, config: JsonRecord): string | undefined {
+  return stringValue(info.profile)?.toLowerCase()
+    ?? stringValue(config.profile)?.toLowerCase()
+    ?? stringValue(record(config.sys).profile)?.toLowerCase()
+    ?? stringValue(record(record(config.sys).device).profile)?.toLowerCase();
+}
+
+function componentConfiguredName(config: JsonRecord, kind: ShellyComponentKind | undefined, id: number | undefined): string | undefined {
+  if (!kind || id === undefined) return undefined;
+  return stringValue(record(config[`${kind}:${id}`]).name);
+}
+
+function systemConfiguredName(config: JsonRecord): string | undefined {
+  return stringValue(record(record(config.sys).device).name);
+}
+
+function logicalSourceId(physicalSourceId: string, index: number, kind: ShellyComponentKind | undefined, id: number | undefined, total: number): string {
+  if (total <= 1 || index === 0) return physicalSourceId;
+  return `${physicalSourceId}:${kind ?? "component"}:${id ?? index}`;
+}
+
 function rpcGeneration(info: JsonRecord): Generation {
   const generation = Number(info.gen);
   if (generation === 2 || generation === 3 || generation === 4) return `gen${generation}`;
@@ -189,7 +211,7 @@ export class ShellyAdapter {
     if (this.timer) clearInterval(this.timer);
   }
 
-  async probe(host: string, username = "", password = ""): Promise<ProbeResult> {
+  async probeAll(host: string, username = "", password = ""): Promise<ProbeResult[]> {
     const clean = host.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
     let rpcInfo: JsonRecord | undefined;
     let rpcIdentityError: unknown;
@@ -215,42 +237,55 @@ export class ShellyAdapter {
     }
 
     if (rpcInfo) {
-      const rawStatus = await requestRpcMethod(clean, "Shelly.GetStatus", username, password);
-      const detection = detectRpcShelly(rpcInfo, rawStatus);
-      const sourceId = stringValue(rpcInfo.id) ?? clean;
+      const [rawStatus, rawConfig] = await Promise.all([
+        requestRpcMethod(clean, "Shelly.GetStatus", username, password),
+        requestRpcMethod(clean, "Shelly.GetConfig", username, password).catch(() => ({}))
+      ]);
+      const rpcConfig = record(rawConfig);
+      const profile = rpcProfile(rpcInfo, rpcConfig);
+      const infoWithProfile = profile ? { ...rpcInfo, profile } : rpcInfo;
+      const detections = detectRpcShellyComponents(infoWithProfile, rawStatus);
+      const physicalSourceId = stringValue(rpcInfo.id) ?? clean;
       const model = stringValue(rpcInfo.app) ?? stringValue(rpcInfo.model) ?? "Shelly RPC";
-      const name = stringValue(rpcInfo.name) ?? model ?? sourceId;
+      const baseName = systemConfiguredName(rpcConfig) ?? stringValue(rpcInfo.name) ?? model ?? physicalSourceId;
       const timestamp = now();
-      const device: Device = {
-        id: idFor(clean, sourceId),
-        source: "shelly",
-        sourceId,
-        type: detection.type,
-        name,
-        host: clean,
-        generation: rpcGeneration(rpcInfo),
-        model,
-        firmwareVersion: stringValue(rpcInfo.ver) ?? stringValue(rpcInfo.fw_id),
-        hostname: sourceId,
-        macAddress: stringValue(rpcInfo.mac),
-        componentKind: detection.componentKind,
-        componentId: detection.componentId,
-        channelCount: detection.channelCount,
-        powerMetering: detection.powerMetering,
-        coverSupport: detection.coverSupport,
-        switchSupport: detection.switchSupport,
-        lightSupport: detection.lightSupport,
-        inputSupport: detection.inputSupport,
-        reachable: true,
-        state: detection.state,
-        capabilities: detection.capabilities,
-        homekitEnabled: true,
-        credentialMode: "inherit",
-        passwordConfigured: false,
-        lastSeen: timestamp,
-        lastEvent: timestamp
-      };
-      return { host: clean, generation: device.generation ?? "rpc", model, sourceId, name, device };
+
+      return detections.map((detection, index) => {
+        const sourceId = logicalSourceId(physicalSourceId, index, detection.componentKind, detection.componentId, detections.length);
+        const configuredName = componentConfiguredName(rpcConfig, detection.componentKind, detection.componentId);
+        const name = configuredName ?? (detections.length > 1 ? `${baseName} ${index + 1}` : baseName);
+        const device: Device = {
+          id: idFor(clean, sourceId),
+          source: "shelly",
+          sourceId,
+          type: detection.type,
+          name,
+          host: clean,
+          generation: rpcGeneration(rpcInfo),
+          model,
+          firmwareVersion: stringValue(rpcInfo.ver) ?? stringValue(rpcInfo.fw_id),
+          hostname: physicalSourceId,
+          macAddress: stringValue(rpcInfo.mac),
+          profile: detection.profile ?? profile,
+          componentKind: detection.componentKind,
+          componentId: detection.componentId,
+          channelCount: detection.channelCount,
+          powerMetering: detection.powerMetering,
+          coverSupport: detection.coverSupport,
+          switchSupport: detection.switchSupport,
+          lightSupport: detection.lightSupport,
+          inputSupport: detection.inputSupport,
+          reachable: true,
+          state: detection.state,
+          capabilities: detection.capabilities,
+          homekitEnabled: true,
+          credentialMode: "inherit",
+          passwordConfigured: false,
+          lastSeen: timestamp,
+          lastEvent: timestamp
+        };
+        return { host: clean, generation: device.generation ?? "rpc", model, sourceId, name, device };
+      });
     }
 
     try {
@@ -277,6 +312,7 @@ export class ShellyAdapter {
         firmwareVersion: stringValue(settings.fw),
         hostname: stringValue(deviceSettings.hostname),
         macAddress: stringValue(deviceSettings.mac),
+        profile: detection.profile,
         componentKind: detection.componentKind,
         componentId: detection.componentId,
         channelCount: detection.channelCount,
@@ -294,7 +330,7 @@ export class ShellyAdapter {
         lastSeen: timestamp,
         lastEvent: timestamp
       };
-      return { host: clean, generation: "gen1", model, sourceId, name, device };
+      return [{ host: clean, generation: "gen1", model, sourceId, name, device }];
     } catch (gen1Error) {
       if (gen1Error instanceof Error && gen1Error.message === "AUTHENTICATION_FAILED") throw gen1Error;
       if (rpcIdentityError instanceof Error && rpcIdentityError.message !== "HTTP_404") throw rpcIdentityError;
@@ -303,22 +339,37 @@ export class ShellyAdapter {
     }
   }
 
-  async add(host: string, username = "", password = "", name?: string, roomId?: string, room?: string, credentialMode: "inherit" | "custom" | "none" = "inherit"): Promise<Device> {
-    const result = await this.probe(host, username, password);
-    this.removedDeviceIds.delete(result.device.id);
-    this.registry.restore(result.device.id);
-    const device: Device = {
-      ...result.device,
-      name: name?.trim() || result.device.name,
-      roomId,
-      room,
-      credentialMode,
-      credentialUsername: credentialMode === "custom" ? username : undefined,
-      passwordConfigured: credentialMode === "custom" && Boolean(password)
-    };
-    await this.registry.set(device);
-    if (credentialMode === "custom") await this.registry.patchCredentials(device.id, "custom", username, password);
-    return device;
+  async probe(host: string, username = "", password = ""): Promise<ProbeResult> {
+    const result = (await this.probeAll(host, username, password))[0];
+    if (!result) throw new Error("UNSUPPORTED_SHELLY_DEVICE");
+    return result;
+  }
+
+  async add(host: string, username = "", password = "", name?: string, roomId?: string, room?: string, credentialMode: "inherit" | "custom" | "none" = "inherit"): Promise<Device[]> {
+    const results = await this.probeAll(host, username, password);
+    const baseName = name?.trim();
+    const devices: Device[] = [];
+
+    for (const [index, result] of results.entries()) {
+      this.removedDeviceIds.delete(result.device.id);
+      this.registry.restore(result.device.id);
+      const existing = this.registry.get(result.device.id);
+      const device: Device = {
+        ...result.device,
+        name: baseName ? (results.length > 1 ? `${baseName} ${index + 1}` : baseName) : existing?.name ?? result.device.name,
+        roomId: roomId ?? existing?.roomId,
+        room: room ?? existing?.room,
+        homekitEnabled: existing?.homekitEnabled ?? result.device.homekitEnabled,
+        credentialMode,
+        credentialUsername: credentialMode === "custom" ? username : undefined,
+        passwordConfigured: credentialMode === "custom" && Boolean(password)
+      };
+      await this.registry.set(device);
+      if (credentialMode === "custom") await this.registry.patchCredentials(device.id, "custom", username, password);
+      devices.push(device);
+    }
+
+    return devices;
   }
 
   async discover(prefix: string, username = "", password = ""): Promise<Omit<ProbeResult, "device">[]> {
@@ -342,7 +393,11 @@ export class ShellyAdapter {
     if (this.removedDeviceIds.has(device.id) || !device.host) return device;
     const credentials = await getDeviceCredentials(device.id);
     try {
-      const probed = await this.probe(device.host, credentials.username, credentials.password);
+      const candidates = await this.probeAll(device.host, credentials.username, credentials.password);
+      const probed = candidates.find(candidate =>
+        candidate.device.componentKind === device.componentKind && candidate.device.componentId === device.componentId
+      ) ?? (device.componentId === undefined || device.componentId === 0 ? candidates[0] : undefined);
+      if (!probed) throw new Error("DEVICE_COMPONENT_NOT_FOUND");
       const seenAt = now();
       const next: Device = {
         ...device,
