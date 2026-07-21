@@ -225,3 +225,46 @@ describe("ShellyAdapter multi-profile onboarding", () => {
     expect(devices[0]).toMatchObject({ type: "windowCovering", profile: "cover", name: "Shutter", componentId: 0 });
   });
 });
+
+describe("ShellyAdapter cover position commands", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("sends a calibrated Gen2+ cover to the selected percentage", async () => {
+    const commandBodies: unknown[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/shelly")) return jsonResponse({ id: "plus2pm-slider", app: "Plus2PM", gen: 2, profile: "cover" });
+      if (url.endsWith("/rpc/Shelly.GetStatus")) return jsonResponse({ "cover:0": { id: 0, state: "stopped", current_pos: 40 } });
+      if (url.endsWith("/rpc/Shelly.GetConfig")) return jsonResponse({ "cover:0": { id: 0, name: "Living room shutter" } });
+      if (url.endsWith("/rpc/Cover.GoToPosition") && init?.method === "POST") {
+        commandBodies.push(JSON.parse(String(init.body)));
+        return jsonResponse(null);
+      }
+      return jsonResponse({}, 404);
+    }));
+
+    const registry = new DeviceRegistry();
+    const adapter = new ShellyAdapter(registry);
+    const device = (await adapter.add("192.168.1.80", "", "", undefined, undefined, undefined, "none"))[0]!;
+
+    await adapter.command({ deviceId: device.id, capability: "setTargetPosition", value: 73, source: "api" });
+
+    expect(commandBodies).toContainEqual({ id: 0, pos: 73 });
+  });
+
+  it("rejects invalid cover positions before sending a command", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/shelly")) return jsonResponse({ id: "plus2pm-invalid-position", app: "Plus2PM", gen: 2, profile: "cover" });
+      if (url.endsWith("/rpc/Shelly.GetStatus")) return jsonResponse({ "cover:0": { id: 0, state: "stopped", current_pos: 40 } });
+      if (url.endsWith("/rpc/Shelly.GetConfig")) return jsonResponse({});
+      return jsonResponse({}, 404);
+    }));
+
+    const registry = new DeviceRegistry();
+    const adapter = new ShellyAdapter(registry);
+    const device = (await adapter.add("192.168.1.81", "", "", undefined, undefined, undefined, "none"))[0]!;
+
+    await expect(adapter.command({ deviceId: device.id, capability: "setTargetPosition", value: 120, source: "api" })).rejects.toThrow("INVALID_POSITION");
+  });
+});

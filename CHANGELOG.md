@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.15
+
+- Added a 0–100 percent position slider to calibrated window-covering device cards.
+- Added immediate position previews and percentage feedback while dragging the slider.
+- Preserved active slider interaction during the five-second live-status refresh.
+- Added discrete Open, Stop and Close actions for window coverings.
+- Displayed clear calibration guidance when a Shelly cannot report a current position.
+- Added adapter-side validation for cover target positions.
+- Added automated frontend and adapter regression coverage for position control.
+
 ## 0.4.14
 
 - Added active `switch` and `cover` profile detection for Shelly 2PM-class devices.

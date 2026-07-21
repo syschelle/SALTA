@@ -473,14 +473,21 @@ export class ShellyAdapter {
       } else if (["open", "close", "stop"].includes(command.capability)) {
         method = `Cover.${command.capability.charAt(0).toUpperCase()}${command.capability.slice(1)}`;
       } else if (command.capability === "setTargetPosition") {
+        const position = Number(command.value);
+        if (!Number.isFinite(position) || position < 0 || position > 100) throw new Error("INVALID_POSITION");
         method = "Cover.GoToPosition";
-        params.pos = Number(command.value);
+        params.pos = Math.round(position);
       } else {
         throw new Error("CAPABILITY_NOT_SUPPORTED");
       }
       await requestJson(`${host}/rpc/${method}`, credentials.username, credentials.password, "POST", params);
     } else if (device.type === "windowCovering") {
-      const action = command.capability === "setTargetPosition" ? `to_pos&roller_pos=${Number(command.value)}` : command.capability;
+      let action = command.capability;
+      if (command.capability === "setTargetPosition") {
+        const position = Number(command.value);
+        if (!Number.isFinite(position) || position < 0 || position > 100) throw new Error("INVALID_POSITION");
+        action = `to_pos&roller_pos=${Math.round(position)}`;
+      }
       await requestJson(`${host}/roller/${componentId}?go=${action}`, credentials.username, credentials.password);
     } else if (device.type === "light") {
       const turn = command.capability === "turnOn" ? "on" : command.capability === "turnOff" ? "off" : command.capability === "toggle" ? "toggle" : "on";

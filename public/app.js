@@ -1,4 +1,5 @@
-let all=[],rooms=[],selectedDevice=null,shellySettingsStatus=null,editingRoomId=null,liveRefreshInFlight=false;
+let all=[],rooms=[],selectedDevice=null,shellySettingsStatus=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null;
+const coverSliderDrafts=new Map();
 const pages=['overview','devices','rooms','settings'];
 const defaultPage='overview';
 const icons={outlet:'◉',switch:'⏻',energyMeter:'⌁',windowCovering:'▤',thermostat:'◒',light:'✦',motionSensor:'◌'};
@@ -40,7 +41,7 @@ async function refreshLiveData(){
   liveRefreshInFlight=true;
   try{
     all=await api('/api/devices');
-    renderDevices();
+    if(!activeCoverSliderId)renderDevices();
     updateDashboardSummary();
   }catch(error){
     console.warn('Live device refresh failed',error);
@@ -50,8 +51,15 @@ async function refreshLiveData(){
 }
 function renderFilters(){const current=roomFilter.value;roomFilter.innerHTML='<option value="">Alle Räume</option><option value="unassigned">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');roomFilter.value=current;}
 function filtered(){const q=filter.value.toLowerCase();const rf=roomFilter.value;return all.filter(d=>d.name.toLowerCase().includes(q)&&(!rf||(rf==='unassigned'?!d.roomId:d.roomId===rf)))}
-function actions(d){const a=[];if(d.capabilities.includes('toggle'))a.push(`<button onclick="cmd('${d.id}','toggle')">${d.state.on?'Ausschalten':'Einschalten'}</button>`);if(d.capabilities.includes('open'))a.push(`<button onclick="cmd('${d.id}','open')">Öffnen</button><button onclick="cmd('${d.id}','close')">Schließen</button>`);if(d.capabilities.includes('setTargetTemperature'))a.push(`<button onclick="temp('${d.id}',${d.state.targetTemperature})">Temperatur</button>`);a.push(`<button class="secondary" onclick="openDevice('${d.id}')">Konfigurieren</button>`);return a.join('')}
-function renderDevices(){deviceGrid.innerHTML=filtered().map(d=>{const values=displayedState(d);const model=d.model?` · ${escapeHtml(d.model)}`:'';const channel=d.profile==='switch'&&d.channelCount>1?` · Kanal ${Number(d.componentId||0)+1}`:'';return `<article class="device ${d.reachable?'':'offline'}"><div class="device-top"><div class="icon">${icons[d.type]||'•'}</div><div class="dot"></div></div><h3>${escapeHtml(d.name)}</h3><div class="meta">${escapeHtml(d.room||'Nicht zugeordnet')} · ${escapeHtml(typeLabels[d.type]||d.type)}${channel}${model}</div><div class="values">${values.length?values.map(([k,v])=>`<div class="value"><b>${fmt(k,v)}</b><small>${labels[k]||k}</small></div>`).join(''):'<p class="muted">Keine Messwerte verfügbar</p>'}</div><div class="actions">${actions(d)}</div></article>`}).join('')||'<article class="empty-state"><h3>Keine Geräte gefunden</h3><p class="muted">Passe Suche oder Raumfilter an.</p></article>'}
+function boundedPosition(value){const number=Number(value);return Number.isFinite(number)?Math.min(100,Math.max(0,Math.round(number))):null}
+function coverPosition(d){return coverSliderDrafts.has(d.id)?coverSliderDrafts.get(d.id):boundedPosition(d.state?.currentPosition)}
+function beginCoverPosition(id,value,input){activeCoverSliderId=id;previewCoverPosition(id,value,input)}
+function previewCoverPosition(id,value,input){const position=boundedPosition(value);if(position===null)return;coverSliderDrafts.set(id,position);const output=input?.closest('.cover-control')?.querySelector('output');if(output)output.textContent=`${position} %`}
+function endCoverPosition(id){if(activeCoverSliderId===id)activeCoverSliderId=null}
+async function setCoverPosition(id,value){const position=boundedPosition(value);if(position===null)return;coverSliderDrafts.set(id,position);activeCoverSliderId=null;try{await api(`/api/devices/${id}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({capability:'setTargetPosition',value:position})});coverSliderDrafts.delete(id);all=await api('/api/devices');renderDevices();updateDashboardSummary();notify(`Rollladen fährt auf ${position} %.`)}catch(error){coverSliderDrafts.delete(id);renderDevices();notify(error.message,true)}}
+function coverControl(d){if(d.type!=='windowCovering'||!d.capabilities.includes('setTargetPosition'))return'';const position=coverPosition(d);if(position===null)return'<div class="cover-position-unavailable">Positionssteuerung ist erst nach der Kalibrierung verfügbar.</div>';const disabled=d.reachable?'':' disabled';return `<div class="cover-control"><div class="cover-control-head"><label for="cover-position-${escapeHtml(d.id)}">Höhe</label><output for="cover-position-${escapeHtml(d.id)}">${position} %</output></div><input id="cover-position-${escapeHtml(d.id)}" type="range" min="0" max="100" step="1" value="${position}" aria-label="Höhe für ${escapeHtml(d.name)}" onfocus="beginCoverPosition('${d.id}',this.value,this)" onpointerdown="beginCoverPosition('${d.id}',this.value,this)" oninput="previewCoverPosition('${d.id}',this.value,this)" onchange="setCoverPosition('${d.id}',this.value)" onblur="endCoverPosition('${d.id}')"${disabled}></div>`}
+function actions(d){const a=[];if(d.capabilities.includes('toggle'))a.push(`<button onclick="cmd('${d.id}','toggle')">${d.state.on?'Ausschalten':'Einschalten'}</button>`);if(d.capabilities.includes('open'))a.push(`<button onclick="cmd('${d.id}','open')">Öffnen</button><button onclick="cmd('${d.id}','stop')">Stopp</button><button onclick="cmd('${d.id}','close')">Schließen</button>`);if(d.capabilities.includes('setTargetTemperature'))a.push(`<button onclick="temp('${d.id}',${d.state.targetTemperature})">Temperatur</button>`);a.push(`<button class="secondary" onclick="openDevice('${d.id}')">Konfigurieren</button>`);return a.join('')}
+function renderDevices(){deviceGrid.innerHTML=filtered().map(d=>{const values=displayedState(d);const model=d.model?` · ${escapeHtml(d.model)}`:'';const channel=d.profile==='switch'&&d.channelCount>1?` · Kanal ${Number(d.componentId||0)+1}`:'';return `<article class="device ${d.reachable?'':'offline'}"><div class="device-top"><div class="icon">${icons[d.type]||'•'}</div><div class="dot"></div></div><h3>${escapeHtml(d.name)}</h3><div class="meta">${escapeHtml(d.room||'Nicht zugeordnet')} · ${escapeHtml(typeLabels[d.type]||d.type)}${channel}${model}</div><div class="values">${values.length?values.map(([k,v])=>`<div class="value"><b>${fmt(k,v)}</b><small>${labels[k]||k}</small></div>`).join(''):'<p class="muted">Keine Messwerte verfügbar</p>'}</div>${coverControl(d)}<div class="actions">${actions(d)}</div></article>`}).join('')||'<article class="empty-state"><h3>Keine Geräte gefunden</h3><p class="muted">Passe Suche oder Raumfilter an.</p></article>'}
 function currentRoomEditDraft(){
   if(!editingRoomId)return null;
   const row=roomRow(editingRoomId);
@@ -116,7 +124,7 @@ async function saveRoomEdit(event,id){
     notify('Raum wurde aktualisiert.');
   }catch(error){notify(error.message,true)}
 }
-async function cmd(id,capability,value){await api(`/api/devices/${id}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({capability,value})});await load()}
+async function cmd(id,capability,value){coverSliderDrafts.delete(id);if(activeCoverSliderId===id)activeCoverSliderId=null;await api(`/api/devices/${id}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({capability,value})});await load()}
 function temp(id,current){const v=prompt('Zieltemperatur',current);if(v!==null)cmd(id,'setTargetTemperature',Number(v))}
 async function reconcile(){await api('/api/adapters/shelly/reconcile',{method:'POST'});await load();notify('Synchronisierung abgeschlossen.')}
 async function createRoom(){const name=newRoomName.value.trim();if(!name)return;await api('/api/rooms',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,icon:newRoomIcon.value||'home',sortOrder:rooms.length})});newRoomName.value='';await load();notify('Raum wurde hinzugefügt.')}

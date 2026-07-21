@@ -79,3 +79,12 @@ button[disabled]{opacity:.62;cursor:wait}
 .dialog-feedback.success{border-color:#a8d9c2;background:#eefaf4;color:#166b47}
 @media(max-width:620px){.dialog-feedback{margin:12px 20px 0}}
 .settings-warning{margin:0 0 18px;padding:14px 16px;border:1px solid #e8aeb6;border-radius:12px;background:#fff1f2;color:#8f1d2c;font-size:14px;font-weight:650;line-height:1.5}.settings-warning[hidden]{display:none}.choice-row.disabled{opacity:.58}.choice-row.disabled input{cursor:not-allowed}
+
+
+/* Window-covering position control */
+.cover-control{margin-top:16px;padding:15px 16px;border:1px solid var(--line);border-radius:13px;background:#fafbfc}
+.cover-control-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px;font-size:13px;font-weight:750}
+.cover-control output{color:var(--accent);font-variant-numeric:tabular-nums}
+.cover-control input[type=range]{width:100%;margin:0;accent-color:var(--accent);cursor:pointer}
+.cover-control input[type=range]:disabled{cursor:not-allowed}
+.cover-position-unavailable{margin-top:16px;padding:12px 14px;border-radius:11px;background:#f7f8fa;color:var(--muted);font-size:13px;line-height:1.45}

@@ -1,76 +1,53 @@
-# SALTA v0.4.14
+# SALTA v0.4.15
 
-SALTA v0.4.14 adds profile-aware onboarding for multi-profile Shelly 2PM devices and exposes both switch channels as independent devices.
+SALTA v0.4.15 adds direct percentage-based position control for calibrated Shelly window coverings.
 
 ## Highlights
 
-- Reads the active `switch` or `cover` profile from Shelly device information
-- Reads component configuration and channel names through `Shelly.GetConfig`
-- Creates two independent device cards for a 2PM in switch profile
-- Creates one window-covering device for a 2PM in cover profile
-- Routes commands and live values to the correct component ID
-- Preserves existing names and room assignments when a device is added again
+- 0–100% height slider for calibrated covers
+- Live percentage preview while adjusting the slider
+- Open, Stop and Close controls on every cover card
+- Clear calibration guidance when position control is unavailable
+- Stable slider interaction during live status refreshes
+- Validated target-position commands
 
-## Shelly 2PM Profiles
+## Window-Covering Position Control
 
-Shelly Plus 2PM, Pro 2PM and compatible multi-profile devices can expose different component sets depending on their active profile.
+A calibrated Shelly cover now displays a **Height** slider directly on its device card. The slider ranges from fully closed at `0%` to fully open at `100%`.
 
-### Switch profile
+SALTA shows the selected percentage immediately while the slider is being adjusted. When the user releases the control, SALTA sends one target-position command to the correct Shelly cover component.
 
-When the device reports the `switch` profile, SALTA registers every `switch:<id>` component separately. A two-channel 2PM therefore appears as two independent devices, each with:
+The existing discrete controls remain available:
 
-- Its own dashboard card
-- Its own on/off state
-- Its own power and energy values when available
-- Its own configurable SALTA display name
-- Its own command target (`Switch` component ID 0 or 1)
+- Open
+- Stop
+- Close
 
-Names configured directly on the Shelly are imported from `Shelly.GetConfig`. When no channel name is configured, SALTA generates a numbered fallback name.
+## Calibration Handling
 
-### Cover profile
+Shelly position control requires a calibrated cover and a known current position. When the device does not report a current position, SALTA hides the slider and displays a clear notice that calibration is required.
 
-When the device reports the `cover` profile, SALTA registers the unified `cover:0` component as one window-covering device. The two relay outputs are not shown as independent switches because the Shelly firmware controls them together as a motorized cover.
+Open, Stop and Close remain available even without percentage-based position control.
 
-## Existing Installations
+## Reliability
 
-No manual database migration is required. SALTA adds the optional device-profile field automatically during startup.
+The regular five-second device refresh no longer replaces an actively used cover slider. This prevents the control from jumping back or losing focus while the user is selecting a position.
 
-A Shelly 2PM that was already added with an earlier SALTA version can be added again using the same IP address. SALTA keeps the existing primary device ID, preserves its current name and room when no replacement values are entered, and creates the missing second switch channel.
+Target positions are validated and restricted to the supported range from `0` to `100` before they are sent to the device.
 
-## API
+## Supported Shelly APIs
 
-The existing onboarding endpoint remains:
-
-```http
-POST /api/adapters/shelly/devices
-```
-
-Its response now also contains:
-
-```json
-{
-  "addedDevices": 2
-}
-```
-
-for a two-channel switch profile. Existing primary-device response fields remain available for compatibility.
-
-## Quality Assurance
-
-The following checks completed successfully:
-
-- TypeScript strict type check
-- 40 automated tests
-- Production build
-- Frontend JavaScript syntax validation
-- Shell script syntax validation
+- Gen2+ devices use `Cover.GoToPosition`
+- Gen1 roller devices use the local `roller/<id>?go=to_pos&roller_pos=<position>` endpoint
 
 ## Updating
 
-Keep the existing `SALTA_ENCRYPTION_KEY` unchanged. To pin this release:
+No manual database migration is required.
+
+To pin this release:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.14
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.15
 ```
 
 Then run:
@@ -80,10 +57,20 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml pull
 docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-recreate --remove-orphans
 ```
 
+## Quality Assurance
+
+The following checks completed successfully:
+
+- TypeScript strict type check
+- Automated tests
+- Production build
+- Frontend JavaScript syntax validation
+- Shell script syntax validation
+
 ## Container Tags
 
 ```text
-0.4.14
+0.4.15
 0.4
 latest
 ```
@@ -91,7 +78,7 @@ latest
 ## Git Tag
 
 ```text
-v0.4.14
+v0.4.15
 ```
 
 ## Full Changelog
