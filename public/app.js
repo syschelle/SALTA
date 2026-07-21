@@ -1,4 +1,4 @@
-let all=[],rooms=[],selectedDevice=null,shellySettingsStatus=null;
+let all=[],rooms=[],selectedDevice=null,shellySettingsStatus=null,editingRoomId=null,liveRefreshInFlight=false;
 const pages=['overview','devices','rooms','settings'];
 const defaultPage='overview';
 const icons={outlet:'◉',switch:'⏻',energyMeter:'⌁',windowCovering:'▤',thermostat:'◒',light:'✦',motionSensor:'◌'};
@@ -19,28 +19,108 @@ async function api(url,options){
   }
   return response.status===204?null:response.json();
 }
+function updateDashboardSummary(){
+  deviceCount.textContent=all.length;
+  reachableCount.textContent=all.filter(device=>device.reachable).length;
+  roomCount.textContent=rooms.length;
+  const currentPower=all.filter(device=>device.reachable).reduce((sum,device)=>sum+Number(device.state?.totalPower??device.state?.power??0),0);
+  power.textContent=all.some(device=>device.state?.totalPower!==undefined||device.state?.power!==undefined)?String(Math.round(currentPower)):'–';
+}
 async function load(){
   try{
     [all,rooms]=await Promise.all([api('/api/devices'),api('/api/rooms')]);
-    renderFilters();renderDevices();renderRooms();
-    deviceCount.textContent=all.length;reachableCount.textContent=all.filter(x=>x.reachable).length;roomCount.textContent=rooms.length;
-    const currentPower=all.filter(x=>x.reachable).reduce((sum,device)=>sum+Number(device.state?.totalPower??device.state?.power??0),0);power.textContent=all.some(device=>device.state?.totalPower!==undefined||device.state?.power!==undefined)?String(Math.round(currentPower)):'–';
+    renderFilters();
+    renderDevices();
+    renderRooms();
+    updateDashboardSummary();
   }catch(error){notify(error.message,true)}
+}
+async function refreshLiveData(){
+  if(liveRefreshInFlight)return;
+  liveRefreshInFlight=true;
+  try{
+    all=await api('/api/devices');
+    renderDevices();
+    updateDashboardSummary();
+  }catch(error){
+    console.warn('Live device refresh failed',error);
+  }finally{
+    liveRefreshInFlight=false;
+  }
 }
 function renderFilters(){const current=roomFilter.value;roomFilter.innerHTML='<option value="">Alle Räume</option><option value="unassigned">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');roomFilter.value=current;}
 function filtered(){const q=filter.value.toLowerCase();const rf=roomFilter.value;return all.filter(d=>d.name.toLowerCase().includes(q)&&(!rf||(rf==='unassigned'?!d.roomId:d.roomId===rf)))}
 function actions(d){const a=[];if(d.capabilities.includes('toggle'))a.push(`<button onclick="cmd('${d.id}','toggle')">${d.state.on?'Ausschalten':'Einschalten'}</button>`);if(d.capabilities.includes('open'))a.push(`<button onclick="cmd('${d.id}','open')">Öffnen</button><button onclick="cmd('${d.id}','close')">Schließen</button>`);if(d.capabilities.includes('setTargetTemperature'))a.push(`<button onclick="temp('${d.id}',${d.state.targetTemperature})">Temperatur</button>`);a.push(`<button class="secondary" onclick="openDevice('${d.id}')">Konfigurieren</button>`);return a.join('')}
 function renderDevices(){deviceGrid.innerHTML=filtered().map(d=>{const values=displayedState(d);const model=d.model?` · ${escapeHtml(d.model)}`:'';return `<article class="device ${d.reachable?'':'offline'}"><div class="device-top"><div class="icon">${icons[d.type]||'•'}</div><div class="dot"></div></div><h3>${escapeHtml(d.name)}</h3><div class="meta">${escapeHtml(d.room||'Nicht zugeordnet')} · ${escapeHtml(typeLabels[d.type]||d.type)}${model}</div><div class="values">${values.length?values.map(([k,v])=>`<div class="value"><b>${fmt(k,v)}</b><small>${labels[k]||k}</small></div>`).join(''):'<p class="muted">Keine Messwerte verfügbar</p>'}</div><div class="actions">${actions(d)}</div></article>`}).join('')||'<article class="empty-state"><h3>Keine Geräte gefunden</h3><p class="muted">Passe Suche oder Raumfilter an.</p></article>'}
-function renderRooms(){roomPageCount.textContent=rooms.length;roomList.innerHTML=rooms.map(r=>{const count=all.filter(d=>d.roomId===r.id).length;return `<div class="room-row" data-room-id="${r.id}"><div class="room-summary"><div class="room-identity"><span class="room-icon" aria-hidden="true">${escapeHtml(r.icon||'home')}</span><div><strong>${escapeHtml(r.name)}</strong><small>${count} ${count===1?'Gerät':'Geräte'}</small></div></div><div class="room-actions"><button class="secondary" type="button" onclick="startRoomEdit('${r.id}')">Bearbeiten</button><button class="danger" type="button" onclick="removeRoom('${r.id}')">Löschen</button></div></div><form class="room-edit-form" onsubmit="saveRoomEdit(event,'${r.id}')" hidden><label>Name<input name="name" value="${escapeHtml(r.name)}" required maxlength="80"></label><label>Icon<input name="icon" value="${escapeHtml(r.icon||'home')}" required maxlength="40"></label><div class="room-actions"><button type="button" class="secondary" onclick="cancelRoomEdit('${r.id}')">Abbrechen</button><button type="submit">Speichern</button></div></form></div>`}).join('')||'<div class="empty-state compact"><h3>Noch keine Räume</h3><p class="muted">Lege rechts deinen ersten Raum an.</p></div>'}
+function currentRoomEditDraft(){
+  if(!editingRoomId)return null;
+  const row=roomRow(editingRoomId);
+  const form=row?.querySelector('.room-edit-form');
+  if(!form||form.hidden)return null;
+  const activeElement=document.activeElement;
+  const activeField=form.contains(activeElement)&&activeElement instanceof HTMLInputElement?activeElement.name:null;
+  return {
+    id:editingRoomId,
+    name:form.elements.name.value,
+    icon:form.elements.icon.value,
+    activeField,
+    selectionStart:activeField?activeElement.selectionStart:null,
+    selectionEnd:activeField?activeElement.selectionEnd:null
+  };
+}
+function restoreRoomEdit(draft,{focus=false}={}){
+  if(!draft)return;
+  const row=roomRow(draft.id);
+  if(!row){editingRoomId=null;return}
+  row.querySelector('.room-summary').hidden=true;
+  const form=row.querySelector('.room-edit-form');
+  form.hidden=false;
+  form.elements.name.value=draft.name;
+  form.elements.icon.value=draft.icon;
+  if(focus){
+    const input=form.elements[draft.activeField||'name'];
+    input.focus();
+    if(draft.activeField&&draft.selectionStart!==null&&draft.selectionEnd!==null)input.setSelectionRange(draft.selectionStart,draft.selectionEnd);
+  }
+}
+function renderRooms(){
+  const draft=currentRoomEditDraft();
+  roomPageCount.textContent=rooms.length;
+  roomList.innerHTML=rooms.map(r=>{const count=all.filter(d=>d.roomId===r.id).length;return `<div class="room-row" data-room-id="${r.id}"><div class="room-summary"><div class="room-identity"><span class="room-icon" aria-hidden="true">${escapeHtml(r.icon||'home')}</span><div><strong>${escapeHtml(r.name)}</strong><small>${count} ${count===1?'Gerät':'Geräte'}</small></div></div><div class="room-actions"><button class="secondary" type="button" onclick="startRoomEdit('${r.id}')">Bearbeiten</button><button class="danger" type="button" onclick="removeRoom('${r.id}')">Löschen</button></div></div><form class="room-edit-form" onsubmit="saveRoomEdit(event,'${r.id}')" hidden><label>Name<input name="name" value="${escapeHtml(r.name)}" required maxlength="80"></label><label>Icon<input name="icon" value="${escapeHtml(r.icon||'home')}" required maxlength="40"></label><div class="room-actions"><button type="button" class="secondary" onclick="cancelRoomEdit('${r.id}')">Abbrechen</button><button type="submit">Speichern</button></div></form></div>`}).join('')||'<div class="empty-state compact"><h3>Noch keine Räume</h3><p class="muted">Lege rechts deinen ersten Raum an.</p></div>';
+  if(draft)restoreRoomEdit(draft,{focus:Boolean(draft.activeField)});
+}
 function roomRow(id){return roomList.querySelector(`[data-room-id="${CSS.escape(id)}"]`)}
-function startRoomEdit(id){const row=roomRow(id);if(!row)return;row.querySelector('.room-summary').hidden=true;const form=row.querySelector('.room-edit-form');form.hidden=false;form.elements.name.focus()}
-function cancelRoomEdit(id){const row=roomRow(id);if(!row)return;row.querySelector('.room-summary').hidden=false;row.querySelector('.room-edit-form').hidden=true}
-async function saveRoomEdit(event,id){event.preventDefault();const room=rooms.find(r=>r.id===id);if(!room)return;const form=event.currentTarget;const name=form.elements.name.value.trim();const icon=form.elements.icon.value.trim()||'home';if(!name)return;await api(`/api/rooms/${id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({name,icon,sortOrder:room.sortOrder||0})});await load();notify('Raum wurde aktualisiert.')}
+function startRoomEdit(id){
+  if(editingRoomId&&editingRoomId!==id)cancelRoomEdit(editingRoomId);
+  editingRoomId=id;
+  const room=rooms.find(item=>item.id===id);
+  restoreRoomEdit({id,name:room?.name||'',icon:room?.icon||'home',activeField:'name',selectionStart:0,selectionEnd:(room?.name||'').length},{focus:true});
+}
+function cancelRoomEdit(id){
+  const row=roomRow(id);
+  if(row){row.querySelector('.room-summary').hidden=false;row.querySelector('.room-edit-form').hidden=true}
+  if(editingRoomId===id)editingRoomId=null;
+}
+async function saveRoomEdit(event,id){
+  event.preventDefault();
+  const room=rooms.find(r=>r.id===id);
+  if(!room)return;
+  const form=event.currentTarget;
+  const name=form.elements.name.value.trim();
+  const icon=form.elements.icon.value.trim()||'home';
+  if(!name)return;
+  try{
+    await api(`/api/rooms/${id}`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({name,icon,sortOrder:room.sortOrder||0})});
+    editingRoomId=null;
+    await load();
+    notify('Raum wurde aktualisiert.');
+  }catch(error){notify(error.message,true)}
+}
 async function cmd(id,capability,value){await api(`/api/devices/${id}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({capability,value})});await load()}
 function temp(id,current){const v=prompt('Zieltemperatur',current);if(v!==null)cmd(id,'setTargetTemperature',Number(v))}
 async function reconcile(){await api('/api/adapters/shelly/reconcile',{method:'POST'});await load();notify('Synchronisierung abgeschlossen.')}
 async function createRoom(){const name=newRoomName.value.trim();if(!name)return;await api('/api/rooms',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,icon:newRoomIcon.value||'home',sortOrder:rooms.length})});newRoomName.value='';await load();notify('Raum wurde hinzugefügt.')}
-async function removeRoom(id){if(!confirm('Raum löschen? Geräte werden nicht gelöscht.'))return;await api(`/api/rooms/${id}`,{method:'DELETE'});await load();notify('Raum wurde gelöscht.')}
+async function removeRoom(id){if(!confirm('Raum löschen? Geräte werden nicht gelöscht.'))return;await api(`/api/rooms/${id}`,{method:'DELETE'});if(editingRoomId===id)editingRoomId=null;await load();notify('Raum wurde gelöscht.')}
 function applyShellyEncryptionStatus(s){
   shellySettingsStatus=s;
   const invalid=s.encryptionStatus==='invalid';
@@ -152,4 +232,4 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.bo
 document.querySelectorAll('#sidebar [data-nav]').forEach(item=>item.addEventListener('click',()=>{if(matchMedia('(max-width: 1000px)').matches)closeMenu()}));
 deviceDialog.addEventListener('close',()=>{selectedDevice=null;setActiveNavigation(routeFromHash())});
 
-navigate();load();setInterval(load,5000);
+navigate();load();setInterval(refreshLiveData,5000);

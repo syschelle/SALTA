@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.10` is the current stable release. It provides local Shelly discovery, generation-aware device detection, persistent device management, live status values, device control and an optional HomeKit bridge.
+`v0.4.11` is the current stable release. It provides local Shelly discovery, generation-aware device detection, persistent device and room management, live status values, device control and an optional HomeKit bridge.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.10"
+git commit -m "release: SALTA v0.4.11"
 git push origin main
-git tag -a v0.4.10 -m "SALTA v0.4.10"
-git push origin v0.4.10
+git tag -a v0.4.11 -m "SALTA v0.4.11"
+git push origin v0.4.11
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.10
+ghcr.io/<github-owner>/<repository>:0.4.11
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```

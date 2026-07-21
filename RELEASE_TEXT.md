@@ -1,40 +1,37 @@
-# SALTA v0.4.10
+# SALTA v0.4.11
 
-SALTA v0.4.10 corrects power-meter capability detection for the classic Gen1 Shelly 1 (`SHSW-1`).
+SALTA v0.4.11 fixes room editing being interrupted by the automatic live refresh.
 
 ## Highlights
 
-- Correct Shelly 1 power-meter capability detection
-- No more misleading `0 W` live readings for `SHSW-1`
-- Dashboard totals include only actual measured power
-- Shelly 1PM measurements remain fully supported
-- New Gen1 regression tests
+- Reliable room-name and room-icon editing
+- Live device polling no longer rebuilds the room list
+- Active room drafts survive intentional full data refreshes
+- Focus and text selection are preserved
+- New frontend regression coverage
 
-## Shelly 1 Power Values
+## Room Editing
 
-The classic Shelly 1 does not include physical power-measurement hardware. Its Gen1 `/status` response can contain `meters[0].power`, but this value is only a user-configured nominal appliance load and is `0` by default. It is not a real-time electrical measurement.
+SALTA refreshes device states every five seconds. Previously, this interval used the complete page-data loader, which also rebuilt the room list. Replacing the room list removed the active input element and closed the room edit form. Depending on the polling timing, this could happen immediately after clicking into the room name field.
 
-SALTA previously treated this value as measured power. This caused an active Shelly 1 to display `0 W` and made the device appear to support power metering.
+The live refresh now updates only device state and dashboard statistics. Rooms and room filters are refreshed only when their underlying data changes.
 
-SALTA now:
+If a full data refresh is required while a room is being edited, SALTA preserves:
 
-- Detects `SHSW-1` as a switch without hardware power metering
-- Ignores its nominal power constant for live status display
-- Removes the artificial `0 W` value from the device card
-- Excludes the nominal value from the dashboard power total
-
-## Shelly 1PM
-
-Shelly 1PM (`SHSW-PM`) devices continue to expose real instantaneous power and cumulative energy readings. Their measurements are parsed and displayed unchanged.
+- The selected room
+- The unsaved room name
+- The unsaved icon value
+- The active input field
+- The current text selection
 
 ## Updating
 
-No manual database migration is required. Existing devices are corrected during the next status synchronization.
+No manual database migration is required.
 
 To pin this release:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.10
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.11
 ```
 
 Then run:
@@ -44,10 +41,20 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml pull
 docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-recreate --remove-orphans
 ```
 
+## Quality Assurance
+
+The following checks completed successfully:
+
+- TypeScript strict type check
+- 28 automated tests
+- Production build
+- Frontend JavaScript syntax validation
+- Shell script syntax validation
+
 ## Container Tags
 
 ```text
-0.4.10
+0.4.11
 0.4
 latest
 ```
@@ -55,7 +62,7 @@ latest
 ## Git Tag
 
 ```text
-v0.4.10
+v0.4.11
 ```
 
 ## Full Changelog

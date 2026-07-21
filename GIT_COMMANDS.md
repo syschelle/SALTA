@@ -1,4 +1,4 @@
-# SALTA v0.4.10 – Git and Release Commands
+# SALTA v0.4.11 – Git and Release Commands
 
 ## 1. Prepare and verify
 
@@ -13,40 +13,40 @@ node --check public/app.js
 sh -n deploy.sh update.sh backup.sh restore.sh
 ```
 
-## 2. Commit and push v0.4.10
+## 2. Commit and push v0.4.11
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.10"
+git commit -m "release: SALTA v0.4.11"
 git push origin main
 ```
 
 ## 3. Create and push the release tag
 
 ```bash
-git tag -a v0.4.10 -m "SALTA v0.4.10"
-git push origin v0.4.10
+git tag -a v0.4.11 -m "SALTA v0.4.11"
+git push origin v0.4.11
 ```
 
-Pushing `v0.4.10` starts `.github/workflows/release.yml` and publishes the multi-architecture container images.
+Pushing `v0.4.11` starts `.github/workflows/release.yml` and publishes the multi-architecture container images.
 
 Expected tags:
 
 ```text
-ghcr.io/syschelle/salta:0.4.10
+ghcr.io/syschelle/salta:0.4.11
 ghcr.io/syschelle/salta:0.4
 ghcr.io/syschelle/salta:latest
 ```
 
 ## 4. Create the GitHub release
 
-Run this command from the directory containing `SALTA-v0.4.10.zip`:
+Run this command from the directory containing `SALTA-v0.4.11.zip`:
 
 ```bash
-gh release create v0.4.10 \
-  --title "SALTA v0.4.10" \
+gh release create v0.4.11 \
+  --title "SALTA v0.4.11" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.4.10.zip
+  ./SALTA-v0.4.11.zip
 ```
 
 ## 5. Update an installation
@@ -54,7 +54,7 @@ gh release create v0.4.10 \
 Keep the existing `SALTA_ENCRYPTION_KEY` in `.env` unchanged. To pin this release:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.10
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.11
 ```
 
 Then run:
@@ -69,7 +69,7 @@ curl -s http://127.0.0.1:8099/api/readiness
 ## 6. Verify the release
 
 ```bash
-git show v0.4.10 --no-patch
-git ls-remote --tags origin refs/tags/v0.4.10
-gh release view v0.4.10
+git show v0.4.11 --no-patch
+git ls-remote --tags origin refs/tags/v0.4.11
+gh release view v0.4.11
 ```

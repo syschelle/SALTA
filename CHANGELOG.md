@@ -2,6 +2,13 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.11
+
+- Fixed room-name editing being cancelled by the five-second live refresh.
+- Separated live device polling from the full rooms and filters refresh.
+- Preserved active room edit drafts, focus and text selection during intentional full page-data refreshes.
+- Added frontend regression coverage for room editing and live polling.
+
 ## 0.4.10
 
 - Corrected Gen1 Shelly 1 (`SHSW-1`) capability detection.
