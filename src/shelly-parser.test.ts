@@ -184,3 +184,22 @@ describe("detectGen1Shelly", () => {
     });
   });
 });
+
+it("detects both switch channels on a Shelly Plus 2PM", () => {
+  const result = detectRpcShelly(
+    { id: "shellyplus2pm-test", app: "Plus2PM", model: "SNSW-102P16EU", gen: 2, profile: "switch" },
+    {
+      "switch:0": { id: 0, output: true, apower: 12.4, voltage: 230.1, current: 0.06 },
+      "switch:1": { id: 1, output: false, apower: 0, voltage: 230.2, current: 0 },
+      "input:0": { id: 0, state: true },
+      "input:1": { id: 1, state: false }
+    }
+  );
+
+  expect(result.type).toBe("switch");
+  expect(result.componentKind).toBe("switch");
+  expect(result.componentId).toBe(0);
+  expect(result.channelCount).toBe(2);
+  expect(result.state).toMatchObject({ on: true, power: 12.4, voltage: 230.1, current: 0.06 });
+  expect(result.inputSupport).toBe(true);
+});

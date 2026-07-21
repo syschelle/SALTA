@@ -1,40 +1,43 @@
-# SALTA v0.4.12
+# SALTA v0.4.13
 
-SALTA v0.4.12 adds display-name editing for all registered devices, including Shelly 3EM energy meters and other non-switching device types.
+SALTA v0.4.13 improves Gen2+ Shelly onboarding and fixes compatibility with Shelly Plus 2PM devices that were incorrectly reported as unsupported.
 
 ## Highlights
 
-- Rename any registered device from its configuration dialog
-- Full support for naming Shelly 3EM energy meters
-- Shared naming workflow across switches, outlets, lights, covers and meters
-- Automatic HomeKit name synchronization
-- New frontend and API regression coverage
+- Reliable Shelly Plus 2PM detection
+- Public `/shelly` identity probing for Gen2, Gen3 and Gen4
+- RFC 7616 Digest authentication with SHA-256 support
+- Compatible parameterless RPC status requests
+- JSON-RPC frame fallback for firmware-specific endpoint behavior
+- Expanded automated adapter and parser coverage
 
-## Device Naming
+## Gen2+ Device Detection
 
-The device configuration dialog now includes a required **Display name** field. Open any device, select **Configure**, enter the preferred name and save the changes.
+SALTA now identifies Gen2, Gen3 and Gen4 devices through the public `/shelly` endpoint before requesting their full status. This avoids treating a status-call compatibility error as proof that the device is not a supported Shelly.
 
-Previously, the API already supported device-name updates, but the web interface exposed only room and credential settings. Devices such as the Shelly 3EM therefore remained on their automatically detected name after onboarding.
+For parameterless methods such as `Shelly.GetStatus`, SALTA first uses the documented HTTP GET endpoint. If a firmware version rejects that endpoint with HTTP 400, 404 or 405, SALTA retries through `/rpc` with a complete JSON-RPC request frame.
 
-SALTA now:
+## Authentication
 
-- Loads the current name into the device configuration dialog
-- Validates the name before saving
-- Removes leading and trailing whitespace
-- Stores the new name persistently
-- Updates the dashboard immediately
-- Recreates the optional HomeKit accessory with the updated name
+Protected Gen2+ HTTP RPC calls now support RFC 7616 Digest authentication, including the SHA-256 algorithm used by current Shelly firmware.
 
-## Supported Device Types
+Gen1 devices continue to use their existing Basic authentication flow.
 
-Display-name editing is available for all registered device types, including:
+## Shelly Plus 2PM
 
-- Switches
-- Outlets
-- Lights
-- Window coverings
-- Energy meters
-- Power meters
+The release adds explicit regression coverage for the Shelly Plus 2PM switch profile, including:
+
+- Device identification
+- Two detected switch channels
+- Current state and power parsing for the primary channel
+- Digest-authenticated status requests
+- JSON-RPC fallback behavior
+
+The current SALTA device model registers the primary controllable channel and records the physical channel count. Independent dashboard cards and names for every channel remain separate multi-channel UI work.
+
+## Diagnostics
+
+Rejected onboarding attempts now record the original error object together with the request ID and device host in the structured SALTA log. This makes future reference IDs directly useful during troubleshooting.
 
 ## Updating
 
@@ -43,7 +46,7 @@ No manual database migration is required.
 To pin this release:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.12
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.13
 ```
 
 Then run:
@@ -58,7 +61,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 The following checks completed successfully:
 
 - TypeScript strict type check
-- 31 automated tests
+- 35 automated tests
 - Production build
 - Frontend JavaScript syntax validation
 - Shell script syntax validation
@@ -66,7 +69,7 @@ The following checks completed successfully:
 ## Container Tags
 
 ```text
-0.4.12
+0.4.13
 0.4
 latest
 ```
@@ -74,7 +77,7 @@ latest
 ## Git Tag
 
 ```text
-v0.4.12
+v0.4.13
 ```
 
 ## Full Changelog

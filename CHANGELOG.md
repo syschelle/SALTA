@@ -2,13 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
-## 0.4.12
+## 0.4.13
 
-- Added display-name editing to the shared device configuration dialog.
-- Enabled renaming for Shelly 3EM and other non-switching device types.
-- Trimmed and validated edited device names before persistence.
-- Synchronized renamed devices with the optional HomeKit bridge.
-- Added frontend and API regression tests for energy-meter renaming.
+- Improved Gen2, Gen3 and Gen4 onboarding through the public `/shelly` identity endpoint.
+- Changed parameterless RPC status detection to a compatible HTTP GET request.
+- Added a JSON-RPC frame fallback for firmware that rejects method-specific GET endpoints.
+- Added RFC 7616 Digest authentication with SHA-256 support for protected Gen2+ devices.
+- Preserved Basic authentication support for Gen1 devices.
+- Prevented a confirmed Gen2+ device from being misreported as an unsupported Gen1 endpoint after a status-call failure.
+- Added detailed rejected-onboarding errors to the structured server log.
+- Added Shelly Plus 2PM regression coverage for two switch channels, Digest authentication and RPC fallback behavior.
 
 ## 0.4.11
 

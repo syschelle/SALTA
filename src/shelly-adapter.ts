@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type { Device, DeviceCommand, ShellyComponentKind } from "./types.js";
 import { DeviceRegistry } from "./registry.js";
 import { getDeviceCredentials } from "./db.js";
@@ -19,21 +19,99 @@ function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function authHeader(username: string, password: string): Record<string, string> {
+function basicAuthHeader(username: string, password: string): Record<string, string> {
   if (!username && !password) return {};
   return { authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}` };
+}
+
+type DigestChallenge = {
+  realm: string;
+  nonce: string;
+  algorithm: string;
+  qop?: string;
+  opaque?: string;
+};
+
+function parseDigestChallenge(value: string | null): DigestChallenge | undefined {
+  if (!value?.toLowerCase().startsWith("digest ")) return undefined;
+  const attributes: Record<string, string> = {};
+  const input = value.slice(7);
+  const pattern = /([a-zA-Z0-9_-]+)\s*=\s*(?:"((?:\\.|[^"])*)"|([^,\s]+))/g;
+  for (const match of input.matchAll(pattern)) {
+    const key = match[1]?.toLowerCase();
+    const raw = match[2] ?? match[3];
+    if (key && raw !== undefined) attributes[key] = raw.replace(/\\"/g, '"');
+  }
+  if (!attributes.realm || !attributes.nonce) return undefined;
+  return {
+    realm: attributes.realm,
+    nonce: attributes.nonce,
+    algorithm: attributes.algorithm ?? "MD5",
+    qop: attributes.qop,
+    opaque: attributes.opaque
+  };
+}
+
+function digestHash(algorithm: string, value: string): string {
+  const normalized = algorithm.toUpperCase().replace(/-SESS$/, "");
+  const nodeAlgorithm = normalized === "SHA-256" ? "sha256" : normalized === "MD5" ? "md5" : undefined;
+  if (!nodeAlgorithm) throw new Error("AUTHENTICATION_FAILED");
+  return createHash(nodeAlgorithm).update(value).digest("hex");
+}
+
+function quoteDigest(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function digestAuthHeader(challenge: DigestChallenge, username: string, password: string, method: string, url: string): string {
+  const parsedUrl = new URL(url);
+  const uri = `${parsedUrl.pathname}${parsedUrl.search}`;
+  const cnonce = randomBytes(16).toString("hex");
+  const nonceCount = "00000001";
+  const offeredQop = challenge.qop?.split(",").map(value => value.trim().toLowerCase());
+  const qop = offeredQop?.includes("auth") ? "auth" : undefined;
+  let ha1 = digestHash(challenge.algorithm, `${username}:${challenge.realm}:${password}`);
+  if (challenge.algorithm.toUpperCase().endsWith("-SESS")) {
+    ha1 = digestHash(challenge.algorithm, `${ha1}:${challenge.nonce}:${cnonce}`);
+  }
+  const ha2 = digestHash(challenge.algorithm, `${method}:${uri}`);
+  const response = qop
+    ? digestHash(challenge.algorithm, `${ha1}:${challenge.nonce}:${nonceCount}:${cnonce}:${qop}:${ha2}`)
+    : digestHash(challenge.algorithm, `${ha1}:${challenge.nonce}:${ha2}`);
+  const fields = [
+    `username="${quoteDigest(username)}"`,
+    `realm="${quoteDigest(challenge.realm)}"`,
+    `nonce="${quoteDigest(challenge.nonce)}"`,
+    `uri="${quoteDigest(uri)}"`,
+    `response="${response}"`,
+    `algorithm=${challenge.algorithm}`
+  ];
+  if (challenge.opaque) fields.push(`opaque="${quoteDigest(challenge.opaque)}"`);
+  if (qop) fields.push(`qop=${qop}`, `nc=${nonceCount}`, `cnonce="${cnonce}"`);
+  return `Digest ${fields.join(", ")}`;
 }
 
 async function requestJson(url: string, username = "", password = "", method = "GET", body?: unknown): Promise<unknown> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const requestBody = body === undefined ? undefined : JSON.stringify(body);
+  const baseHeaders: Record<string, string> = { accept: "application/json" };
+  if (requestBody !== undefined) baseHeaders["content-type"] = "application/json";
+  const execute = (authorization?: string): Promise<Response> => fetch(url, {
+    method,
+    headers: { ...baseHeaders, ...(authorization ? { authorization } : {}) },
+    body: requestBody,
+    signal: controller.signal
+  });
   try {
-    const response = await fetch(url, {
-      method,
-      headers: { accept: "application/json", "content-type": "application/json", ...authHeader(username, password) },
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: controller.signal
-    });
+    let response = await execute(username || password ? basicAuthHeader(username, password).authorization : undefined);
+    if (response.status === 401 || response.status === 403) {
+      const challenge = parseDigestChallenge(response.headers.get("www-authenticate"));
+      if (challenge && (username || password)) {
+        const digestUsername = username || "admin";
+        response = await execute(digestAuthHeader(challenge, digestUsername, password, method, url));
+      }
+    }
     if (!response.ok) throw new Error(response.status === 401 || response.status === 403 ? "AUTHENTICATION_FAILED" : `HTTP_${response.status}`);
     try {
       return await response.json() as unknown;
@@ -46,6 +124,27 @@ async function requestJson(url: string, username = "", password = "", method = "
     throw error;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+function rpcResult(value: unknown): unknown {
+  const frame = record(value);
+  const error = record(frame.error);
+  const code = Number(error.code);
+  if (code === 401) throw new Error("AUTHENTICATION_FAILED");
+  if (Number.isFinite(code)) throw new Error("INVALID_DEVICE_RESPONSE");
+  return frame.result ?? frame.params ?? value;
+}
+
+async function requestRpcMethod(host: string, method: string, username = "", password = ""): Promise<unknown> {
+  const endpoint = `http://${host}/rpc/${method}`;
+  try {
+    return await requestJson(endpoint, username, password, "GET");
+  } catch (error) {
+    const code = error instanceof Error ? error.message : "";
+    if (!["HTTP_400", "HTTP_404", "HTTP_405"].includes(code)) throw error;
+    const frame = await requestJson(`http://${host}/rpc`, username, password, "POST", { id: 1, method });
+    return rpcResult(frame);
   }
 }
 
@@ -92,14 +191,35 @@ export class ShellyAdapter {
 
   async probe(host: string, username = "", password = ""): Promise<ProbeResult> {
     const clean = host.trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
+    let rpcInfo: JsonRecord | undefined;
+    let rpcIdentityError: unknown;
+
     try {
-      const rawInfo = await requestJson(`http://${clean}/rpc/Shelly.GetDeviceInfo`, username, password);
-      const rawStatus = await requestJson(`http://${clean}/rpc/Shelly.GetStatus`, username, password, "POST");
-      const info = record(rawInfo);
-      const detection = detectRpcShelly(info, rawStatus);
-      const sourceId = stringValue(info.id) ?? clean;
-      const model = stringValue(info.app) ?? stringValue(info.model) ?? "Shelly RPC";
-      const name = stringValue(info.name) ?? model ?? sourceId;
+      const identity = record(await requestJson(`http://${clean}/shelly`, username, password));
+      const generation = Number(identity.gen);
+      if (generation === 2 || generation === 3 || generation === 4) rpcInfo = identity;
+    } catch (error) {
+      if (error instanceof Error && error.message === "AUTHENTICATION_FAILED") throw error;
+      rpcIdentityError = error;
+    }
+
+    if (!rpcInfo) {
+      try {
+        const identity = record(await requestRpcMethod(clean, "Shelly.GetDeviceInfo", username, password));
+        const generation = Number(identity.gen);
+        if (generation === 2 || generation === 3 || generation === 4 || stringValue(identity.id)) rpcInfo = identity;
+      } catch (error) {
+        if (error instanceof Error && error.message === "AUTHENTICATION_FAILED") throw error;
+        rpcIdentityError = error;
+      }
+    }
+
+    if (rpcInfo) {
+      const rawStatus = await requestRpcMethod(clean, "Shelly.GetStatus", username, password);
+      const detection = detectRpcShelly(rpcInfo, rawStatus);
+      const sourceId = stringValue(rpcInfo.id) ?? clean;
+      const model = stringValue(rpcInfo.app) ?? stringValue(rpcInfo.model) ?? "Shelly RPC";
+      const name = stringValue(rpcInfo.name) ?? model ?? sourceId;
       const timestamp = now();
       const device: Device = {
         id: idFor(clean, sourceId),
@@ -108,11 +228,11 @@ export class ShellyAdapter {
         type: detection.type,
         name,
         host: clean,
-        generation: rpcGeneration(info),
+        generation: rpcGeneration(rpcInfo),
         model,
-        firmwareVersion: stringValue(info.ver) ?? stringValue(info.fw_id),
+        firmwareVersion: stringValue(rpcInfo.ver) ?? stringValue(rpcInfo.fw_id),
         hostname: sourceId,
-        macAddress: stringValue(info.mac),
+        macAddress: stringValue(rpcInfo.mac),
         componentKind: detection.componentKind,
         componentId: detection.componentId,
         channelCount: detection.channelCount,
@@ -131,54 +251,55 @@ export class ShellyAdapter {
         lastEvent: timestamp
       };
       return { host: clean, generation: device.generation ?? "rpc", model, sourceId, name, device };
-    } catch (rpcError) {
-      if (rpcError instanceof Error && rpcError.message === "AUTHENTICATION_FAILED") throw rpcError;
-      try {
-        const [rawSettings, rawStatus] = await Promise.all([
-          requestJson(`http://${clean}/settings`, username, password),
-          requestJson(`http://${clean}/status`, username, password)
-        ]);
-        const settings = record(rawSettings);
-        const deviceSettings = record(settings.device);
-        const detection = detectGen1Shelly(settings, rawStatus);
-        const sourceId = stringValue(deviceSettings.mac) ?? stringValue(deviceSettings.hostname) ?? clean;
-        const model = stringValue(deviceSettings.type) ?? "Shelly Gen1";
-        const name = stringValue(settings.name) ?? stringValue(deviceSettings.hostname) ?? sourceId;
-        const timestamp = now();
-        const device: Device = {
-          id: idFor(clean, sourceId),
-          source: "shelly",
-          sourceId,
-          type: detection.type,
-          name,
-          host: clean,
-          generation: "gen1",
-          model,
-          firmwareVersion: stringValue(settings.fw),
-          hostname: stringValue(deviceSettings.hostname),
-          macAddress: stringValue(deviceSettings.mac),
-          componentKind: detection.componentKind,
-          componentId: detection.componentId,
-          channelCount: detection.channelCount,
-          powerMetering: detection.powerMetering,
-          coverSupport: detection.coverSupport,
-          switchSupport: detection.switchSupport,
-          lightSupport: detection.lightSupport,
-          inputSupport: detection.inputSupport,
-          reachable: true,
-          state: detection.state,
-          capabilities: detection.capabilities,
-          homekitEnabled: true,
-          credentialMode: "inherit",
-          passwordConfigured: false,
-          lastSeen: timestamp,
-          lastEvent: timestamp
-        };
-        return { host: clean, generation: "gen1", model, sourceId, name, device };
-      } catch (gen1Error) {
-        if (gen1Error instanceof Error) throw gen1Error;
-        throw rpcError;
-      }
+    }
+
+    try {
+      const [rawSettings, rawStatus] = await Promise.all([
+        requestJson(`http://${clean}/settings`, username, password),
+        requestJson(`http://${clean}/status`, username, password)
+      ]);
+      const settings = record(rawSettings);
+      const deviceSettings = record(settings.device);
+      const detection = detectGen1Shelly(settings, rawStatus);
+      const sourceId = stringValue(deviceSettings.mac) ?? stringValue(deviceSettings.hostname) ?? clean;
+      const model = stringValue(deviceSettings.type) ?? "Shelly Gen1";
+      const name = stringValue(settings.name) ?? stringValue(deviceSettings.hostname) ?? sourceId;
+      const timestamp = now();
+      const device: Device = {
+        id: idFor(clean, sourceId),
+        source: "shelly",
+        sourceId,
+        type: detection.type,
+        name,
+        host: clean,
+        generation: "gen1",
+        model,
+        firmwareVersion: stringValue(settings.fw),
+        hostname: stringValue(deviceSettings.hostname),
+        macAddress: stringValue(deviceSettings.mac),
+        componentKind: detection.componentKind,
+        componentId: detection.componentId,
+        channelCount: detection.channelCount,
+        powerMetering: detection.powerMetering,
+        coverSupport: detection.coverSupport,
+        switchSupport: detection.switchSupport,
+        lightSupport: detection.lightSupport,
+        inputSupport: detection.inputSupport,
+        reachable: true,
+        state: detection.state,
+        capabilities: detection.capabilities,
+        homekitEnabled: true,
+        credentialMode: "inherit",
+        passwordConfigured: false,
+        lastSeen: timestamp,
+        lastEvent: timestamp
+      };
+      return { host: clean, generation: "gen1", model, sourceId, name, device };
+    } catch (gen1Error) {
+      if (gen1Error instanceof Error && gen1Error.message === "AUTHENTICATION_FAILED") throw gen1Error;
+      if (rpcIdentityError instanceof Error && rpcIdentityError.message !== "HTTP_404") throw rpcIdentityError;
+      if (gen1Error instanceof Error) throw gen1Error;
+      throw rpcIdentityError ?? new Error("UNSUPPORTED_SHELLY_DEVICE");
     }
   }
 

@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.12` is the current stable release. It provides local Shelly discovery, generation-aware device detection, persistent device and room management, editable device names, live status values, device control and an optional HomeKit bridge.
+`v0.4.13` is the current stable release. It provides local Shelly discovery, generation-aware device detection, persistent device and room management, live status values, device control and an optional HomeKit bridge.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.12"
+git commit -m "release: SALTA v0.4.13"
 git push origin main
-git tag -a v0.4.12 -m "SALTA v0.4.12"
-git push origin v0.4.12
+git tag -a v0.4.13 -m "SALTA v0.4.13"
+git push origin v0.4.13
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.12
+ghcr.io/<github-owner>/<repository>:0.4.13
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -154,7 +154,7 @@ MIT
 
 ## Shelly support
 
-SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Device detection records the model, generation, firmware, hostname, address, MAC address, channel count and supported functions. Depending on the device, the dashboard displays switch or cover state together with available power, energy, voltage, current, frequency and temperature values.
+SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Device detection records the model, generation, firmware, hostname, address, MAC address, channel count and supported functions. Depending on the device, the dashboard displays switch or cover state together with available power, energy, voltage, current, frequency and temperature values. Gen2+ identification uses the public `/shelly` endpoint, while protected RPC calls support RFC 7616 Digest authentication with SHA-256. Parameterless RPC calls use the compatible GET endpoint with a JSON-RPC frame fallback.
 
 ## Device removal
 

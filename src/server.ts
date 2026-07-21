@@ -68,7 +68,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch { return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.12", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.13", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
     try {
       await pool.query("select 1");
@@ -170,7 +170,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch(error) {
       const response=shellyRequestError(error);
       if(response.status>=500) request.log.error({err:error,host:parsed.data.host},"Shelly device add failed");
-      else request.log.warn({code:response.code,host:parsed.data.host},"Shelly device add rejected");
+      else request.log.warn({err:error,code:response.code,host:parsed.data.host},"Shelly device add rejected");
       return reply.code(response.status).send({error:{code:response.code,message:response.message,requestId:request.id}});
     }
   });
