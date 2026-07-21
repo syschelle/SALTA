@@ -1,44 +1,47 @@
-# SALTA v0.4.15
+# SALTA v0.4.16
 
-SALTA v0.4.15 adds direct percentage-based position control for calibrated Shelly window coverings.
+SALTA v0.4.16 adds persistent light and dark themes to the web interface.
 
 ## Highlights
 
-- 0–100% height slider for calibrated covers
-- Live percentage preview while adjusting the slider
-- Open, Stop and Close controls on every cover card
-- Clear calibration guidance when position control is unavailable
-- Stable slider interaction during live status refreshes
-- Validated target-position commands
+- Live light/dark theme switching
+- Complete dark styling across the application
+- Theme preference remembered for one year
+- No light-theme flash during page loading
+- Accessible theme control and reduced-motion support
+- Browser theme color updated automatically
 
-## Window-Covering Position Control
+## Appearance Control
 
-A calibrated Shelly cover now displays a **Height** slider directly on its device card. The slider ranges from fully closed at `0%` to fully open at `100%`.
+The SALTA sidebar now includes an appearance switch. Selecting **Dark theme** or **Light theme** updates the complete interface immediately without reloading the page.
 
-SALTA shows the selected percentage immediately while the slider is being adjusted. When the user releases the control, SALTA sends one target-position command to the correct Shelly cover component.
+The selected appearance applies to:
 
-The existing discrete controls remain available:
+- Dashboard statistics and panels
+- Device and room cards
+- Navigation and mobile navigation
+- Forms, filters and search fields
+- Shelly onboarding and configuration dialogs
+- Window-covering controls
+- Status, warning and error messages
 
-- Open
-- Stop
-- Close
+## Persistent Preference
 
-## Calibration Handling
+SALTA stores the selected appearance in the functional browser cookie:
 
-Shelly position control requires a calibrated cover and a known current position. When the device does not report a current position, SALTA hides the slider and displays a clear notice that calibration is required.
+```text
+salta_theme=light|dark
+```
 
-Open, Stop and Close remain available even without percentage-based position control.
+The cookie is scoped to the SALTA application path, uses `SameSite=Lax`, and expires after one year. When SALTA is served over HTTPS, the cookie also uses the `Secure` attribute.
 
-## Reliability
+The saved theme is applied in the document head before the stylesheet loads. This prevents the interface from briefly rendering in the light theme before switching to dark mode.
 
-The regular five-second device refresh no longer replaces an actively used cover slider. This prevents the control from jumping back or losing focus while the user is selecting a position.
+The preference remains local to the browser and is not stored in PostgreSQL or transmitted to external services.
 
-Target positions are validated and restricted to the supported range from `0` to `100` before they are sent to the device.
+## Accessibility
 
-## Supported Shelly APIs
-
-- Gen2+ devices use `Cover.GoToPosition`
-- Gen1 roller devices use the local `roller/<id>?go=to_pos&roller_pos=<position>` endpoint
+The theme switch is a native keyboard-accessible button with a descriptive label and `aria-pressed` state. SALTA also updates `color-scheme` so supported browser controls match the active theme. Theme transitions are disabled when `prefers-reduced-motion` is enabled.
 
 ## Updating
 
@@ -47,7 +50,7 @@ No manual database migration is required.
 To pin this release:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.15
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.16
 ```
 
 Then run:
@@ -70,7 +73,7 @@ The following checks completed successfully:
 ## Container Tags
 
 ```text
-0.4.15
+0.4.16
 0.4
 latest
 ```
@@ -78,7 +81,7 @@ latest
 ## Git Tag
 
 ```text
-v0.4.15
+v0.4.16
 ```
 
 ## Full Changelog

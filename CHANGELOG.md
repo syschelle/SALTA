@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.16
+
+- Added a live light/dark theme switch to the sidebar.
+- Added a complete dark palette for dashboards, device cards, dialogs, forms, navigation and mobile controls.
+- Persisted the selected appearance in the functional `salta_theme` cookie for one year.
+- Applied the saved theme before the stylesheet renders to prevent a visible light-theme flash.
+- Updated the browser theme color and native control color scheme when the theme changes.
+- Added accessible labels, pressed state and reduced-motion handling for the theme control.
+- Added automated frontend regression coverage for theme persistence and dark-mode styling.
+
 ## 0.4.15
 
 - Added a 0–100 percent position slider to calibrated window-covering device cards.

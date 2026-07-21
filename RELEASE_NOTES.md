@@ -1,24 +1,26 @@
-# SALTA v0.4.15
+# SALTA v0.4.16
 
-SALTA v0.4.15 adds direct position control for calibrated Shelly window coverings.
+SALTA v0.4.16 adds persistent light and dark themes to the web interface.
 
 ## Added
 
-- A 0–100% height slider on window-covering device cards
-- Live percentage feedback while adjusting the slider
-- Open, Stop and Close controls in one device card
-- A calibration notice when arbitrary position control is unavailable
-- Position-range validation before commands are sent
+- A live appearance switch in the sidebar
+- A complete dark palette for dashboards, cards, dialogs, forms and navigation
+- One-year persistence through the functional `salta_theme` cookie
+- Early theme restoration before the stylesheet renders
+- Matching browser theme colors and native form-control appearance
 
-## Reliability
+## Accessibility
 
-The five-second live refresh no longer interrupts an active slider adjustment. SALTA keeps the selected draft position until the user releases the control and then sends one target-position command.
+The theme control exposes a descriptive label and pressed state to assistive technologies. Theme transitions are disabled when the browser requests reduced motion.
 
-Both Gen1 roller devices and Gen2+ Cover components continue to use their native local Shelly APIs.
+## Privacy
+
+The selected appearance is stored only in the user's browser. It is not written to PostgreSQL and is not sent to external services.
 
 ## Compatibility
 
-No database migration is required. The slider appears only when the device reports a known current position. Uncalibrated covers remain controllable through Open, Stop and Close.
+No database migration is required. Existing installations start in the light theme until a user selects the dark theme.
 
 ## Quality assurance
 

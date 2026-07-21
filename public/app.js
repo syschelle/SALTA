@@ -1,5 +1,18 @@
 let all=[],rooms=[],selectedDevice=null,shellySettingsStatus=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null;
 const coverSliderDrafts=new Map();
+
+const themeToggleElement=document.getElementById('themeToggle');
+const themeToggleIconElement=document.getElementById('themeToggleIcon');
+const themeToggleTextElement=document.getElementById('themeToggleText');
+const THEME_COOKIE='salta_theme';
+const THEME_COOKIE_MAX_AGE=60*60*24*365;
+function normalizeTheme(value){return value==='dark'?'dark':'light'}
+function readThemeCookie(){const prefix=`${THEME_COOKIE}=`;const entry=document.cookie.split('; ').find(value=>value.startsWith(prefix));return entry?normalizeTheme(decodeURIComponent(entry.slice(prefix.length))):normalizeTheme(document.documentElement.dataset.theme)}
+function writeThemeCookie(theme){const secure=location.protocol==='https:'?'; Secure':'';document.cookie=`${THEME_COOKIE}=${encodeURIComponent(theme)}; Max-Age=${THEME_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}`}
+function updateThemeToggle(theme){const dark=theme==='dark';if(!themeToggleElement||!themeToggleIconElement||!themeToggleTextElement)return;themeToggleElement.setAttribute('aria-pressed',String(dark));themeToggleElement.setAttribute('aria-label',dark?'Helles Theme aktivieren':'Dunkles Theme aktivieren');themeToggleElement.title=dark?'Zum hellen Theme wechseln':'Zum dunklen Theme wechseln';themeToggleIconElement.textContent=dark?'☀':'☾';themeToggleTextElement.textContent=dark?'Helles Theme':'Dunkles Theme'}
+function applyTheme(value,{persist=false,announce=false}={}){const theme=normalizeTheme(value);document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme==='dark'?'#0d1117':'#f4f6f8');if(persist)writeThemeCookie(theme);updateThemeToggle(theme);if(announce)notify(theme==='dark'?'Dunkles Theme aktiviert.':'Helles Theme aktiviert.')}
+function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark',{persist:true,announce:true})}
+function initializeTheme(){applyTheme(readThemeCookie())}
 const pages=['overview','devices','rooms','settings'];
 const defaultPage='overview';
 const icons={outlet:'◉',switch:'⏻',energyMeter:'⌁',windowCovering:'▤',thermostat:'◒',light:'✦',motionSensor:'◌'};
@@ -236,8 +249,9 @@ window.addEventListener('hashchange',navigate);
 menuToggle.addEventListener('click',openMenu);
 menuClose.addEventListener('click',()=>closeMenu({restoreFocus:true}));
 sidebarBackdrop.addEventListener('click',()=>closeMenu({restoreFocus:true}));
+themeToggleElement?.addEventListener('click',toggleTheme);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.body.classList.contains('menu-open'))closeMenu({restoreFocus:true})});
 document.querySelectorAll('#sidebar [data-nav]').forEach(item=>item.addEventListener('click',()=>{if(matchMedia('(max-width: 1000px)').matches)closeMenu()}));
 deviceDialog.addEventListener('close',()=>{selectedDevice=null;setActiveNavigation(routeFromHash())});
 
-navigate();load();setInterval(refreshLiveData,5000);
+initializeTheme();navigate();load();setInterval(refreshLiveData,5000);

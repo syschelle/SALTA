@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.15` is the current stable release. It provides local Shelly discovery, generation-aware and profile-aware device detection, persistent device and room management, multi-channel 2PM support, calibrated cover-position sliders, live status values, device control and an optional HomeKit bridge.
+`v0.4.16` is the current stable release. It provides local Shelly discovery, generation-aware and profile-aware device detection, persistent device and room management, multi-channel 2PM support, calibrated cover-position sliders, live status values, device control, persistent light and dark themes, and an optional HomeKit bridge.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.15"
+git commit -m "release: SALTA v0.4.16"
 git push origin main
-git tag -a v0.4.15 -m "SALTA v0.4.15"
-git push origin v0.4.15
+git tag -a v0.4.16 -m "SALTA v0.4.16"
+git push origin v0.4.16
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.15
+ghcr.io/<github-owner>/<repository>:0.4.16
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -97,6 +97,11 @@ docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
 Production and Raspberry Pi deployments should use the prebuilt GHCR image instead.
+
+
+## Appearance
+
+The sidebar includes a live light/dark theme switch. The selected theme is applied immediately and stored in the functional `salta_theme` cookie for one year, so the web interface restores the preference before rendering on the next visit. The preference remains local to the browser and is not stored in PostgreSQL.
 
 ## Status and logs
 
