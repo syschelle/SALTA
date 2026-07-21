@@ -15,28 +15,29 @@
     })();
   </script>
   <title>SALTA · Local Smart Home</title>
+  <link rel="stylesheet" href="/vendor/mdi/materialdesignicons.min.css">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<button id="menuToggle" class="menu-toggle" type="button" aria-label="Navigation öffnen" aria-controls="sidebar" aria-expanded="false"><span aria-hidden="true">☰</span></button>
+<button id="menuToggle" class="menu-toggle" type="button" aria-label="Navigation öffnen" aria-controls="sidebar" aria-expanded="false"><span class="mdi mdi-menu" aria-hidden="true"></span></button>
 <div id="sidebarBackdrop" class="sidebar-backdrop" hidden></div>
 <aside id="sidebar">
-  <div class="sidebar-head"><div class="brand"><span class="logo">S</span><div><b>SALTA</b><small>Local by design</small></div></div><button id="menuClose" class="menu-close" type="button" aria-label="Navigation schließen">×</button></div>
+  <div class="sidebar-head"><div class="brand"><span class="logo">S</span><div><b>SALTA</b><small>Local by design</small></div></div><button id="menuClose" class="menu-close" type="button" aria-label="Navigation schließen"><span class="mdi mdi-close" aria-hidden="true"></span></button></div>
   <nav aria-label="Hauptnavigation">
-    <a href="#overview" data-nav="overview"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg></span><span>Übersicht</span></a>
-    <a href="#devices" data-nav="devices"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg></span><span>Geräte</span></a>
-    <a href="#rooms" data-nav="rooms"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16"/></svg></span><span>Räume</span></a>
-    <button type="button" data-nav="automations" onclick="showUnavailable('Automationen')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h5l2 3h9M4 16h5l2-3h9"/><circle cx="4" cy="8" r="1"/><circle cx="4" cy="16" r="1"/></svg></span><span>Automationen</span></button>
-    <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></span><span>Diagnose</span></button>
-    <a href="#settings" data-nav="settings"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2V9.6h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8 3.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V2h4v.1A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 8a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg></span><span>Einstellungen</span></a>
+    <a href="#overview" data-nav="overview"><span class="nav-icon mdi mdi-home-outline" aria-hidden="true"></span><span>Übersicht</span></a>
+    <a href="#devices" data-nav="devices"><span class="nav-icon mdi mdi-devices" aria-hidden="true"></span><span>Geräte</span></a>
+    <a href="#rooms" data-nav="rooms"><span class="nav-icon mdi mdi-floor-plan" aria-hidden="true"></span><span>Räume</span></a>
+    <button type="button" data-nav="automations" onclick="showUnavailable('Automationen')"><span class="nav-icon mdi mdi-robot-outline" aria-hidden="true"></span><span>Automationen</span></button>
+    <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span class="nav-icon mdi mdi-stethoscope" aria-hidden="true"></span><span>Diagnose</span></button>
+    <a href="#settings" data-nav="settings"><span class="nav-icon mdi mdi-cog-outline" aria-hidden="true"></span><span>Einstellungen</span></a>
   </nav>
   <div class="sidebar-footer">
     <div class="status"><i></i> System online</div>
     <button id="themeToggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Dunkles Theme aktivieren">
-      <span class="theme-toggle-label"><span id="themeToggleIcon" aria-hidden="true">☾</span><span id="themeToggleText">Dunkles Theme</span></span>
+      <span class="theme-toggle-label"><span id="themeToggleIcon" class="mdi mdi-weather-night" aria-hidden="true"></span><span id="themeToggleText">Dunkles Theme</span></span>
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.4.17</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.4.18</strong></div>
   </div>
 </aside>
 
@@ -44,15 +45,15 @@
   <section class="page" data-page="overview" aria-labelledby="overview-title">
     <header>
       <div><p class="eyebrow">SMART-HOME ABSTRACTION & LOCAL TRANSPORT</p><h1 id="overview-title">Dein Zuhause. Lokal.</h1><p class="muted">Alle Systeme auf einen Blick – ohne Cloud-Zwang.</p></div>
-      <button onclick="reconcile()">↻ Synchronisieren</button>
+      <button onclick="reconcile()"><span class="mdi mdi-sync" aria-hidden="true"></span>Synchronisieren</button>
     </header>
     <section class="stats"><article><span>Geräte</span><strong id="deviceCount">–</strong><small>registriert</small></article><article><span>Erreichbar</span><strong id="reachableCount">–</strong><small>online</small></article><article><span>Aktuelle Leistung</span><strong id="power">–</strong><small>Watt</small></article><article><span>Räume</span><strong id="roomCount">–</strong><small>konfiguriert</small></article></section>
     <section class="panel welcome-panel"><div><p class="eyebrow">STATUS</p><h2>Alles an einem Ort</h2><p class="muted">Verwalte Geräte, Räume und Adapter über die Navigation. Änderungen bleiben lokal in deiner SALTA-Installation.</p></div><a class="button-link" href="#devices">Geräte anzeigen</a></section>
   </section>
 
   <section class="page" data-page="devices" aria-labelledby="devices-title" hidden>
-    <header class="page-header"><div><p class="eyebrow">GERÄTEVERWALTUNG</p><h1 id="devices-title">Geräte</h1><p class="muted">Shelly-Geräte finden, hinzufügen und direkt steuern.</p></div><div class="header-actions"><button class="secondary" onclick="reconcile()">↻ Synchronisieren</button><button onclick="openAddShelly()">+ Shelly hinzufügen</button></div></header>
-    <section class="section-head"><div><h2>Alle Geräte</h2><p class="muted">Nach Raum filtern oder gezielt suchen.</p></div><div class="filters"><select id="roomFilter"><option value="">Alle Räume</option></select><label class="search">⌕ <input id="filter" placeholder="Gerät suchen"></label></div></section>
+    <header class="page-header"><div><p class="eyebrow">GERÄTEVERWALTUNG</p><h1 id="devices-title">Geräte</h1><p class="muted">Shelly-Geräte finden, hinzufügen und direkt steuern.</p></div><div class="header-actions"><button class="secondary" onclick="reconcile()"><span class="mdi mdi-sync" aria-hidden="true"></span>Synchronisieren</button><button onclick="openAddShelly()"><span class="mdi mdi-plus" aria-hidden="true"></span>Shelly hinzufügen</button></div></header>
+    <section class="section-head"><div><h2>Alle Geräte</h2><p class="muted">Nach Raum filtern oder gezielt suchen.</p></div><div class="filters"><select id="roomFilter"><option value="">Alle Räume</option></select><label class="search"><span class="mdi mdi-magnify" aria-hidden="true"></span><input id="filter" placeholder="Gerät suchen"></label></div></section>
     <section id="deviceGrid" class="grid"></section>
   </section>
 
@@ -60,7 +61,7 @@
     <header class="page-header"><div><p class="eyebrow">ORGANISATION</p><h1 id="rooms-title">Räume</h1><p class="muted">Ordne Geräte früh und eindeutig nach Bereichen deines Zuhauses.</p></div></header>
     <section class="two-column-page">
       <article class="panel"><div class="panel-head"><div><h2>Vorhandene Räume</h2><p class="muted">Beim Löschen bleiben Geräte erhalten und werden „Nicht zugeordnet“.</p></div><span class="count-badge" id="roomPageCount">0</span></div><div id="roomList" class="room-list"></div></article>
-      <article class="panel sticky-panel"><h2>Raum hinzufügen</h2><p class="muted">Lege einen Namen und optional einen Icon-Bezeichner fest.</p><form id="roomForm" class="page-form"><label>Name<input id="newRoomName" placeholder="z. B. Wohnzimmer" required></label><label>Icon<input id="newRoomIcon" placeholder="home" value="home"></label><button type="submit">Raum hinzufügen</button></form></article>
+      <article class="panel sticky-panel"><h2>Raum hinzufügen</h2><p class="muted">Lege einen Namen und optional einen MDI-Icon-Namen fest.</p><form id="roomForm" class="page-form"><label>Name<input id="newRoomName" placeholder="z. B. Wohnzimmer" required></label><label>Icon<input id="newRoomIcon" placeholder="z. B. sofa-outline" value="home-outline"></label><button type="submit">Raum hinzufügen</button></form></article>
     </section>
   </section>
 
@@ -74,16 +75,16 @@
 </main>
 
 <nav class="mobile-nav" aria-label="Mobile Hauptnavigation">
-  <a href="#overview" data-nav="overview"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10.5V20h13v-9.5"/><path d="M9.5 20v-6h5v6"/></svg></span><small>Übersicht</small></a>
-  <a href="#devices" data-nav="devices"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M9 5v14M15 5v14"/></svg></span><small>Geräte</small></a>
-  <a href="#rooms" data-nav="rooms"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.33 4v16M14.67 4v16M4 9.33h16M4 14.67h16"/></svg></span><small>Räume</small></a>
-  <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></span><small>Diagnose</small></button>
-  <a href="#settings" data-nav="settings"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2V9.6h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8 3.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V2h4v.1A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 8a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg></span><small>Einstellungen</small></a>
+  <a href="#overview" data-nav="overview"><span class="nav-icon mdi mdi-home-outline" aria-hidden="true"></span><small>Übersicht</small></a>
+  <a href="#devices" data-nav="devices"><span class="nav-icon mdi mdi-devices" aria-hidden="true"></span><small>Geräte</small></a>
+  <a href="#rooms" data-nav="rooms"><span class="nav-icon mdi mdi-floor-plan" aria-hidden="true"></span><small>Räume</small></a>
+  <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span class="nav-icon mdi mdi-stethoscope" aria-hidden="true"></span><small>Diagnose</small></button>
+  <a href="#settings" data-nav="settings"><span class="nav-icon mdi mdi-cog-outline" aria-hidden="true"></span><small>Einstellungen</small></a>
 </nav>
 
 
 <dialog id="addShellyDialog" class="workflow-dialog"><form id="addShellyForm">
-  <div class="dialog-head"><div><h2>Shelly hinzufügen</h2><p class="muted">Gerät manuell verbinden oder im lokalen Netzwerk finden.</p></div><button type="button" class="icon-button" onclick="addShellyDialog.close()" aria-label="Dialog schließen">×</button></div>
+  <div class="dialog-head"><div><h2>Shelly hinzufügen</h2><p class="muted">Gerät manuell verbinden oder im lokalen Netzwerk finden.</p></div><button type="button" class="icon-button" onclick="addShellyDialog.close()" aria-label="Dialog schließen"><span class="mdi mdi-close" aria-hidden="true"></span></button></div>
   <div class="dialog-tabs" role="tablist" aria-label="Hinzufügemethode"><button type="button" class="secondary active" id="manualTab" role="tab" aria-selected="true" onclick="setShellyMode('manual')">Manuell hinzufügen</button><button type="button" class="secondary" id="discoveryTab" role="tab" aria-selected="false" onclick="setShellyMode('discovery')">Netzwerk durchsuchen</button></div>
   <div id="addShellyFeedback" class="dialog-feedback" role="alert" aria-live="assertive" tabindex="-1" hidden></div>
   <div id="manualShellyFields" class="dialog-content">
@@ -93,7 +94,7 @@
   </div>
   <div id="discoveryShellyFields" class="dialog-content" hidden><section class="form-section"><div class="section-label"><span>1</span><div><h3>Netzwerk durchsuchen</h3><p>SALTA prüft ein lokales /24-Netz nach erreichbaren Shellys</p></div></div><div class="field-stack"><label>Netzwerk<input id="shellySubnet" placeholder="z. B. 192.168.178.0/24" inputmode="decimal"><small>Die Adressen .1 bis .254 werden geprüft. Der Vorgang kann einige Sekunden dauern.</small></label><button type="button" id="discoverShellyButton" onclick="discoverShellys()">Suche starten</button></div></section><div id="discoveryResults" class="discovery-results" aria-live="polite"></div><div class="dialog-actions"><button type="button" class="secondary" onclick="addShellyDialog.close()">Schließen</button></div></div>
 </form></dialog>
-<dialog id="deviceDialog" class="workflow-dialog compact-dialog"><form method="dialog"><div class="dialog-head"><div><h2 id="deviceDialogTitle">Gerät</h2><p class="muted">Name, Raum, Gerätefunktion und Zugangsdaten konfigurieren.</p></div><button class="icon-button" aria-label="Dialog schließen">×</button></div><div class="dialog-content"><section class="form-section"><div class="section-label"><span>1</span><div><h3>Zuordnung</h3><p>Lege fest, wo das Gerät angezeigt wird</p></div></div><div class="field-stack"><label>Anzeigename<input id="deviceName" maxlength="120" required></label><label>Raum<select id="deviceRoom"></select></label></div></section><section id="devicePresentationSection" class="form-section"><div class="section-label"><span>2</span><div><h3>Gerätefunktion</h3><p>Darstellung in SALTA und HomeKit</p></div></div><div class="field-stack"><label>Verwendung<select id="devicePresentationType"><option value="auto">Automatisch</option><option value="light">Licht</option><option value="switch">Schalter</option><option value="outlet">Steckdose</option><option value="fan">Ventilator</option></select><small id="devicePresentationHint">Die Auswahl ändert nur die logische Verwendung, nicht die physische Shelly-Konfiguration.</small></label></div></section><section class="form-section"><div class="section-label"><span>3</span><div><h3>Authentifizierung</h3><p>Zugangsdaten für dieses Gerät</p></div></div><div class="field-stack"><label>Zugangsdaten<select id="credentialMode"><option value="inherit">Globale Shelly-Zugangsdaten</option><option value="custom">Eigene Zugangsdaten</option><option value="none">Keine Authentifizierung</option></select></label><div id="deviceCredentialFields" class="credential-fields"><label>Benutzername<input id="deviceUsername" autocomplete="username"></label><label>Passwort<input id="devicePassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label></div></div></section><section id="deviceDeleteSection" class="form-section danger-zone"><div class="section-label"><span>4</span><div><h3>Gerät entfernen</h3><p>Entfernt das Gerät und seine SALTA-Daten dauerhaft</p></div></div><div class="danger-zone-content"><p>Das Shelly-Gerät selbst wird nicht zurückgesetzt oder ausgeschaltet. Es kann später erneut hinzugefügt werden.</p><button type="button" id="deleteDeviceButton" class="danger-button" onclick="removeSelectedDevice()">Gerät aus SALTA löschen</button></div></section><div class="dialog-actions"><button type="submit" class="secondary">Abbrechen</button><button type="button" onclick="saveDeviceConfig()">Änderungen speichern</button></div></div></form></dialog>
+<dialog id="deviceDialog" class="workflow-dialog compact-dialog"><form method="dialog"><div class="dialog-head"><div><h2 id="deviceDialogTitle">Gerät</h2><p class="muted">Name, Raum, Gerätefunktion und Zugangsdaten konfigurieren.</p></div><button class="icon-button" aria-label="Dialog schließen"><span class="mdi mdi-close" aria-hidden="true"></span></button></div><div class="dialog-content"><section class="form-section"><div class="section-label"><span>1</span><div><h3>Zuordnung</h3><p>Lege fest, wo das Gerät angezeigt wird</p></div></div><div class="field-stack"><label>Anzeigename<input id="deviceName" maxlength="120" required></label><label>Raum<select id="deviceRoom"></select></label></div></section><section id="devicePresentationSection" class="form-section"><div class="section-label"><span>2</span><div><h3>Gerätefunktion</h3><p>Darstellung in SALTA und HomeKit</p></div></div><div class="field-stack"><label>Verwendung<select id="devicePresentationType"><option value="auto">Automatisch</option><option value="light">Licht</option><option value="switch">Schalter</option><option value="outlet">Steckdose</option><option value="fan">Ventilator</option></select><small id="devicePresentationHint">Die Auswahl ändert nur die logische Verwendung, nicht die physische Shelly-Konfiguration.</small></label></div></section><section class="form-section"><div class="section-label"><span>3</span><div><h3>Authentifizierung</h3><p>Zugangsdaten für dieses Gerät</p></div></div><div class="field-stack"><label>Zugangsdaten<select id="credentialMode"><option value="inherit">Globale Shelly-Zugangsdaten</option><option value="custom">Eigene Zugangsdaten</option><option value="none">Keine Authentifizierung</option></select></label><div id="deviceCredentialFields" class="credential-fields"><label>Benutzername<input id="deviceUsername" autocomplete="username"></label><label>Passwort<input id="devicePassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label></div></div></section><section id="deviceDeleteSection" class="form-section danger-zone"><div class="section-label"><span>4</span><div><h3>Gerät entfernen</h3><p>Entfernt das Gerät und seine SALTA-Daten dauerhaft</p></div></div><div class="danger-zone-content"><p>Das Shelly-Gerät selbst wird nicht zurückgesetzt oder ausgeschaltet. Es kann später erneut hinzugefügt werden.</p><button type="button" id="deleteDeviceButton" class="danger-button" onclick="removeSelectedDevice()">Gerät aus SALTA löschen</button></div></section><div class="dialog-actions"><button type="submit" class="secondary">Abbrechen</button><button type="button" onclick="saveDeviceConfig()">Änderungen speichern</button></div></div></form></dialog>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="/app.js"></script>
 </body>

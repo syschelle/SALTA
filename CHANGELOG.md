@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.18
+
+- Replaced custom and Unicode interface symbols with locally bundled Material Design Icons.
+- Added local MDI webfont assets without external CDN requests.
+- Added MDI device, navigation, theme, action and room icons.
+- Documented the Pictogrammers source and Apache License 2.0 attribution.
+- Added frontend regression coverage for local icon loading and licensing.
+
 ## 0.4.17
 
 - Added a configurable logical device function for compatible on/off Shelly devices.

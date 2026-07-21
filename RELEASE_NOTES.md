@@ -1,9 +1,12 @@
-# SALTA v0.4.17
+# SALTA v0.4.18
 
-SALTA v0.4.17 adds configurable logical device functions for switchable Shelly devices.
+SALTA v0.4.18 replaces custom interface symbols with locally bundled Material Design Icons.
 
-A Shelly relay, outlet or light can now be presented as an automatically detected device, light, switch, outlet or fan. The physical Shelly type and command routing remain unchanged, while the selected function controls the dashboard icon, device label and HomeKit service.
+## Changes
 
-The release adds persistent storage for the selected function, automatic schema migration, HomeKit `Lightbulb`, `Switch`, `Outlet` and `Fanv2` mappings, and protection against assigning these functions to non-switchable devices such as energy meters or window coverings.
+- Added local MDI icons for navigation, devices, actions, rooms and theme switching
+- No CDN or external icon request
+- Room icon fields accept MDI names such as `sofa-outline`
+- Added Pictogrammers attribution and Apache License 2.0 notice
 
-No manual database migration is required.
+No database migration is required.

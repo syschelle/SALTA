@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.17` is the current stable release. It provides local Shelly discovery, generation-aware and profile-aware device detection, persistent device and room management, multi-channel 2PM support, calibrated cover-position sliders, live status values, device control, configurable device functions, persistent light and dark themes, and an optional HomeKit bridge.
+`v0.4.18` is the current stable release. It adds locally bundled Material Design Icons while retaining Shelly discovery, multi-channel control, cover positioning, configurable device functions, persistent themes and optional HomeKit support.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.17"
+git commit -m "release: SALTA v0.4.18"
 git push origin main
-git tag -a v0.4.17 -m "SALTA v0.4.17"
-git push origin v0.4.17
+git tag -a v0.4.18 -m "SALTA v0.4.18"
+git push origin v0.4.18
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.17
+ghcr.io/<github-owner>/<repository>:0.4.18
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -103,6 +103,10 @@ Production and Raspberry Pi deployments should use the prebuilt GHCR image inste
 
 The sidebar includes a live light/dark theme switch. The selected theme is applied immediately and stored in the functional `salta_theme` cookie for one year, so the web interface restores the preference before rendering on the next visit. The preference remains local to the browser and is not stored in PostgreSQL.
 
+## Icons
+
+SALTA bundles [Material Design Icons (MDI)](https://pictogrammers.com/library/mdi/) locally from Pictogrammers `@mdi/font` 7.4.47. No icon CDN or external runtime request is used. The bundled icon font is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0); see `public/vendor/mdi/LICENSE`. Room icons use MDI names without the `mdi-` prefix, for example `sofa-outline`.
+
 ## Status and logs
 
 ```bash
@@ -155,7 +159,9 @@ SALTA uses host networking so HomeKit mDNS and future local discovery protocols 
 
 ## License
 
-MIT
+SALTA source code: MIT.
+
+Bundled Material Design Icons: Apache License 2.0. See `public/vendor/mdi/LICENSE`.
 
 ## Shelly support
 
