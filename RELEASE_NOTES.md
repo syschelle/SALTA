@@ -1,22 +1,22 @@
-# SALTA v0.4.9
+# SALTA v0.4.10
 
-SALTA v0.4.9 adds proactive encryption-key validation and improves live power measurement selection for Shelly devices.
+SALTA v0.4.10 corrects power-meter capability detection for the Gen1 Shelly 1 (`SHSW-1`).
 
-## Improvements
+## Fixed
 
-- Stored global and per-device Shelly credentials are checked during startup and through `/api/readiness`.
-- A mismatching `SALTA_ENCRYPTION_KEY` now produces the specific `ENCRYPTION_KEY_MISMATCH` error.
-- The web interface warns before onboarding and disables inherited credentials until the global password is saved again.
-- New secrets use AES-256-GCM with a per-secret random salt and a `scrypt`-derived 256-bit key.
-- Valid legacy v1 secrets remain readable and are upgraded automatically.
-- New installations receive a randomly generated encryption key from `deploy.sh`.
-- Dedicated `PM1` and `EM1` components are preferred for live power, voltage, current and energy values.
-- A single separate metering component is used even when its component ID differs from the switch ID.
+- The Shelly 1 is no longer reported as having a physical power meter.
+- Its configurable nominal load value is no longer displayed as a live watt measurement.
+- Misleading `0 W` values are removed from the device card and dashboard total.
+- Shelly 1PM (`SHSW-PM`) continues to expose its real power and energy readings.
+
+## Background
+
+The classic Shelly 1 does not contain measurement hardware. Its Gen1 API exposes a `meters[0].power` value that represents a manually configured appliance power constant while the relay is on. SALTA previously interpreted this value as a real-time measurement.
 
 ## Compatibility
 
-No manual database migration is required. Existing `.env` files remain valid and must retain their current `SALTA_ENCRYPTION_KEY`.
+No database migration is required. Existing Shelly 1 devices are corrected automatically during the next status synchronization.
 
 ## Quality assurance
 
-The release passes TypeScript strict checking, 24 automated tests, frontend JavaScript syntax validation and the production build.
+The release passes TypeScript strict checking, 26 automated tests, frontend JavaScript syntax validation and the production build.

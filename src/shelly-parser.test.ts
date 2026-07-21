@@ -134,6 +134,36 @@ describe("detectGen1Shelly", () => {
     expect(result.inputSupport).toBe(true);
   });
 
+
+  it("does not expose the Shelly 1 nominal load as measured power", () => {
+    const result = detectGen1Shelly(
+      { device: { type: "SHSW-1", hostname: "shelly1-123456" } },
+      {
+        relays: [{ ison: true }],
+        meters: [{ power: 0, is_valid: true }],
+        inputs: [{ input: 1 }]
+      }
+    );
+
+    expect(result.type).toBe("switch");
+    expect(result.state).toEqual({ on: true });
+    expect(result.powerMetering).toBe(false);
+  });
+
+  it("keeps real Shelly 1PM measurements", () => {
+    const result = detectGen1Shelly(
+      { device: { type: "SHSW-PM", hostname: "shelly1pm-123456" } },
+      {
+        relays: [{ ison: true }],
+        meters: [{ power: 73.4, total: 1200, is_valid: true }],
+        inputs: [{ input: 1 }]
+      }
+    );
+
+    expect(result.state).toEqual({ on: true, power: 73.4, energy: 20 });
+    expect(result.powerMetering).toBe(true);
+  });
+
   it("detects roller mode before relay mode", () => {
     const result = detectGen1Shelly(
       { mode: "roller", device: { type: "SHSW-25", hostname: "shellyswitch25-123456" } },

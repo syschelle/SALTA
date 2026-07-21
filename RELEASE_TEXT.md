@@ -1,77 +1,40 @@
-# SALTA v0.4.9
+# SALTA v0.4.10
 
-SALTA v0.4.9 adds proactive encryption-key validation and improves Shelly live power measurements.
+SALTA v0.4.10 corrects power-meter capability detection for the classic Gen1 Shelly 1 (`SHSW-1`).
 
 ## Highlights
 
-- Detect mismatching encryption keys before Shelly onboarding
-- Clear recovery guidance in Settings and the add-device dialog
-- Stronger key derivation for newly stored credentials
-- Backward-compatible migration of existing encrypted secrets
-- Improved `PM1` and `EM1` measurement selection
-- Random encryption keys for new installations
+- Correct Shelly 1 power-meter capability detection
+- No more misleading `0 W` live readings for `SHSW-1`
+- Dashboard totals include only actual measured power
+- Shelly 1PM measurements remain fully supported
+- New Gen1 regression tests
 
-## Credential Protection
+## Shelly 1 Power Values
 
-SALTA must be able to retrieve Shelly passwords for local device requests, so the credentials are stored with authenticated reversible encryption rather than a one-way password hash.
+The classic Shelly 1 does not include physical power-measurement hardware. Its Gen1 `/status` response can contain `meters[0].power`, but this value is only a user-configured nominal appliance load and is `0` by default. It is not a real-time electrical measurement.
 
-Newly saved credentials use:
+SALTA previously treated this value as measured power. This caused an active Shelly 1 to display `0 W` and made the device appear to support power metering.
 
-- AES-256-GCM authenticated encryption
-- A unique random salt for every stored secret
-- A `scrypt`-derived 256-bit encryption key
-- A unique random initialization vector
+SALTA now:
 
-Existing v1 AES-256-GCM values remain supported. When the configured key can decrypt them, SALTA upgrades them automatically to the new v2 format.
+- Detects `SHSW-1` as a switch without hardware power metering
+- Ignores its nominal power constant for live status display
+- Removes the artificial `0 W` value from the device card
+- Excludes the nominal value from the dashboard power total
 
-## Encryption-Key Validation
+## Shelly 1PM
 
-SALTA now checks global and per-device encrypted Shelly credentials during startup and through:
-
-```http
-GET /api/readiness
-```
-
-When the configured `SALTA_ENCRYPTION_KEY` does not match stored credentials:
-
-- Startup logs contain a clear encryption-key warning
-- Readiness reports the credentials component as invalid
-- Inherited credentials are disabled in the add-device dialog
-- Settings display instructions to enter and save the password again
-- API requests return `ENCRYPTION_KEY_MISMATCH` instead of a generic server error
-
-No encrypted value is deleted automatically.
-
-## New Installations
-
-`deploy.sh` now generates a random 256-bit `SALTA_ENCRYPTION_KEY` together with the database and administrator credentials.
-
-The generated `.env` file must be retained and included in secure backups.
-
-## Power Measurements
-
-SALTA now treats a dedicated `PM1` or `EM1` component as the authoritative source for power, voltage, current and energy values when one is available.
-
-This fixes devices that expose a stale `0 W` value on the switch component while the dedicated metering component contains the current measurement. SALTA also uses a single separate meter when its component ID differs from the controlled switch.
-
-## Quality Assurance
-
-The following checks completed successfully:
-
-- TypeScript strict type check
-- 24 automated tests
-- Production build
-- Frontend JavaScript syntax validation
-- Shell script syntax validation
+Shelly 1PM (`SHSW-PM`) devices continue to expose real instantaneous power and cumulative energy readings. Their measurements are parsed and displayed unchanged.
 
 ## Updating
 
-No manual database migration is required.
+No manual database migration is required. Existing devices are corrected during the next status synchronization.
 
-Keep the existing `SALTA_ENCRYPTION_KEY` unchanged when updating. To pin this release:
+To pin this release:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.9
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.10
 ```
 
 Then run:
@@ -84,7 +47,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.9
+0.4.10
 0.4
 latest
 ```
@@ -92,7 +55,7 @@ latest
 ## Git Tag
 
 ```text
-v0.4.9
+v0.4.10
 ```
 
 ## Full Changelog

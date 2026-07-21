@@ -96,6 +96,12 @@ function isLight(identity: string): boolean {
   return /(light|dimmer|bulb|duo|rgb|rgbw|cct|vintage)/.test(identity);
 }
 
+function isGen1VirtualPowerModel(identity: string): boolean {
+  // Shelly 1 (SHSW-1) has no physical power meter. Its meters[0].power value
+  // is only a user-configured nominal load and must not be presented as live power.
+  return identity === "shsw1";
+}
+
 function isDedicatedEnergyMeter(identity: string): boolean {
   return /(pro3em|proem|shelly3em|shellyem|emmini|pmmini|emg3|emg4|shem)/.test(identity)
     && !/(1pm|2pm|4pm|plugpm)/.test(identity);
@@ -280,6 +286,7 @@ export function detectGen1Shelly(settings: unknown, status: unknown): ShellyDete
   const settingsRecord = record(settings);
   const statusRecord = record(status);
   const device = record(settingsRecord.device);
+  const modelIdentity = normalizeIdentity(device.type);
   const identity = normalizeIdentity(device.type, device.hostname, settingsRecord.name);
   const rollers = array(statusRecord.rollers);
   const lights = array(statusRecord.lights);
@@ -295,6 +302,7 @@ export function detectGen1Shelly(settings: unknown, status: unknown): ShellyDete
   else if (emeters.length > 0) type = "energyMeter";
   else throw new Error("UNSUPPORTED_SHELLY_DEVICE");
 
+  const hasPhysicalPowerMeter = !isGen1VirtualPowerModel(modelIdentity);
   const state: DeviceState = {};
   if (type === "windowCovering") {
     const roller = firstRecordItem(statusRecord.rollers);
@@ -324,9 +332,11 @@ export function detectGen1Shelly(settings: unknown, status: unknown): ShellyDete
     const relay = firstRecordItem(statusRecord.relays);
     const meter = gen1MeterState(statusRecord);
     setBoolean(state, "on", relay.ison, relay.output);
-    setNumber(state, "power", meter.power, relay.power);
-    const rawEnergy = firstNumber(meter.total, relay.total);
-    setNumber(state, "energy", rawEnergy === undefined ? undefined : rawEnergy / 60);
+    if (hasPhysicalPowerMeter) {
+      setNumber(state, "power", meter.power, relay.power);
+      const rawEnergy = firstNumber(meter.total, relay.total);
+      setNumber(state, "energy", rawEnergy === undefined ? undefined : rawEnergy / 60);
+    }
     setNumber(state, "temperature", statusRecord.temperature, record(statusRecord.tmp).tC);
   }
 
@@ -337,7 +347,7 @@ export function detectGen1Shelly(settings: unknown, status: unknown): ShellyDete
     componentKind: type === "windowCovering" ? "cover" : type === "light" ? "light" : type === "energyMeter" ? "em" : "switch",
     componentId: 0,
     channelCount: Math.max(type === "windowCovering" ? rollers.length : type === "light" ? lights.length : type === "energyMeter" ? emeters.length : relays.length, 1),
-    powerMetering: emeters.length > 0 || array(statusRecord.meters).length > 0 || state.power !== undefined || state.totalPower !== undefined,
+    powerMetering: hasPhysicalPowerMeter && (emeters.length > 0 || array(statusRecord.meters).length > 0 || state.power !== undefined || state.totalPower !== undefined),
     coverSupport: rollers.length > 0,
     switchSupport: relays.length > 0,
     lightSupport: lights.length > 0,

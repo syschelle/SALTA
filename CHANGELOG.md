@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.10
+
+- Corrected Gen1 Shelly 1 (`SHSW-1`) capability detection.
+- Stopped treating the Shelly 1 user-configured nominal load as a live power measurement.
+- Marked `SHSW-1` devices as not supporting hardware power metering.
+- Kept real Shelly 1PM (`SHSW-PM`) power and energy measurements unchanged.
+- Removed misleading `0 W` values from Shelly 1 device cards and the dashboard power total.
+- Added automated regression coverage for Shelly 1 and Shelly 1PM Gen1 status parsing.
+
 ## 0.4.9
 
 - Added startup and readiness validation for encrypted global and per-device Shelly credentials.
