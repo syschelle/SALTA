@@ -1,28 +1,40 @@
-# SALTA v0.4.11
+# SALTA v0.4.12
 
-SALTA v0.4.11 fixes room editing being interrupted by the automatic live refresh.
+SALTA v0.4.12 adds display-name editing for all registered devices, including Shelly 3EM energy meters and other non-switching device types.
 
 ## Highlights
 
-- Reliable room-name and room-icon editing
-- Live device polling no longer rebuilds the room list
-- Active room drafts survive intentional full data refreshes
-- Focus and text selection are preserved
-- New frontend regression coverage
+- Rename any registered device from its configuration dialog
+- Full support for naming Shelly 3EM energy meters
+- Shared naming workflow across switches, outlets, lights, covers and meters
+- Automatic HomeKit name synchronization
+- New frontend and API regression coverage
 
-## Room Editing
+## Device Naming
 
-SALTA refreshes device states every five seconds. Previously, this interval used the complete page-data loader, which also rebuilt the room list. Replacing the room list removed the active input element and closed the room edit form. Depending on the polling timing, this could happen immediately after clicking into the room name field.
+The device configuration dialog now includes a required **Display name** field. Open any device, select **Configure**, enter the preferred name and save the changes.
 
-The live refresh now updates only device state and dashboard statistics. Rooms and room filters are refreshed only when their underlying data changes.
+Previously, the API already supported device-name updates, but the web interface exposed only room and credential settings. Devices such as the Shelly 3EM therefore remained on their automatically detected name after onboarding.
 
-If a full data refresh is required while a room is being edited, SALTA preserves:
+SALTA now:
 
-- The selected room
-- The unsaved room name
-- The unsaved icon value
-- The active input field
-- The current text selection
+- Loads the current name into the device configuration dialog
+- Validates the name before saving
+- Removes leading and trailing whitespace
+- Stores the new name persistently
+- Updates the dashboard immediately
+- Recreates the optional HomeKit accessory with the updated name
+
+## Supported Device Types
+
+Display-name editing is available for all registered device types, including:
+
+- Switches
+- Outlets
+- Lights
+- Window coverings
+- Energy meters
+- Power meters
 
 ## Updating
 
@@ -31,7 +43,7 @@ No manual database migration is required.
 To pin this release:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.11
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.12
 ```
 
 Then run:
@@ -46,7 +58,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 The following checks completed successfully:
 
 - TypeScript strict type check
-- 28 automated tests
+- 31 automated tests
 - Production build
 - Frontend JavaScript syntax validation
 - Shell script syntax validation
@@ -54,7 +66,7 @@ The following checks completed successfully:
 ## Container Tags
 
 ```text
-0.4.11
+0.4.12
 0.4
 latest
 ```
@@ -62,7 +74,7 @@ latest
 ## Git Tag
 
 ```text
-v0.4.11
+v0.4.12
 ```
 
 ## Full Changelog

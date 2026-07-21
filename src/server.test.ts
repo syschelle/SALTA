@@ -31,10 +31,11 @@ afterEach(async () => {
   await Promise.all(openServers.splice(0).map(server => server.close()));
 });
 
-function createServer(remove: ShellyAdapter["remove"], add: ShellyAdapter["add"] = vi.fn()) {
+function createServer(remove: ShellyAdapter["remove"], add: ShellyAdapter["add"] = vi.fn(), registryOverrides: Partial<DeviceRegistry> = {}) {
   const registry = {
     all: () => [],
-    get: () => undefined
+    get: () => undefined,
+    ...registryOverrides
   } as unknown as DeviceRegistry;
   const adapter = { remove, add } as unknown as ShellyAdapter;
   const server = buildServer(registry, adapter);
@@ -74,6 +75,29 @@ describe("DELETE /api/devices/:id", () => {
         code: "DEVICE_NOT_FOUND",
         message: "Device not found"
       }
+    });
+  });
+});
+
+
+describe("PATCH /api/devices/:id/config", () => {
+  it("updates the display name of an energy meter", async () => {
+    const updatedDevice = { id: "shelly:3em", type: "energyMeter", name: "Main distribution" };
+    const patch = vi.fn(async () => updatedDevice as never);
+    const server = createServer(vi.fn(), vi.fn(), { patch });
+
+    const response = await server.inject({
+      method: "PATCH",
+      url: "/api/devices/shelly%3A3em/config",
+      payload: { name: "  Main distribution  ", roomId: null }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(updatedDevice);
+    expect(patch).toHaveBeenCalledWith("shelly:3em", {
+      name: "Main distribution",
+      roomId: undefined,
+      room: undefined
     });
   });
 });

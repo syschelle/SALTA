@@ -1,22 +1,23 @@
-# SALTA v0.4.11
+# SALTA v0.4.12
 
-SALTA v0.4.11 fixes room-name editing in the web interface.
+SALTA v0.4.12 adds display-name editing for all registered devices, including Shelly 3EM energy meters.
+
+## Added
+
+- A required **Display name** field in the device configuration dialog.
+- Name editing for switches, outlets, lights, covers and energy meters.
+- Automatic HomeKit accessory refresh when a device is renamed.
 
 ## Fixed
 
-- Clicking inside a room name or icon field no longer closes the edit form.
-- The five-second live device refresh no longer rebuilds the room list.
-- Active room drafts remain intact during intentional full data refreshes.
-- Input focus and text selection are restored when a room list refresh is necessary.
-
-## Background
-
-The periodic refresh previously called the complete page-data loader. That loader replaced the room list DOM every five seconds, including any active input fields. Depending on the refresh timing, the room edit mode could disappear immediately after clicking into the field.
+- Shelly 3EM devices no longer remain locked to the automatically detected device name.
+- Leading and trailing whitespace is removed before a name is stored.
+- Empty names are rejected by both the web interface and API validation.
 
 ## Compatibility
 
-No database migration is required.
+No database migration is required. Existing device records can be renamed immediately after updating.
 
 ## Quality assurance
 
-The release passes TypeScript strict checking, 28 automated tests, frontend JavaScript syntax validation and the production build.
+The release passes TypeScript strict checking, 31 automated tests, frontend JavaScript syntax validation and the production build.

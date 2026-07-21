@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.12
+
+- Added display-name editing to the shared device configuration dialog.
+- Enabled renaming for Shelly 3EM and other non-switching device types.
+- Trimmed and validated edited device names before persistence.
+- Synchronized renamed devices with the optional HomeKit bridge.
+- Added frontend and API regression tests for energy-meter renaming.
+
 ## 0.4.11
 
 - Fixed room-name editing being cancelled by the five-second live refresh.
