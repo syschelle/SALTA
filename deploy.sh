@@ -14,9 +14,11 @@ fi
 if [ ! -f .env ]; then
   db_password="$(openssl rand -hex 24 2>/dev/null || head -c 48 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   admin_password="$(openssl rand -base64 24 2>/dev/null | tr -d '/+=' | cut -c1-24 || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' | cut -c1-24)"
+  encryption_key="$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   sed \
     -e "0,/POSTGRES_PASSWORD=CHANGE_ME/s//POSTGRES_PASSWORD=${db_password}/" \
     -e "0,/ADMIN_PASSWORD=CHANGE_ME/s//ADMIN_PASSWORD=${admin_password}/" \
+    -e "0,/SALTA_ENCRYPTION_KEY=CHANGE_ME_TO_A_LONG_RANDOM_SECRET/s//SALTA_ENCRYPTION_KEY=${encryption_key}/" \
     .env.example > .env
   chmod 600 .env
   echo "Created .env with generated credentials."

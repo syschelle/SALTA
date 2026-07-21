@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
-import { createRoom, deleteRoom, getGlobalShellyCredentials, getShellySettings, listRooms, pool, updateRoom, updateShellySettings } from "./db.js";
+import { createRoom, deleteRoom, getGlobalShellyCredentials, getShellySettings, inspectCredentialEncryption, listRooms, pool, updateRoom, updateShellySettings } from "./db.js";
 import { config } from "./config.js";
 
 const commandSchema = z.object({ capability: z.string().min(1).max(80), value: z.union([z.string(), z.number(), z.boolean()]).optional() });
@@ -39,6 +39,8 @@ function shellyRequestError(error: unknown): { status: number; code: string; mes
       return { status: 422, code: "UNSUPPORTED_DEVICE", message: "The device returned an unsupported response." };
     case "HTTP_404":
       return { status: 422, code: "UNSUPPORTED_DEVICE", message: "No supported Shelly API was detected at the specified address." };
+    case "ENCRYPTION_KEY_MISMATCH":
+      return { status: 409, code: rawCode, message: "Stored Shelly credentials cannot be decrypted with the current SALTA encryption key. Re-enter the credentials in Settings." };
     default:
       if (rawCode.startsWith("HTTP_")) return { status: 502, code: "SHELLY_HTTP_ERROR", message: `The Shelly device returned ${rawCode.replace("HTTP_", "HTTP ")}.` };
       return { status: 500, code: "DEVICE_ADD_FAILED", message: "The Shelly device could not be added to SALTA." };
@@ -66,10 +68,21 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch { return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.8", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.9", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
-    try { await pool.query("select 1"); return { status: "ready", components: { database: "up", shellyAdapter: "up", devices: registry.all().length } }; }
-    catch { return reply.code(503).send({ status: "not-ready", components: { database: "down" } }); }
+    try {
+      await pool.query("select 1");
+      const credentialEncryption = await inspectCredentialEncryption();
+      const components = {
+        database: "up",
+        shellyAdapter: "up",
+        credentials: credentialEncryption.status,
+        invalidDeviceCredentials: credentialEncryption.invalidDeviceIds.length,
+        devices: registry.all().length
+      };
+      if (credentialEncryption.status === "invalid") return reply.code(503).send({ status: "not-ready", components });
+      return { status: "ready", components };
+    } catch { return reply.code(503).send({ status: "not-ready", components: { database: "down" } }); }
   });
 
   app.get("/api/rooms", async () => listRooms());
@@ -87,7 +100,13 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   app.get("/api/settings/shelly",async()=>getShellySettings());
   app.put<{Body:unknown}>("/api/settings/shelly",async(request,reply)=>{
     const parsed=shellySettingsSchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
-    return updateShellySettings(parsed.data.username,parsed.data.password);
+    try {
+      return await updateShellySettings(parsed.data.username,parsed.data.password);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "SETTINGS_UPDATE_FAILED";
+      if (code === "ENCRYPTION_KEY_MISMATCH") return reply.code(409).send({error:{code,message:"Stored Shelly credentials cannot be decrypted. Enter the password again to replace them.",requestId:request.id}});
+      throw error;
+    }
   });
 
   app.get("/api/devices", async () => registry.all());
@@ -136,7 +155,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   app.post<{Body:unknown}>("/api/adapters/shelly/discover",async(request,reply)=>{
     const parsed=shellyDiscoverySchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
     try { const credentials=await getGlobalShellyCredentials(); return {devices:await shellyAdapter.discover(parsed.data.subnet,credentials.username,credentials.password)}; }
-    catch(error){const message=error instanceof Error?error.message:"DISCOVERY_FAILED";return reply.code(400).send({error:{code:message,message,requestId:request.id}});}
+    catch(error){const response=shellyRequestError(error);return reply.code(response.status).send({error:{code:response.code,message:response.message,requestId:request.id}});}
   });
   app.post<{Body:unknown}>("/api/adapters/shelly/devices",async(request,reply)=>{
     const parsed=shellyAddSchema.safeParse(request.body);

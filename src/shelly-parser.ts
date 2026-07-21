@@ -123,24 +123,33 @@ function componentEntries(status: unknown): ComponentEntry[] {
   return entries;
 }
 
-function componentBy(entries: ComponentEntry[], kind: ShellyComponentKind, id: number): JsonRecord {
-  return entries.find(entry => entry.kind === kind && entry.id === id)?.value ?? {};
+function meterFor(entries: ComponentEntry[], id: number): JsonRecord {
+  const candidates = entries.filter(entry => entry.kind === "pm1" || entry.kind === "em1");
+  const matching = candidates.find(entry => entry.id === id);
+  if (matching) return matching.value;
+  return candidates.length === 1 ? candidates[0]?.value ?? {} : {};
 }
 
 function energyTotal(value: JsonRecord): unknown {
-  return record(value.aenergy).total ?? record(value.energy).total ?? value.total;
+  return record(value.aenergy).total
+    ?? record(value.energy).total
+    ?? record(value.total_act_energy).total
+    ?? value.total_act_energy
+    ?? value.total_energy
+    ?? value.total;
 }
 
 function switchOrLightState(value: JsonRecord, meter: JsonRecord, light: boolean): DeviceState {
   const state: DeviceState = {};
   setBoolean(state, "on", value.output, value.ison);
   if (light) setNumber(state, "brightness", value.brightness, value.gain);
-  setNumber(state, "power", value.apower, value.act_power, value.power, meter.apower, meter.act_power, meter.power);
-  setNumber(state, "energy", energyTotal(value), energyTotal(meter));
-  setNumber(state, "voltage", value.voltage, meter.voltage);
-  setNumber(state, "current", value.current, meter.current);
-  setNumber(state, "frequency", value.freq, value.frequency, meter.freq, meter.frequency);
-  setNumber(state, "temperature", record(value.temperature).tC, value.temperature, record(meter.temperature).tC);
+  // A dedicated PM1/EM1 component is the authoritative measurement source when present.
+  setNumber(state, "power", meter.apower, meter.act_power, meter.active_power, meter.power, value.apower, value.act_power, value.active_power, value.power);
+  setNumber(state, "energy", energyTotal(meter), energyTotal(value));
+  setNumber(state, "voltage", meter.voltage, value.voltage);
+  setNumber(state, "current", meter.current, value.current);
+  setNumber(state, "frequency", meter.freq, meter.frequency, value.freq, value.frequency);
+  setNumber(state, "temperature", record(meter.temperature).tC, record(value.temperature).tC, value.temperature);
   return state;
 }
 
@@ -236,9 +245,7 @@ export function detectRpcShelly(info: unknown, status: unknown): ShellyDetection
   } else if (type === "energyMeter") {
     state = energyMeterState(entries);
   } else {
-    const meter = componentBy(entries, "pm1", primary.id);
-    const secondaryMeter = Object.keys(meter).length ? meter : componentBy(entries, "em1", primary.id);
-    state = switchOrLightState(primary.value, secondaryMeter, type === "light");
+    state = switchOrLightState(primary.value, meterFor(entries, primary.id), type === "light");
   }
 
   const channelCount = type === "windowCovering" ? covers.length

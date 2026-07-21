@@ -20,7 +20,7 @@
     <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></span><span>Diagnose</span></button>
     <a href="#settings" data-nav="settings"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21H9.6v-.1A1.7 1.7 0 0 0 8 19.4a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 3.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H2V9.6h.1A1.7 1.7 0 0 0 3.6 8a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 8 3.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V2h4v.1A1.7 1.7 0 0 0 15 3.6a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 8a1.7 1.7 0 0 0 .6 1 1.7 1.7 0 0 0 1.1.4h.1v4h-.1A1.7 1.7 0 0 0 19.4 15Z"/></svg></span><span>Einstellungen</span></a>
   </nav>
-  <div class="sidebar-footer"><div class="status"><i></i> System online</div><div class="version" aria-label="Installierte Version">Version <strong>0.4.8</strong></div></div>
+  <div class="sidebar-footer"><div class="status"><i></i> System online</div><div class="version" aria-label="Installierte Version">Version <strong>0.4.9</strong></div></div>
 </aside>
 
 <main>
@@ -51,7 +51,7 @@
     <header class="page-header"><div><p class="eyebrow">SYSTEMKONFIGURATION</p><h1 id="settings-title">Einstellungen</h1><p class="muted">Konfiguriere Adapter und globale Standardwerte.</p></div></header>
     <section class="settings-layout">
       <nav class="settings-nav" aria-label="Einstellungsbereiche"><a href="#settings" class="active" aria-current="page">Shelly</a><span class="disabled">Allgemein · folgt</span><span class="disabled">Sicherheit · folgt</span></nav>
-      <article class="panel settings-card"><div class="panel-head"><div><h2>Shelly-Zugangsdaten</h2><p class="muted">Globale Standardwerte. Jedes Gerät kann diese Zugangsdaten überschreiben oder ohne Authentifizierung arbeiten.</p></div><span class="adapter-badge">Shelly</span></div><form id="shellyForm" class="page-form"><label>Benutzername<input id="shellyUsername" autocomplete="username"></label><label>Passwort<input id="shellyPassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label><p id="shellyPasswordState" class="setting-note"></p><div class="form-actions"><button type="submit">Einstellungen speichern</button></div></form></article>
+      <article class="panel settings-card"><div class="panel-head"><div><h2>Shelly-Zugangsdaten</h2><p class="muted">Globale Standardwerte. Jedes Gerät kann diese Zugangsdaten überschreiben oder ohne Authentifizierung arbeiten.</p></div><span class="adapter-badge">Shelly</span></div><div id="shellyCredentialWarning" class="settings-warning" role="alert" hidden></div><form id="shellyForm" class="page-form"><label>Benutzername<input id="shellyUsername" autocomplete="username"></label><label>Passwort<input id="shellyPassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label><p id="shellyPasswordState" class="setting-note"></p><div class="form-actions"><button type="submit">Einstellungen speichern</button></div></form></article>
     </section>
   </section>
 </main>

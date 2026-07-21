@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.8` is the current stable release. It provides local Shelly discovery, generation-aware device detection, persistent device management, live status values, device control and an optional HomeKit bridge.
+`v0.4.9` is the current stable release. It provides local Shelly discovery, generation-aware device detection, persistent device management, live status values, device control and an optional HomeKit bridge.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.8"
+git commit -m "release: SALTA v0.4.9"
 git push origin main
-git tag -a v0.4.8 -m "SALTA v0.4.8"
-git push origin v0.4.8
+git tag -a v0.4.9 -m "SALTA v0.4.9"
+git push origin v0.4.9
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.8
+ghcr.io/<github-owner>/<repository>:0.4.9
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -50,7 +50,7 @@ git clone https://github.com/<github-owner>/<repository>.git
 cd <repository>
 ```
 
-Create the environment file and generated passwords:
+Create the environment file with generated database, administrator and encryption credentials:
 
 ```bash
 chmod +x deploy.sh update.sh backup.sh restore.sh
@@ -160,10 +160,6 @@ SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Dev
 
 Shelly devices can be removed from their configuration dialog. The action deletes the SALTA device record, stored device credentials, related command history and the corresponding HomeKit accessory. The physical Shelly device remains unchanged and can be added again later.
 
-## Shelly onboarding errors
-
-Connection and authentication errors are displayed directly inside the add-device dialog. SALTA distinguishes unreachable devices, authentication failures, detection timeouts, unsupported responses and invalid custom credentials. Removed Shelly devices can be added again through the same workflow.
-
 ## Rooms and credentials
 
 Rooms are first-class entities. Devices can be assigned to rooms, while unassigned devices remain visible under **Nicht zugeordnet**.
@@ -174,4 +170,4 @@ Shelly authentication supports three modes:
 - `custom`: use encrypted credentials stored for the device
 - `none`: connect without authentication
 
-Passwords are encrypted with AES-256-GCM before being stored in PostgreSQL. Configure and back up a stable `SALTA_ENCRYPTION_KEY` in `.env`. Password values are never returned by the REST API.
+Passwords are encrypted with AES-256-GCM before being stored in PostgreSQL. New secrets use a per-secret random salt and a `scrypt`-derived 256-bit key; existing v1 secrets are upgraded automatically when the configured key can decrypt them. SALTA validates stored credentials at startup and in `/api/readiness`, and the web interface warns before global credentials are used when the current `SALTA_ENCRYPTION_KEY` does not match. Keep this key stable and include `.env` in secure backups. Password values are never returned by the REST API.

@@ -88,6 +88,30 @@ describe("detectRpcShelly", () => {
     expect(result.channelCount).toBe(2);
   });
 
+  it("prefers a dedicated PM1 component over a stale zero on the switch", () => {
+    const result = detectRpcShelly(
+      { app: "1PMG4", model: "S4SW-001P16EU", gen: 4 },
+      {
+        "switch:0": { id: 0, output: true, apower: 0 },
+        "pm1:0": { id: 0, apower: 84.6, voltage: 230.8, current: 0.37, aenergy: { total: 144.2 } }
+      }
+    );
+
+    expect(result.state).toMatchObject({ on: true, power: 84.6, voltage: 230.8, current: 0.37, energy: 144.2 });
+  });
+
+  it("uses the only dedicated meter when its component id differs", () => {
+    const result = detectRpcShelly(
+      { app: "RelayWithExternalPM", gen: 4 },
+      {
+        "switch:0": { id: 0, output: true },
+        "pm1:100": { id: 100, apower: 51.3, voltage: 229.9, current: 0.23 }
+      }
+    );
+
+    expect(result.state).toMatchObject({ on: true, power: 51.3, voltage: 229.9, current: 0.23 });
+  });
+
   it("does not invent unavailable measurements", () => {
     const result = detectRpcShelly({ app: "Plus1" }, { "switch:0": { id: 0, output: false } });
     expect(result.state).toEqual({ on: false });

@@ -155,28 +155,100 @@ export async function deleteRoom(id: string): Promise<boolean> {
   return result.rowCount === 1;
 }
 
+export interface CredentialEncryptionStatus {
+  status: "ok" | "invalid";
+  globalCredential: "ok" | "invalid" | "not-configured";
+  invalidDeviceIds: string[];
+}
+
+function secretIsReadable(value: string): boolean {
+  if (!value) return true;
+  try {
+    decryptSecret(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function upgradeCredentialEncryption(): Promise<void> {
+  const globalResult = await pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='shelly'");
+  const globalSecret = globalResult.rows[0]?.encrypted_password ?? "";
+  if (globalSecret.startsWith("v1.")) {
+    try {
+      await pool.query("UPDATE adapter_settings SET encrypted_password=$1,updated_at=now() WHERE adapter_id='shelly'", [encryptSecret(decryptSecret(globalSecret))]);
+    } catch {
+      // The startup validation reports a mismatching key without destroying the stored secret.
+    }
+  }
+
+  const deviceResult = await pool.query<{ id: string; credential_password: string }>("SELECT id,credential_password FROM devices WHERE credential_mode='custom' AND credential_password LIKE 'v1.%'");
+  for (const row of deviceResult.rows) {
+    try {
+      await pool.query("UPDATE devices SET credential_password=$2,updated_at=now() WHERE id=$1", [row.id, encryptSecret(decryptSecret(row.credential_password))]);
+    } catch {
+      // Keep unreadable values intact so the UI can ask the user to replace them.
+    }
+  }
+}
+
+export async function inspectCredentialEncryption(): Promise<CredentialEncryptionStatus> {
+  const [globalResult, deviceResult] = await Promise.all([
+    pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='shelly'"),
+    pool.query<{ id: string; credential_password: string }>("SELECT id,credential_password FROM devices WHERE credential_mode='custom' AND credential_password IS NOT NULL AND credential_password <> ''")
+  ]);
+  const globalSecret = globalResult.rows[0]?.encrypted_password ?? "";
+  const globalCredential = !globalSecret ? "not-configured" : secretIsReadable(globalSecret) ? "ok" : "invalid";
+  const invalidDeviceIds = deviceResult.rows.filter(row => !secretIsReadable(row.credential_password)).map(row => row.id);
+  return {
+    status: globalCredential === "invalid" || invalidDeviceIds.length > 0 ? "invalid" : "ok",
+    globalCredential,
+    invalidDeviceIds
+  };
+}
+
 export async function getShellySettings(): Promise<ShellySettings> {
-  const result=await pool.query("SELECT username,(encrypted_password <> '') as \"passwordConfigured\" FROM adapter_settings WHERE adapter_id='shelly'");
-  return result.rows[0] ?? { username: "", passwordConfigured: false };
+  const [result, encryption] = await Promise.all([
+    pool.query("SELECT username,(encrypted_password <> '') as \"passwordConfigured\" FROM adapter_settings WHERE adapter_id='shelly'"),
+    inspectCredentialEncryption()
+  ]);
+  const current = result.rows[0] ?? { username: "", passwordConfigured: false };
+  return {
+    username: current.username,
+    passwordConfigured: current.passwordConfigured,
+    encryptionStatus: encryption.status,
+    invalidDeviceCredentials: encryption.invalidDeviceIds.length
+  };
 }
 
 export async function updateShellySettings(username: string, password?: string): Promise<ShellySettings> {
   const current=await pool.query("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='shelly'");
-  const encrypted=password === undefined ? (current.rows[0]?.encrypted_password ?? "") : (password ? encryptSecret(password) : "");
+  const currentSecret = current.rows[0]?.encrypted_password ?? "";
+  if (password === undefined && currentSecret && !secretIsReadable(currentSecret)) throw new Error("ENCRYPTION_KEY_MISMATCH");
+  const encrypted=password === undefined ? currentSecret : (password ? encryptSecret(password) : "");
   await pool.query(`INSERT INTO adapter_settings(adapter_id,username,encrypted_password) VALUES('shelly',$1,$2)
     ON CONFLICT(adapter_id) DO UPDATE SET username=EXCLUDED.username,encrypted_password=EXCLUDED.encrypted_password,updated_at=now()`,[username,encrypted]);
-  return { username, passwordConfigured: Boolean(encrypted) };
+  return getShellySettings();
+}
+
+function decryptStoredSecret(value: string | null | undefined): string {
+  if (!value) return "";
+  try {
+    return decryptSecret(value);
+  } catch {
+    throw new Error("ENCRYPTION_KEY_MISMATCH");
+  }
 }
 
 export async function getDeviceCredentials(id: string): Promise<{username:string;password:string}> {
   const result=await pool.query(`SELECT d.credential_mode,d.credential_username,d.credential_password,a.username as global_username,a.encrypted_password as global_password FROM devices d LEFT JOIN adapter_settings a ON a.adapter_id='shelly' WHERE d.id=$1`,[id]);
   const row=result.rows[0]; if(!row) return {username:"",password:""};
   if(row.credential_mode==='none') return {username:"",password:""};
-  if(row.credential_mode==='custom') return {username:row.credential_username??"",password:row.credential_password?decryptSecret(row.credential_password):""};
-  return {username:row.global_username??"",password:row.global_password?decryptSecret(row.global_password):""};
+  if(row.credential_mode==='custom') return {username:row.credential_username??"",password:decryptStoredSecret(row.credential_password)};
+  return {username:row.global_username??"",password:decryptStoredSecret(row.global_password)};
 }
 
 export async function getGlobalShellyCredentials(): Promise<{username:string;password:string}> {
   const result=await pool.query("SELECT username,encrypted_password FROM adapter_settings WHERE adapter_id='shelly'"); const row=result.rows[0];
-  return {username:row?.username??"",password:row?.encrypted_password?decryptSecret(row.encrypted_password):""};
+  return {username:row?.username??"",password:decryptStoredSecret(row?.encrypted_password)};
 }

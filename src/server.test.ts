@@ -15,12 +15,14 @@ vi.mock("./db.js", () => ({
   deleteRoom: vi.fn(),
   getGlobalShellyCredentials: vi.fn(),
   getShellySettings: vi.fn(),
+  inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", invalidDeviceIds: [] })),
   listRooms: vi.fn(async () => []),
   pool: { query: vi.fn() },
   updateRoom: vi.fn(),
   updateShellySettings: vi.fn()
 }));
 
+import { getGlobalShellyCredentials } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -111,6 +113,22 @@ describe("POST /api/adapters/shelly/devices", () => {
         message: "The Shelly device is unreachable at the specified address."
       }
     });
+  });
+
+  it("returns a specific error when global credentials cannot be decrypted", async () => {
+    vi.mocked(getGlobalShellyCredentials).mockRejectedValueOnce(new Error("ENCRYPTION_KEY_MISMATCH"));
+    const add = vi.fn();
+    const server = createServer(vi.fn(), add);
+
+    const response = await server.inject({
+      method: "POST",
+      url: "/api/adapters/shelly/devices",
+      payload: { host: "192.168.1.50", credentialMode: "inherit" }
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: "ENCRYPTION_KEY_MISMATCH" } });
+    expect(add).not.toHaveBeenCalled();
   });
 
   it("requires a username for custom credentials", async () => {

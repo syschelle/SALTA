@@ -2,16 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
-## 0.4.8
+## 0.4.9
 
-- Added an inline, accessible error panel inside the Shelly add-device dialog so failures are no longer hidden behind the modal.
-- Added clear user-facing messages for unreachable devices, authentication failures, detection timeouts, unsupported responses and invalid credentials.
-- Preserved structured API error codes, HTTP status and request IDs in the frontend API client.
-- Added stable backend error mapping and logging for Shelly onboarding failures.
-- Added validation requiring a username when custom Shelly credentials are selected.
-- Prevented optional integration listener failures from aborting successful device persistence.
-- Added integration coverage proving that a deleted Shelly can be added again with the same device ID.
-- Added API tests for successful onboarding and structured add-device errors.
+- Added startup and readiness validation for encrypted global and per-device Shelly credentials.
+- Added a clear `ENCRYPTION_KEY_MISMATCH` API response instead of exposing a generic persistence error.
+- Disabled the global-credentials onboarding option when stored credentials cannot be decrypted and displayed a corrective warning in the web interface.
+- Upgraded new credential encryption to AES-256-GCM with a per-secret random salt and a `scrypt`-derived key.
+- Added backward-compatible decryption and automatic re-encryption of valid legacy v1 secrets.
+- Updated `deploy.sh` to generate a random 256-bit `SALTA_ENCRYPTION_KEY` for new installations.
+- Preferred dedicated `PM1`/`EM1` measurement components over stale zero values from switch components.
+- Added fallback support when a device exposes a single metering component with a different component ID.
+- Added automated tests for encryption compatibility, key mismatch handling and power-meter selection.
 
 ## 0.4.7
 

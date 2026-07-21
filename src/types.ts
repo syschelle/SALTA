@@ -55,4 +55,6 @@ export interface DeviceCommand {
 export interface ShellySettings {
   username: string;
   passwordConfigured: boolean;
+  encryptionStatus: "ok" | "invalid";
+  invalidDeviceCredentials: number;
 }

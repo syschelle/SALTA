@@ -1,4 +1,4 @@
-# SALTA v0.4.8 – Git and Release Commands
+# SALTA v0.4.9 – Git and Release Commands
 
 ## 1. Prepare and verify
 
@@ -10,50 +10,51 @@ git status
 npm ci
 npm run check
 node --check public/app.js
+sh -n deploy.sh update.sh backup.sh restore.sh
 ```
 
-## 2. Commit and push v0.4.8
+## 2. Commit and push v0.4.9
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.8"
+git commit -m "release: SALTA v0.4.9"
 git push origin main
 ```
 
 ## 3. Create and push the release tag
 
 ```bash
-git tag -a v0.4.8 -m "SALTA v0.4.8"
-git push origin v0.4.8
+git tag -a v0.4.9 -m "SALTA v0.4.9"
+git push origin v0.4.9
 ```
 
-Pushing `v0.4.8` starts `.github/workflows/release.yml` and publishes the multi-architecture container images.
+Pushing `v0.4.9` starts `.github/workflows/release.yml` and publishes the multi-architecture container images.
 
 Expected tags:
 
 ```text
-ghcr.io/syschelle/salta:0.4.8
+ghcr.io/syschelle/salta:0.4.9
 ghcr.io/syschelle/salta:0.4
 ghcr.io/syschelle/salta:latest
 ```
 
 ## 4. Create the GitHub release
 
-Run this command from the directory containing `SALTA-v0.4.8.zip`:
+Run this command from the directory containing `SALTA-v0.4.9.zip`:
 
 ```bash
-gh release create v0.4.8 \
-  --title "SALTA v0.4.8" \
+gh release create v0.4.9 \
+  --title "SALTA v0.4.9" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.4.8.zip
+  ./SALTA-v0.4.9.zip
 ```
 
 ## 5. Update an installation
 
-To pin the release explicitly in `.env`:
+Keep the existing `SALTA_ENCRYPTION_KEY` in `.env` unchanged. To pin this release:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.8
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.9
 ```
 
 Then run:
@@ -62,12 +63,13 @@ Then run:
 docker compose -f docker-compose.yml -f docker-compose.image.yml pull
 docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-recreate --remove-orphans
 curl -s http://127.0.0.1:8099/api/health
+curl -s http://127.0.0.1:8099/api/readiness
 ```
 
 ## 6. Verify the release
 
 ```bash
-git show v0.4.8 --no-patch
-git ls-remote --tags origin refs/tags/v0.4.8
-gh release view v0.4.8
+git show v0.4.9 --no-patch
+git ls-remote --tags origin refs/tags/v0.4.9
+gh release view v0.4.9
 ```

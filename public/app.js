@@ -1,4 +1,4 @@
-let all=[],rooms=[],selectedDevice=null;
+let all=[],rooms=[],selectedDevice=null,shellySettingsStatus=null;
 const pages=['overview','devices','rooms','settings'];
 const defaultPage='overview';
 const icons={outlet:'◉',switch:'⏻',energyMeter:'⌁',windowCovering:'▤',thermostat:'◒',light:'✦',motionSensor:'◌'};
@@ -41,7 +41,21 @@ function temp(id,current){const v=prompt('Zieltemperatur',current);if(v!==null)c
 async function reconcile(){await api('/api/adapters/shelly/reconcile',{method:'POST'});await load();notify('Synchronisierung abgeschlossen.')}
 async function createRoom(){const name=newRoomName.value.trim();if(!name)return;await api('/api/rooms',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,icon:newRoomIcon.value||'home',sortOrder:rooms.length})});newRoomName.value='';await load();notify('Raum wurde hinzugefügt.')}
 async function removeRoom(id){if(!confirm('Raum löschen? Geräte werden nicht gelöscht.'))return;await api(`/api/rooms/${id}`,{method:'DELETE'});await load();notify('Raum wurde gelöscht.')}
-async function loadShellySettings(){const s=await api('/api/settings/shelly');shellyUsername.value=s.username;shellyPassword.value='';shellyPasswordState.textContent=s.passwordConfigured?'Ein Passwort ist sicher gespeichert. Leer lassen, um es beizubehalten.':'Aktuell ist kein globales Passwort gespeichert.'}
+function applyShellyEncryptionStatus(s){
+  shellySettingsStatus=s;
+  const invalid=s.encryptionStatus==='invalid';
+  const inherit=document.querySelector('input[name="shellyCredentialMode"][value="inherit"]');
+  if(inherit){inherit.disabled=invalid;inherit.closest('.choice-row')?.classList.toggle('disabled',invalid)}
+  if(invalid){
+    const suffix=s.invalidDeviceCredentials?` Zusätzlich sind ${s.invalidDeviceCredentials} gerätespezifische Zugangsdaten betroffen.`:'';
+    shellyCredentialWarning.textContent=`Der aktuelle SALTA_ENCRYPTION_KEY passt nicht zu den gespeicherten Zugangsdaten. Gib das globale Shelly-Passwort erneut ein und speichere es.${suffix}`;
+    shellyCredentialWarning.hidden=false;
+  }else{
+    shellyCredentialWarning.hidden=true;
+    shellyCredentialWarning.textContent='';
+  }
+}
+async function loadShellySettings(){const s=await api('/api/settings/shelly');applyShellyEncryptionStatus(s);shellyUsername.value=s.username;shellyPassword.value='';shellyPasswordState.textContent=s.passwordConfigured?(s.encryptionStatus==='invalid'?'Das gespeicherte Passwort kann nicht entschlüsselt werden. Bitte vollständig neu eingeben.':'Ein Passwort ist sicher gespeichert. Leer lassen, um es beizubehalten.'):'Aktuell ist kein globales Passwort gespeichert.';return s}
 async function saveShelly(){await api('/api/settings/shelly',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({username:shellyUsername.value,password:shellyPassword.value||undefined})});await loadShellySettings();notify('Shelly-Einstellungen wurden gespeichert.')}
 function openDevice(id){selectedDevice=all.find(d=>d.id===id);if(!selectedDevice)return;deviceDialogTitle.textContent=selectedDevice.name;deviceRoom.innerHTML='<option value="">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');deviceRoom.value=selectedDevice.roomId||'';credentialMode.value=selectedDevice.credentialMode||'inherit';deviceUsername.value=selectedDevice.credentialUsername||'';devicePassword.value='';deviceDeleteSection.hidden=selectedDevice.source!=='shelly';toggleDeviceCredentials();deviceDialog.showModal()}
 async function saveDeviceConfig(){if(!selectedDevice)return;await api(`/api/devices/${encodeURIComponent(selectedDevice.id)}/config`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({roomId:deviceRoom.value||null})});await api(`/api/devices/${encodeURIComponent(selectedDevice.id)}/credentials`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({credentialMode:credentialMode.value,username:deviceUsername.value||undefined,password:devicePassword.value||undefined})});deviceDialog.close();await load();notify('Gerätekonfiguration gespeichert.')}
@@ -62,7 +76,8 @@ function friendlyShellyError(error){
     INVALID_REQUEST:'Die eingegebenen Gerätedaten sind unvollständig oder ungültig.',
     USERNAME_REQUIRED:'Für eigene Zugangsdaten ist ein Benutzername erforderlich.',
     SHELLY_HTTP_ERROR:'Das Shelly-Gerät hat mit einem unerwarteten HTTP-Fehler geantwortet.',
-    DEVICE_ADD_FAILED:'Das Gerät konnte nicht in SALTA gespeichert werden.'
+    DEVICE_ADD_FAILED:'Das Gerät konnte nicht in SALTA gespeichert werden.',
+    ENCRYPTION_KEY_MISMATCH:'Die gespeicherten Shelly-Zugangsdaten können mit dem aktuellen SALTA_ENCRYPTION_KEY nicht entschlüsselt werden. Bitte unter Einstellungen neu speichern.'
   };
   const code=error?.code||'';
   const message=messages[code]||error?.message||'Das Shelly-Gerät konnte nicht hinzugefügt werden.';
@@ -75,7 +90,20 @@ function showAddShellyError(error){
   addShellyFeedback.scrollIntoView({block:'nearest',behavior:'smooth'});
   addShellyFeedback.focus({preventScroll:true});
 }
-function openAddShelly(){shellyRoom.innerHTML='<option value="">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');addShellyForm.reset();document.querySelector('input[name="shellyCredentialMode"][value="inherit"]').checked=true;clearAddShellyFeedback();toggleCustomShellyCredentials();setShellyMode('manual');addShellyDialog.showModal();shellyHost.focus()}
+async function openAddShelly(){
+  shellyRoom.innerHTML='<option value="">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');
+  addShellyForm.reset();
+  clearAddShellyFeedback();
+  setShellyMode('manual');
+  try{applyShellyEncryptionStatus(await api('/api/settings/shelly'))}catch{/* The add request will still provide a readable API error. */}
+  const inherit=document.querySelector('input[name="shellyCredentialMode"][value="inherit"]');
+  const none=document.querySelector('input[name="shellyCredentialMode"][value="none"]');
+  if(shellySettingsStatus?.encryptionStatus==='invalid'){none.checked=true}else{inherit.checked=true}
+  toggleCustomShellyCredentials();
+  addShellyDialog.showModal();
+  if(shellySettingsStatus?.encryptionStatus==='invalid')showAddShellyError({code:'ENCRYPTION_KEY_MISMATCH'});
+  shellyHost.focus();
+}
 function setShellyMode(mode){shellyMode=mode;clearAddShellyFeedback();manualShellyFields.hidden=mode!=='manual';discoveryShellyFields.hidden=mode!=='discovery';manualTab.classList.toggle('active',mode==='manual');discoveryTab.classList.toggle('active',mode==='discovery');manualTab.setAttribute('aria-selected',String(mode==='manual'));discoveryTab.setAttribute('aria-selected',String(mode==='discovery'));shellyHost.required=mode==='manual';if(mode==='discovery')shellySubnet.focus()}
 function selectedShellyCredentialMode(){return document.querySelector('input[name="shellyCredentialMode"]:checked')?.value||'inherit'}
 function toggleCustomShellyCredentials(){customShellyCredentials.hidden=selectedShellyCredentialMode()!=='custom'}
