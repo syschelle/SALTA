@@ -1,20 +1,29 @@
-# SALTA v0.4.6
+# SALTA v0.4.7
 
-SALTA v0.4.6 simplifies container deployment by replacing the architecture-specific Compose overrides with one multi-architecture image override.
+SALTA v0.4.7 adds safe, persistent removal of Shelly devices from the web interface.
 
-## Highlights
+## Improvements
 
-- Added `docker-compose.image.yml` for GHCR image deployments
-- Removed `docker-compose.arm64.yml`
-- Removed `docker-compose.amd64.yml`
-- Docker now selects the matching `linux/amd64` or `linux/arm64` image automatically
-- Updated deployment, update, backup and restore scripts to use the image override
-- Updated documentation and examples for the unified Compose workflow
+- Shelly devices can now be removed from their configuration dialog.
+- The confirmation clearly explains that only the SALTA registration is removed; the physical Shelly device is not reset or switched.
+- Removed devices disappear immediately from the dashboard and device count.
+- Associated command history is removed automatically by the existing database cascade.
+- HomeKit accessories belonging to removed devices are detached from the SALTA bridge.
+- A concurrent status refresh cannot recreate a device while it is being deleted.
+- A removed Shelly can be added again later through the normal add-device workflow.
 
-## Compatibility
+## API
 
-No database migration is required. Existing `.env` files remain compatible. The `SALTA_IMAGE` variable can continue to pin a specific version such as `ghcr.io/syschelle/salta:0.4.6`.
+A new endpoint is available:
 
-## Publishing
+```http
+DELETE /api/devices/:id
+```
 
-Pushing the Git tag `v0.4.6` triggers the `Publish SALTA container` GitHub Actions workflow. The workflow publishes multi-architecture images for `linux/amd64` and `linux/arm64` with the tags `0.4.6`, `0.4` and `latest`.
+A successful deletion returns HTTP `204 No Content`. Unknown device IDs return HTTP `404` with a structured JSON error.
+
+## Updating
+
+No manual database migration is required.
+
+Pushing the Git tag `v0.4.7` triggers the `Publish SALTA container` workflow and publishes multi-architecture images for `linux/amd64` and `linux/arm64` with the tags `0.4.7`, `0.4` and `latest`.

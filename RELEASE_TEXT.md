@@ -1,64 +1,85 @@
-# SALTA v0.4.6
+# SALTA v0.4.7
 
-SALTA v0.4.6 simplifies Docker deployment by replacing separate ARM64 and AMD64 Compose overrides with one unified multi-architecture image configuration.
-
-Docker automatically selects the correct image variant for the host, so Raspberry Pi, Intel and AMD systems now use the same deployment commands.
+SALTA v0.4.7 adds safe and persistent removal of Shelly devices directly from the web interface.
 
 ## Highlights
 
-- Added `docker-compose.image.yml` for prebuilt GHCR images
-- Removed `docker-compose.arm64.yml`
-- Removed `docker-compose.amd64.yml`
-- Unified deployment commands across supported architectures
-- Updated deployment, update, backup and restore scripts
-- Updated Docker and GHCR documentation
+- Remove Shelly devices from the device configuration dialog
+- Immediate removal from the dashboard and device registry
+- Automatic cleanup of associated command history
+- Automatic removal of the corresponding HomeKit accessory
+- Protection against devices being recreated by a concurrent status refresh
+- Removed devices can be added again later
 
-## Docker Compose Structure
+## Device Removal
 
-Production image deployment now uses:
+Open a Shelly device, select **Configure**, and use the new **Remove device from SALTA** action.
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.image.yml pull
-docker compose -f docker-compose.yml -f docker-compose.image.yml up -d
+A confirmation explains that this action removes only the SALTA registration and locally stored device data. The physical Shelly device is not reset, switched off or otherwise modified.
+
+After confirmation, SALTA removes:
+
+- The persistent device record
+- Device-specific stored credentials
+- Associated command history
+- The in-memory device entry
+- The corresponding HomeKit accessory
+
+## API
+
+The release adds:
+
+```http
+DELETE /api/devices/:id
 ```
 
-Local source builds continue to use:
+Successful removal returns:
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```text
+204 No Content
 ```
 
-No architecture-specific Compose file is required. The published image manifest contains both supported platforms, and Docker selects the matching variant automatically.
+Unknown devices return a structured `404` response.
 
-## Supported Platforms
+## Reliability
 
-- `linux/amd64`
-- `linux/arm64`
+Device deletion is protected against concurrent adapter refreshes. If a Shelly status request is already running while the device is removed, the stale result cannot restore the deleted device.
 
-## Updating
-
-No database migration is required.
-
-Existing `.env` files remain compatible. To pin this release explicitly, set:
-
-```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.6
-```
-
-Then run:
-
-```bash
-./update.sh
-```
+A deliberately re-added Shelly is accepted normally through the existing add-device workflow.
 
 ## Quality Assurance
 
-The TypeScript strict type check, automated tests and production build completed successfully before packaging.
+The release includes automated tests for:
+
+- Persistent device removal
+- In-memory registry cleanup
+- Removal events
+- Stale refresh protection
+- Deliberate device re-adding
+
+TypeScript strict type checking, the automated test suite and the production build are executed before release packaging.
+
+## Updating
+
+No manual database migration is required.
+
+To pin this release explicitly:
+
+```env
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.7
+```
+
+Then update with:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.image.yml pull
+docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-recreate --remove-orphans
+```
 
 ## Container Tags
 
 ```text
-0.4.6
+0.4.7
 0.4
 latest
 ```
@@ -66,7 +87,7 @@ latest
 ## Git Tag
 
 ```text
-v0.4.6
+v0.4.7
 ```
 
 ## Full Changelog

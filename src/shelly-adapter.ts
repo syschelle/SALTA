@@ -72,6 +72,7 @@ function statesEqual(a: Device["state"], b: Device["state"]): boolean {
 export class ShellyAdapter {
   private timer?: NodeJS.Timeout;
   private reconcileTask?: Promise<void>;
+  private readonly removedDeviceIds = new Set<string>();
 
   constructor(private registry: DeviceRegistry) {}
 
@@ -178,6 +179,8 @@ export class ShellyAdapter {
 
   async add(host: string, username = "", password = "", name?: string, roomId?: string, room?: string, credentialMode: "inherit" | "custom" | "none" = "inherit"): Promise<Device> {
     const result = await this.probe(host, username, password);
+    this.removedDeviceIds.delete(result.device.id);
+    this.registry.restore(result.device.id);
     const device: Device = {
       ...result.device,
       name: name?.trim() || result.device.name,
@@ -210,7 +213,7 @@ export class ShellyAdapter {
   }
 
   async refresh(device: Device): Promise<Device> {
-    if (!device.host) return device;
+    if (this.removedDeviceIds.has(device.id) || !device.host) return device;
     const credentials = await getDeviceCredentials(device.id);
     try {
       const probed = await this.probe(device.host, credentials.username, credentials.password);
@@ -229,12 +232,28 @@ export class ShellyAdapter {
         lastSeen: seenAt,
         lastEvent: statesEqual(device.state, probed.device.state) ? device.lastEvent : seenAt
       };
+      if (this.removedDeviceIds.has(device.id)) return device;
       await this.registry.set(next);
       return next;
     } catch {
+      if (this.removedDeviceIds.has(device.id)) return device;
       const next = { ...device, reachable: false, lastSeen: now() };
       await this.registry.set(next);
       return next;
+    }
+  }
+
+  async remove(deviceId: string): Promise<void> {
+    const device = this.registry.get(deviceId);
+    if (!device) throw new Error("DEVICE_NOT_FOUND");
+    if (device.source !== "shelly") throw new Error("ADAPTER_NOT_SUPPORTED");
+    this.removedDeviceIds.add(deviceId);
+    try {
+      const removed = await this.registry.remove(deviceId);
+      if (!removed) throw new Error("DEVICE_NOT_FOUND");
+    } catch (error) {
+      this.removedDeviceIds.delete(deviceId);
+      throw error;
     }
   }
 

@@ -14,9 +14,16 @@ export class HomeKitBridge {
     this.bridge=new Bridge(config.HOMEKIT_NAME, uuid.generate("salta:bridge"));
     for(const d of this.registry.all()) this.sync(d);
     this.registry.on("device", (d:Device)=>this.sync(d));
+    this.registry.on("deviceRemoved", (d:Device)=>this.remove(d.id));
     this.bridge.publish({username:config.HOMEKIT_USERNAME,pincode:config.HOMEKIT_PIN,port:config.HOMEKIT_PORT,category:Categories.BRIDGE});
   }
   stop():void{ this.bridge?.unpublish(); }
+  private remove(deviceId:string):void{
+    const accessory=this.accessories.get(deviceId);
+    if(accessory && this.bridge) this.bridge.removeBridgedAccessory(accessory);
+    this.accessories.delete(deviceId);
+    this.accessoryTypes.delete(deviceId);
+  }
   private sync(d:Device):void{
     if(!this.bridge || !d.homekitEnabled) return;
     let a=this.accessories.get(d.id);

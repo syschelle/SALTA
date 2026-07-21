@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.7
+
+- Added a device removal action to the Shelly device configuration dialog.
+- Added `DELETE /api/devices/:id` for persistent Shelly device removal.
+- Device removal now deletes associated command history through the existing database cascade.
+- Removed devices are immediately detached from the in-memory registry and HomeKit bridge.
+- Added race protection so an active Shelly status refresh cannot recreate a device while it is being removed.
+- Added automated tests for persistent removal, stale refresh protection and deliberate re-adding.
+
 ## 0.4.6
 
 - Added `docker-compose.image.yml` as the single production image override.

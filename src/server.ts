@@ -45,7 +45,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch { return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.6", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.7", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
     try { await pool.query("select 1"); return { status: "ready", components: { database: "up", shellyAdapter: "up", devices: registry.all().length } }; }
     catch { return reply.code(503).send({ status: "not-ready", components: { database: "down" } }); }
@@ -78,6 +78,17 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       if (parsed.data.roomId) room=(await listRooms()).find(item=>item.id===parsed.data.roomId)?.name;
       return await registry.patch(request.params.id,{...parsed.data,roomId:parsed.data.roomId ?? undefined,room});
     } catch { return reply.code(404).send({ error: { code: "DEVICE_NOT_FOUND", message: "Device not found", requestId: request.id } }); }
+  });
+  app.delete<{ Params: { id: string } }>("/api/devices/:id", async (request, reply) => {
+    try {
+      await shellyAdapter.remove(request.params.id);
+      return reply.code(204).send();
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "DEVICE_DELETE_FAILED";
+      const status = code === "DEVICE_NOT_FOUND" ? 404 : code === "ADAPTER_NOT_SUPPORTED" ? 400 : 500;
+      const message = code === "DEVICE_NOT_FOUND" ? "Device not found" : code === "ADAPTER_NOT_SUPPORTED" ? "This device cannot be removed by the Shelly adapter" : "Device could not be removed";
+      return reply.code(status).send({ error: { code, message, requestId: request.id } });
+    }
   });
   app.put<{Params:{id:string};Body:unknown}>("/api/devices/:id/credentials",async(request,reply)=>{
     const parsed=credentialSchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});

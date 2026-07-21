@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.6` is the current stable release. It provides local Shelly discovery, generation-aware device detection, persistent device management, live status values, device control and an optional HomeKit bridge.
+`v0.4.7` is the current stable release. It provides local Shelly discovery, generation-aware device detection, persistent device management, live status values, device control and an optional HomeKit bridge.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.6"
+git commit -m "release: SALTA v0.4.7"
 git push origin main
-git tag -a v0.4.6 -m "SALTA v0.4.6"
-git push origin v0.4.6
+git tag -a v0.4.7 -m "SALTA v0.4.7"
+git push origin v0.4.7
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.6
+ghcr.io/<github-owner>/<repository>:0.4.7
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -155,6 +155,10 @@ MIT
 ## Shelly support
 
 SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Device detection records the model, generation, firmware, hostname, address, MAC address, channel count and supported functions. Depending on the device, the dashboard displays switch or cover state together with available power, energy, voltage, current, frequency and temperature values.
+
+## Device removal
+
+Shelly devices can be removed from their configuration dialog. The action deletes the SALTA device record, stored device credentials, related command history and the corresponding HomeKit accessory. The physical Shelly device remains unchanged and can be added again later.
 
 ## Rooms and credentials
 

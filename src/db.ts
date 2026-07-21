@@ -106,6 +106,11 @@ export async function upsertDevice(d: Device): Promise<void> {
     [d.id,d.source,d.sourceId,d.type,d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,d.room??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent]);
 }
 
+export async function deleteDevice(id: string): Promise<boolean> {
+  const result = await pool.query("DELETE FROM devices WHERE id=$1", [id]);
+  return result.rowCount === 1;
+}
+
 export async function listDevices(): Promise<Device[]> {
   const r=await pool.query(`SELECT d.id,d.source,d.source_id as "sourceId",d.type,d.name,d.host,d.generation,d.model,
     d.firmware_version as "firmwareVersion",d.hostname,d.mac_address as "macAddress",d.component_kind as "componentKind",
