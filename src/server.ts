@@ -70,7 +70,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch { return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.19", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.20", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
     try {
       await pool.query("select 1");
@@ -95,7 +95,10 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   });
   app.put<{Params:{id:string};Body:unknown}>("/api/rooms/:id",async(request,reply)=>{
     const parsed=roomSchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
-    const room=await updateRoom(request.params.id,parsed.data.name,parsed.data.icon,parsed.data.sortOrder); return room ?? reply.code(404).send({error:{code:"ROOM_NOT_FOUND",message:"Room not found",requestId:request.id}});
+    const room=await updateRoom(request.params.id,parsed.data.name,parsed.data.icon,parsed.data.sortOrder);
+    if(!room) return reply.code(404).send({error:{code:"ROOM_NOT_FOUND",message:"Room not found",requestId:request.id}});
+    registry.updateRoomName(room.id,room.name);
+    return room;
   });
   app.delete<{Params:{id:string} }>("/api/rooms/:id",async(request,reply)=> (await deleteRoom(request.params.id)) ? reply.code(204).send() : reply.code(404).send({error:{code:"ROOM_NOT_FOUND",message:"Room not found",requestId:request.id}}));
 

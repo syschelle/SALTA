@@ -148,7 +148,20 @@ export async function createRoom(name: string, icon: string, sortOrder: number):
 }
 
 export async function updateRoom(id: string, name: string, icon: string, sortOrder: number): Promise<Room | undefined> {
-  const result=await pool.query(`UPDATE rooms SET name=$2,icon=$3,sort_order=$4,updated_at=now() WHERE id=$1 RETURNING id,name,icon,sort_order as "sortOrder",created_at as "createdAt",updated_at as "updatedAt"`,[id,name,icon,sortOrder]);
+  const result=await pool.query(`
+    WITH updated_room AS (
+      UPDATE rooms
+      SET name=$2,icon=$3,sort_order=$4,updated_at=now()
+      WHERE id=$1
+      RETURNING id,name,icon,sort_order as "sortOrder",created_at as "createdAt",updated_at as "updatedAt"
+    ), synced_devices AS (
+      UPDATE devices
+      SET room=$2,updated_at=now()
+      WHERE room_id=$1
+      RETURNING id
+    )
+    SELECT * FROM updated_room
+  `,[id,name,icon,sortOrder]);
   return result.rows[0];
 }
 

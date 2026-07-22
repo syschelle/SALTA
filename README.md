@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.19` is the current stable release. It keeps device cards visually stable during live refreshes and limits hover elevation to interactive buttons.
+`v0.4.20` is the current stable release. It adds a visual room-icon selector and keeps room names synchronized across all assigned devices.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.19"
+git commit -m "release: SALTA v0.4.20"
 git push origin main
-git tag -a v0.4.19 -m "SALTA v0.4.19"
-git push origin v0.4.19
+git tag -a v0.4.20 -m "SALTA v0.4.20"
+git push origin v0.4.20
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.19
+ghcr.io/<github-owner>/<repository>:0.4.20
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -105,7 +105,7 @@ The sidebar includes a live light/dark theme switch. The selected theme is appli
 
 ## Icons
 
-SALTA bundles [Material Design Icons (MDI)](https://pictogrammers.com/library/mdi/) locally from Pictogrammers `@mdi/font` 7.4.47. No icon CDN or external runtime request is used. The bundled icon font is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0); see `public/vendor/mdi/LICENSE`. Room icons use MDI names without the `mdi-` prefix, for example `sofa-outline`.
+SALTA bundles [Material Design Icons (MDI)](https://pictogrammers.com/library/mdi/) locally from Pictogrammers `@mdi/font` 7.4.47. No icon CDN or external runtime request is used. The bundled icon font is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0); see `public/vendor/mdi/LICENSE`. Room icons are selected from a curated list in the web interface; no MDI identifier needs to be entered manually.
 
 ## Status and logs
 
@@ -181,7 +181,7 @@ Shelly devices can be removed from their configuration dialog. The action delete
 
 ## Rooms and credentials
 
-Rooms are first-class entities. Devices can be assigned to rooms, while unassigned devices remain visible under **Nicht zugeordnet**.
+Rooms are first-class entities. Devices can be assigned to rooms, while unassigned devices remain visible under **Nicht zugeordnet**. Renaming a room updates all assigned device cards immediately.
 
 Shelly authentication supports three modes:
 

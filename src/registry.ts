@@ -50,6 +50,18 @@ export class DeviceRegistry extends EventEmitter {
     }
   }
 
+  updateRoomName(roomId: string, roomName: string): Device[] {
+    const updated: Device[] = [];
+    for (const [id, current] of this.devices) {
+      if (current.roomId !== roomId || current.room === roomName) continue;
+      const next = { ...current, room: roomName };
+      this.devices.set(id, next);
+      this.notify("device", next);
+      updated.push(next);
+    }
+    return updated;
+  }
+
   async patch(id: string, patch: Partial<Pick<Device,"name"|"roomId"|"room"|"homekitEnabled"|"presentationType">>): Promise<Device> {
     const current=this.devices.get(id); if(!current) throw new Error("DEVICE_NOT_FOUND");
     const next={...current,...patch}; await this.set(next); return next;

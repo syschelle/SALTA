@@ -80,6 +80,21 @@ describe("DeviceRegistry removal", () => {
     }));
   });
 
+
+  it("updates the room name of every assigned device in memory", async () => {
+    const registry = new DeviceRegistry();
+    const roomDevice = { ...device, roomId: "11111111-1111-4111-8111-111111111111", room: "Old room" };
+    const deviceListener = vi.fn();
+    await registry.set(roomDevice);
+    registry.on("device", deviceListener);
+
+    const updated = registry.updateRoomName(roomDevice.roomId, "New room");
+
+    expect(updated).toHaveLength(1);
+    expect(registry.get(device.id)?.room).toBe("New room");
+    expect(deviceListener).toHaveBeenCalledWith(expect.objectContaining({ room: "New room" }));
+  });
+
   it("allows a deliberately re-added device after restore", async () => {
     const registry = new DeviceRegistry();
     await registry.set(device);

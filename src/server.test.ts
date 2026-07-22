@@ -22,7 +22,7 @@ vi.mock("./db.js", () => ({
   updateShellySettings: vi.fn()
 }));
 
-import { getGlobalShellyCredentials } from "./db.js";
+import { getGlobalShellyCredentials, updateRoom } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -42,6 +42,33 @@ function createServer(remove: ShellyAdapter["remove"], add: ShellyAdapter["add"]
   openServers.push(server);
   return server;
 }
+
+
+describe("PUT /api/rooms/:id", () => {
+  it("synchronizes a renamed room into the in-memory device registry", async () => {
+    const room = {
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Living area",
+      icon: "sofa-outline",
+      sortOrder: 0,
+      createdAt: "2026-07-22T00:00:00.000Z",
+      updatedAt: "2026-07-22T00:00:00.000Z"
+    };
+    vi.mocked(updateRoom).mockResolvedValueOnce(room);
+    const updateRoomName = vi.fn();
+    const server = createServer(vi.fn(), vi.fn(), { updateRoomName });
+
+    const response = await server.inject({
+      method: "PUT",
+      url: `/api/rooms/${room.id}`,
+      payload: { name: room.name, icon: room.icon, sortOrder: 0 }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(room);
+    expect(updateRoomName).toHaveBeenCalledWith(room.id, room.name);
+  });
+});
 
 describe("DELETE /api/devices/:id", () => {
   it("returns 204 after removing a Shelly device", async () => {

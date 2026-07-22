@@ -19,6 +19,29 @@ const icons={outlet:'mdi-power-socket-eu',switch:'mdi-toggle-switch-outline',ene
 const mdiIcon=(name,fallback='help-circle-outline')=>{const normalized=String(name||'').trim().toLowerCase().replace(/^mdi-/,'');return /^[a-z0-9-]+$/.test(normalized)?`mdi-${normalized}`:`mdi-${fallback}`};
 const iconMarkup=(name)=>`<span class="mdi ${mdiIcon(name)}" aria-hidden="true"></span>`;
 const typeLabels={outlet:'Steckdose',switch:'Schalter',energyMeter:'Energiezähler',windowCovering:'Rollladen',thermostat:'Thermostat',light:'Licht',fan:'Ventilator',motionSensor:'Bewegungssensor'};
+const roomIconChoices=[
+  ['home-outline','Allgemein'],
+  ['sofa-outline','Wohnzimmer'],
+  ['bed-outline','Schlafzimmer'],
+  ['silverware-fork-knife','Küche'],
+  ['bathtub-outline','Badezimmer'],
+  ['toilet','WC'],
+  ['desk','Arbeitszimmer'],
+  ['washing-machine','Hauswirtschaft'],
+  ['garage-variant','Garage'],
+  ['door-open','Flur / Eingang'],
+  ['balcony','Balkon'],
+  ['flower-outline','Garten'],
+  ['pine-tree','Außenbereich'],
+  ['floor-plan','Sonstiger Raum']
+];
+function roomIconOptions(selected='home-outline'){
+  const current=String(selected||'home-outline').trim().toLowerCase().replace(/^mdi-/,'');
+  const choices=[...roomIconChoices];
+  if(current&&!choices.some(([value])=>value===current))choices.unshift([current,'Bisheriges Icon']);
+  return choices.map(([value,label])=>`<option value="${escapeHtml(value)}"${value===current?' selected':''}>${escapeHtml(label)}</option>`).join('');
+}
+function updateRoomIconPreview(select){const preview=select?.closest('.room-icon-select')?.querySelector('.room-icon-preview');if(preview)preview.innerHTML=iconMarkup(select.value||'home-outline')}
 const labels={on:'Status',brightness:'Helligkeit',power:'Leistung',energy:'Energie',voltage:'Spannung',current:'Strom',frequency:'Frequenz',temperature:'Temperatur',motion:'Bewegung',battery:'Batterie',currentPosition:'Position',targetPosition:'Ziel',positionState:'Fahrt',currentTemperature:'Ist',targetTemperature:'Soll',mode:'Modus',totalPower:'Gesamtleistung',powerL1:'Phase L1',powerL2:'Phase L2',powerL3:'Phase L3'};
 const fmt=(k,v)=>{if(typeof v==='boolean')return v?'Ein':'Aus';if(typeof v!=='number')return String(v);const value=Math.round(v*10)/10;const lower=k.toLowerCase();const unit=lower.includes('temperature')?' °C':lower.includes('position')||k==='brightness'||k==='battery'?' %':lower.includes('power')?' W':k==='energy'?' Wh':k==='voltage'?' V':k==='current'?' A':k==='frequency'?' Hz':'';return `${value}${unit}`};
 const displayedState=d=>Object.entries(d.state||{}).filter(([,value])=>value!==null&&value!==undefined&&!(typeof value==='number'&&!Number.isFinite(value))).slice(0,4);
@@ -83,14 +106,14 @@ function currentRoomEditDraft(){
   const form=row?.querySelector('.room-edit-form');
   if(!form||form.hidden)return null;
   const activeElement=document.activeElement;
-  const activeField=form.contains(activeElement)&&activeElement instanceof HTMLInputElement?activeElement.name:null;
+  const activeField=form.contains(activeElement)&&(activeElement instanceof HTMLInputElement||activeElement instanceof HTMLSelectElement)?activeElement.name:null;
   return {
     id:editingRoomId,
     name:form.elements.name.value,
     icon:form.elements.icon.value,
     activeField,
-    selectionStart:activeField?activeElement.selectionStart:null,
-    selectionEnd:activeField?activeElement.selectionEnd:null
+    selectionStart:activeElement instanceof HTMLInputElement?activeElement.selectionStart:null,
+    selectionEnd:activeElement instanceof HTMLInputElement?activeElement.selectionEnd:null
   };
 }
 function restoreRoomEdit(draft,{focus=false}={}){
@@ -105,13 +128,13 @@ function restoreRoomEdit(draft,{focus=false}={}){
   if(focus){
     const input=form.elements[draft.activeField||'name'];
     input.focus();
-    if(draft.activeField&&draft.selectionStart!==null&&draft.selectionEnd!==null)input.setSelectionRange(draft.selectionStart,draft.selectionEnd);
+    if(input instanceof HTMLInputElement&&draft.activeField&&draft.selectionStart!==null&&draft.selectionEnd!==null)input.setSelectionRange(draft.selectionStart,draft.selectionEnd);
   }
 }
 function renderRooms(){
   const draft=currentRoomEditDraft();
   roomPageCount.textContent=rooms.length;
-  roomList.innerHTML=rooms.map(r=>{const count=all.filter(d=>d.roomId===r.id).length;return `<div class="room-row" data-room-id="${r.id}"><div class="room-summary"><div class="room-identity"><span class="room-icon" aria-hidden="true">${iconMarkup(r.icon||'home-outline')}</span><div><strong>${escapeHtml(r.name)}</strong><small>${count} ${count===1?'Gerät':'Geräte'}</small></div></div><div class="room-actions"><button class="secondary" type="button" onclick="startRoomEdit('${r.id}')">${iconMarkup('pencil-outline')}<span>Bearbeiten</span></button><button class="danger" type="button" onclick="removeRoom('${r.id}')">${iconMarkup('delete-outline')}<span>Löschen</span></button></div></div><form class="room-edit-form" onsubmit="saveRoomEdit(event,'${r.id}')" hidden><label>Name<input name="name" value="${escapeHtml(r.name)}" required maxlength="80"></label><label>Icon<input name="icon" value="${escapeHtml(r.icon||'home-outline')}" required maxlength="40"></label><div class="room-actions"><button type="button" class="secondary" onclick="cancelRoomEdit('${r.id}')">${iconMarkup('close')}<span>Abbrechen</span></button><button type="submit">${iconMarkup('content-save-outline')}<span>Speichern</span></button></div></form></div>`}).join('')||'<div class="empty-state compact"><h3>Noch keine Räume</h3><p class="muted">Lege rechts deinen ersten Raum an.</p></div>';
+  roomList.innerHTML=rooms.map(r=>{const count=all.filter(d=>d.roomId===r.id).length;return `<div class="room-row" data-room-id="${r.id}"><div class="room-summary"><div class="room-identity"><span class="room-icon" aria-hidden="true">${iconMarkup(r.icon||'home-outline')}</span><div><strong>${escapeHtml(r.name)}</strong><small>${count} ${count===1?'Gerät':'Geräte'}</small></div></div><div class="room-actions"><button class="secondary" type="button" onclick="startRoomEdit('${r.id}')">${iconMarkup('pencil-outline')}<span>Bearbeiten</span></button><button class="danger" type="button" onclick="removeRoom('${r.id}')">${iconMarkup('delete-outline')}<span>Löschen</span></button></div></div><form class="room-edit-form" onsubmit="saveRoomEdit(event,'${r.id}')" hidden><label>Name<input name="name" value="${escapeHtml(r.name)}" required maxlength="80"></label><label>Icon<div class="room-icon-select"><span class="room-icon-preview" aria-hidden="true">${iconMarkup(r.icon||'home-outline')}</span><select name="icon" required onchange="updateRoomIconPreview(this)">${roomIconOptions(r.icon||'home-outline')}</select></div></label><div class="room-actions"><button type="button" class="secondary" onclick="cancelRoomEdit('${r.id}')">${iconMarkup('close')}<span>Abbrechen</span></button><button type="submit">${iconMarkup('content-save-outline')}<span>Speichern</span></button></div></form></div>`}).join('')||'<div class="empty-state compact"><h3>Noch keine Räume</h3><p class="muted">Lege rechts deinen ersten Raum an.</p></div>';
   if(draft)restoreRoomEdit(draft,{focus:Boolean(draft.activeField)});
 }
 function roomRow(id){return roomList.querySelector(`[data-room-id="${CSS.escape(id)}"]`)}
@@ -144,7 +167,7 @@ async function saveRoomEdit(event,id){
 async function cmd(id,capability,value){coverSliderDrafts.delete(id);if(activeCoverSliderId===id)activeCoverSliderId=null;await api(`/api/devices/${id}/command`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({capability,value})});await load()}
 function temp(id,current){const v=prompt('Zieltemperatur',current);if(v!==null)cmd(id,'setTargetTemperature',Number(v))}
 async function reconcile(){await api('/api/adapters/shelly/reconcile',{method:'POST'});await load();notify('Synchronisierung abgeschlossen.')}
-async function createRoom(){const name=newRoomName.value.trim();if(!name)return;await api('/api/rooms',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,icon:newRoomIcon.value||'home-outline',sortOrder:rooms.length})});newRoomName.value='';newRoomIcon.value='home-outline';await load();notify('Raum wurde hinzugefügt.')}
+async function createRoom(){const name=newRoomName.value.trim();if(!name)return;await api('/api/rooms',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,icon:newRoomIcon.value||'home-outline',sortOrder:rooms.length})});newRoomName.value='';newRoomIcon.value='home-outline';updateRoomIconPreview(newRoomIcon);await load();notify('Raum wurde hinzugefügt.')}
 async function removeRoom(id){if(!confirm('Raum löschen? Geräte werden nicht gelöscht.'))return;await api(`/api/rooms/${id}`,{method:'DELETE'});if(editingRoomId===id)editingRoomId=null;await load();notify('Raum wurde gelöscht.')}
 function applyShellyEncryptionStatus(s){
   shellySettingsStatus=s;
@@ -258,4 +281,7 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.bo
 document.querySelectorAll('#sidebar [data-nav]').forEach(item=>item.addEventListener('click',()=>{if(matchMedia('(max-width: 1000px)').matches)closeMenu()}));
 deviceDialog.addEventListener('close',()=>{selectedDevice=null;setActiveNavigation(routeFromHash())});
 
+newRoomIcon.innerHTML=roomIconOptions('home-outline');
+newRoomIcon.addEventListener('change',()=>updateRoomIconPreview(newRoomIcon));
+updateRoomIconPreview(newRoomIcon);
 initializeTheme();navigate();load();setInterval(refreshLiveData,5000);

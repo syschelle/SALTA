@@ -15,7 +15,7 @@ nav a>span:last-child,nav button>span:last-child{justify-self:start;line-height:
 .secondary{background:var(--subtle-bg);color:var(--text)}
 .room-edit-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,.45fr) auto;gap:12px;align-items:end}
 .room-edit-form label{display:grid;gap:7px;font-weight:700}
-.room-edit-form input{font-weight:400}
+.room-edit-form input,.room-edit-form select{font-weight:400;min-width:0}
 .room-edit-form[hidden],.room-summary[hidden]{display:none}
 @media(max-width:620px){.room-summary{align-items:flex-start;flex-direction:column}.room-actions{width:100%;justify-content:flex-start}.room-edit-form{grid-template-columns:1fr}.room-edit-form .room-actions{justify-content:stretch}.room-edit-form .room-actions button{flex:1}}
 
@@ -115,7 +115,7 @@ html[data-theme="dark"] .device.offline .dot{background:#ef6a73}
 html[data-theme="dark"] .mobile-nav{box-shadow:0 -8px 28px rgba(0,0,0,.28)}
 @media(prefers-reduced-motion:reduce){body,aside,.mobile-nav,.stats article,.device,.panel,.settings-nav,dialog,.search,input,select,.theme-toggle,.theme-toggle-track>span{transition:none}}
 
-/* v0.4.19: locally bundled Material Design Icons */
+/* Locally bundled Material Design Icons */
 button,.button-link{gap:7px}
 button>.mdi,.button-link>.mdi{font-size:18px;line-height:1}
 .nav-icon.mdi{font-size:19px;line-height:1}
@@ -125,3 +125,7 @@ button>.mdi,.button-link>.mdi{font-size:18px;line-height:1}
 .search>.mdi{font-size:18px;color:var(--muted)}
 .menu-toggle>.mdi,.menu-close>.mdi,.icon-button>.mdi{font-size:24px;line-height:1}
 #themeToggleIcon.mdi{font-size:17px;line-height:1}
+
+.room-icon-select{display:grid;grid-template-columns:42px minmax(0,1fr);gap:10px;align-items:center}
+.room-icon-select select{width:100%}
+.room-icon-preview{width:42px;height:42px;border-radius:10px;background:var(--accent-bg);color:var(--accent);display:grid;place-items:center;font-size:21px}

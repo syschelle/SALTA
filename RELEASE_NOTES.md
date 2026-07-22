@@ -1,12 +1,12 @@
-# SALTA v0.4.19
+# SALTA v0.4.20
 
-SALTA v0.4.19 is a focused interface stability release.
+SALTA v0.4.20 improves room management.
 
 ## Fixed
 
-- Device cards no longer lift or change shadow on hover.
-- Live refreshes no longer replay the card hover animation under the pointer.
-- Buttons and button-style links retain subtle hover and pressed feedback.
-- Added regression coverage for stationary device cards.
+- Room icons are now selected from a visual list instead of entered as MDI text.
+- Common room types have clear labels and local MDI previews.
+- Renaming a room immediately updates every assigned device card.
+- The legacy device room value is synchronized in PostgreSQL.
 
 No database migration is required.
