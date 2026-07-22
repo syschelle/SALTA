@@ -8,114 +8,102 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.33` is the current stable release. It updates the SALTA source-code license to Apache License 2.0 and removes version-tag publishing instructions from the main README while retaining the existing security hardening.
+`v0.5.0` is the current stable release. It introduces a clean-install architecture and removes SALTA-owned legacy migration and compatibility paths.
+
+> **Breaking change:** v0.5.0 requires a fresh PostgreSQL volume. Databases and encrypted credentials from v0.4.x are intentionally not migrated.
 
 ## Supported architectures
 
-The GitHub release workflow publishes one multi-architecture container image for:
+The GitHub release workflow publishes one multi-architecture image for:
 
-- `linux/amd64` — Intel and AMD PCs, servers and NAS systems
-- `linux/arm64` — Raspberry Pi 5 and other 64-bit ARM systems
+- `linux/amd64`
+- `linux/arm64`
 
-Docker automatically pulls the correct image for the host. The same `docker-compose.image.yml` override works on both architectures.
+Docker automatically pulls the correct image for the host.
 
-## Publish the container image
+## Fresh installation
 
-GitHub Actions builds and publishes:
-
-```text
-ghcr.io/<github-owner>/<repository>:0.4.33
-ghcr.io/<github-owner>/<repository>:0.4
-ghcr.io/<github-owner>/<repository>:latest
-```
-
-After the first successful workflow run, make the package public under **GitHub → Packages → SALTA → Package settings**, unless you intentionally want a private package.
-
-## Deploy with the prebuilt image
-
-Clone the repository on the target host:
+Clone the repository and run the installer:
 
 ```bash
-git clone https://github.com/<github-owner>/<repository>.git
-cd <repository>
+git clone https://github.com/syschelle/SALTA.git
+cd SALTA
+chmod +x install.sh update.sh backup.sh restore.sh
+./install.sh
 ```
 
-Create the environment file with generated database, administrator and encryption credentials:
+`install.sh` performs the complete installation in one run:
 
-```bash
-chmod +x deploy.sh update.sh backup.sh restore.sh
-./deploy.sh
-```
+- creates `.env` when it does not exist;
+- generates the PostgreSQL password, administrator password, health token and encryption key;
+- validates the merged Compose configuration;
+- pulls `ghcr.io/syschelle/salta:0.5.0`;
+- starts PostgreSQL and SALTA;
+- prints the generated administrator login once.
 
-On the first run, `deploy.sh` creates `.env` and stops so you can set the image path:
+The default `.env.example` publishes SALTA to the local network:
 
 ```env
-SALTA_IMAGE=ghcr.io/<github-owner>/<repository>:latest
+WEB_PORT=8099
+SALTA_BIND_ADDRESS=0.0.0.0
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.5.0
 ```
 
-Run it again:
-
-```bash
-./deploy.sh
-```
-
-SALTA is then available locally at:
+Open SALTA at:
 
 ```text
-http://127.0.0.1:8099
+http://IP-OF-THE-SALTA-HOST:8099
 ```
 
-The first request opens the SALTA login page. Authentication cannot be disabled.
+Authentication cannot be disabled.
 
-No Node.js, npm or local application build is required on the deployment host.
+## Clean reinstall from v0.4.x
 
-## Multi-architecture image deployment
+A clean reinstall permanently deletes the SALTA PostgreSQL volume and all SALTA configuration stored in it. Shelly devices themselves are not modified.
 
-Use the common Compose definition together with the image override:
+For a completely fresh installation, including a new database and newly generated secrets:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.image.yml pull
-docker compose -f docker-compose.yml -f docker-compose.image.yml up -d
+./install.sh --fresh
 ```
 
-No architecture-specific Compose file is required. Docker automatically selects the `linux/amd64` or `linux/arm64` image variant that matches the host.
+To reset only the database while retaining the existing `.env` values:
+
+```bash
+./install.sh --reset
+```
+
+The installer detects unversioned v0.4.x volumes and refuses to start against them. This prevents an old schema from being used accidentally.
+
+## Manual image deployment
+
+```bash
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml pull
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml up -d --force-recreate --remove-orphans
+```
 
 ## Local development build
 
-For development only, build from source with the optional override:
-
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
-
-Production and Raspberry Pi deployments should use the prebuilt GHCR image instead.
-
-
-## Appearance
-
-The sidebar includes a live light/dark theme switch. The selected theme is applied immediately and stored in the functional `salta_theme` cookie for one year, so the web interface restores the preference before rendering on the next visit. The preference remains local to the browser and is not stored in PostgreSQL.
-
-## Icons
-
-SALTA bundles [Material Design Icons (MDI)](https://pictogrammers.com/library/mdi/) locally from Pictogrammers `@mdi/font` 7.4.47. No icon CDN or external runtime request is used. The bundled icon font is licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0); see `public/vendor/mdi/LICENSE`. Room icons are selected from a curated list in the web interface; no MDI identifier needs to be entered manually.
 
 ## Status and logs
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.image.yml ps
-docker compose -f docker-compose.yml -f docker-compose.image.yml logs -f salta
-curl -u "$ADMIN_USERNAME:$ADMIN_PASSWORD" http://127.0.0.1:8099/api/health
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml ps
+docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml logs -f salta
 ```
 
-The unauthenticated Docker health endpoint is not public: it requires the generated `SALTA_HEALTH_TOKEN`.
+The internal Docker health endpoint requires the generated `SALTA_HEALTH_TOKEN` and is not publicly accessible without it.
 
-## Updating
+## Updating within the v0.5 line
 
 ```bash
 ./update.sh
 ```
 
-The update script pulls repository changes and the newest configured container image without rebuilding locally.
+The update script validates the existing `.env`, pulls repository and image changes and recreates the containers. It no longer edits old environment files or inserts compatibility variables.
 
 ## Backup and restore
 
@@ -124,59 +112,48 @@ The update script pulls repository changes and the newest configured container i
 ./restore.sh backups/salta-YYYYMMDD-HHMMSS.dump
 ```
 
-## HomeKit
-
-HomeKit is disabled by default. Enable it in `.env` and publish the configured HAP port when required. SALTA now runs on Docker bridge networks so PostgreSQL can remain isolated. Depending on the Docker host, HomeKit multicast discovery may require an mDNS reflector or a dedicated LAN/macvlan setup.
+Only restore backups created from the compatible v0.5 database schema.
 
 ## Security
 
-SALTA v0.4.33 is fail-closed: a strong `ADMIN_PASSWORD` and generated `SALTA_HEALTH_TOKEN` are mandatory. The web application uses an opaque server-side session with an `HttpOnly`, `SameSite=Strict` cookie, a finite lifetime, logout support and CSRF protection for state-changing requests.
+SALTA is fail-closed. A strong administrator password, a health token and an encryption key are mandatory. Browser access uses an opaque server-side session, `HttpOnly` cookies, CSRF protection and finite session lifetimes.
 
-Direct Basic-authenticated API access is accepted only from `LOCAL_NETWORKS`. Internet browser access uses the authenticated same-origin web session. This is necessary because the browser interface itself retrieves data through JSON endpoints.
+Direct Basic-authenticated API access is accepted only from `LOCAL_NETWORKS`. When a reverse proxy is used, configure `TRUSTED_PROXIES` with its exact IP address or CIDR.
 
-For reverse proxies, configure `TRUSTED_PROXIES` with the exact proxy IP or CIDR. Do not use a blanket trust setting. HTTPS is required for Internet exposure so session cookies receive the `Secure` attribute and HSTS can be emitted.
+PostgreSQL is available only on the internal Docker network. The SALTA container drops all Linux capabilities, enables `no-new-privileges`, uses a read-limited temporary filesystem and applies application-level rate limiting.
 
-SALTA also applies security headers, request/body/header timeouts, per-client and global rate limits, stricter limits for login and expensive discovery calls, and structured warnings when limits are exceeded. These controls mitigate application-layer abuse; they cannot absorb a volumetric attack that saturates the Internet connection.
+See `SECURITY.md` for details.
 
-Docker networking uses two networks:
+## HomeKit
 
-- `frontend`: SALTA web traffic and outbound access to local Shelly devices
-- `backend`: an `internal: true` network shared only by SALTA and PostgreSQL
+HomeKit is disabled by default. Enable it in `.env` when required. Depending on the Docker host, multicast discovery may require an mDNS reflector or a dedicated LAN/macvlan setup.
 
-PostgreSQL has no published host port. The SALTA container runs unprivileged with all Linux capabilities dropped and `no-new-privileges` enabled.
+SALTA-owned deprecated dependencies have been removed. The HomeKit library still carries one deprecated transitive upstream package through its persistence layer; it is documented in `DEPENDENCY_NOTES.md` and retained to avoid silently breaking HomeKit.
 
-See `SECURITY.md` for deployment details.
+## Shelly support
+
+SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Detection records model, generation, firmware, hostname, address, MAC address, channel count and supported functions.
+
+Compatible multi-channel and 2PM devices are represented according to their active switch or cover profile. Supported on/off devices can be presented as Automatic, Light, Switch, Outlet or Fan without changing the physical command routing.
+
+Shelly authentication supports:
+
+- `inherit`: use the global Shelly credentials;
+- `custom`: use encrypted credentials stored for one device;
+- `none`: connect without authentication.
+
+Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. The removed v1 compatibility format is not accepted by v0.5.0.
+
+## Rooms
+
+Rooms are first-class database entities linked to devices by `room_id`. The obsolete duplicate room-name column and its synchronization logic have been removed.
+
+## Icons
+
+SALTA bundles Material Design Icons locally. No icon CDN is used at runtime. See `public/vendor/mdi/LICENSE`.
 
 ## License
 
 SALTA source code: Apache License 2.0. See `LICENSE`.
 
 Bundled Material Design Icons: Apache License 2.0. See `public/vendor/mdi/LICENSE`.
-
-## Shelly support
-
-SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Device detection records the model, generation, firmware, hostname, address, MAC address, channel count and supported functions. Depending on the device, the dashboard displays switch or cover state together with available power, energy, voltage, current, frequency and temperature values.
-
-### Multi-profile and multi-channel devices
-
-For compatible Shelly 2PM devices, SALTA reads the active `switch` or `cover` profile. In switch profile, each switch component is registered as an independent device card and can be renamed separately. In cover profile, the paired outputs are represented as one window-covering device. Channel names configured on the Shelly are imported when available.
-
-### Configurable device functions
-
-Compatible on/off devices can be presented as **Automatic**, **Light**, **Switch**, **Outlet** or **Fan** from the device configuration dialog. The physical Shelly type, component ID, measurements and command routing remain unchanged. The selected function controls the SALTA card icon and label as well as the HomeKit service type. Existing devices remain in Automatic mode until changed.
-
-## Device removal
-
-Shelly devices can be removed from their configuration dialog. The action deletes the SALTA device record, stored device credentials, related command history and the corresponding HomeKit accessory. The physical Shelly device remains unchanged and can be added again later.
-
-## Rooms and credentials
-
-Rooms are first-class entities. Devices can be assigned to rooms, while unassigned devices remain visible under **Nicht zugeordnet**. Renaming a room updates all assigned device cards immediately.
-
-Shelly authentication supports three modes:
-
-- `inherit`: use the global Shelly username and password
-- `custom`: use encrypted credentials stored for the device
-- `none`: connect without authentication
-
-Passwords are encrypted with AES-256-GCM before being stored in PostgreSQL. New secrets use a per-secret random salt and a `scrypt`-derived 256-bit key; existing v1 secrets are upgraded automatically when the configured key can decrypt them. SALTA validates stored credentials at startup and in `/api/readiness`, and the web interface warns before global credentials are used when the current `SALTA_ENCRYPTION_KEY` does not match. Keep this key stable and include `.env` in secure backups. Password values are never returned by the REST API.

@@ -290,6 +290,25 @@ describe("web security", () => {
     expect(response.headers.location).toBe("/login");
   });
 
+  it("serves the login assets without authentication", async () => {
+    const server = createServer(vi.fn());
+    const stylesheet = await server.inject({ method: "GET", url: "/login.css" });
+    const script = await server.inject({ method: "GET", url: "/login.js" });
+
+    expect(stylesheet.statusCode).toBe(200);
+    expect(stylesheet.headers["content-type"]).toContain("text/css");
+    expect(script.statusCode).toBe(200);
+    expect(script.headers["content-type"]).toContain("text/javascript");
+  });
+
+  it("serves allow-listed application assets after authentication", async () => {
+    const server = createServer(vi.fn());
+    const response = await authenticatedInject(server, { method: "GET", url: "/styles.css" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/css");
+  });
+
   it("protects health and readiness API routes", async () => {
     const server = createServer(vi.fn());
     const response = await server.inject({ method: "GET", url: "/api/health" });
@@ -336,7 +355,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.4.33" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.5.0" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {

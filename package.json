@@ -1,6 +1,6 @@
 {
   "name": "salta",
-  "version": "0.4.33",
+  "version": "0.5.0",
   "description": "SALTA local-first smart-home control plane",
   "private": false,
   "type": "module",
@@ -17,8 +17,7 @@
   },
   "dependencies": {
     "@fastify/rate-limit": "^10.3.0",
-    "@fastify/static": "^8.2.0",
-    "@homebridge/hap-nodejs": "^2.1.8",
+    "@homebridge/hap-nodejs": "^2.1.9",
     "fastify": "^5.4.0",
     "pg": "^8.16.0",
     "pino": "^9.7.0",

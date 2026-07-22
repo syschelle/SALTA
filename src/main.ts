@@ -1,13 +1,12 @@
 import { config } from "./config.js";
-import { inspectCredentialEncryption, migrate, pool, listDevices, upgradeCredentialEncryption } from "./db.js";
+import { initializeDatabaseSchema, inspectCredentialEncryption, pool, listDevices } from "./db.js";
 import { DeviceRegistry } from "./registry.js";
 import { HomeKitBridge } from "./homekit.js";
 import { buildServer } from "./server.js";
 import { ShellyAdapter } from "./shelly-adapter.js";
 
 async function main(): Promise<void> {
-  await migrate();
-  await upgradeCredentialEncryption();
+  await initializeDatabaseSchema();
   const registry = new DeviceRegistry();
   for (const device of await listDevices()) await registry.set(device);
 

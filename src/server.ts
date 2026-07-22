@@ -1,8 +1,8 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
-import fastifyStatic from "@fastify/static";
 import fastifyRateLimit from "@fastify/rate-limit";
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
+import { readFile } from "node:fs/promises";
+import { extname, join } from "node:path";
 import { z } from "zod";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
@@ -29,6 +29,21 @@ const shellyAddSchema = z.object({ host:z.string().trim().min(1).max(255), name:
 const shellyDiscoverySchema = z.object({ subnet:z.string().trim().min(7).max(32) }).strict();
 const shellySettingsSchema = z.object({ username: z.string().max(120).default(""), password: z.string().max(512).optional() }).strict();
 const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
+
+const STATIC_CONTENT_TYPES: Readonly<Record<string, string>> = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".woff2": "font/woff2"
+};
+
+async function sendPublicFile(reply: FastifyReply, publicDir: string, fileName: string) {
+  const data = await readFile(join(publicDir, fileName));
+  const contentType = STATIC_CONTENT_TYPES[extname(fileName)] ?? "application/octet-stream";
+  reply.type(contentType);
+  reply.header("Cache-Control", fileName.endsWith(".html") ? "no-store" : "public, max-age=3600");
+  return reply.send(data);
+}
 
 
 function shellyRequestError(error: unknown): { status: number; code: string; message: string } {
@@ -122,6 +137,16 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
 
   const publicDir = join(process.cwd(), "public");
   const publicPaths = new Set(["/login", "/login.html", "/login.js", "/login.css", "/theme-init.js"]);
+  const staticFiles = new Map<string, string>([
+    ["/app.js", "app.js"],
+    ["/styles.css", "styles.css"],
+    ["/theme-init.js", "theme-init.js"],
+    ["/login.html", "login.html"],
+    ["/login.js", "login.js"],
+    ["/login.css", "login.css"],
+    ["/vendor/mdi/materialdesignicons.min.css", "vendor/mdi/materialdesignicons.min.css"],
+    ["/vendor/mdi/fonts/materialdesignicons-webfont.woff2", "vendor/mdi/fonts/materialdesignicons-webfont.woff2"]
+  ]);
   const rateWindowMs = 60_000;
 
   void app.register(fastifyRateLimit, {
@@ -238,11 +263,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.redirect("/login");
   });
 
-  void app.register(fastifyStatic, { root: publicDir, prefix: "/" });
-
   app.get("/login", async (request, reply) => {
     if (security.getSession(request.headers.cookie)) return reply.redirect("/");
-    return reply.sendFile("login.html");
+    return sendPublicFile(reply, publicDir, "login.html");
   });
 
   app.post<{ Body: unknown }>("/auth/login", {
@@ -289,9 +312,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.33" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.0" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.33", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.0", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -428,7 +451,15 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   });
   app.get("/api/adapters", async () => [{ id: "shelly", name: "Shelly", status: "connected", devices: registry.all().filter(x=>x.source==="shelly").length }]);
   app.setErrorHandler((error, request, reply) => { request.log.error({ err: error }, "Unhandled request error"); return reply.code(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error", requestId: request.id } }); });
-  app.setNotFoundHandler((request, reply) => request.url.startsWith("/api/") ? reply.code(404).send({ error: { code: "NOT_FOUND", message: "Route not found", requestId: request.id } }) : reply.sendFile("index.html"));
+  app.setNotFoundHandler(async (request, reply) => {
+    const path = requestPath(request);
+    if (path.startsWith("/api/") || path.startsWith("/auth/") || path.startsWith("/internal/")) {
+      return reply.code(404).send({ error: { code: "NOT_FOUND", message: "Route not found", requestId: request.id } });
+    }
+    const staticFile = staticFiles.get(path);
+    if (staticFile) return sendPublicFile(reply, publicDir, staticFile);
+    return sendPublicFile(reply, publicDir, "index.html");
+  });
   app.addHook("onClose", async () => security.close());
   return app;
 }

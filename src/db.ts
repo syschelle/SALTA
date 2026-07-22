@@ -6,8 +6,29 @@ import type { CredentialMode, Device, Room, ShellySettings } from "./types.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
 
-export async function migrate(): Promise<void> {
+const DATABASE_SCHEMA_VERSION = "0.5";
+
+export async function initializeDatabaseSchema(): Promise<void> {
+  const existing = await pool.query<{ devices: string | null; metadata: string | null }>(
+    "SELECT to_regclass('public.devices')::text AS devices, to_regclass('public.salta_metadata')::text AS metadata"
+  );
+  const state = existing.rows[0];
+  if (state?.devices && !state.metadata) {
+    throw new Error("INCOMPATIBLE_DATABASE_SCHEMA: SALTA v0.5.0 requires a fresh PostgreSQL volume");
+  }
+  if (state?.metadata) {
+    const version = await pool.query<{ value: string }>("SELECT value FROM salta_metadata WHERE key='schema_version'");
+    if (version.rows[0]?.value !== DATABASE_SCHEMA_VERSION) {
+      throw new Error(`INCOMPATIBLE_DATABASE_SCHEMA: expected ${DATABASE_SCHEMA_VERSION}, found ${version.rows[0]?.value ?? "unknown"}`);
+    }
+  }
+
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS salta_metadata (
+      key text PRIMARY KEY,
+      value text NOT NULL
+    );
+    INSERT INTO salta_metadata(key,value) VALUES('schema_version','${DATABASE_SCHEMA_VERSION}') ON CONFLICT(key) DO NOTHING;
     CREATE TABLE IF NOT EXISTS rooms (
       id uuid PRIMARY KEY,
       name text NOT NULL UNIQUE,
@@ -21,11 +42,23 @@ export async function migrate(): Promise<void> {
       source text NOT NULL,
       source_id text NOT NULL,
       type text NOT NULL,
+      presentation_type text NOT NULL DEFAULT 'auto',
       name text NOT NULL,
       host text,
       generation text,
       model text,
-      room text,
+      firmware_version text,
+      hostname text,
+      mac_address text,
+      profile text,
+      component_kind text,
+      component_id integer,
+      channel_count integer,
+      power_metering boolean,
+      cover_support boolean,
+      switch_support boolean,
+      light_support boolean,
+      input_support boolean,
       room_id uuid REFERENCES rooms(id) ON DELETE SET NULL,
       reachable boolean NOT NULL DEFAULT true,
       state jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -38,26 +71,6 @@ export async function migrate(): Promise<void> {
       last_event timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS host text;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS generation text;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS model text;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS presentation_type text NOT NULL DEFAULT 'auto';
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS firmware_version text;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS hostname text;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS mac_address text;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS profile text;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS component_kind text;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS component_id integer;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS channel_count integer;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS power_metering boolean;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS cover_support boolean;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS switch_support boolean;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS light_support boolean;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS input_support boolean;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS room_id uuid REFERENCES rooms(id) ON DELETE SET NULL;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS credential_mode text NOT NULL DEFAULT 'inherit';
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS credential_username text;
-    ALTER TABLE devices ADD COLUMN IF NOT EXISTS credential_password text;
     CREATE TABLE IF NOT EXISTS adapter_settings (
       adapter_id text PRIMARY KEY,
       username text NOT NULL DEFAULT '',
@@ -77,13 +90,6 @@ export async function migrate(): Promise<void> {
     );
     CREATE INDEX IF NOT EXISTS commands_device_idx ON commands(device_id, created_at DESC);
   `);
-
-  const legacyRooms = await pool.query<{ room: string }>("SELECT DISTINCT room FROM devices WHERE room IS NOT NULL AND room <> ''");
-  for (const row of legacyRooms.rows) {
-    await pool.query("INSERT INTO rooms(id,name) VALUES($1,$2) ON CONFLICT(name) DO NOTHING", [randomUUID(), row.room]);
-  }
-  await pool.query(`UPDATE devices d SET room_id=r.id FROM rooms r WHERE d.room_id IS NULL AND d.room=r.name`);
-  await pool.query("DELETE FROM devices WHERE source='mock'");
 }
 
 export async function upsertDevice(d: Device): Promise<void> {
@@ -95,17 +101,17 @@ export async function upsertDevice(d: Device): Promise<void> {
     d.roomId = roomId ?? undefined;
   }
   await pool.query(`INSERT INTO devices
-    (id,source,source_id,type,presentation_type,name,host,generation,model,firmware_version,hostname,mac_address,profile,component_kind,component_id,channel_count,power_metering,cover_support,switch_support,light_support,input_support,room,room_id,reachable,state,capabilities,homekit_enabled,credential_mode,credential_username,last_seen,last_event,updated_at)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,now())
+    (id,source,source_id,type,presentation_type,name,host,generation,model,firmware_version,hostname,mac_address,profile,component_kind,component_id,channel_count,power_metering,cover_support,switch_support,light_support,input_support,room_id,reachable,state,capabilities,homekit_enabled,credential_mode,credential_username,last_seen,last_event,updated_at)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,now())
     ON CONFLICT (id) DO UPDATE SET source=EXCLUDED.source, source_id=EXCLUDED.source_id, type=EXCLUDED.type, presentation_type=EXCLUDED.presentation_type, name=EXCLUDED.name,
     host=EXCLUDED.host, generation=EXCLUDED.generation, model=EXCLUDED.model, firmware_version=EXCLUDED.firmware_version,
     hostname=EXCLUDED.hostname, mac_address=EXCLUDED.mac_address, profile=EXCLUDED.profile, component_kind=EXCLUDED.component_kind, component_id=EXCLUDED.component_id,
     channel_count=EXCLUDED.channel_count, power_metering=EXCLUDED.power_metering, cover_support=EXCLUDED.cover_support,
     switch_support=EXCLUDED.switch_support, light_support=EXCLUDED.light_support, input_support=EXCLUDED.input_support,
-    room=EXCLUDED.room, room_id=EXCLUDED.room_id, reachable=EXCLUDED.reachable, state=EXCLUDED.state,
+    room_id=EXCLUDED.room_id, reachable=EXCLUDED.reachable, state=EXCLUDED.state,
     capabilities=EXCLUDED.capabilities, homekit_enabled=EXCLUDED.homekit_enabled, credential_mode=EXCLUDED.credential_mode,
     credential_username=EXCLUDED.credential_username, last_seen=EXCLUDED.last_seen, last_event=EXCLUDED.last_event, updated_at=now()`,
-    [d.id,d.source,d.sourceId,d.type,d.presentationType??"auto",d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.profile??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,d.room??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent]);
+    [d.id,d.source,d.sourceId,d.type,d.presentationType??"auto",d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.profile??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent]);
 }
 
 export async function deleteDevice(id: string): Promise<boolean> {
@@ -149,18 +155,10 @@ export async function createRoom(name: string, icon: string, sortOrder: number):
 
 export async function updateRoom(id: string, name: string, icon: string, sortOrder: number): Promise<Room | undefined> {
   const result=await pool.query(`
-    WITH updated_room AS (
-      UPDATE rooms
-      SET name=$2,icon=$3,sort_order=$4,updated_at=now()
-      WHERE id=$1
-      RETURNING id,name,icon,sort_order as "sortOrder",created_at as "createdAt",updated_at as "updatedAt"
-    ), synced_devices AS (
-      UPDATE devices
-      SET room=$2,updated_at=now()
-      WHERE room_id=$1
-      RETURNING id
-    )
-    SELECT * FROM updated_room
+    UPDATE rooms
+    SET name=$2,icon=$3,sort_order=$4,updated_at=now()
+    WHERE id=$1
+    RETURNING id,name,icon,sort_order as "sortOrder",created_at as "createdAt",updated_at as "updatedAt"
   `,[id,name,icon,sortOrder]);
   return result.rows[0];
 }
@@ -211,26 +209,6 @@ function secretIsReadable(value: string): boolean {
   }
 }
 
-export async function upgradeCredentialEncryption(): Promise<void> {
-  const globalResult = await pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='shelly'");
-  const globalSecret = globalResult.rows[0]?.encrypted_password ?? "";
-  if (globalSecret.startsWith("v1.")) {
-    try {
-      await pool.query("UPDATE adapter_settings SET encrypted_password=$1,updated_at=now() WHERE adapter_id='shelly'", [encryptSecret(decryptSecret(globalSecret))]);
-    } catch {
-      // The startup validation reports a mismatching key without destroying the stored secret.
-    }
-  }
-
-  const deviceResult = await pool.query<{ id: string; credential_password: string }>("SELECT id,credential_password FROM devices WHERE credential_mode='custom' AND credential_password LIKE 'v1.%'");
-  for (const row of deviceResult.rows) {
-    try {
-      await pool.query("UPDATE devices SET credential_password=$2,updated_at=now() WHERE id=$1", [row.id, encryptSecret(decryptSecret(row.credential_password))]);
-    } catch {
-      // Keep unreadable values intact so the UI can ask the user to replace them.
-    }
-  }
-}
 
 export async function inspectCredentialEncryption(): Promise<CredentialEncryptionStatus> {
   const [globalResult, deviceResult] = await Promise.all([

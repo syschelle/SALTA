@@ -6,10 +6,6 @@ const SCRYPT_OPTIONS = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 } as con
 const DERIVED_KEY_CACHE_LIMIT = 256;
 const derivedKeyCache = new Map<string, Buffer>();
 
-function legacyKey(): Buffer {
-  return createHash("sha256").update(config.SALTA_ENCRYPTION_KEY, "utf8").digest();
-}
-
 function derivedKey(salt: Buffer): Buffer {
   const cacheId = createHash("sha256").update(config.SALTA_ENCRYPTION_KEY, "utf8").update(salt).digest("base64url");
   const cached = derivedKeyCache.get(cacheId);
@@ -47,11 +43,6 @@ export function decryptSecret(value: string): string {
       const [, saltValue, ivValue, tagValue, encryptedValue] = parts;
       if (!saltValue || !ivValue || !tagValue || !encryptedValue) throw new Error("INVALID_ENCRYPTED_SECRET");
       return decryptGcm(derivedKey(Buffer.from(saltValue, "base64url")), ivValue, tagValue, encryptedValue);
-    }
-    if (parts[0] === "v1") {
-      const [, ivValue, tagValue, encryptedValue] = parts;
-      if (!ivValue || !tagValue || !encryptedValue) throw new Error("INVALID_ENCRYPTED_SECRET");
-      return decryptGcm(legacyKey(), ivValue, tagValue, encryptedValue);
     }
     throw new Error("INVALID_ENCRYPTED_SECRET");
   } catch (error) {

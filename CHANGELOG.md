@@ -2,6 +2,19 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.5.0
+
+- Introduced a clean-install-only database schema generation with explicit schema metadata.
+- Added one-step installation with `./install.sh`, database reset with `--reset` and complete reinstall with `--fresh`.
+- Added automatic generation of PostgreSQL, administrator, health-token and encryption secrets.
+- Removed incremental SQL migrations, the duplicate room-name column and old room synchronization logic.
+- Removed v1 credential decryption and automatic credential conversion.
+- Removed compatibility mutation logic from `update.sh`, the old `deploy.sh` workflow and the obsolete v0.3 roadmap.
+- Replaced the direct static-file plugin with an allow-listed native handler and removed its obsolete `glob` dependency chain.
+- Added regression tests for mandatory Compose variables, fresh installation, static assets and the canonical v0.5 schema.
+- Documented the remaining deprecated transitive `q` package inherited from the upstream HomeKit persistence dependency.
+- Updated Compose, environment examples and documentation for clean v0.5 installations.
+
 ## 0.4.33
 
 - Changed the SALTA source-code license from MIT to Apache License 2.0.

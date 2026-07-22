@@ -76,6 +76,8 @@ services:
 
 volumes:
   salta_postgres_data:
+    labels:
+      com.syschelle.salta.schema: "0.5"
 
 networks:
   frontend:

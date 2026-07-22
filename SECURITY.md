@@ -57,4 +57,4 @@ Do not add a PostgreSQL `ports:` entry.
 
 ## Secrets
 
-Keep `.env` mode `0600`, back it up securely and never commit it. Keep `SALTA_ENCRYPTION_KEY` stable. `deploy.sh` generates random database, administrator, encryption and health-check secrets for new installations.
+Keep `.env` mode `0600`, back it up securely and never commit it. Keep `SALTA_ENCRYPTION_KEY` stable. `install.sh` generates random database, administrator, encryption and health-check secrets for new installations.
