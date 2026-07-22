@@ -2,6 +2,12 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.31
+
+- Updated the persistent-theme regression test for the CSP-compatible external `theme-init.js` script.
+- Verified that theme initialization runs before the first stylesheet is loaded.
+- Kept runtime behavior and security policy unchanged.
+
 ## 0.4.30
 
 - Republished the unchanged v0.4.29 application and security hardening under a new release tag.

@@ -3,12 +3,18 @@ import { describe, expect, it } from "vitest";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const source = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+const themeInit = readFileSync(new URL("../public/theme-init.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
 
 describe("persistent theme switching", () => {
   it("applies the saved cookie before the stylesheet paints", () => {
-    expect(html).toContain("salta_theme=");
-    expect(html).toContain("document.documentElement.dataset.theme = theme");
+    const themeInitScript = '<script src="/theme-init.js"></script>';
+    const firstStylesheet = '<link rel="stylesheet"';
+
+    expect(html).toContain(themeInitScript);
+    expect(html.indexOf(themeInitScript)).toBeLessThan(html.indexOf(firstStylesheet));
+    expect(themeInit).toContain("salta_theme=");
+    expect(themeInit).toContain("document.documentElement.dataset.theme = theme");
     expect(html).toContain('id="themeToggle"');
   });
 

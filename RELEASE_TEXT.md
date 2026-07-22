@@ -1,26 +1,21 @@
-# SALTA v0.4.30
+# SALTA v0.4.31
 
-SALTA v0.4.30 republishes the unchanged v0.4.29 application code under a new release tag to trigger a fresh GitHub container build.
+SALTA v0.4.31 fixes the outdated frontend theme regression test after the security hardening moved early theme initialization into a CSP-compatible external script.
 
-## Release Scope
+## Fixed
 
-- No runtime behavior changes
-- No security-policy changes
-- No database migration
-- No environment-variable changes
-- Includes all authentication, API protection, rate limiting and Docker-network hardening from v0.4.29
-- Uses a new Git tag so the container publishing workflow runs again
-
-## Important Note
-
-This release does not change GitHub's repository-level CodeQL default configuration. A separate CodeQL configuration error may still be shown by GitHub even when the SALTA container build and publication succeed.
+- Updated the theme persistence test to inspect `public/theme-init.js`
+- Verified that `/theme-init.js` is loaded before the first stylesheet
+- Kept early cookie-based theme selection without inline JavaScript
+- Preserved the strict Content Security Policy introduced by the security hardening
+- No runtime behavior or database schema changes
 
 ## Updating
 
-Keep the existing `SALTA_ENCRYPTION_KEY`, admin credentials and security settings unchanged.
+No database migration is required. Keep the existing `SALTA_ENCRYPTION_KEY`, admin credentials and security settings unchanged.
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.30
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.31
 ```
 
 ```bash
@@ -31,7 +26,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.30
+0.4.31
 0.4
 latest
 ```
@@ -39,5 +34,5 @@ latest
 ## Git Tag
 
 ```text
-v0.4.30
+v0.4.31
 ```

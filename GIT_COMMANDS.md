@@ -1,4 +1,4 @@
-# SALTA v0.4.30 – Git and Release Commands
+# SALTA v0.4.31 – Git and Release Commands
 
 ```bash
 git checkout main
@@ -13,16 +13,16 @@ node --check public/theme-init.js
 sh -n deploy.sh update.sh backup.sh restore.sh
 
 git add .
-git commit -m "release: SALTA v0.4.30"
+git commit -m "release: SALTA v0.4.31"
 git push origin main
 
-git tag -a v0.4.30 -m "SALTA v0.4.30"
-git push origin v0.4.30
+git tag -a v0.4.31 -m "SALTA v0.4.31"
+git push origin v0.4.31
 ```
 
 ```bash
-gh release create v0.4.30 \
-  --title "SALTA v0.4.30" \
+gh release create v0.4.31 \
+  --title "SALTA v0.4.31" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.4.30.zip
+  ./SALTA-v0.4.31.zip
 ```
