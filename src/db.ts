@@ -165,6 +165,31 @@ export async function updateRoom(id: string, name: string, icon: string, sortOrd
   return result.rows[0];
 }
 
+export async function reorderRooms(roomIds: string[]): Promise<Room[]> {
+  if (new Set(roomIds).size !== roomIds.length) throw new Error("INVALID_ROOM_ORDER");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const current = await client.query<{ id: string }>("SELECT id FROM rooms ORDER BY sort_order,name FOR UPDATE");
+    const currentIds = new Set(current.rows.map(row => row.id));
+    if (roomIds.length !== currentIds.size || roomIds.some(id => !currentIds.has(id))) throw new Error("INVALID_ROOM_ORDER");
+    await client.query(`
+      UPDATE rooms AS room
+      SET sort_order = CAST(ordering.position - 1 AS integer),
+          updated_at = now()
+      FROM unnest($1::uuid[]) WITH ORDINALITY AS ordering(id, position)
+      WHERE room.id = ordering.id
+    `, [roomIds]);
+    await client.query("COMMIT");
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch { /* Preserve the original transaction error. */ }
+    throw error;
+  } finally {
+    client.release();
+  }
+  return listRooms();
+}
+
 export async function deleteRoom(id: string): Promise<boolean> {
   const result=await pool.query("DELETE FROM rooms WHERE id=$1",[id]);
   return result.rowCount === 1;

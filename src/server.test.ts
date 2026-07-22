@@ -18,11 +18,12 @@ vi.mock("./db.js", () => ({
   inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", invalidDeviceIds: [] })),
   listRooms: vi.fn(async () => []),
   pool: { query: vi.fn() },
+  reorderRooms: vi.fn(),
   updateRoom: vi.fn(),
   updateShellySettings: vi.fn()
 }));
 
-import { getGlobalShellyCredentials, updateRoom } from "./db.js";
+import { getGlobalShellyCredentials, reorderRooms, updateRoom } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -67,6 +68,28 @@ describe("PUT /api/rooms/:id", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual(room);
     expect(updateRoomName).toHaveBeenCalledWith(room.id, room.name);
+  });
+});
+
+
+describe("PUT /api/rooms/order", () => {
+  it("persists and returns the requested room order", async () => {
+    const orderedRooms = [
+      { id: "22222222-2222-4222-8222-222222222222", name: "Kitchen", icon: "silverware-fork-knife", sortOrder: 0, createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:00:00.000Z" },
+      { id: "11111111-1111-4111-8111-111111111111", name: "Living room", icon: "sofa-outline", sortOrder: 1, createdAt: "2026-07-22T00:00:00.000Z", updatedAt: "2026-07-22T00:00:00.000Z" }
+    ];
+    vi.mocked(reorderRooms).mockResolvedValueOnce(orderedRooms);
+    const server = createServer(vi.fn());
+
+    const response = await server.inject({
+      method: "PUT",
+      url: "/api/rooms/order",
+      payload: { roomIds: orderedRooms.map(room => room.id) }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual(orderedRooms);
+    expect(reorderRooms).toHaveBeenCalledWith(orderedRooms.map(room => room.id));
   });
 });
 

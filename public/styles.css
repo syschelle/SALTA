@@ -129,3 +129,19 @@ button>.mdi,.button-link>.mdi{font-size:18px;line-height:1}
 .room-icon-select{display:grid;grid-template-columns:42px minmax(0,1fr);gap:10px;align-items:center}
 .room-icon-select select{width:100%}
 .room-icon-preview{width:42px;height:42px;border-radius:10px;background:var(--accent-bg);color:var(--accent);display:grid;place-items:center;font-size:21px}
+
+/* v0.4.22: grouped devices and persistent room order */
+.device-groups{display:grid;gap:28px}
+.device-room-group{display:grid;gap:12px}
+.device-room-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 2px}
+.device-room-title{display:flex;align-items:center;gap:10px}
+.device-room-title h2{margin:0;font-size:19px}
+.device-room-title p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.device-room-icon{width:34px;height:34px;border-radius:9px;background:var(--accent-bg);color:var(--accent);display:grid;place-items:center}
+.device-room-icon>.mdi{font-size:19px}
+.device-config-button{width:32px;height:32px;padding:0;flex:0 0 32px}
+.room-order-controls{display:grid;gap:3px}
+.room-order-button{width:28px;height:24px;padding:0;border:1px solid var(--line)}
+.room-order-button>.mdi{font-size:17px}
+.room-order-button:disabled{opacity:.35;cursor:not-allowed}
+@media(max-width:620px){.device-groups{gap:22px}.device-room-heading{padding:0}.room-identity{align-items:flex-start}.room-order-controls{margin-top:-2px}}

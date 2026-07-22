@@ -1,21 +1,23 @@
-# SALTA v0.4.21
+# SALTA v0.4.22
 
-SALTA v0.4.21 makes the device overview more compact and removes unnecessary whitespace from device cards.
+SALTA v0.4.22 improves room-based organization in the device overview.
 
-## Fixed
+## Fixed and Improved
 
-- Short device cards no longer stretch to the height of larger cards in the same row
-- Reduced card padding and spacing between title, metadata, values and actions
-- Compacted measurement labels and action buttons
-- Reduced the size of window-covering position controls without removing functionality
-- Added frontend regression coverage for the compact layout
+- Grouped devices by their assigned room
+- Applied the order configured on the Rooms page to the device overview
+- Added accessible up and down controls for arranging rooms
+- Persisted the complete room order atomically in PostgreSQL
+- Placed unassigned devices in a final dedicated group
+- Replaced the device-card Configure label with a compact gear-only button
+- Added frontend and API regression coverage
 
 ## Updating
 
-No database migration is required.
+No manual database migration is required.
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.21
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.22
 ```
 
 ```bash
@@ -26,7 +28,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.21
+0.4.22
 0.4
 latest
 ```
@@ -34,5 +36,5 @@ latest
 ## Git Tag
 
 ```text
-v0.4.21
+v0.4.22
 ```

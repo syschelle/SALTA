@@ -37,7 +37,7 @@
       <span class="theme-toggle-label"><span id="themeToggleIcon" class="mdi mdi-weather-night" aria-hidden="true"></span><span id="themeToggleText">Dunkles Theme</span></span>
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.4.21</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.4.22</strong></div>
   </div>
 </aside>
 
@@ -53,14 +53,14 @@
 
   <section class="page" data-page="devices" aria-labelledby="devices-title" hidden>
     <header class="page-header"><div><p class="eyebrow">GERÄTEVERWALTUNG</p><h1 id="devices-title">Geräte</h1><p class="muted">Shelly-Geräte finden, hinzufügen und direkt steuern.</p></div><div class="header-actions"><button class="secondary" onclick="reconcile()"><span class="mdi mdi-sync" aria-hidden="true"></span>Synchronisieren</button><button onclick="openAddShelly()"><span class="mdi mdi-plus" aria-hidden="true"></span>Shelly hinzufügen</button></div></header>
-    <section class="section-head"><div><h2>Alle Geräte</h2><p class="muted">Nach Raum filtern oder gezielt suchen.</p></div><div class="filters"><select id="roomFilter"><option value="">Alle Räume</option></select><label class="search"><span class="mdi mdi-magnify" aria-hidden="true"></span><input id="filter" placeholder="Gerät suchen"></label></div></section>
-    <section id="deviceGrid" class="grid"></section>
+    <section class="section-head"><div><h2>Geräte nach Räumen</h2><p class="muted">Die Gruppen folgen der Reihenfolge aus der Raumverwaltung.</p></div><div class="filters"><select id="roomFilter"><option value="">Alle Räume</option></select><label class="search"><span class="mdi mdi-magnify" aria-hidden="true"></span><input id="filter" placeholder="Gerät suchen"></label></div></section>
+    <section id="deviceGrid" class="device-groups"></section>
   </section>
 
   <section class="page" data-page="rooms" aria-labelledby="rooms-title" hidden>
     <header class="page-header"><div><p class="eyebrow">ORGANISATION</p><h1 id="rooms-title">Räume</h1><p class="muted">Ordne Geräte früh und eindeutig nach Bereichen deines Zuhauses.</p></div></header>
     <section class="two-column-page">
-      <article class="panel"><div class="panel-head"><div><h2>Vorhandene Räume</h2><p class="muted">Beim Löschen bleiben Geräte erhalten und werden „Nicht zugeordnet“.</p></div><span class="count-badge" id="roomPageCount">0</span></div><div id="roomList" class="room-list"></div></article>
+      <article class="panel"><div class="panel-head"><div><h2>Vorhandene Räume</h2><p class="muted">Mit den Pfeilen legst du die Reihenfolge fest. Beim Löschen bleiben Geräte erhalten und werden „Nicht zugeordnet“.</p></div><span class="count-badge" id="roomPageCount">0</span></div><div id="roomList" class="room-list"></div></article>
       <article class="panel sticky-panel"><h2>Raum hinzufügen</h2><p class="muted">Lege einen Namen fest und wähle ein passendes Raum-Icon aus.</p><form id="roomForm" class="page-form"><label>Name<input id="newRoomName" placeholder="z. B. Wohnzimmer" required></label><label>Icon<div class="room-icon-select"><span class="room-icon-preview" aria-hidden="true"></span><select id="newRoomIcon" required></select></div></label><button type="submit">Raum hinzufügen</button></form></article>
     </section>
   </section>

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
-import { createRoom, deleteRoom, getGlobalShellyCredentials, getShellySettings, inspectCredentialEncryption, listRooms, pool, updateRoom, updateShellySettings } from "./db.js";
+import { createRoom, deleteRoom, getGlobalShellyCredentials, getShellySettings, inspectCredentialEncryption, listRooms, pool, reorderRooms, updateRoom, updateShellySettings } from "./db.js";
 import { config } from "./config.js";
 import { supportsPresentationOverride } from "./device-presentation.js";
 
@@ -22,6 +22,7 @@ const credentialSchema = z.object({
   password: z.string().max(512).optional()
 }).strict();
 const roomSchema = z.object({ name: z.string().trim().min(1).max(80), icon: z.string().trim().min(1).max(40).default("home"), sortOrder: z.number().int().min(0).max(10000).default(0) }).strict();
+const roomOrderSchema = z.object({ roomIds: z.array(z.string().uuid()).max(10000) }).strict();
 const shellyAddSchema = z.object({ host:z.string().trim().min(1).max(255), name:z.string().trim().max(120).optional(), roomId:z.string().uuid().nullable().optional(), credentialMode:z.enum(["inherit","custom","none"]).default("inherit"), username:z.string().max(120).optional(), password:z.string().max(512).optional() }).strict();
 const shellyDiscoverySchema = z.object({ subnet:z.string().trim().min(7).max(32) }).strict();
 const shellySettingsSchema = z.object({ username: z.string().max(120).default(""), password: z.string().max(512).optional() }).strict();
@@ -70,7 +71,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch { return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.21", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.22", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
     try {
       await pool.query("select 1");
@@ -92,6 +93,14 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed=roomSchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
     try { return reply.code(201).send(await createRoom(parsed.data.name,parsed.data.icon,parsed.data.sortOrder)); }
     catch { return reply.code(409).send({error:{code:"ROOM_EXISTS",message:"A room with this name already exists",requestId:request.id}}); }
+  });
+  app.put<{Body:unknown}>("/api/rooms/order",async(request,reply)=>{
+    const parsed=roomOrderSchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
+    try { return await reorderRooms(parsed.data.roomIds); }
+    catch (error) {
+      if (error instanceof Error && error.message === "INVALID_ROOM_ORDER") return reply.code(409).send({error:{code:"INVALID_ROOM_ORDER",message:"Room order does not match the current room list",requestId:request.id}});
+      throw error;
+    }
   });
   app.put<{Params:{id:string};Body:unknown}>("/api/rooms/:id",async(request,reply)=>{
     const parsed=roomSchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});

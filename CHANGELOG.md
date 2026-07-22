@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.22
+
+- Grouped the device overview by room.
+- Applied the persistent room order from the Rooms page to device groups and room selectors.
+- Added accessible up/down controls for arranging rooms.
+- Added a transactional room-order API and normalized stored sort positions.
+- Replaced the device-card Configure text button with a compact gear-only button.
+- Kept unassigned devices in a final dedicated group.
+- Added API and frontend regression coverage for grouping, ordering and the icon-only configuration action.
+
 ## 0.4.21
 
 - Reduced padding and vertical spacing inside device cards.
