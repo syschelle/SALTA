@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.5.5` is the current stable release. It removes unused compatibility code, fixes room cleanup in the live registry and makes backup and restore independent of shell-compatible `.env` formatting.
+`v0.5.6` is the current stable release. It makes `docker-compose.image.yml` a complete standalone production deployment while retaining the reliability and cleanup improvements from v0.5.5.
 
 > **Breaking change from v0.4.x:** the v0.5 release line requires a fresh PostgreSQL volume. Databases and encrypted credentials from v0.4.x are intentionally not migrated.
 
@@ -36,8 +36,8 @@ chmod +x install.sh update.sh backup.sh restore.sh
 
 - creates `.env` when it does not exist;
 - generates the PostgreSQL password, administrator password, health token and encryption key;
-- validates the merged Compose configuration;
-- pulls `ghcr.io/syschelle/salta:0.5.5`;
+- validates the standalone production Compose configuration;
+- pulls `ghcr.io/syschelle/salta:0.5.6`;
 - starts PostgreSQL and SALTA;
 - prints the generated administrator login once.
 
@@ -46,7 +46,7 @@ The default `.env.example` publishes SALTA to the local network:
 ```env
 WEB_PORT=8099
 SALTA_BIND_ADDRESS=0.0.0.0
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.5.5
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.5.6
 ```
 
 Open SALTA at:
@@ -77,9 +77,11 @@ The installer detects unversioned v0.4.x volumes and refuses to start against th
 
 ## Manual image deployment
 
+`docker-compose.image.yml` contains the complete production stack: PostgreSQL, SALTA, volumes, networks, health checks, security settings, port mappings and all required environment-variable wiring. No additional Compose file is required.
+
 ```bash
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml pull
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml up -d --force-recreate --remove-orphans
+docker compose --env-file .env -f docker-compose.image.yml pull
+docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans
 ```
 
 ## Local development build
@@ -91,8 +93,8 @@ docker compose --env-file .env -f docker-compose.yml -f docker-compose.build.yml
 ## Status and logs
 
 ```bash
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml ps
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml logs -f salta
+docker compose --env-file .env -f docker-compose.image.yml ps
+docker compose --env-file .env -f docker-compose.image.yml logs -f salta
 ```
 
 The internal Docker health endpoint requires the generated `SALTA_HEALTH_TOKEN` and is not publicly accessible without it.
@@ -144,7 +146,7 @@ Shelly authentication supports:
 - `custom`: use encrypted credentials stored for one device;
 - `none`: connect without authentication.
 
-Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. The removed v1 compatibility format is not accepted by v0.5.5.
+Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. The removed v1 compatibility format is not accepted by v0.5.6.
 
 ## Rooms
 

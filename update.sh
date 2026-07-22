@@ -7,7 +7,7 @@ if [ ! -f .env ]; then
 fi
 
 compose() {
-  docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml "$@"
+  docker compose --env-file .env -f docker-compose.image.yml "$@"
 }
 
 compose config >/dev/null

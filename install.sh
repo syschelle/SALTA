@@ -2,7 +2,7 @@
 set -eu
 
 compose() {
-  docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml "$@"
+  docker compose --env-file .env -f docker-compose.image.yml "$@"
 }
 
 postgres_volume_name() {
@@ -95,7 +95,7 @@ compose pull
 compose up -d --force-recreate --remove-orphans
 
 echo
-echo "SALTA v0.5.5 is starting."
+echo "SALTA v0.5.6 is starting."
 bind_address="$(sed -n 's/^SALTA_BIND_ADDRESS=//p' .env | tail -n1)"
 web_port="$(sed -n 's/^WEB_PORT=//p' .env | tail -n1)"
 case "$bind_address" in
@@ -106,8 +106,8 @@ case "$bind_address" in
   *) display_host="$bind_address" ;;
 esac
 echo "Open: http://${display_host}:${web_port}"
-echo "Status: docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml ps"
-echo "Logs:   docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml logs -f salta"
+echo "Status: docker compose --env-file .env -f docker-compose.image.yml ps"
+echo "Logs:   docker compose --env-file .env -f docker-compose.image.yml logs -f salta"
 if [ "$created_env" = true ]; then
   echo
   echo "Generated administrator login:"

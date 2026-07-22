@@ -12,7 +12,7 @@ if [ ! -f "$backup_file" ]; then
   exit 1
 fi
 
-docker compose --env-file .env -f docker-compose.yml -f docker-compose.image.yml \
+docker compose --env-file .env -f docker-compose.image.yml \
   exec -T postgres sh -c 'exec pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$backup_file"
 
 echo "Restore completed."

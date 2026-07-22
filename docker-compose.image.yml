@@ -1,3 +1,86 @@
+name: salta
+
 services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: salta-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-salta}
+      POSTGRES_USER: ${POSTGRES_USER:-salta}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - salta_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-salta} -d ${POSTGRES_DB:-salta}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    expose:
+      - "5432"
+    networks:
+      - backend
+    security_opt:
+      - no-new-privileges:true
+
   salta:
-    image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.5.5}
+    image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.5.6}
+    container_name: salta
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      WEB_HOST: 0.0.0.0
+      WEB_PORT: 8099
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DATABASE_URL: postgres://${POSTGRES_USER:-salta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-salta}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      SESSION_TTL_MINUTES: ${SESSION_TTL_MINUTES:-720}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      LOCAL_NETWORKS: ${LOCAL_NETWORKS:-127.0.0.0/8,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1/128,fc00::/7,fe80::/10}
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-300}
+      RATE_LIMIT_MUTATIONS_PER_MINUTE: ${RATE_LIMIT_MUTATIONS_PER_MINUTE:-60}
+      RATE_LIMIT_GLOBAL_PER_MINUTE: ${RATE_LIMIT_GLOBAL_PER_MINUTE:-3000}
+      LOGIN_MAX_ATTEMPTS: ${LOGIN_MAX_ATTEMPTS:-5}
+      LOGIN_WINDOW_MINUTES: ${LOGIN_WINDOW_MINUTES:-15}
+      LOGIN_BLOCK_MINUTES: ${LOGIN_BLOCK_MINUTES:-15}
+      SALTA_HEALTH_TOKEN: ${SALTA_HEALTH_TOKEN:?Set SALTA_HEALTH_TOKEN in .env}
+      HOMEKIT_ENABLED: ${HOMEKIT_ENABLED:-false}
+      HOMEKIT_NAME: ${HOMEKIT_NAME:-SALTA Bridge}
+      HOMEKIT_PIN: ${HOMEKIT_PIN:-031-45-154}
+      HOMEKIT_PORT: ${HOMEKIT_PORT:-51826}
+      HOMEKIT_USERNAME: ${HOMEKIT_USERNAME:-02:42:53:41:4C:54}
+      SALTA_ENCRYPTION_KEY: ${SALTA_ENCRYPTION_KEY:?Set SALTA_ENCRYPTION_KEY in .env}
+    ports:
+      - "${SALTA_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8099}:8099"
+      - "${HOMEKIT_BIND_ADDRESS:-0.0.0.0}:${HOMEKIT_PORT:-51826}:${HOMEKIT_PORT:-51826}/tcp"
+    networks:
+      - frontend
+      - backend
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    pids_limit: 200
+    init: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8099/internal/health',{headers:{'x-salta-health-token':process.env.SALTA_HEALTH_TOKEN}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  salta_postgres_data:
+    labels:
+      com.syschelle.salta.schema: "0.5"
+
+networks:
+  frontend:
+  backend:
+    internal: true

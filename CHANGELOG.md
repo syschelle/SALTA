@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.5.6
+
+- Expanded `docker-compose.image.yml` into a complete standalone production deployment.
+- Included PostgreSQL, SALTA, volumes, networks, health checks, security options, port mappings and all required environment variables in the single file.
+- Updated installation, update, backup, restore and production documentation commands to use only `docker-compose.image.yml`.
+- Added regression coverage that verifies the production Compose file is self-contained.
+- Kept the database schema and application runtime behavior unchanged.
+
 ## 0.5.5
 
 - Fixed backup and restore scripts so `.env` values containing spaces are no longer executed as shell code.
