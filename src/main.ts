@@ -19,7 +19,7 @@ async function main(): Promise<void> {
 
   const server = buildServer(registry, shelly);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
-  server.log.info({ port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED }, "SALTA started");
+  server.log.info({ port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED, trustedProxiesConfigured: Boolean(config.TRUSTED_PROXIES.trim()) }, "SALTA started with mandatory authentication");
   const credentialEncryption = await inspectCredentialEncryption();
   if (credentialEncryption.status === "invalid") {
     server.log.error({
@@ -27,8 +27,6 @@ async function main(): Promise<void> {
       invalidDeviceCredentials: credentialEncryption.invalidDeviceIds.length
     }, "Stored credentials cannot be decrypted with the current SALTA_ENCRYPTION_KEY");
   }
-  if (!config.ADMIN_PASSWORD) server.log.warn("ADMIN_PASSWORD is empty; web authentication is disabled");
-  if (/change[_-]?me|change-this|example/i.test(config.SALTA_ENCRYPTION_KEY)) server.log.warn("SALTA_ENCRYPTION_KEY appears to use a placeholder value; replace it before storing credentials");
 
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {

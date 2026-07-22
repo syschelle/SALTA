@@ -4,16 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f4f6f8">
-  <script>
-    (() => {
-      const themeCookie = document.cookie.split('; ').find((entry) => entry.startsWith('salta_theme='));
-      const savedTheme = themeCookie ? decodeURIComponent(themeCookie.split('=').slice(1).join('=')) : '';
-      const theme = savedTheme === 'dark' ? 'dark' : 'light';
-      document.documentElement.dataset.theme = theme;
-      document.documentElement.style.colorScheme = theme;
-      document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0d1117' : '#f4f6f8';
-    })();
-  </script>
+  <script src="/theme-init.js"></script>
   <title>SALTA · Local Smart Home</title>
   <link rel="stylesheet" href="/vendor/mdi/materialdesignicons.min.css">
   <link rel="stylesheet" href="/styles.css">
@@ -37,7 +28,8 @@
       <span class="theme-toggle-label"><span id="themeToggleIcon" class="mdi mdi-weather-night" aria-hidden="true"></span><span id="themeToggleText">Dunkles Theme</span></span>
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.4.26</strong></div>
+    <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.4.28</strong></div>
   </div>
 </aside>
 

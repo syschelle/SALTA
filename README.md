@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.26` is the current stable release. It fixes the compact device-card regression test so CI matches the current layout spacing.
+`v0.4.28` is the current stable release. It hardens authentication, browser sessions, API access, request handling and Docker networking for secure reverse-proxy deployments.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.26"
+git commit -m "release: SALTA v0.4.28"
 git push origin main
-git tag -a v0.4.26 -m "SALTA v0.4.26"
-git push origin v0.4.26
+git tag -a v0.4.28 -m "SALTA v0.4.28"
+git push origin v0.4.28
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.26
+ghcr.io/<github-owner>/<repository>:0.4.28
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -69,11 +69,13 @@ Run it again:
 ./deploy.sh
 ```
 
-SALTA is then available at:
+SALTA is then available locally at:
 
 ```text
-http://<docker-host>:8099
+http://127.0.0.1:8099
 ```
+
+The first request opens the SALTA login page. Authentication cannot be disabled.
 
 No Node.js, npm or local application build is required on the deployment host.
 
@@ -112,8 +114,10 @@ SALTA bundles [Material Design Icons (MDI)](https://pictogrammers.com/library/md
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.image.yml ps
 docker compose -f docker-compose.yml -f docker-compose.image.yml logs -f salta
-curl http://localhost:8099/api/health
+curl -u "$ADMIN_USERNAME:$ADMIN_PASSWORD" http://127.0.0.1:8099/api/health
 ```
+
+The unauthenticated Docker health endpoint is not public: it requires the generated `SALTA_HEALTH_TOKEN`.
 
 ## Updating
 
@@ -132,30 +136,26 @@ The update script pulls repository changes and the newest configured container i
 
 ## HomeKit
 
-HomeKit is disabled by default. Enable it in `.env`:
-
-```env
-HOMEKIT_ENABLED=true
-HOMEKIT_NAME=SALTA Bridge
-HOMEKIT_PIN=031-45-154
-HOMEKIT_PORT=51826
-```
-
-Then restart:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.image.yml up -d
-```
-
-SALTA uses host networking so HomeKit mDNS and future local discovery protocols work reliably on Linux. PostgreSQL remains bound to `127.0.0.1`.
+HomeKit is disabled by default. Enable it in `.env` and publish the configured HAP port when required. SALTA now runs on Docker bridge networks so PostgreSQL can remain isolated. Depending on the Docker host, HomeKit multicast discovery may require an mDNS reflector or a dedicated LAN/macvlan setup.
 
 ## Security
 
-- Replace all placeholder values in `.env`.
-- Do not expose SALTA directly to the public internet.
-- Use a VPN or a secured TLS reverse proxy for remote access.
-- Keep the PostgreSQL port bound to loopback.
-- The SALTA container runs as an unprivileged user.
+SALTA v0.4.28 is fail-closed: a strong `ADMIN_PASSWORD` and generated `SALTA_HEALTH_TOKEN` are mandatory. The web application uses an opaque server-side session with an `HttpOnly`, `SameSite=Strict` cookie, a finite lifetime, logout support and CSRF protection for state-changing requests.
+
+Direct Basic-authenticated API access is accepted only from `LOCAL_NETWORKS`. Internet browser access uses the authenticated same-origin web session. This is necessary because the browser interface itself retrieves data through JSON endpoints.
+
+For reverse proxies, configure `TRUSTED_PROXIES` with the exact proxy IP or CIDR. Do not use a blanket trust setting. HTTPS is required for Internet exposure so session cookies receive the `Secure` attribute and HSTS can be emitted.
+
+SALTA also applies security headers, request/body/header timeouts, per-client and global rate limits, stricter limits for login and expensive discovery calls, and structured warnings when limits are exceeded. These controls mitigate application-layer abuse; they cannot absorb a volumetric attack that saturates the Internet connection.
+
+Docker networking uses two networks:
+
+- `frontend`: SALTA web traffic and outbound access to local Shelly devices
+- `backend`: an `internal: true` network shared only by SALTA and PostgreSQL
+
+PostgreSQL has no published host port. The SALTA container runs unprivileged with all Linux capabilities dropped and `no-new-privileges` enabled.
+
+See `SECURITY.md` for deployment details.
 
 ## License
 

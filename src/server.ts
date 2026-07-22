@@ -1,6 +1,6 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import fastifyStatic from "@fastify/static";
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { z } from "zod";
 import type { DeviceRegistry } from "./registry.js";
@@ -8,6 +8,7 @@ import type { ShellyAdapter } from "./shelly-adapter.js";
 import { createRoom, deleteRoom, getGlobalShellyCredentials, getShellySettings, inspectCredentialEncryption, listRooms, pool, reorderRooms, updateRoom, updateShellySettings } from "./db.js";
 import { config } from "./config.js";
 import { supportsPresentationOverride } from "./device-presentation.js";
+import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
 
 const commandSchema = z.object({ capability: z.string().min(1).max(80), value: z.union([z.string(), z.number(), z.boolean()]).optional() });
 const patchSchema = z.object({
@@ -26,6 +27,7 @@ const roomOrderSchema = z.object({ roomIds: z.array(z.string().uuid()).max(10000
 const shellyAddSchema = z.object({ host:z.string().trim().min(1).max(255), name:z.string().trim().max(120).optional(), roomId:z.string().uuid().nullable().optional(), credentialMode:z.enum(["inherit","custom","none"]).default("inherit"), username:z.string().max(120).optional(), password:z.string().max(512).optional() }).strict();
 const shellyDiscoverySchema = z.object({ subnet:z.string().trim().min(7).max(32) }).strict();
 const shellySettingsSchema = z.object({ username: z.string().max(120).default(""), password: z.string().max(512).optional() }).strict();
+const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
 
 
 function shellyRequestError(error: unknown): { status: number; code: string; message: string } {
@@ -50,28 +52,228 @@ function shellyRequestError(error: unknown): { status: number; code: string; mes
   }
 }
 
-function safeEqual(actual: string, expected: string): boolean {
-  const a = Buffer.from(actual); const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
+interface RequestAuthContext {
+  method: AuthMethod;
+  local: boolean;
+  session?: AuthenticatedSession;
+  sessionToken?: string;
+}
+
+function requestPath(request: FastifyRequest): string {
+  try { return new URL(request.raw.url ?? request.url, "http://salta.local").pathname; }
+  catch { return request.url.split("?", 1)[0] ?? "/"; }
+}
+
+function isUnsafeMethod(method: string): boolean {
+  return !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase());
+}
+
+function parseBasicCredentials(header: string | undefined): { username: string; password: string } | null {
+  if (!header?.startsWith("Basic ")) return null;
+  try {
+    const decoded = Buffer.from(header.slice(6), "base64").toString("utf8");
+    const separator = decoded.indexOf(":");
+    if (separator < 0) return null;
+    return { username: decoded.slice(0, separator), password: decoded.slice(separator + 1) };
+  } catch { return null; }
+}
+
+function originMatchesRequest(request: FastifyRequest): boolean {
+  const origin = request.headers.origin;
+  if (!origin) return false;
+  try {
+    const parsed = new URL(origin);
+    return parsed.host === request.host && parsed.protocol.replace(":", "") === request.protocol;
+  } catch { return false; }
+}
+
+function securityError(reply: FastifyReply, request: FastifyRequest, status: number, code: string, message: string) {
+  return reply.code(status).send({ error: { code, message, requestId: request.id } });
 }
 
 export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter) {
-  const app = Fastify({ logger: { level: config.LOG_LEVEL }, genReqId: () => randomUUID(), bodyLimit: 64 * 1024 });
-  const publicDir = join(process.cwd(), "public");
-  void app.register(fastifyStatic, { root: publicDir, prefix: "/" });
+  const trustedProxyEntries = config.TRUSTED_PROXIES.split(",").map(value => value.trim()).filter(Boolean);
+  const trustedProxies = trustedProxyEntries.length ? trustedProxyEntries : false;
+  const localNetworks = config.LOCAL_NETWORKS.split(",").map(value => value.trim()).filter(Boolean);
+  const security = new SecurityManager(config.SESSION_TTL_MINUTES * 60_000);
+  const authContexts = new WeakMap<FastifyRequest, RequestAuthContext>();
+  const app = Fastify({
+    logger: {
+      level: config.LOG_LEVEL,
+      redact: [
+        "req.headers.authorization",
+        "req.headers.cookie",
+        'req.headers["x-salta-csrf"]',
+        'req.headers["x-salta-health-token"]',
+        'res.headers["set-cookie"]'
+      ]
+    },
+    genReqId: () => randomUUID(),
+    bodyLimit: 32 * 1024,
+    connectionTimeout: 10_000,
+    requestTimeout: 15_000,
+    keepAliveTimeout: 5_000,
+    maxRequestsPerSocket: 100,
+    trustProxy: trustedProxies
+  });
+  app.server.maxHeadersCount = 64;
+  app.server.headersTimeout = 10_000;
 
-  app.addHook("onRequest", async (request, reply) => {
-    if (!config.ADMIN_PASSWORD || request.url === "/api/health" || request.url === "/api/readiness") return;
-    const header = request.headers.authorization;
-    if (!header?.startsWith("Basic ")) { reply.header("WWW-Authenticate", 'Basic realm="SALTA"'); return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Authentication required", requestId: request.id } }); }
-    try {
-      const decoded = Buffer.from(header.slice(6), "base64").toString("utf8"); const separator = decoded.indexOf(":");
-      const username = separator >= 0 ? decoded.slice(0, separator) : ""; const password = separator >= 0 ? decoded.slice(separator + 1) : "";
-      if (!safeEqual(username, config.ADMIN_USERNAME) || !safeEqual(password, config.ADMIN_PASSWORD)) { reply.header("WWW-Authenticate", 'Basic realm="SALTA"'); return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
-    } catch { return reply.code(401).send({ error: { code: "UNAUTHORIZED", message: "Invalid credentials", requestId: request.id } }); }
+  const publicDir = join(process.cwd(), "public");
+  const publicPaths = new Set(["/login", "/login.html", "/login.js", "/login.css", "/theme-init.js"]);
+  const rateWindowMs = 60_000;
+
+  app.addHook("onSend", async (request, reply, payload) => {
+    reply.header("X-Content-Type-Options", "nosniff");
+    reply.header("X-Frame-Options", "DENY");
+    reply.header("Referrer-Policy", "no-referrer");
+    reply.header("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(), usb=()");
+    reply.header("Cross-Origin-Opener-Policy", "same-origin");
+    reply.header("Cross-Origin-Resource-Policy", "same-origin");
+    reply.header("Content-Security-Policy", "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; script-src-elem 'self'; script-src-attr 'unsafe-inline'");
+    if (request.protocol === "https") reply.header("Strict-Transport-Security", "max-age=31536000");
+    const path = requestPath(request);
+    if (path.startsWith("/api/") || path.startsWith("/auth/") || path === "/" || path === "/login" || path.endsWith(".html")) {
+      reply.header("Cache-Control", "no-store");
+      reply.header("Vary", "Cookie");
+    }
+    return payload;
   });
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.26", time: new Date().toISOString() }));
+  app.addHook("onRequest", async (request, reply) => {
+    const path = requestPath(request);
+    const ip = request.ip;
+    const hasForwardedHeaders = Boolean(request.headers["x-forwarded-for"] || request.headers["x-forwarded-proto"] || request.headers["x-forwarded-host"]);
+    if (!trustedProxies && hasForwardedHeaders) {
+      request.log.error({ ip }, "Rejected proxy request because TRUSTED_PROXIES is not configured");
+      return securityError(reply, request, 400, "TRUSTED_PROXY_REQUIRED", "Reverse-proxy headers were received but no trusted proxy is configured.");
+    }
+
+    if (path === "/internal/health") {
+      const token = request.headers["x-salta-health-token"];
+      if (typeof token !== "string" || !safeEqual(token, config.SALTA_HEALTH_TOKEN)) {
+        request.log.warn({ ip }, "Rejected internal health request");
+        return securityError(reply, request, 404, "NOT_FOUND", "Route not found");
+      }
+      return;
+    }
+
+    const globalLimit = security.consumeRateLimit("global", config.RATE_LIMIT_GLOBAL_PER_MINUTE, rateWindowMs);
+    const clientLimit = security.consumeRateLimit(`client:${ip}`, config.RATE_LIMIT_PER_MINUTE, rateWindowMs);
+    const mutationLimit = isUnsafeMethod(request.method)
+      ? security.consumeRateLimit(`mutation:${ip}`, config.RATE_LIMIT_MUTATIONS_PER_MINUTE, rateWindowMs)
+      : { allowed: true, retryAfterSeconds: 0, remaining: config.RATE_LIMIT_MUTATIONS_PER_MINUTE };
+    const expensiveRouteLimit = path === "/api/adapters/shelly/discover"
+      ? security.consumeRateLimit(`discover:${ip}`, 2, rateWindowMs)
+      : path === "/api/adapters/shelly/reconcile"
+        ? security.consumeRateLimit(`reconcile:${ip}`, 12, rateWindowMs)
+        : path === "/api/adapters/shelly/devices" && request.method === "POST"
+          ? security.consumeRateLimit(`onboarding:${ip}`, 10, rateWindowMs)
+          : { allowed: true, retryAfterSeconds: 0, remaining: 1 };
+    const blocked = !globalLimit.allowed
+      ? globalLimit
+      : !clientLimit.allowed
+        ? clientLimit
+        : !mutationLimit.allowed
+          ? mutationLimit
+          : !expensiveRouteLimit.allowed
+            ? expensiveRouteLimit
+            : null;
+    if (blocked) {
+      request.log.warn({ ip, path, method: request.method }, "Application rate limit exceeded");
+      reply.header("Retry-After", String(blocked.retryAfterSeconds));
+      return securityError(reply, request, 429, "RATE_LIMITED", "Too many requests. Try again later.");
+    }
+
+    if (path === "/auth/login" || publicPaths.has(path)) return;
+
+    const local = isIpInNetworks(ip, localNetworks);
+    const sessionResult = security.getSession(request.headers.cookie);
+    if (sessionResult) {
+      const context: RequestAuthContext = { method: "session", local, session: sessionResult.session, sessionToken: sessionResult.token };
+      authContexts.set(request, context);
+      if (path.startsWith("/api/") && !local) {
+        const fetchSite = request.headers["sec-fetch-site"];
+        if (typeof fetchSite === "string" && fetchSite !== "same-origin" && fetchSite !== "same-site") {
+          return securityError(reply, request, 403, "REMOTE_API_DENIED", "Remote API requests must originate from the authenticated SALTA web application.");
+        }
+      }
+      if (isUnsafeMethod(request.method)) {
+        const csrfHeader = request.headers["x-salta-csrf"];
+        if (typeof csrfHeader !== "string" || !safeEqual(csrfHeader, sessionResult.session.csrfToken)) {
+          return securityError(reply, request, 403, "CSRF_VALIDATION_FAILED", "The request could not be verified.");
+        }
+        if (!local && !originMatchesRequest(request)) {
+          return securityError(reply, request, 403, "ORIGIN_VALIDATION_FAILED", "The request origin is not allowed.");
+        }
+      }
+      return;
+    }
+
+    const basic = parseBasicCredentials(request.headers.authorization);
+    if (local && !hasForwardedHeaders && basic && safeEqual(basic.username, config.ADMIN_USERNAME) && safeEqual(basic.password, config.ADMIN_PASSWORD)) {
+      authContexts.set(request, { method: "basic", local: true });
+      return;
+    }
+
+    if (path.startsWith("/api/") || path.startsWith("/auth/")) {
+      return securityError(reply, request, 401, "UNAUTHORIZED", "Authentication required");
+    }
+    return reply.redirect("/login");
+  });
+
+  void app.register(fastifyStatic, { root: publicDir, prefix: "/" });
+
+  app.get("/login", async (request, reply) => {
+    if (security.getSession(request.headers.cookie)) return reply.redirect("/");
+    return reply.sendFile("login.html");
+  });
+
+  app.post<{ Body: unknown }>("/auth/login", async (request, reply) => {
+    const ip = request.ip;
+    const local = isIpInNetworks(ip, localNetworks);
+    if (!local && !originMatchesRequest(request)) {
+      request.log.warn({ ip }, "Rejected cross-origin login request");
+      return securityError(reply, request, 403, "ORIGIN_VALIDATION_FAILED", "The request origin is not allowed.");
+    }
+    const allowed = security.loginAllowed(ip, config.LOGIN_MAX_ATTEMPTS, config.LOGIN_WINDOW_MINUTES * 60_000);
+    if (!allowed.allowed) {
+      request.log.warn({ ip }, "Blocked repeated login attempts");
+      reply.header("Retry-After", String(allowed.retryAfterSeconds));
+      return securityError(reply, request, 429, "LOGIN_RATE_LIMITED", "Too many failed login attempts. Try again later.");
+    }
+    const parsed = loginSchema.safeParse(request.body);
+    const valid = parsed.success
+      && safeEqual(parsed.data.username, config.ADMIN_USERNAME)
+      && safeEqual(parsed.data.password, config.ADMIN_PASSWORD);
+    if (!valid) {
+      const state = security.recordLoginFailure(ip, config.LOGIN_MAX_ATTEMPTS, config.LOGIN_WINDOW_MINUTES * 60_000, config.LOGIN_BLOCK_MINUTES * 60_000);
+      request.log.warn({ ip, failures: state.failures, blocked: state.blockedUntil > Date.now() }, "Failed SALTA login");
+      return securityError(reply, request, 401, "INVALID_CREDENTIALS", "Invalid username or password");
+    }
+    security.clearLoginFailures(ip);
+    const { token, session } = security.createSession(parsed.data.username);
+    reply.header("Set-Cookie", createSessionCookie(token, config.SESSION_TTL_MINUTES * 60, request.protocol === "https"));
+    request.log.info({ ip, username: parsed.data.username }, "SALTA login successful");
+    return { status: "ok", csrfToken: session.csrfToken, expiresAt: new Date(session.expiresAt).toISOString() };
+  });
+
+  app.get("/auth/session", async (request, reply) => {
+    const context = authContexts.get(request);
+    if (!context?.session) return securityError(reply, request, 401, "SESSION_REQUIRED", "A browser session is required");
+    return { username: context.session.username, csrfToken: context.session.csrfToken, expiresAt: new Date(context.session.expiresAt).toISOString() };
+  });
+
+  app.post("/auth/logout", async (request, reply) => {
+    const context = authContexts.get(request);
+    security.destroySession(context?.sessionToken);
+    reply.header("Set-Cookie", clearSessionCookie(request.protocol === "https"));
+    return reply.code(204).send();
+  });
+
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.28" }));
+
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.28", time: new Date().toISOString() }));
   app.get("/api/readiness", async (_request, reply) => {
     try {
       await pool.query("select 1");
@@ -199,5 +401,6 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   app.get("/api/adapters", async () => [{ id: "shelly", name: "Shelly", status: "connected", devices: registry.all().filter(x=>x.source==="shelly").length }]);
   app.setErrorHandler((error, request, reply) => { request.log.error({ err: error }, "Unhandled request error"); return reply.code(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error", requestId: request.id } }); });
   app.setNotFoundHandler((request, reply) => request.url.startsWith("/api/") ? reply.code(404).send({ error: { code: "NOT_FOUND", message: "Route not found", requestId: request.id } }) : reply.sendFile("index.html"));
+  app.addHook("onClose", async () => security.close());
   return app;
 }

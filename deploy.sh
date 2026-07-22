@@ -15,10 +15,12 @@ if [ ! -f .env ]; then
   db_password="$(openssl rand -hex 24 2>/dev/null || head -c 48 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   admin_password="$(openssl rand -base64 24 2>/dev/null | tr -d '/+=' | cut -c1-24 || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' | cut -c1-24)"
   encryption_key="$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+  health_token="$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
   sed \
     -e "0,/POSTGRES_PASSWORD=CHANGE_ME/s//POSTGRES_PASSWORD=${db_password}/" \
     -e "0,/ADMIN_PASSWORD=CHANGE_ME/s//ADMIN_PASSWORD=${admin_password}/" \
     -e "0,/SALTA_ENCRYPTION_KEY=CHANGE_ME_TO_A_LONG_RANDOM_SECRET/s//SALTA_ENCRYPTION_KEY=${encryption_key}/" \
+    -e "0,/SALTA_HEALTH_TOKEN=CHANGE_ME_TO_A_LONG_RANDOM_HEALTH_TOKEN/s//SALTA_HEALTH_TOKEN=${health_token}/" \
     .env.example > .env
   chmod 600 .env
   echo "Created .env with generated credentials."
@@ -33,6 +35,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --remove-
 
 echo
 echo "SALTA is starting."
-echo "Open: http://$(hostname -I 2>/dev/null | awk '{print $1}' || echo localhost):$(grep '^WEB_PORT=' .env | cut -d= -f2)"
+echo "Open locally: http://127.0.0.1:$(grep '^WEB_PORT=' .env | cut -d= -f2)"
 echo "Status: docker compose -f docker-compose.yml -f docker-compose.image.yml ps"
 echo "Logs:   docker compose -f docker-compose.yml -f docker-compose.image.yml logs -f salta"
+echo "For a reverse proxy, configure TRUSTED_PROXIES in .env with the exact proxy IP or CIDR."

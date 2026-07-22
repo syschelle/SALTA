@@ -1,4 +1,4 @@
-let all=[],rooms=[],selectedDevice=null,shellySettingsStatus=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null;
+let all=[],rooms=[],selectedDevice=null,shellySettingsStatus=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null,csrfToken="";
 const coverSliderDrafts=new Map();
 
 const themeToggleElement=document.getElementById('themeToggle');
@@ -48,8 +48,19 @@ const displayedState=d=>Object.entries(d.state||{}).filter(([,value])=>value!==n
 function supportsPresentationOverride(d){return ['switch','outlet','light'].includes(d.type)&&d.capabilities.includes('turnOn')&&d.capabilities.includes('turnOff')}
 function resolvedPresentationType(d){return d.presentationType&&d.presentationType!=='auto'&&supportsPresentationOverride(d)?d.presentationType:d.type}
 
-async function api(url,options){
-  const response=await fetch(url,options);
+async function initializeSession(){
+  const response=await fetch('/auth/session',{credentials:'same-origin',headers:{accept:'application/json'}});
+  if(!response.ok){location.replace('/login');throw new Error('Authentication required')}
+  const session=await response.json();
+  csrfToken=session.csrfToken;
+  return session;
+}
+async function api(url,options={}){
+  const method=String(options.method||'GET').toUpperCase();
+  const headers=new Headers(options.headers||{});
+  if(!['GET','HEAD','OPTIONS'].includes(method))headers.set('X-SALTA-CSRF',csrfToken);
+  const response=await fetch(url,{...options,method,headers,credentials:'same-origin'});
+  if(response.status===401){location.replace('/login');throw new Error('Authentication required')}
   if(!response.ok){
     const payload=await response.json().catch(()=>({}));
     const error=new Error(payload.error?.message||`HTTP ${response.status}`);
@@ -59,6 +70,9 @@ async function api(url,options){
     throw error;
   }
   return response.status===204?null:response.json();
+}
+async function logout(){
+  try{await api('/auth/logout',{method:'POST'})}finally{location.replace('/login')}
 }
 function updateDashboardSummary(){
   deviceCount.textContent=all.length;
@@ -279,6 +293,7 @@ menuToggle.addEventListener('click',openMenu);
 menuClose.addEventListener('click',()=>closeMenu({restoreFocus:true}));
 sidebarBackdrop.addEventListener('click',()=>closeMenu({restoreFocus:true}));
 themeToggleElement?.addEventListener('click',toggleTheme);
+document.getElementById('logoutButton')?.addEventListener('click',()=>logout().catch(()=>location.replace('/login')));
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.body.classList.contains('menu-open'))closeMenu({restoreFocus:true})});
 document.querySelectorAll('#sidebar [data-nav]').forEach(item=>item.addEventListener('click',()=>{if(matchMedia('(max-width: 1000px)').matches)closeMenu()}));
 deviceDialog.addEventListener('close',()=>{selectedDevice=null;setActiveNavigation(routeFromHash())});
@@ -286,4 +301,5 @@ deviceDialog.addEventListener('close',()=>{selectedDevice=null;setActiveNavigati
 newRoomIcon.innerHTML=roomIconOptions('home-outline');
 newRoomIcon.addEventListener('change',()=>updateRoomIconPreview(newRoomIcon));
 updateRoomIconPreview(newRoomIcon);
-initializeTheme();navigate();load();setInterval(refreshLiveData,5000);
+initializeTheme();
+initializeSession().then(()=>{navigate();load();setInterval(refreshLiveData,5000)}).catch(()=>undefined);

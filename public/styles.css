@@ -153,3 +153,7 @@ html[data-theme="dark"]{--state-on-bg:#13271f;--state-on-border:#2b3b33;--state-
 .device.device-state-off{background:var(--state-off-bg);border-color:var(--state-off-border);box-shadow:inset 4px 0 0 var(--state-off-accent),var(--shadow-card)}
 .device.device-state-on .icon{background:var(--state-on-icon-bg);color:var(--state-on-accent)}
 .device.device-state-off .icon{background:var(--state-off-icon-bg);color:var(--state-off-accent)}
+
+/* v0.4.27: authenticated session controls */
+.logout-button{width:100%;justify-content:flex-start;gap:9px;background:var(--input-bg);color:var(--text);border:1px solid var(--line);padding:9px 11px;font-size:12px}
+.logout-button>.mdi{font-size:17px}

@@ -4,9 +4,19 @@ import type { ShellyAdapter } from "./shelly-adapter.js";
 
 vi.mock("./config.js", () => ({
   config: {
-    ADMIN_PASSWORD: "",
+    ADMIN_PASSWORD: "test-admin-password-123",
     ADMIN_USERNAME: "admin",
-    LOG_LEVEL: "silent"
+    LOG_LEVEL: "silent",
+    SESSION_TTL_MINUTES: 720,
+    TRUSTED_PROXIES: "",
+    LOCAL_NETWORKS: "127.0.0.0/8,192.168.0.0/16",
+    RATE_LIMIT_PER_MINUTE: 300,
+    RATE_LIMIT_MUTATIONS_PER_MINUTE: 60,
+    RATE_LIMIT_GLOBAL_PER_MINUTE: 3000,
+    LOGIN_MAX_ATTEMPTS: 5,
+    LOGIN_WINDOW_MINUTES: 15,
+    LOGIN_BLOCK_MINUTES: 15,
+    SALTA_HEALTH_TOKEN: "test-health-token-12345678901234567890"
   }
 }));
 
@@ -44,6 +54,12 @@ function createServer(remove: ShellyAdapter["remove"], add: ShellyAdapter["add"]
   return server;
 }
 
+const basicAuthorization = `Basic ${Buffer.from("admin:test-admin-password-123").toString("base64")}`;
+
+function authenticatedInject(server: ReturnType<typeof buildServer>, options: Parameters<typeof server.inject>[0]) {
+  return server.inject({ ...options, headers: { authorization: basicAuthorization, ...(options as { headers?: Record<string, string> }).headers } });
+}
+
 
 describe("PUT /api/rooms/:id", () => {
   it("synchronizes a renamed room into the in-memory device registry", async () => {
@@ -59,7 +75,7 @@ describe("PUT /api/rooms/:id", () => {
     const updateRoomName = vi.fn();
     const server = createServer(vi.fn(), vi.fn(), { updateRoomName });
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "PUT",
       url: `/api/rooms/${room.id}`,
       payload: { name: room.name, icon: room.icon, sortOrder: 0 }
@@ -81,7 +97,7 @@ describe("PUT /api/rooms/order", () => {
     vi.mocked(reorderRooms).mockResolvedValueOnce(orderedRooms);
     const server = createServer(vi.fn());
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "PUT",
       url: "/api/rooms/order",
       payload: { roomIds: orderedRooms.map(room => room.id) }
@@ -98,7 +114,7 @@ describe("DELETE /api/devices/:id", () => {
     const remove = vi.fn(async (): Promise<void> => undefined);
     const server = createServer(remove);
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "DELETE",
       url: "/api/devices/shelly%3Atest-device"
     });
@@ -114,7 +130,7 @@ describe("DELETE /api/devices/:id", () => {
     });
     const server = createServer(remove);
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "DELETE",
       url: "/api/devices/missing"
     });
@@ -136,7 +152,7 @@ describe("PATCH /api/devices/:id/config", () => {
     const patch = vi.fn(async () => updatedDevice as never);
     const server = createServer(vi.fn(), vi.fn(), { patch });
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "PATCH",
       url: "/api/devices/shelly%3A3em/config",
       payload: { name: "  Main distribution  ", roomId: null }
@@ -158,7 +174,7 @@ describe("PATCH /api/devices/:id/config", () => {
     const patch = vi.fn(async () => updatedDevice as never);
     const server = createServer(vi.fn(), vi.fn(), { get: () => current as never, patch });
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "PATCH",
       url: "/api/devices/shelly%3Arelay/config",
       payload: { presentationType: "fan" }
@@ -177,7 +193,7 @@ describe("PATCH /api/devices/:id/config", () => {
     const patch = vi.fn();
     const server = createServer(vi.fn(), vi.fn(), { get: () => current as never, patch });
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "PATCH",
       url: "/api/devices/shelly%3A3em/config",
       payload: { presentationType: "fan" }
@@ -197,7 +213,7 @@ describe("POST /api/adapters/shelly/devices", () => {
     const add = vi.fn(async () => [addedDevice] as never);
     const server = createServer(vi.fn(), add);
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "POST",
       url: "/api/adapters/shelly/devices",
       payload: { host: "192.168.1.50", credentialMode: "none", roomId: null }
@@ -212,7 +228,7 @@ describe("POST /api/adapters/shelly/devices", () => {
     const add = vi.fn(async () => { throw new Error("DEVICE_UNREACHABLE"); });
     const server = createServer(vi.fn(), add);
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "POST",
       url: "/api/adapters/shelly/devices",
       payload: { host: "192.168.1.99", credentialMode: "none" }
@@ -232,7 +248,7 @@ describe("POST /api/adapters/shelly/devices", () => {
     const add = vi.fn();
     const server = createServer(vi.fn(), add);
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "POST",
       url: "/api/adapters/shelly/devices",
       payload: { host: "192.168.1.50", credentialMode: "inherit" }
@@ -247,7 +263,7 @@ describe("POST /api/adapters/shelly/devices", () => {
     const add = vi.fn();
     const server = createServer(vi.fn(), add);
 
-    const response = await server.inject({
+    const response = await authenticatedInject(server, {
       method: "POST",
       url: "/api/adapters/shelly/devices",
       payload: { host: "192.168.1.50", credentialMode: "custom", password: "secret" }
@@ -256,5 +272,88 @@ describe("POST /api/adapters/shelly/devices", () => {
     expect(response.statusCode).toBe(400);
     expect(response.json()).toMatchObject({ error: { code: "USERNAME_REQUIRED" } });
     expect(add).not.toHaveBeenCalled();
+  });
+});
+
+describe("web security", () => {
+  it("redirects unauthenticated browser requests to the login page", async () => {
+    const server = createServer(vi.fn());
+    const response = await server.inject({ method: "GET", url: "/" });
+    expect(response.statusCode).toBe(302);
+    expect(response.headers.location).toBe("/login");
+  });
+
+  it("protects health and readiness API routes", async () => {
+    const server = createServer(vi.fn());
+    const response = await server.inject({ method: "GET", url: "/api/health" });
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+  });
+
+  it("rejects forwarded headers when no trusted proxy is configured", async () => {
+    const server = createServer(vi.fn());
+    const response = await server.inject({ method: "GET", url: "/login", headers: { "x-forwarded-for": "203.0.113.10", "x-forwarded-proto": "https" } });
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({ error: { code: "TRUSTED_PROXY_REQUIRED" } });
+  });
+
+
+  it("rejects Basic API authentication from non-local client addresses", async () => {
+    const server = createServer(vi.fn());
+    const response = await server.inject({
+      method: "GET",
+      url: "/api/health",
+      remoteAddress: "203.0.113.20",
+      headers: { authorization: basicAuthorization }
+    });
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toMatchObject({ error: { code: "UNAUTHORIZED" } });
+  });
+
+  it("rejects cross-origin remote login attempts", async () => {
+    const server = createServer(vi.fn());
+    const response = await server.inject({
+      method: "POST",
+      url: "/auth/login",
+      remoteAddress: "203.0.113.20",
+      headers: { origin: "https://evil.example" },
+      payload: { username: "admin", password: "test-admin-password-123" }
+    });
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toMatchObject({ error: { code: "ORIGIN_VALIDATION_FAILED" } });
+  });
+
+  it("allows the internal health check only with its secret token", async () => {
+    const server = createServer(vi.fn());
+    const denied = await server.inject({ method: "GET", url: "/internal/health" });
+    expect(denied.statusCode).toBe(404);
+    const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
+    expect(allowed.statusCode).toBe(200);
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.4.28" });
+  });
+
+  it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
+    const server = createServer(vi.fn());
+    const login = await server.inject({
+      method: "POST",
+      url: "/auth/login",
+      payload: { username: "admin", password: "test-admin-password-123" }
+    });
+    expect(login.statusCode).toBe(200);
+    const cookie = String(login.headers["set-cookie"]).split(";", 1)[0];
+    expect(String(login.headers["set-cookie"])).toContain("HttpOnly");
+    expect(String(login.headers["set-cookie"])).toContain("SameSite=Strict");
+
+    const session = await server.inject({ method: "GET", url: "/auth/session", headers: { cookie } });
+    expect(session.statusCode).toBe(200);
+    const csrfToken = session.json().csrfToken as string;
+
+    const denied = await server.inject({ method: "PUT", url: "/api/rooms/order", headers: { cookie }, payload: { roomIds: [] } });
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toMatchObject({ error: { code: "CSRF_VALIDATION_FAILED" } });
+
+    vi.mocked(reorderRooms).mockResolvedValueOnce([]);
+    const allowed = await server.inject({ method: "PUT", url: "/api/rooms/order", headers: { cookie, "x-salta-csrf": csrfToken }, payload: { roomIds: [] } });
+    expect(allowed.statusCode).toBe(200);
   });
 });

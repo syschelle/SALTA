@@ -2,27 +2,40 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.28
+
+- Added mandatory browser authentication with a dedicated login page and server-side sessions.
+- Added HttpOnly SameSite=Strict cookies, CSRF validation, logout and finite session lifetimes.
+- Restricted direct HTTP Basic API access to configured local networks.
+- Protected health and readiness endpoints and added a secret Docker-only health check.
+- Added login, per-client, mutation, expensive-route and global request limits with security logging.
+- Added CSP and additional browser security headers, body/header limits and connection timeouts.
+- Moved PostgreSQL to an internal Docker network and removed its published host port.
+- Added Docker capability, PID and temporary-filesystem restrictions for SALTA.
+- Added automated security, session, CSRF, local-network and frontend authentication coverage.
+- Added `SECURITY.md` and reverse-proxy trust guidance.
+
 ## 0.4.26
 
 - Updated the compact device-card regression test to match the current 11 px/10 px measurement spacing.
 - Restored successful CI and release builds after the v0.4.25 layout adjustment.
 - No runtime or database behavior changed.
 
-## 0.4.26
+## 0.4.25
 
 - Moved the device name into the top row beside the device icon.
 - Kept the room/type metadata directly below the title inside the same compact header block.
 - Reduced top whitespace in device cards.
 - Added frontend regression coverage for the compact device-title layout.
 
-## 0.4.26
+## 0.4.24
 
 - Extended colored state-card styling to outlet devices such as Shelly Plug S (`SHPLG-S`).
 - Softened the outer state-card border colors so the right edge is less visually heavy.
 - Removed the redundant On/Off status metric from colored outlet cards.
 - Added frontend regression coverage for outlet state coloring.
 
-## 0.4.26
+## 0.4.23
 
 - Added green and red card-state colors for reachable switch and light devices.
 - Removed the redundant On/Off status metric from colored switch and light cards.

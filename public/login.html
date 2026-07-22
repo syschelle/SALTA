@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f4f6f8">
+  <script src="/theme-init.js"></script>
+  <title>SALTA · Anmeldung</title>
+  <link rel="stylesheet" href="/login.css">
+</head>
+<body>
+  <main class="login-shell">
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="login-brand"><span class="login-logo">S</span><div><strong>SALTA</strong><small>Local by design</small></div></div>
+      <div class="login-copy"><p class="eyebrow">GESCHÜTZTER ZUGANG</p><h1 id="login-title">Anmelden</h1><p>Bitte authentifiziere dich, um auf SALTA zuzugreifen.</p></div>
+      <form id="loginForm">
+        <label>Benutzername<input id="username" name="username" autocomplete="username" required maxlength="64"></label>
+        <label>Passwort<input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024"></label>
+        <div id="loginError" class="login-error" role="alert" hidden></div>
+        <button id="loginButton" type="submit">Anmelden</button>
+      </form>
+    </section>
+  </main>
+  <script src="/login.js"></script>
+</body>
+</html>
