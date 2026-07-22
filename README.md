@@ -8,9 +8,9 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.5.1` is the current stable release. It introduces a clean-install architecture and removes SALTA-owned legacy migration and compatibility paths.
+`v0.5.2` is the current stable release. It introduces a clean-install architecture and removes SALTA-owned legacy migration and compatibility paths.
 
-> **Breaking change:** v0.5.1 requires a fresh PostgreSQL volume. Databases and encrypted credentials from v0.4.x are intentionally not migrated.
+> **Breaking change:** v0.5.2 requires a fresh PostgreSQL volume. Databases and encrypted credentials from v0.4.x are intentionally not migrated.
 
 ## Supported architectures
 
@@ -37,7 +37,7 @@ chmod +x install.sh update.sh backup.sh restore.sh
 - creates `.env` when it does not exist;
 - generates the PostgreSQL password, administrator password, health token and encryption key;
 - validates the merged Compose configuration;
-- pulls `ghcr.io/syschelle/salta:0.5.1`;
+- pulls `ghcr.io/syschelle/salta:0.5.2`;
 - starts PostgreSQL and SALTA;
 - prints the generated administrator login once.
 
@@ -46,7 +46,7 @@ The default `.env.example` publishes SALTA to the local network:
 ```env
 WEB_PORT=8099
 SALTA_BIND_ADDRESS=0.0.0.0
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.5.1
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.5.2
 ```
 
 Open SALTA at:
@@ -142,7 +142,7 @@ Shelly authentication supports:
 - `custom`: use encrypted credentials stored for one device;
 - `none`: connect without authentication.
 
-Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. The removed v1 compatibility format is not accepted by v0.5.1.
+Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. The removed v1 compatibility format is not accepted by v0.5.2.
 
 ## Rooms
 
@@ -150,7 +150,7 @@ Rooms are first-class database entities linked to devices by `room_id`. The obso
 
 ## Icons
 
-SALTA bundles Material Design Icons locally. No icon CDN is used at runtime. See `public/vendor/mdi/LICENSE`.
+SALTA bundles Material Design Icons (MDI) by Pictogrammers locally. No icon CDN is used at runtime. The bundled icon assets are provided under the Apache License 2.0; see `public/vendor/mdi/LICENSE`.
 
 ## License
 

@@ -14,7 +14,7 @@ export async function initializeDatabaseSchema(): Promise<void> {
   );
   const state = existing.rows[0];
   if (state?.devices && !state.metadata) {
-    throw new Error("INCOMPATIBLE_DATABASE_SCHEMA: SALTA v0.5.1 requires a fresh PostgreSQL volume");
+    throw new Error("INCOMPATIBLE_DATABASE_SCHEMA: SALTA v0.5.2 requires a fresh PostgreSQL volume");
   }
   if (state?.metadata) {
     const version = await pool.query<{ value: string }>("SELECT value FROM salta_metadata WHERE key='schema_version'");

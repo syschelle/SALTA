@@ -1,24 +1,25 @@
-# SALTA v0.5.1
+# SALTA v0.5.2
 
-SALTA v0.5.1 fixes the container build failure introduced by the dependency lockfile cleanup in v0.5.0.
+SALTA v0.5.2 fixes the documentation attribution regression that caused the frontend icon test to fail during the release build.
 
 ## Build fix
 
-- Restored the nested `fast-uri@4.1.1` package required by `fast-json-stringify`
-- Restored the nested `process-warning@4.0.1` package required by `light-my-request`
-- Restored the npm registry URL and SHA-512 integrity metadata for `@fastify/rate-limit@10.3.0`
-- Revalidated the lockfile dependency tree so `npm ci` can install the exact dependency set again
+- Restored the full Material Design Icons attribution in `README.md`
+- Documented the official name `Material Design Icons (MDI)`
+- Added the upstream project attribution to Pictogrammers
+- Retained the Apache License 2.0 reference and the bundled license-file path
+- Revalidated the README against the frontend icon regression test
 
 ## Runtime behavior
 
 - No SALTA runtime behavior changed
 - No API behavior changed
-- No database schema changed compared with v0.5.0
+- No database schema changed compared with v0.5.0 and v0.5.1
 - The v0.5 clean-install architecture remains unchanged
 
 ## Important compatibility notice
 
-SALTA v0.5.1 requires a fresh PostgreSQL volume when upgrading from v0.4.x. Existing v0.4.x databases and v1-encrypted credentials are intentionally not migrated.
+SALTA v0.5.2 requires a fresh PostgreSQL volume when upgrading from v0.4.x. Existing v0.4.x databases and v1-encrypted credentials are intentionally not migrated.
 
 For a complete fresh installation:
 
@@ -35,7 +36,7 @@ For a database-only reset that retains the current `.env` secrets:
 ## Container tags
 
 ```text
-0.5.1
+0.5.2
 0.5
 latest
 ```
@@ -43,5 +44,5 @@ latest
 ## Git tag
 
 ```text
-v0.5.1
+v0.5.2
 ```

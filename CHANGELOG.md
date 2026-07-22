@@ -2,6 +2,13 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.5.2
+
+- Restored the complete Material Design Icons (MDI) attribution in `README.md`.
+- Added the upstream Pictogrammers attribution required by the frontend regression test.
+- Retained the Apache License 2.0 notice and local bundled-license reference.
+- Kept runtime behavior, APIs and the v0.5 database schema unchanged.
+
 ## 0.5.1
 
 - Fixed the npm lockfile after the v0.5.0 dependency cleanup removed two still-required nested packages.
