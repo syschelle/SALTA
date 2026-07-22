@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.5.1
+
+- Fixed the npm lockfile after the v0.5.0 dependency cleanup removed two still-required nested packages.
+- Restored `fast-uri@4.1.1` for `fast-json-stringify`.
+- Restored `process-warning@4.0.1` for `light-my-request`.
+- Restored registry URL and integrity metadata for `@fastify/rate-limit@10.3.0`.
+- Kept the v0.5 clean-install architecture and runtime behavior unchanged.
+
 ## 0.5.0
 
 - Introduced a clean-install-only database schema generation with explicit schema metadata.

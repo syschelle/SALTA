@@ -1,49 +1,32 @@
-# SALTA v0.5.0
+# SALTA v0.5.1
 
-SALTA v0.5.0 introduces a clean-install architecture and removes legacy compatibility code that was carried forward from earlier releases.
+SALTA v0.5.1 fixes the container build failure introduced by the dependency lockfile cleanup in v0.5.0.
 
-## Clean installation
+## Build fix
 
-- Added a one-step `install.sh` workflow that creates all required secrets and starts SALTA immediately
-- Added `./install.sh --fresh` for a complete reinstall with a new database and newly generated secrets
-- Added `./install.sh --reset` for a database-only reset that retains the existing `.env`
-- Set the default image to `ghcr.io/syschelle/salta:0.5.0`
-- Set the default web bind address to `0.0.0.0` for direct local-network access
-- Added explicit `--env-file .env` handling to installation and update commands
-- Added a Docker volume schema label so legacy database volumes are detected before startup
+- Restored the nested `fast-uri@4.1.1` package required by `fast-json-stringify`
+- Restored the nested `process-warning@4.0.1` package required by `light-my-request`
+- Restored the npm registry URL and SHA-512 integrity metadata for `@fastify/rate-limit@10.3.0`
+- Revalidated the lockfile dependency tree so `npm ci` can install the exact dependency set again
 
-## Removed legacy paths
+## Runtime behavior
 
-- Removed incremental `ALTER TABLE` database migration statements
-- Removed the v0.4 room-name migration and mock-device cleanup path
-- Removed the duplicate legacy `devices.room` database column
-- Removed v1 secret decryption and automatic v1-to-v2 credential conversion
-- Removed compatibility edits from `update.sh`
-- Replaced the two-step `deploy.sh` process with the one-step `install.sh`
-- Removed the obsolete v0.3 roadmap document
-- Replaced the direct `@fastify/static` dependency with an allow-listed native static-file handler
-- Removed the obsolete `glob` dependency chain from the lockfile
-
-## Database model
-
-- Added an explicit SALTA schema metadata table
-- Added startup validation for the v0.5 schema generation
-- Kept the final database schema in one canonical initialization definition
-- Continued to store credentials with salted, scrypt-derived AES-256-GCM encryption
-
-## Dependency note
-
-No SALTA direct dependency is marked as deprecated. The HomeKit library still includes a deprecated transitive `q` package through its upstream persistence dependency. It remains in this release to preserve HomeKit support and is documented in `DEPENDENCY_NOTES.md`.
+- No SALTA runtime behavior changed
+- No API behavior changed
+- No database schema changed compared with v0.5.0
+- The v0.5 clean-install architecture remains unchanged
 
 ## Important compatibility notice
 
-SALTA v0.5.0 requires a fresh PostgreSQL volume. Existing v0.4.x databases and v1-encrypted credentials are not migrated. Back up any information that must be retained, then perform a clean reinstall.
+SALTA v0.5.1 requires a fresh PostgreSQL volume when upgrading from v0.4.x. Existing v0.4.x databases and v1-encrypted credentials are intentionally not migrated.
+
+For a complete fresh installation:
 
 ```bash
 ./install.sh --fresh
 ```
 
-To retain the existing application secrets while resetting only the database:
+For a database-only reset that retains the current `.env` secrets:
 
 ```bash
 ./install.sh --reset
@@ -52,7 +35,7 @@ To retain the existing application secrets while resetting only the database:
 ## Container tags
 
 ```text
-0.5.0
+0.5.1
 0.5
 latest
 ```
@@ -60,5 +43,5 @@ latest
 ## Git tag
 
 ```text
-v0.5.0
+v0.5.1
 ```
