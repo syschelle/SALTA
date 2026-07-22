@@ -1,3 +1,4 @@
+import type { InjectOptions } from "light-my-request";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
@@ -56,8 +57,14 @@ function createServer(remove: ShellyAdapter["remove"], add: ShellyAdapter["add"]
 
 const basicAuthorization = `Basic ${Buffer.from("admin:test-admin-password-123").toString("base64")}`;
 
-function authenticatedInject(server: ReturnType<typeof buildServer>, options: Parameters<typeof server.inject>[0]) {
-  return server.inject({ ...options, headers: { authorization: basicAuthorization, ...(options as { headers?: Record<string, string> }).headers } });
+function authenticatedInject(server: ReturnType<typeof buildServer>, options: InjectOptions) {
+  return server.inject({
+    ...options,
+    headers: {
+      authorization: basicAuthorization,
+      ...options.headers
+    }
+  });
 }
 
 
@@ -329,7 +336,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.4.28" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.4.29" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {

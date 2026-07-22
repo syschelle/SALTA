@@ -1,6 +1,6 @@
 {
   "name": "salta",
-  "version": "0.4.28",
+  "version": "0.4.29",
   "description": "SALTA local-first smart-home control plane",
   "private": false,
   "type": "module",
@@ -26,6 +26,7 @@
   "devDependencies": {
     "@types/node": "^22.15.0",
     "@types/pg": "^8.15.0",
+    "light-my-request": "^6.6.0",
     "tsx": "^4.20.0",
     "typescript": "^5.8.0",
     "vitest": "^3.2.0"

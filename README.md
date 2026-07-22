@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.28` is the current stable release. It hardens authentication, browser sessions, API access, request handling and Docker networking for secure reverse-proxy deployments.
+`v0.4.29` is the current stable release. It fixes the TypeScript compilation of the security-enabled Fastify server tests while retaining the v0.4.28 hardening.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.28"
+git commit -m "release: SALTA v0.4.29"
 git push origin main
-git tag -a v0.4.28 -m "SALTA v0.4.28"
-git push origin v0.4.28
+git tag -a v0.4.29 -m "SALTA v0.4.29"
+git push origin v0.4.29
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.28
+ghcr.io/<github-owner>/<repository>:0.4.29
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -140,7 +140,7 @@ HomeKit is disabled by default. Enable it in `.env` and publish the configured H
 
 ## Security
 
-SALTA v0.4.28 is fail-closed: a strong `ADMIN_PASSWORD` and generated `SALTA_HEALTH_TOKEN` are mandatory. The web application uses an opaque server-side session with an `HttpOnly`, `SameSite=Strict` cookie, a finite lifetime, logout support and CSRF protection for state-changing requests.
+SALTA v0.4.29 is fail-closed: a strong `ADMIN_PASSWORD` and generated `SALTA_HEALTH_TOKEN` are mandatory. The web application uses an opaque server-side session with an `HttpOnly`, `SameSite=Strict` cookie, a finite lifetime, logout support and CSRF protection for state-changing requests.
 
 Direct Basic-authenticated API access is accepted only from `LOCAL_NETWORKS`. Internet browser access uses the authenticated same-origin web session. This is necessary because the browser interface itself retrieves data through JSON endpoints.
 

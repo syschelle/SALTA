@@ -2,6 +2,13 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.29
+
+- Fixed TypeScript compilation of the authenticated Fastify injection test helper.
+- Replaced overload-derived `undefined` options with `light-my-request` `InjectOptions`.
+- Added `light-my-request` as an explicit development dependency.
+- Kept the v0.4.28 security behavior unchanged.
+
 ## 0.4.28
 
 - Added mandatory browser authentication with a dedicated login page and server-side sessions.
