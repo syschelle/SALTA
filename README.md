@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.5.4` is the current stable release. It corrects and expands the security documentation without changing runtime behavior.
+`v0.5.5` is the current stable release. It removes unused compatibility code, fixes room cleanup in the live registry and makes backup and restore independent of shell-compatible `.env` formatting.
 
 > **Breaking change from v0.4.x:** the v0.5 release line requires a fresh PostgreSQL volume. Databases and encrypted credentials from v0.4.x are intentionally not migrated.
 
@@ -37,7 +37,7 @@ chmod +x install.sh update.sh backup.sh restore.sh
 - creates `.env` when it does not exist;
 - generates the PostgreSQL password, administrator password, health token and encryption key;
 - validates the merged Compose configuration;
-- pulls `ghcr.io/syschelle/salta:0.5.4`;
+- pulls `ghcr.io/syschelle/salta:0.5.5`;
 - starts PostgreSQL and SALTA;
 - prints the generated administrator login once.
 
@@ -46,7 +46,7 @@ The default `.env.example` publishes SALTA to the local network:
 ```env
 WEB_PORT=8099
 SALTA_BIND_ADDRESS=0.0.0.0
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.5.4
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.5.5
 ```
 
 Open SALTA at:
@@ -144,7 +144,7 @@ Shelly authentication supports:
 - `custom`: use encrypted credentials stored for one device;
 - `none`: connect without authentication.
 
-Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. The removed v1 compatibility format is not accepted by v0.5.4.
+Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. The removed v1 compatibility format is not accepted by v0.5.5.
 
 ## Rooms
 

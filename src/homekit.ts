@@ -53,9 +53,6 @@ export class HomeKitBridge {
       if(serviceType==="outlet") service.updateCharacteristic(Characteristic.OutletInUse,Boolean(d.state.on));
     }
     if("brightness" in d.state && serviceType==="light") service.updateCharacteristic(Characteristic.Brightness,Number(d.state.brightness));
-    if("motion" in d.state) service.updateCharacteristic(Characteristic.MotionDetected,Boolean(d.state.motion));
-    if("currentTemperature" in d.state) service.updateCharacteristic(Characteristic.CurrentTemperature,Number(d.state.currentTemperature));
-    if("targetTemperature" in d.state) service.updateCharacteristic(Characteristic.TargetTemperature,Number(d.state.targetTemperature));
     if("currentPosition" in d.state) service.updateCharacteristic(Characteristic.CurrentPosition,Number(d.state.currentPosition));
     if("targetPosition" in d.state) service.updateCharacteristic(Characteristic.TargetPosition,Number(d.state.targetPosition));
   }
@@ -66,8 +63,6 @@ export class HomeKitBridge {
       case "switch": s=a.addService(Service.Switch,d.name); break;
       case "light": s=a.addService(Service.Lightbulb,d.name); break;
       case "fan": s=a.addService(Service.Fanv2,d.name); break;
-      case "motionSensor": s=a.addService(Service.MotionSensor,d.name); break;
-      case "thermostat": s=a.addService(Service.Thermostat,d.name); break;
       case "windowCovering": s=a.addService(Service.WindowCovering,d.name); break;
       default: s=a.addService(Service.Switch,d.name); break;
     }
@@ -77,7 +72,6 @@ export class HomeKitBridge {
       else s.getCharacteristic(Characteristic.On).onSet(v=>cmd(v?"turnOn":"turnOff"));
     }
     if(serviceType==="light" && d.capabilities.includes("setBrightness")) s.getCharacteristic(Characteristic.Brightness).onSet(v=>cmd("setBrightness",Number(v)));
-    if(d.capabilities.includes("setTargetTemperature")) s.getCharacteristic(Characteristic.TargetTemperature).onSet(v=>cmd("setTargetTemperature",Number(v)));
     if(d.capabilities.includes("setTargetPosition")) s.getCharacteristic(Characteristic.TargetPosition).onSet(v=>cmd("setTargetPosition",Number(v)));
   }
 }

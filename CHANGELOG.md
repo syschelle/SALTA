@@ -2,6 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.5.5
+
+- Fixed backup and restore scripts so `.env` values containing spaces are no longer executed as shell code.
+- Added registry hydration that loads persisted devices without rewriting them at every startup.
+- Cleared in-memory room assignments immediately after a room is deleted.
+- Removed legacy automatic room creation from device persistence.
+- Removed unreachable thermostat and motion-sensor presentation paths.
+- Removed unused exports, metadata keywords and the redundant direct Pino dependency.
+- Enabled TypeScript unused-local and unused-parameter checks and excluded test sources from the production build output.
+- Marked the package as private and removed the duplicate release-notes file.
+
 ## 0.5.4
 
 - Corrected the security documentation to match the implemented v0.5 behavior.

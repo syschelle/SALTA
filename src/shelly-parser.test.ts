@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { detectGen1Shelly, detectRpcShelly, detectRpcShellyComponents } from "./shelly-parser.js";
+import { detectGen1Shelly, detectRpcShellyComponents } from "./shelly-parser.js";
+
+function detectRpcShelly(info: unknown, status: unknown) {
+  const detection = detectRpcShellyComponents(info, status)[0];
+  if (!detection) throw new Error("UNSUPPORTED_SHELLY_DEVICE");
+  return detection;
+}
 
 describe("detectRpcShelly", () => {
   it("detects a Shelly plug as an outlet and exposes live measurements", () => {

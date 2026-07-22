@@ -5,6 +5,7 @@ import { deleteDevice, setDeviceCredentials, upsertDevice } from "./db.js";
 export class DeviceRegistry extends EventEmitter {
   private readonly devices = new Map<string, Device>();
   private readonly removedDeviceIds = new Set<string>();
+  private readonly deletedRoomIds = new Set<string>();
 
   private notify(event: "device" | "deviceRemoved", device: Device): void {
     for (const listener of this.listeners(event)) {
@@ -16,8 +17,19 @@ export class DeviceRegistry extends EventEmitter {
     }
   }
 
-  async set(device: Device): Promise<void> {
+  private withoutDeletedRoom(device: Device): Device {
+    if (!device.roomId || !this.deletedRoomIds.has(device.roomId)) return device;
+    return { ...device, roomId: undefined, room: undefined };
+  }
+
+  hydrate(device: Device): void {
     if (this.removedDeviceIds.has(device.id)) return;
+    this.devices.set(device.id, this.withoutDeletedRoom(device));
+  }
+
+  async set(input: Device): Promise<void> {
+    if (this.removedDeviceIds.has(input.id)) return;
+    const device = this.withoutDeletedRoom(input);
     this.devices.set(device.id, device);
     await upsertDevice(device);
     if (this.removedDeviceIds.has(device.id)) {
@@ -55,6 +67,19 @@ export class DeviceRegistry extends EventEmitter {
     for (const [id, current] of this.devices) {
       if (current.roomId !== roomId || current.room === roomName) continue;
       const next = { ...current, room: roomName };
+      this.devices.set(id, next);
+      this.notify("device", next);
+      updated.push(next);
+    }
+    return updated;
+  }
+
+  clearRoom(roomId: string): Device[] {
+    this.deletedRoomIds.add(roomId);
+    const updated: Device[] = [];
+    for (const [id, current] of this.devices) {
+      if (current.roomId !== roomId) continue;
+      const next = { ...current, roomId: undefined, room: undefined };
       this.devices.set(id, next);
       this.notify("device", next);
       updated.push(next);

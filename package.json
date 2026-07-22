@@ -1,8 +1,8 @@
 {
   "name": "salta",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "description": "SALTA local-first smart-home control plane",
-  "private": false,
+  "private": true,
   "type": "module",
   "engines": {
     "node": ">=22"
@@ -20,7 +20,6 @@
     "@homebridge/hap-nodejs": "^2.1.9",
     "fastify": "^5.4.0",
     "pg": "^8.16.0",
-    "pino": "^9.7.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
@@ -36,8 +35,6 @@
     "smart-home",
     "local-first",
     "homekit",
-    "shelly",
-    "openccu",
-    "deconz"
+    "shelly"
   ]
 }

@@ -22,7 +22,7 @@ interface LoginState {
   blockedUntil: number;
 }
 
-export interface RateLimitResult {
+interface RateLimitResult {
   allowed: boolean;
   retryAfterSeconds: number;
   remaining: number;
@@ -50,7 +50,6 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return cookies;
 }
 
-export function sessionCookieName(): string { return SESSION_COOKIE; }
 
 export function createSessionCookie(token: string, maxAgeSeconds: number, secure: boolean): string {
   const secureAttribute = secure ? "; Secure" : "";

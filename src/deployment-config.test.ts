@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 const compose = readFileSync(new URL("../docker-compose.yml", import.meta.url), "utf8");
 const environmentExample = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
 const installer = readFileSync(new URL("../install.sh", import.meta.url), "utf8");
+const backupScript = readFileSync(new URL("../backup.sh", import.meta.url), "utf8");
+const restoreScript = readFileSync(new URL("../restore.sh", import.meta.url), "utf8");
 
 describe("v0.5 deployment configuration", () => {
   it("passes every mandatory SALTA secret through Docker Compose", () => {
@@ -26,4 +28,14 @@ describe("v0.5 deployment configuration", () => {
     expect(environmentExample).not.toContain("POSTGRES_HOST_PORT");
     expect(environmentExample).not.toContain("MOCK_EVENT_INTERVAL_MS");
   });
+
+  it("does not execute .env as shell code in backup and restore scripts", () => {
+    for (const script of [backupScript, restoreScript]) {
+      expect(script).toContain("--env-file .env");
+      expect(script).not.toMatch(/(?:^|\n)\s*\.\s+\.\/\.env/);
+    }
+    expect(backupScript).toContain('pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"');
+    expect(restoreScript).toContain('pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"');
+  });
+
 });

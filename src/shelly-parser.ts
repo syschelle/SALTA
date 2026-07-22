@@ -9,7 +9,7 @@ type ComponentEntry = {
   value: JsonRecord;
 };
 
-export interface ShellyDetection {
+interface ShellyDetection {
   type: DeviceType;
   profile?: string;
   state: DeviceState;
@@ -298,11 +298,6 @@ export function detectRpcShellyComponents(info: unknown, status: unknown): Shell
   throw new Error("UNSUPPORTED_SHELLY_DEVICE");
 }
 
-export function detectRpcShelly(info: unknown, status: unknown): ShellyDetection {
-  const detection = detectRpcShellyComponents(info, status)[0];
-  if (!detection) throw new Error("UNSUPPORTED_SHELLY_DEVICE");
-  return detection;
-}
 
 function firstRecordItem(value: unknown): JsonRecord {
   return record(array(value)[0]);

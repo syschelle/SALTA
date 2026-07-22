@@ -105,4 +105,36 @@ describe("DeviceRegistry removal", () => {
 
     expect(registry.get(device.id)).toEqual(device);
   });
+  it("hydrates persisted devices without writing them back to PostgreSQL", () => {
+    const registry = new DeviceRegistry();
+    const deviceListener = vi.fn();
+    registry.on("device", deviceListener);
+
+    registry.hydrate(device);
+
+    expect(registry.get(device.id)).toEqual(device);
+    expect(dbMocks.upsertDevice).not.toHaveBeenCalled();
+    expect(deviceListener).not.toHaveBeenCalled();
+  });
+
+  it("clears a deleted room from every assigned device in memory", async () => {
+    const registry = new DeviceRegistry();
+    const roomId = "11111111-1111-4111-8111-111111111111";
+    await registry.set({ ...device, roomId, room: "Old room" });
+    const deviceListener = vi.fn();
+    registry.on("device", deviceListener);
+
+    const updated = registry.clearRoom(roomId);
+
+    expect(updated).toHaveLength(1);
+    expect(registry.get(device.id)).toMatchObject({ roomId: undefined, room: undefined });
+    expect(deviceListener).toHaveBeenCalledWith(expect.objectContaining({ roomId: undefined, room: undefined }));
+    expect(dbMocks.upsertDevice).toHaveBeenCalledTimes(1);
+
+    await registry.set({ ...device, roomId, room: "Stale room from an in-flight refresh" });
+
+    expect(registry.get(device.id)).toMatchObject({ roomId: undefined, room: undefined });
+    expect(dbMocks.upsertDevice).toHaveBeenLastCalledWith(expect.objectContaining({ roomId: undefined, room: undefined }));
+  });
+
 });

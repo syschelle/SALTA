@@ -14,7 +14,7 @@ export async function initializeDatabaseSchema(): Promise<void> {
   );
   const state = existing.rows[0];
   if (state?.devices && !state.metadata) {
-    throw new Error("INCOMPATIBLE_DATABASE_SCHEMA: SALTA v0.5.4 requires a fresh PostgreSQL volume");
+    throw new Error("INCOMPATIBLE_DATABASE_SCHEMA: SALTA v0.5.5 requires a fresh PostgreSQL volume");
   }
   if (state?.metadata) {
     const version = await pool.query<{ value: string }>("SELECT value FROM salta_metadata WHERE key='schema_version'");
@@ -93,13 +93,7 @@ export async function initializeDatabaseSchema(): Promise<void> {
 }
 
 export async function upsertDevice(d: Device): Promise<void> {
-  let roomId = d.roomId ?? null;
-  if (!roomId && d.room) {
-    await pool.query("INSERT INTO rooms(id,name) VALUES($1,$2) ON CONFLICT(name) DO NOTHING", [randomUUID(), d.room]);
-    const roomResult = await pool.query<{id:string}>("SELECT id FROM rooms WHERE name=$1", [d.room]);
-    roomId = roomResult.rows[0]?.id ?? null;
-    d.roomId = roomId ?? undefined;
-  }
+  const roomId = d.roomId ?? null;
   await pool.query(`INSERT INTO devices
     (id,source,source_id,type,presentation_type,name,host,generation,model,firmware_version,hostname,mac_address,profile,component_kind,component_id,channel_count,power_metering,cover_support,switch_support,light_support,input_support,room_id,reachable,state,capabilities,homekit_enabled,credential_mode,credential_username,last_seen,last_event,updated_at)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,now())
@@ -193,7 +187,7 @@ export async function deleteRoom(id: string): Promise<boolean> {
   return result.rowCount === 1;
 }
 
-export interface CredentialEncryptionStatus {
+interface CredentialEncryptionStatus {
   status: "ok" | "invalid";
   globalCredential: "ok" | "invalid" | "not-configured";
   invalidDeviceIds: string[];

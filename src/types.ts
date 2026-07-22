@@ -1,4 +1,4 @@
-export type DeviceType = "outlet" | "switch" | "energyMeter" | "windowCovering" | "thermostat" | "light" | "motionSensor";
+export type DeviceType = "outlet" | "switch" | "energyMeter" | "windowCovering" | "light";
 export type DevicePresentationType = "auto" | "outlet" | "switch" | "light" | "fan";
 export type DeviceState = Record<string, string | number | boolean | null>;
 export type CredentialMode = "inherit" | "custom" | "none";
@@ -52,7 +52,7 @@ export interface DeviceCommand {
   deviceId: string;
   capability: string;
   value?: string | number | boolean;
-  source: "api" | "homekit" | "ui";
+  source: "api" | "homekit";
 }
 
 export interface ShellySettings {

@@ -1,6 +1,6 @@
 # SALTA Security
 
-SALTA uses mandatory authentication and is designed to fail closed when required secrets or security settings are missing. This document describes the protections implemented by SALTA v0.5.4 and the limits of those protections.
+SALTA uses mandatory authentication and is designed to fail closed when required secrets or security settings are missing. This document describes the protections implemented by SALTA v0.5.5 and the limits of those protections.
 
 ## Network exposure and HTTPS
 

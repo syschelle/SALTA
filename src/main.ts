@@ -8,7 +8,7 @@ import { ShellyAdapter } from "./shelly-adapter.js";
 async function main(): Promise<void> {
   await initializeDatabaseSchema();
   const registry = new DeviceRegistry();
-  for (const device of await listDevices()) await registry.set(device);
+  for (const device of await listDevices()) registry.hydrate(device);
 
   const shelly = new ShellyAdapter(registry);
   shelly.start();

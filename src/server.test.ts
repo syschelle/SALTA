@@ -34,7 +34,7 @@ vi.mock("./db.js", () => ({
   updateShellySettings: vi.fn()
 }));
 
-import { getGlobalShellyCredentials, reorderRooms, updateRoom } from "./db.js";
+import { deleteRoom, getGlobalShellyCredentials, reorderRooms, updateRoom } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -113,6 +113,24 @@ describe("PUT /api/rooms/order", () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual(orderedRooms);
     expect(reorderRooms).toHaveBeenCalledWith(orderedRooms.map(room => room.id));
+  });
+});
+
+
+describe("DELETE /api/rooms/:id", () => {
+  it("clears deleted room assignments from the in-memory registry", async () => {
+    const roomId = "11111111-1111-4111-8111-111111111111";
+    vi.mocked(deleteRoom).mockResolvedValueOnce(true);
+    const clearRoom = vi.fn();
+    const server = createServer(vi.fn(), vi.fn(), { clearRoom });
+
+    const response = await authenticatedInject(server, {
+      method: "DELETE",
+      url: `/api/rooms/${roomId}`
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(clearRoom).toHaveBeenCalledWith(roomId);
   });
 });
 
@@ -374,7 +392,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.5.4" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.5.5" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {

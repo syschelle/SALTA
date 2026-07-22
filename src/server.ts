@@ -312,9 +312,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.4" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.5" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.4", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.5", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -356,7 +356,12 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     registry.updateRoomName(room.id,room.name);
     return room;
   });
-  app.delete<{Params:{id:string} }>("/api/rooms/:id",async(request,reply)=> (await deleteRoom(request.params.id)) ? reply.code(204).send() : reply.code(404).send({error:{code:"ROOM_NOT_FOUND",message:"Room not found",requestId:request.id}}));
+  app.delete<{Params:{id:string} }>("/api/rooms/:id",async(request,reply)=>{
+    const deleted = await deleteRoom(request.params.id);
+    if (!deleted) return reply.code(404).send({error:{code:"ROOM_NOT_FOUND",message:"Room not found",requestId:request.id}});
+    registry.clearRoom(request.params.id);
+    return reply.code(204).send();
+  });
 
   app.get("/api/settings/shelly", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "shelly-settings-read" } }

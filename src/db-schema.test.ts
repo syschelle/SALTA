@@ -16,6 +16,8 @@ describe("v0.5 clean database schema", () => {
     const devicesTable = databaseSource.match(/CREATE TABLE IF NOT EXISTS devices \(([\s\S]*?)\n    \);/i)?.[1] ?? "";
     expect(devicesTable).toContain("room_id uuid");
     expect(devicesTable).not.toMatch(/^\s*room\s+text/im);
+    expect(databaseSource).not.toContain("Create room automatically from its name");
+    expect(databaseSource).not.toContain("SELECT id FROM rooms WHERE name=$1");
   });
 
   it("accepts only the current v2 encrypted-secret format", () => {

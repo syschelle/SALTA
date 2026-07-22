@@ -31,5 +31,4 @@ const schema = z.object({
   SALTA_ENCRYPTION_KEY: nonPlaceholderSecret(16, "SALTA_ENCRYPTION_KEY")
 });
 
-export type AppConfig = z.infer<typeof schema>;
 export const config = schema.parse(process.env);

@@ -4,6 +4,7 @@ The SALTA v0.5 release line removes deprecated code and dependency paths control
 
 - The direct `@fastify/static` dependency was removed and replaced with a small allow-listed static-file handler.
 - The obsolete `glob` dependency chain that accompanied it is no longer part of the lockfile.
+- The redundant direct `pino` dependency was removed; Fastify continues to provide the runtime logger through its own dependency graph.
 - No SALTA direct dependency is marked as deprecated in `package-lock.json`.
 
 ## Upstream HomeKit exception
