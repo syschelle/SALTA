@@ -1,4 +1,4 @@
-# SALTA v0.4.18 – Git and Release Commands
+# SALTA v0.4.19 – Git and Release Commands
 
 ```bash
 git checkout main
@@ -7,20 +7,21 @@ git pull --ff-only origin main
 npm ci
 npm run check
 node --check public/app.js
+sh -n deploy.sh update.sh backup.sh restore.sh
 
 git add .
-git commit -m "release: SALTA v0.4.18"
+git commit -m "release: SALTA v0.4.19"
 git push origin main
 
-git tag -a v0.4.18 -m "SALTA v0.4.18"
-git push origin v0.4.18
+git tag -a v0.4.19 -m "SALTA v0.4.19"
+git push origin v0.4.19
 ```
 
 Create the GitHub release:
 
 ```bash
-gh release create v0.4.18 \
-  --title "SALTA v0.4.18" \
+gh release create v0.4.19 \
+  --title "SALTA v0.4.19" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.4.18.zip
+  ./SALTA-v0.4.19.zip
 ```

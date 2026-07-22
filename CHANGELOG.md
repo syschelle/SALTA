@@ -2,7 +2,13 @@
 
 All notable changes to SALTA are documented in this file.
 
-## 0.4.18
+## 0.4.19
+
+- Removed hover elevation and shadow transitions from device cards.
+- Added subtle hover and active feedback to buttons and button-style links only.
+- Added frontend regression coverage to keep device cards visually stable during live refreshes.
+
+## 0.4.19
 
 - Replaced custom and Unicode interface symbols with locally bundled Material Design Icons.
 - Added local MDI webfont assets without external CDN requests.

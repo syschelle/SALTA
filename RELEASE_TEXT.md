@@ -1,21 +1,20 @@
-# SALTA v0.4.18
+# SALTA v0.4.19
 
-SALTA v0.4.18 replaces custom interface symbols with locally bundled Material Design Icons.
+SALTA v0.4.19 fixes visual flickering on device cards during live status refreshes.
 
-## Changes
+## Fixed
 
-- Local MDI icons for navigation, devices, actions, rooms and theme switching
-- No CDN or external runtime request
-- Room icon names use the MDI identifier, for example `sofa-outline`
-- Pictogrammers source and Apache License 2.0 documented in the README
-- MDI license included in `public/vendor/mdi/LICENSE`
+- Removed hover elevation and shadow changes from device cards
+- Prevented card animations from replaying when the device grid refreshes
+- Kept subtle hover and pressed feedback on buttons and button-style links
+- Added frontend regression coverage
 
 ## Updating
 
 No database migration is required.
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.18
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.19
 ```
 
 ```bash
@@ -26,7 +25,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.18
+0.4.19
 0.4
 latest
 ```
@@ -34,5 +33,5 @@ latest
 ## Git Tag
 
 ```text
-v0.4.18
+v0.4.19
 ```

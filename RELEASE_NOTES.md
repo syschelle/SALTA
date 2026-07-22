@@ -1,12 +1,12 @@
-# SALTA v0.4.18
+# SALTA v0.4.19
 
-SALTA v0.4.18 replaces custom interface symbols with locally bundled Material Design Icons.
+SALTA v0.4.19 is a focused interface stability release.
 
-## Changes
+## Fixed
 
-- Added local MDI icons for navigation, devices, actions, rooms and theme switching
-- No CDN or external icon request
-- Room icon fields accept MDI names such as `sofa-outline`
-- Added Pictogrammers attribution and Apache License 2.0 notice
+- Device cards no longer lift or change shadow on hover.
+- Live refreshes no longer replay the card hover animation under the pointer.
+- Buttons and button-style links retain subtle hover and pressed feedback.
+- Added regression coverage for stationary device cards.
 
 No database migration is required.

@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.18` is the current stable release. It adds locally bundled Material Design Icons while retaining Shelly discovery, multi-channel control, cover positioning, configurable device functions, persistent themes and optional HomeKit support.
+`v0.4.19` is the current stable release. It keeps device cards visually stable during live refreshes and limits hover elevation to interactive buttons.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.18"
+git commit -m "release: SALTA v0.4.19"
 git push origin main
-git tag -a v0.4.18 -m "SALTA v0.4.18"
-git push origin v0.4.18
+git tag -a v0.4.19 -m "SALTA v0.4.19"
+git push origin v0.4.19
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.18
+ghcr.io/<github-owner>/<repository>:0.4.19
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
