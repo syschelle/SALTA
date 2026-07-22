@@ -128,7 +128,7 @@ describe("ShellyAdapter Gen2+ probing", () => {
         if (!authorization.startsWith("Digest ")) {
           return new Response("", {
             status: 401,
-            headers: { "www-authenticate": 'Digest qop="auth", realm="shellyplus2pm-secure", nonce="testnonce", algorithm=SHA-256' }
+            headers: { "www-authenticate": 'Digest opaque="gateway\\\"value", algorithm=SHA-256, nonce="testnonce", qop="auth", realm="shellyplus2pm-secure"' }
           });
         }
         return jsonResponse({ "switch:0": { id: 0, output: true }, "switch:1": { id: 1, output: false } });

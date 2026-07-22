@@ -32,16 +32,69 @@ type DigestChallenge = {
   opaque?: string;
 };
 
+function isDigestTokenCharacter(character: string): boolean {
+  const code = character.charCodeAt(0);
+  return (code >= 48 && code <= 57)
+    || (code >= 65 && code <= 90)
+    || (code >= 97 && code <= 122)
+    || character === "_"
+    || character === "-";
+}
+
+function isDigestWhitespace(character: string): boolean {
+  return character === " " || character === "\t" || character === "\r" || character === "\n";
+}
+
+function parseDigestAttributes(input: string): Record<string, string> {
+  const attributes: Record<string, string> = {};
+  let index = 0;
+
+  while (index < input.length) {
+    while (index < input.length && (input[index] === "," || isDigestWhitespace(input[index] ?? ""))) index += 1;
+    const keyStart = index;
+    while (index < input.length && isDigestTokenCharacter(input[index] ?? "")) index += 1;
+    if (index === keyStart) {
+      index += 1;
+      continue;
+    }
+    const key = input.slice(keyStart, index).toLowerCase();
+    while (index < input.length && isDigestWhitespace(input[index] ?? "")) index += 1;
+    if (input[index] !== "=") {
+      while (index < input.length && input[index] !== ",") index += 1;
+      continue;
+    }
+    index += 1;
+    while (index < input.length && isDigestWhitespace(input[index] ?? "")) index += 1;
+
+    let parsedValue = "";
+    if (input[index] === '"') {
+      index += 1;
+      while (index < input.length) {
+        const character = input[index] ?? "";
+        index += 1;
+        if (character === '"') break;
+        if (character === "\\" && index < input.length) {
+          parsedValue += input[index] ?? "";
+          index += 1;
+        } else {
+          parsedValue += character;
+        }
+      }
+    } else {
+      const valueStart = index;
+      while (index < input.length && input[index] !== "," && !isDigestWhitespace(input[index] ?? "")) index += 1;
+      parsedValue = input.slice(valueStart, index);
+    }
+    attributes[key] = parsedValue;
+    while (index < input.length && input[index] !== ",") index += 1;
+  }
+
+  return attributes;
+}
+
 function parseDigestChallenge(value: string | null): DigestChallenge | undefined {
   if (!value?.toLowerCase().startsWith("digest ")) return undefined;
-  const attributes: Record<string, string> = {};
-  const input = value.slice(7);
-  const pattern = /([a-zA-Z0-9_-]+)\s*=\s*(?:"((?:\\.|[^"])*)"|([^,\s]+))/g;
-  for (const match of input.matchAll(pattern)) {
-    const key = match[1]?.toLowerCase();
-    const raw = match[2] ?? match[3];
-    if (key && raw !== undefined) attributes[key] = raw.replace(/\\"/g, '"');
-  }
+  const attributes = parseDigestAttributes(value.slice(7));
   if (!attributes.realm || !attributes.nonce) return undefined;
   return {
     realm: attributes.realm,

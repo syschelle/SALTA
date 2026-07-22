@@ -2,6 +2,13 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.32
+
+- Added `@fastify/rate-limit` and explicit per-route limits for all six database- or authentication-backed endpoints reported by CodeQL.
+- Retained the existing SALTA global, client, mutation and specialized rate limits as defense in depth.
+- Replaced the Digest challenge regular expression with a linear character-by-character parser.
+- Added regression coverage for route rate-limit configuration and Digest challenge parsing.
+
 ## 0.4.31
 
 - Updated the persistent-theme regression test for the CSP-compatible external `theme-init.js` script.

@@ -1,21 +1,27 @@
-# SALTA v0.4.31
+# SALTA v0.4.32
 
-SALTA v0.4.31 fixes the outdated frontend theme regression test after the security hardening moved early theme initialization into a CSP-compatible external script.
+SALTA v0.4.32 resolves the seven open GitHub CodeQL findings reported after the security hardening release.
 
-## Fixed
+## Security Fixes
 
-- Updated the theme persistence test to inspect `public/theme-init.js`
-- Verified that `/theme-init.js` is loaded before the first stylesheet
-- Kept early cookie-based theme selection without inline JavaScript
-- Preserved the strict Content Security Policy introduced by the security hardening
-- No runtime behavior or database schema changes
+- Added the official `@fastify/rate-limit` plugin for CodeQL-recognized Fastify route protection
+- Added explicit per-route limits to login, readiness, room-list, Shelly-settings, device-command and command-history endpoints
+- Kept SALTA's existing global, per-client, mutation, login-failure and expensive-operation limits as an additional protection layer
+- Replaced the Digest authentication challenge regular expression with a bounded linear parser
+- Preserved support for quoted, escaped and unquoted Digest challenge attributes
+- Added regression coverage for all explicitly rate-limited routes and the new Digest parser
+
+## CodeQL Findings Addressed
+
+- Six `js/missing-rate-limiting` findings in `src/server.ts`
+- One inefficient regular expression finding in `src/shelly-adapter.ts`
 
 ## Updating
 
-No database migration is required. Keep the existing `SALTA_ENCRYPTION_KEY`, admin credentials and security settings unchanged.
+No database migration is required. Keep the existing `SALTA_ENCRYPTION_KEY`, admin credentials and reverse-proxy settings unchanged.
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.31
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.32
 ```
 
 ```bash
@@ -26,7 +32,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.31
+0.4.32
 0.4
 latest
 ```
@@ -34,5 +40,5 @@ latest
 ## Git Tag
 
 ```text
-v0.4.31
+v0.4.32
 ```

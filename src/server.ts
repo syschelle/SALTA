@@ -1,5 +1,6 @@
 import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import fastifyStatic from "@fastify/static";
+import fastifyRateLimit from "@fastify/rate-limit";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { z } from "zod";
@@ -123,6 +124,21 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   const publicPaths = new Set(["/login", "/login.html", "/login.js", "/login.css", "/theme-init.js"]);
   const rateWindowMs = 60_000;
 
+  void app.register(fastifyRateLimit, {
+    global: false,
+    max: config.RATE_LIMIT_PER_MINUTE,
+    timeWindow: rateWindowMs,
+    keyGenerator: request => request.ip,
+    cache: 10_000,
+    errorResponseBuilder: (request) => ({
+      error: {
+        code: "RATE_LIMITED",
+        message: "Too many requests. Try again later.",
+        requestId: request.id
+      }
+    })
+  });
+
   app.addHook("onSend", async (request, reply, payload) => {
     reply.header("X-Content-Type-Options", "nosniff");
     reply.header("X-Frame-Options", "DENY");
@@ -229,7 +245,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.sendFile("login.html");
   });
 
-  app.post<{ Body: unknown }>("/auth/login", async (request, reply) => {
+  app.post<{ Body: unknown }>("/auth/login", {
+    config: { rateLimit: { max: 20, timeWindow: rateWindowMs, groupId: "auth-login" } }
+  }, async (request, reply) => {
     const ip = request.ip;
     const local = isIpInNetworks(ip, localNetworks);
     if (!local && !originMatchesRequest(request)) {
@@ -271,10 +289,12 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.31" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.32" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.31", time: new Date().toISOString() }));
-  app.get("/api/readiness", async (_request, reply) => {
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.4.32", time: new Date().toISOString() }));
+  app.get("/api/readiness", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
+  }, async (_request, reply) => {
     try {
       await pool.query("select 1");
       const credentialEncryption = await inspectCredentialEncryption();
@@ -290,7 +310,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch { return reply.code(503).send({ status: "not-ready", components: { database: "down" } }); }
   });
 
-  app.get("/api/rooms", async () => listRooms());
+  app.get("/api/rooms", {
+    config: { rateLimit: { max: 120, timeWindow: rateWindowMs, groupId: "rooms-read" } }
+  }, async () => listRooms());
   app.post<{Body:unknown}>("/api/rooms", async (request,reply)=>{
     const parsed=roomSchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
     try { return reply.code(201).send(await createRoom(parsed.data.name,parsed.data.icon,parsed.data.sortOrder)); }
@@ -313,7 +335,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   });
   app.delete<{Params:{id:string} }>("/api/rooms/:id",async(request,reply)=> (await deleteRoom(request.params.id)) ? reply.code(204).send() : reply.code(404).send({error:{code:"ROOM_NOT_FOUND",message:"Room not found",requestId:request.id}}));
 
-  app.get("/api/settings/shelly",async()=>getShellySettings());
+  app.get("/api/settings/shelly", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "shelly-settings-read" } }
+  }, async()=>getShellySettings());
   app.put<{Body:unknown}>("/api/settings/shelly",async(request,reply)=>{
     const parsed=shellySettingsSchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
     try {
@@ -357,7 +381,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     try { return await registry.patchCredentials(request.params.id,parsed.data.credentialMode,parsed.data.username,parsed.data.password); }
     catch { return reply.code(404).send({error:{code:"DEVICE_NOT_FOUND",message:"Device not found",requestId:request.id}}); }
   });
-  app.post<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/command", async (request, reply) => {
+  app.post<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/command", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "device-command" } }
+  }, async (request, reply) => {
     const parsed = commandSchema.safeParse(request.body); if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
     const id = randomUUID();
     try {
@@ -371,7 +397,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       return reply.code(message === "DEVICE_NOT_FOUND" ? 404 : 400).send({ error: { code: message, message, requestId: request.id } });
     }
   });
-  app.get("/api/commands", async () => (await pool.query("select * from commands order by created_at desc limit 100")).rows);
+  app.get("/api/commands", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "commands-read" } }
+  }, async () => (await pool.query("select * from commands order by created_at desc limit 100")).rows);
   app.post("/api/adapters/shelly/reconcile", async () => { await shellyAdapter.reconcile(); return { status: "ok" }; });
   app.post<{Body:unknown}>("/api/adapters/shelly/discover",async(request,reply)=>{
     const parsed=shellyDiscoverySchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});

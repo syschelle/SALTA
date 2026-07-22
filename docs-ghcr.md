@@ -3,14 +3,14 @@
 Create and push a semantic version tag:
 
 ```bash
-git tag -a v0.4.31 -m "SALTA v0.4.31"
-git push origin v0.4.31
+git tag -a v0.4.32 -m "SALTA v0.4.32"
+git push origin v0.4.32
 ```
 
 The `Publish SALTA container` workflow publishes a single multi-architecture image:
 
 ```text
-ghcr.io/<owner>/<repository>:0.4.31
+ghcr.io/<owner>/<repository>:0.4.32
 ghcr.io/<owner>/<repository>:0.4
 ghcr.io/<owner>/<repository>:latest
 ```
