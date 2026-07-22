@@ -2,6 +2,12 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.30
+
+- Republished the unchanged v0.4.29 application and security hardening under a new release tag.
+- Added no runtime, database or configuration changes.
+- Intended to trigger a fresh GitHub container build when the previous workflow run cannot be rerun.
+
 ## 0.4.29
 
 - Fixed TypeScript compilation of the authenticated Fastify injection test helper.

@@ -1,25 +1,26 @@
-# SALTA v0.4.29
+# SALTA v0.4.30
 
-SALTA v0.4.29 fixes the TypeScript compilation failure in the security-enabled server tests introduced with v0.4.28.
+SALTA v0.4.30 republishes the unchanged v0.4.29 application code under a new release tag to trigger a fresh GitHub container build.
 
-## Fixed
+## Release Scope
 
-- Corrected the typed helper used for authenticated Fastify request injection
-- Replaced the invalid `Parameters<typeof server.inject>[0]` inference with the official `InjectOptions` type
-- Added `light-my-request` as an explicit development dependency
-- Restored TypeScript compilation for `src/server.test.ts`
-- Kept all security hardening from v0.4.28 unchanged
+- No runtime behavior changes
+- No security-policy changes
+- No database migration
+- No environment-variable changes
+- Includes all authentication, API protection, rate limiting and Docker-network hardening from v0.4.29
+- Uses a new Git tag so the container publishing workflow runs again
 
-## Notes
+## Important Note
 
-The GitHub Actions Node.js runtime and `punycode` messages are deprecation warnings and were not the cause of the failed build. The build stopped because TypeScript treated the overloaded zero-argument `inject()` signature as the helper parameter type.
+This release does not change GitHub's repository-level CodeQL default configuration. A separate CodeQL configuration error may still be shown by GitHub even when the SALTA container build and publication succeed.
 
 ## Updating
 
-No database migration is required. Keep the existing `SALTA_ENCRYPTION_KEY` unchanged.
+Keep the existing `SALTA_ENCRYPTION_KEY`, admin credentials and security settings unchanged.
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.29
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.30
 ```
 
 ```bash
@@ -30,7 +31,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.29
+0.4.30
 0.4
 latest
 ```
@@ -38,5 +39,5 @@ latest
 ## Git Tag
 
 ```text
-v0.4.29
+v0.4.30
 ```
