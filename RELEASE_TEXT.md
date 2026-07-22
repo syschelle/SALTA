@@ -1,22 +1,20 @@
-# SALTA v0.4.25
+# SALTA v0.4.26
 
-SALTA v0.4.25 moves the device name into the top row next to the icon to make device cards more compact.
+SALTA v0.4.26 fixes the frontend regression test for the compact device-card layout introduced in v0.4.25.
 
-## Fixed and Improved
+## Fixed
 
-- Placed the device name directly beside the icon in the top header row
-- Kept the reachability dot on the right side of the same header row
-- Moved room and type metadata directly below the title in the same compact title block
-- Reduced vertical whitespace at the top of device cards
-- Kept the compact measurement presentation and colored state-card styling
-- Added frontend regression coverage for the compact device-title layout
+- Updated the compact device-card regression test to match the current value spacing
+- Expected measurement spacing now matches `margin-top: 11px` and `padding-top: 10px`
+- Restored successful CI and release builds
+- No runtime behavior or database schema changes
 
 ## Updating
 
 No database migration is required.
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.25
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.26
 ```
 
 ```bash
@@ -27,7 +25,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.25
+0.4.26
 0.4
 latest
 ```
@@ -35,5 +33,5 @@ latest
 ## Git Tag
 
 ```text
-v0.4.25
+v0.4.26
 ```

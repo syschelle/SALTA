@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.25` is the current stable release. It moves the device title beside the icon for a more compact device-card header.
+`v0.4.26` is the current stable release. It fixes the compact device-card regression test so CI matches the current layout spacing.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.25"
+git commit -m "release: SALTA v0.4.26"
 git push origin main
-git tag -a v0.4.25 -m "SALTA v0.4.25"
-git push origin v0.4.25
+git tag -a v0.4.26 -m "SALTA v0.4.26"
+git push origin v0.4.26
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.25
+ghcr.io/<github-owner>/<repository>:0.4.26
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```

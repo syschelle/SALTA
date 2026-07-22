@@ -10,7 +10,7 @@ describe("compact device-card layout", () => {
   });
 
   it("uses compact spacing for values, actions and cover controls", () => {
-    expect(styles).toContain("margin-top:12px;padding-top:11px");
+    expect(styles).toContain("margin-top:11px;padding-top:10px");
     expect(styles).toContain(".actions{display:flex;gap:6px;margin-top:11px");
     expect(styles).toContain(".cover-control{margin-top:11px;padding:10px 12px");
   });
