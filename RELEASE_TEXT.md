@@ -1,21 +1,21 @@
-# SALTA v0.4.20
+# SALTA v0.4.21
 
-SALTA v0.4.20 improves room icon selection and room-name synchronization.
+SALTA v0.4.21 makes the device overview more compact and removes unnecessary whitespace from device cards.
 
 ## Fixed
 
-- Replaced free-text MDI icon entry with a visual room-icon selector
-- Added common room choices for living rooms, bedrooms, kitchens, bathrooms, offices, garages and outdoor areas
-- Added an icon preview while selecting a room icon
-- Renaming a room now updates all assigned device cards immediately
-- Synchronized room names in PostgreSQL and the live device registry
+- Short device cards no longer stretch to the height of larger cards in the same row
+- Reduced card padding and spacing between title, metadata, values and actions
+- Compacted measurement labels and action buttons
+- Reduced the size of window-covering position controls without removing functionality
+- Added frontend regression coverage for the compact layout
 
 ## Updating
 
 No database migration is required.
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.20
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.21
 ```
 
 ```bash
@@ -26,7 +26,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.20
+0.4.21
 0.4
 latest
 ```
@@ -34,5 +34,5 @@ latest
 ## Git Tag
 
 ```text
-v0.4.20
+v0.4.21
 ```

@@ -2,6 +2,13 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.21
+
+- Reduced padding and vertical spacing inside device cards.
+- Prevented short cards from stretching to the height of the tallest card in the same grid row.
+- Compacted measurement rows, action buttons and cover-position controls.
+- Added frontend regression coverage for compact card layout.
+
 ## 0.4.20
 
 - Replaced free-text room icon entry with a curated visual icon selector.
