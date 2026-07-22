@@ -146,9 +146,9 @@ button>.mdi,.button-link>.mdi{font-size:18px;line-height:1}
 .room-order-button:disabled{opacity:.35;cursor:not-allowed}
 @media(max-width:620px){.device-groups{gap:22px}.device-room-heading{padding:0}.room-identity{align-items:flex-start}.room-order-controls{margin-top:-2px}}
 
-/* v0.4.23: color-coded switch and light states */
-:root{--state-on-bg:#effaf4;--state-on-border:#9fd8bc;--state-on-accent:#16865a;--state-on-icon-bg:#dff3e8;--state-off-bg:#fff3f4;--state-off-border:#edb0b7;--state-off-accent:#c53a49;--state-off-icon-bg:#fbe0e3}
-html[data-theme="dark"]{--state-on-bg:#13271f;--state-on-border:#2d7456;--state-on-accent:#55d49a;--state-on-icon-bg:#1b3a2d;--state-off-bg:#2d191d;--state-off-border:#7d3743;--state-off-accent:#ff8290;--state-off-icon-bg:#482229}
+/* v0.4.24: color-coded switch, light and outlet states */
+:root{--state-on-bg:#effaf4;--state-on-border:#dbe8e0;--state-on-accent:#16865a;--state-on-icon-bg:#dff3e8;--state-off-bg:#fff3f4;--state-off-border:#eddfe2;--state-off-accent:#c53a49;--state-off-icon-bg:#fbe0e3}
+html[data-theme="dark"]{--state-on-bg:#13271f;--state-on-border:#2b3b33;--state-on-accent:#55d49a;--state-on-icon-bg:#1b3a2d;--state-off-bg:#2d191d;--state-off-border:#413136;--state-off-accent:#ff8290;--state-off-icon-bg:#482229}
 .device.device-state-on{background:var(--state-on-bg);border-color:var(--state-on-border);box-shadow:inset 4px 0 0 var(--state-on-accent),var(--shadow-card)}
 .device.device-state-off{background:var(--state-off-bg);border-color:var(--state-off-border);box-shadow:inset 4px 0 0 var(--state-off-accent),var(--shadow-card)}
 .device.device-state-on .icon{background:var(--state-on-icon-bg);color:var(--state-on-accent)}

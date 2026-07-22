@@ -1,4 +1,4 @@
-# SALTA v0.4.23 – Git and Release Commands
+# SALTA v0.4.24 – Git and Release Commands
 
 ```bash
 git checkout main
@@ -11,16 +11,16 @@ node --check public/app.js
 sh -n deploy.sh update.sh backup.sh restore.sh
 
 git add .
-git commit -m "release: SALTA v0.4.23"
+git commit -m "release: SALTA v0.4.24"
 git push origin main
 
-git tag -a v0.4.23 -m "SALTA v0.4.23"
-git push origin v0.4.23
+git tag -a v0.4.24 -m "SALTA v0.4.24"
+git push origin v0.4.24
 ```
 
 ```bash
-gh release create v0.4.23 \
-  --title "SALTA v0.4.23" \
+gh release create v0.4.24 \
+  --title "SALTA v0.4.24" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.4.23.zip
+  ./SALTA-v0.4.24.zip
 ```

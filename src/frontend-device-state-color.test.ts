@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
 
-describe("switch and light card state colors", () => {
-  it("adds on/off card classes only to reachable switches and lights", () => {
-    expect(appSource).toContain("const stateVisual=['switch','light'].includes(visualType)");
+describe("switch, light and outlet card state colors", () => {
+  it("adds on/off card classes only to reachable switches, lights and outlets", () => {
+    expect(appSource).toContain("const stateVisual=['switch','light','outlet'].includes(visualType)");
     expect(appSource).toContain("const stateClass=stateKnown?(d.state.on?' device-state-on':' device-state-off')");
   });
 

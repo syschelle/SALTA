@@ -2,7 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
-## 0.4.23
+## 0.4.24
+
+- Extended colored state-card styling to outlet devices such as Shelly Plug S (`SHPLG-S`).
+- Softened the outer state-card border colors so the right edge is less visually heavy.
+- Removed the redundant On/Off status metric from colored outlet cards.
+- Added frontend regression coverage for outlet state coloring.
+
+## 0.4.24
 
 - Added green and red card-state colors for reachable switch and light devices.
 - Removed the redundant On/Off status metric from colored switch and light cards.
