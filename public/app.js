@@ -60,16 +60,17 @@ async function api(url,options={}){
   const headers=new Headers(options.headers||{});
   if(!['GET','HEAD','OPTIONS'].includes(method))headers.set('X-SALTA-CSRF',csrfToken);
   const response=await fetch(url,{...options,method,headers,credentials:'same-origin'});
-  if(response.status===401){location.replace('/login');throw new Error('Authentication required')}
+  const payload=response.status===204?null:await response.json().catch(()=>null);
   if(!response.ok){
-    const payload=await response.json().catch(()=>({}));
-    const error=new Error(payload.error?.message||`HTTP ${response.status}`);
-    error.code=payload.error?.code||`HTTP_${response.status}`;
+    const code=payload?.error?.code||`HTTP_${response.status}`;
+    if(response.status===401&&code==='UNAUTHORIZED'){location.replace('/login');throw new Error('Authentication required')}
+    const error=new Error(payload?.error?.message||`HTTP ${response.status}`);
+    error.code=code;
     error.status=response.status;
-    error.requestId=payload.error?.requestId;
+    error.requestId=payload?.error?.requestId;
     throw error;
   }
-  return response.status===204?null:response.json();
+  return payload;
 }
 async function logout(){
   try{await api('/auth/logout',{method:'POST'})}finally{location.replace('/login')}

@@ -17,6 +17,12 @@ describe("authenticated web application", () => {
     expect(indexSource).toContain('id="logoutButton"');
   });
 
+  it("redirects only when SALTA session authentication is missing", () => {
+    expect(appSource).toContain("response.status===401&&code==='UNAUTHORIZED'");
+    expect(appSource).not.toContain("if(response.status===401){location.replace('/login')");
+    expect(appSource).toContain("AUTHENTICATION_FAILED:'Authentifizierung fehlgeschlagen.");
+  });
+
   it("loads the theme initializer from an external script for CSP compatibility", () => {
     expect(indexSource).toContain('<script src="/theme-init.js"></script>');
     expect(indexSource).not.toContain("document.cookie.split('; ')");

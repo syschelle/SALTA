@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.5.3
+
+- Fixed the Shelly onboarding dialog closing after an upstream device authentication failure.
+- Redirected to the SALTA login page only for the explicit `UNAUTHORIZED` session error.
+- Returned Shelly credential failures as HTTP 422 instead of HTTP 401.
+- Kept authentication errors visible inside the open onboarding dialog.
+- Added frontend and API regression coverage for the corrected authentication paths.
+- Kept the v0.5 database schema and installation configuration unchanged.
+
 ## 0.5.2
 
 - Restored the complete Material Design Icons (MDI) attribution in `README.md`.

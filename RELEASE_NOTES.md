@@ -1,42 +1,39 @@
-# SALTA v0.5.2
+# SALTA v0.5.3
 
-SALTA v0.5.2 fixes the documentation attribution regression that caused the frontend icon test to fail during the release build.
+SALTA v0.5.3 fixes the Shelly onboarding dialog closing immediately after a device authentication error.
 
-## Build fix
+## Device onboarding fix
 
-- Restored the full Material Design Icons attribution in `README.md`
-- Documented the official name `Material Design Icons (MDI)`
-- Added the upstream project attribution to Pictogrammers
-- Retained the Apache License 2.0 reference and the bundled license-file path
-- Revalidated the README against the frontend icon regression test
+- Distinguished SALTA session authentication failures from Shelly device authentication failures
+- Redirects to the SALTA login page only when the API returns the explicit `UNAUTHORIZED` session error
+- Keeps the “Add Shelly” dialog open when a Shelly rejects the supplied credentials
+- Preserves the readable in-dialog authentication error so credentials can be corrected immediately
+- Returns Shelly credential failures as HTTP 422 instead of HTTP 401 to avoid treating an upstream device error as a SALTA logout
+- Added regression coverage for both the frontend redirect decision and the Shelly onboarding API response
 
 ## Runtime behavior
 
-- No SALTA runtime behavior changed
-- No API behavior changed
-- No database schema changed compared with v0.5.0 and v0.5.1
-- The v0.5 clean-install architecture remains unchanged
+- No database schema changes
+- No environment or Docker Compose changes
+- No clean reinstall is required when updating from v0.5.0, v0.5.1 or v0.5.2
+- The v0.5 clean-install requirement still applies only when coming from v0.4.x
 
-## Important compatibility notice
+## Updating
 
-SALTA v0.5.2 requires a fresh PostgreSQL volume when upgrading from v0.4.x. Existing v0.4.x databases and v1-encrypted credentials are intentionally not migrated.
+```bash
+./update.sh
+```
 
-For a complete fresh installation:
+For a new installation:
 
 ```bash
 ./install.sh --fresh
 ```
 
-For a database-only reset that retains the current `.env` secrets:
-
-```bash
-./install.sh --reset
-```
-
 ## Container tags
 
 ```text
-0.5.2
+0.5.3
 0.5
 latest
 ```
@@ -44,5 +41,5 @@ latest
 ## Git tag
 
 ```text
-v0.5.2
+v0.5.3
 ```

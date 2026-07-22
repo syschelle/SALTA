@@ -50,7 +50,7 @@ function shellyRequestError(error: unknown): { status: number; code: string; mes
   const rawCode = error instanceof Error ? error.message : "SHELLY_REQUEST_FAILED";
   switch (rawCode) {
     case "AUTHENTICATION_FAILED":
-      return { status: 401, code: rawCode, message: "Authentication failed. Check the selected Shelly credentials." };
+      return { status: 422, code: rawCode, message: "Authentication failed. Check the selected Shelly credentials." };
     case "DEVICE_UNREACHABLE":
       return { status: 502, code: rawCode, message: "The Shelly device is unreachable at the specified address." };
     case "DETECTION_TIMEOUT":
@@ -312,9 +312,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.2" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.3" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.2", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.3", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {

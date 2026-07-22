@@ -231,6 +231,25 @@ describe("POST /api/adapters/shelly/devices", () => {
     expect(add).toHaveBeenCalledWith("192.168.1.50", "", "", undefined, undefined, undefined, "none");
   });
 
+  it("keeps Shelly credential failures separate from SALTA session authentication", async () => {
+    const add = vi.fn(async () => { throw new Error("AUTHENTICATION_FAILED"); });
+    const server = createServer(vi.fn(), add);
+
+    const response = await authenticatedInject(server, {
+      method: "POST",
+      url: "/api/adapters/shelly/devices",
+      payload: { host: "192.168.1.60", credentialMode: "custom", username: "admin", password: "wrong" }
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: "AUTHENTICATION_FAILED",
+        message: "Authentication failed. Check the selected Shelly credentials."
+      }
+    });
+  });
+
   it("returns a readable error when the Shelly is unreachable", async () => {
     const add = vi.fn(async () => { throw new Error("DEVICE_UNREACHABLE"); });
     const server = createServer(vi.fn(), add);
@@ -355,7 +374,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.5.2" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.5.3" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
