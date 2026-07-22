@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.32` is the current stable release. It resolves the open CodeQL rate-limiting and Digest-parser findings while retaining the existing security hardening.
+`v0.4.33` is the current stable release. It updates the SALTA source-code license to Apache License 2.0 and removes version-tag publishing instructions from the main README while retaining the existing security hardening.
 
 ## Supported architectures
 
@@ -21,20 +21,10 @@ Docker automatically pulls the correct image for the host. The same `docker-comp
 
 ## Publish the container image
 
-Push a version tag to GitHub:
-
-```bash
-git add .
-git commit -m "release: SALTA v0.4.32"
-git push origin main
-git tag -a v0.4.32 -m "SALTA v0.4.32"
-git push origin v0.4.32
-```
-
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.32
+ghcr.io/<github-owner>/<repository>:0.4.33
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
@@ -140,7 +130,7 @@ HomeKit is disabled by default. Enable it in `.env` and publish the configured H
 
 ## Security
 
-SALTA v0.4.32 is fail-closed: a strong `ADMIN_PASSWORD` and generated `SALTA_HEALTH_TOKEN` are mandatory. The web application uses an opaque server-side session with an `HttpOnly`, `SameSite=Strict` cookie, a finite lifetime, logout support and CSRF protection for state-changing requests.
+SALTA v0.4.33 is fail-closed: a strong `ADMIN_PASSWORD` and generated `SALTA_HEALTH_TOKEN` are mandatory. The web application uses an opaque server-side session with an `HttpOnly`, `SameSite=Strict` cookie, a finite lifetime, logout support and CSRF protection for state-changing requests.
 
 Direct Basic-authenticated API access is accepted only from `LOCAL_NETWORKS`. Internet browser access uses the authenticated same-origin web session. This is necessary because the browser interface itself retrieves data through JSON endpoints.
 
@@ -159,7 +149,7 @@ See `SECURITY.md` for deployment details.
 
 ## License
 
-SALTA source code: MIT.
+SALTA source code: Apache License 2.0. See `LICENSE`.
 
 Bundled Material Design Icons: Apache License 2.0. See `public/vendor/mdi/LICENSE`.
 

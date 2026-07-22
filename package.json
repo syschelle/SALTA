@@ -1,6 +1,6 @@
 {
   "name": "salta",
-  "version": "0.4.32",
+  "version": "0.4.33",
   "description": "SALTA local-first smart-home control plane",
   "private": false,
   "type": "module",
@@ -32,7 +32,7 @@
     "typescript": "^5.8.0",
     "vitest": "^3.2.0"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": [
     "smart-home",
     "local-first",

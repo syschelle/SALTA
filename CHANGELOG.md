@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.33
+
+- Changed the SALTA source-code license from MIT to Apache License 2.0.
+- Updated `LICENSE`, package metadata and README licensing information consistently.
+- Removed version-tag publishing instructions from the main README.
+- Added release documentation and Git commands for v0.4.33.
+- Added no runtime, database or configuration changes.
+
 ## 0.4.32
 
 - Added `@fastify/rate-limit` and explicit per-route limits for all six database- or authentication-backed endpoints reported by CodeQL.

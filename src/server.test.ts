@@ -336,7 +336,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.4.32" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.4.33" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
