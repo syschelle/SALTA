@@ -1,42 +1,27 @@
-# SALTA v0.5.6
+# SALTA v0.5.7
 
-SALTA v0.5.6 makes `docker-compose.image.yml` a complete standalone production deployment.
+SALTA v0.5.7 makes the main README reusable across future releases and adds practical hardware guidance for a dedicated SALTA host.
 
-## Standalone production deployment
+## Documentation improvements
 
-- Expanded `docker-compose.image.yml` to include the complete PostgreSQL and SALTA stack
-- Included persistent PostgreSQL storage, frontend and internal backend networks, service dependencies and health checks
-- Included all SALTA and PostgreSQL environment-variable mappings and mandatory secret validation
-- Included SALTA web and optional HomeKit port mappings
-- Included the existing container security settings, capability drop, process limit and size-limited temporary filesystem
-- Updated installation, update, backup and restore scripts to use only `docker-compose.image.yml`
-- Updated production deployment, status and log commands throughout the documentation
-- Added regression coverage that verifies the image deployment file is self-contained
+- Added a dedicated hardware section for systems that run only SALTA
+- Recommended a Raspberry Pi 4 with 4 GB RAM, a 64 GB or 128 GB USB SSD, Gigabit Ethernet and a 64-bit Linux installation
+- Documented a practical minimum of two 64-bit CPU cores, 2 GB RAM and 32 GB SSD storage
+- Clarified that a Raspberry Pi 5 or Intel N100/N150 system is optional rather than required for SALTA-only operation
+- Recommended SSD storage instead of a microSD card for continuous PostgreSQL operation
+- Renamed the version-specific clean-reinstall section to the reusable “Reset or reinstall” section
+- Renamed the version-specific update section to “Updating”
+- Removed obsolete references to migration from older release lines
+- Removed hard-coded release numbers from installation, backup, restore, security and credential-format guidance in the README
+- Clarified that the image configured in `.env` should use a fixed tag for predictable deployments
 
-## Deployment
+## Runtime behavior
 
-Only the environment file and the standalone Compose file are required:
-
-```bash
-docker compose --env-file .env -f docker-compose.image.yml pull
-docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans
-```
-
-Status and logs:
-
-```bash
-docker compose --env-file .env -f docker-compose.image.yml ps
-docker compose --env-file .env -f docker-compose.image.yml logs -f salta
-```
-
-## Compatibility
-
-- No application runtime behavior changed
+- No application behavior changed
 - No API behavior changed
 - No database schema changed
-- No `.env` migration is required
-- No fresh installation is required when updating from v0.5.x
-- The clean-install requirement still applies when coming from v0.4.x
+- No Compose or `.env` migration is required
+- No reinstall is required
 
 ## Updating
 
@@ -47,13 +32,13 @@ docker compose --env-file .env -f docker-compose.image.yml logs -f salta
 For a new installation:
 
 ```bash
-./install.sh --fresh
+./install.sh
 ```
 
 ## Container tags
 
 ```text
-0.5.6
+0.5.7
 0.5
 latest
 ```
@@ -61,5 +46,5 @@ latest
 ## Git tag
 
 ```text
-v0.5.6
+v0.5.7
 ```

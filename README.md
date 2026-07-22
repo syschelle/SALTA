@@ -6,12 +6,6 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 > Your home. Your hardware. Your rules.
 
-## Release status
-
-`v0.5.6` is the current stable release. It makes `docker-compose.image.yml` a complete standalone production deployment while retaining the reliability and cleanup improvements from v0.5.5.
-
-> **Breaking change from v0.4.x:** the v0.5 release line requires a fresh PostgreSQL volume. Databases and encrypted credentials from v0.4.x are intentionally not migrated.
-
 ## Supported architectures
 
 The GitHub release workflow publishes one multi-architecture image for:
@@ -21,7 +15,34 @@ The GitHub release workflow publishes one multi-architecture image for:
 
 Docker automatically pulls the correct image for the host.
 
-## Fresh installation
+## Hardware for a dedicated SALTA system
+
+SALTA does not require a powerful server when it is the only application running on the host.
+
+### Recommended setup
+
+- Raspberry Pi 4 with 4 GB RAM
+- 64 GB or 128 GB USB SSD
+- Gigabit Ethernet
+- Official or high-quality power supply
+- Small cooled case
+- 64-bit Raspberry Pi OS Lite or another supported 64-bit Linux distribution
+
+A Raspberry Pi 4 with 2 GB RAM is generally sufficient for SALTA alone, but 4 GB provides more reserve for operating-system updates, Docker operations and growing PostgreSQL data.
+
+### Practical minimum
+
+- 64-bit ARM64 or AMD64 processor with at least two CPU cores
+- 2 GB RAM
+- 32 GB SSD storage
+- Wired Ethernet connection
+- 64-bit Linux with Docker Engine and the Docker Compose plugin
+
+Use an SSD for the PostgreSQL data volume. A microSD card is suitable for testing, but it is not recommended as the primary storage medium for continuous operation.
+
+A Raspberry Pi 5 or an Intel N100/N150 mini PC also works, but it is not necessary when the system runs only SALTA.
+
+## Installation
 
 Clone the repository and run the installer:
 
@@ -37,17 +58,18 @@ chmod +x install.sh update.sh backup.sh restore.sh
 - creates `.env` when it does not exist;
 - generates the PostgreSQL password, administrator password, health token and encryption key;
 - validates the standalone production Compose configuration;
-- pulls `ghcr.io/syschelle/salta:0.5.6`;
+- pulls the container image configured by `SALTA_IMAGE`;
 - starts PostgreSQL and SALTA;
 - prints the generated administrator login once.
 
-The default `.env.example` publishes SALTA to the local network:
+The generated `.env` publishes SALTA to the local network by default:
 
 ```env
 WEB_PORT=8099
 SALTA_BIND_ADDRESS=0.0.0.0
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.5.6
 ```
+
+The repository's `.env.example` pins `SALTA_IMAGE` to the matching release. Keep a fixed image tag for predictable deployments, or deliberately change it when updating.
 
 Open SALTA at:
 
@@ -57,9 +79,9 @@ http://IP-OF-THE-SALTA-HOST:8099
 
 Authentication cannot be disabled.
 
-## Clean reinstall from v0.4.x
+## Reset or reinstall
 
-A clean reinstall permanently deletes the SALTA PostgreSQL volume and all SALTA configuration stored in it. Shelly devices themselves are not modified.
+A reset permanently deletes the SALTA PostgreSQL volume and all SALTA configuration stored in it. Shelly devices themselves are not modified.
 
 For a completely fresh installation, including a new database and newly generated secrets:
 
@@ -73,7 +95,7 @@ To reset only the database while retaining the existing `.env` values:
 ./install.sh --reset
 ```
 
-The installer detects unversioned v0.4.x volumes and refuses to start against them. This prevents an old schema from being used accidentally.
+Use `--fresh` when the existing installation should be discarded completely. Use `--reset` when the current passwords, encryption key and other environment settings should remain unchanged.
 
 ## Manual image deployment
 
@@ -99,13 +121,13 @@ docker compose --env-file .env -f docker-compose.image.yml logs -f salta
 
 The internal Docker health endpoint requires the generated `SALTA_HEALTH_TOKEN` and is not publicly accessible without it.
 
-## Updating within the v0.5 line
+## Updating
 
 ```bash
 ./update.sh
 ```
 
-The update script validates the existing `.env`, pulls repository and image changes and recreates the containers. It no longer edits old environment files or inserts compatibility variables.
+The update script validates the existing `.env`, pulls repository and image changes and recreates the containers. Review the release notes before updating when a release announces configuration or database compatibility changes.
 
 ## Backup and restore
 
@@ -114,7 +136,7 @@ The update script validates the existing `.env`, pulls repository and image chan
 ./restore.sh backups/salta-YYYYMMDD-HHMMSS.dump
 ```
 
-Only restore backups created from the compatible v0.5 database schema.
+Restore only backups created with a compatible SALTA database schema. Keep backups outside the SALTA system disk whenever possible.
 
 ## Security
 
@@ -146,7 +168,7 @@ Shelly authentication supports:
 - `custom`: use encrypted credentials stored for one device;
 - `none`: connect without authentication.
 
-Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. The removed v1 compatibility format is not accepted by v0.5.6.
+Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. Removed legacy credential formats are not accepted.
 
 ## Rooms
 

@@ -1,6 +1,6 @@
 {
   "name": "salta",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "description": "SALTA local-first smart-home control plane",
   "private": true,
   "type": "module",

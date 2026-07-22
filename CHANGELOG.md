@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.5.7
+
+- Added practical hardware guidance for a dedicated SALTA-only host.
+- Recommended a Raspberry Pi 4 with 4 GB RAM and SSD storage while documenting lower practical minimums.
+- Made installation, reset, update, backup and security wording in the README independent of a specific release line.
+- Removed obsolete migration wording and hard-coded release references from the README.
+- Kept application runtime behavior, APIs, database schema and deployment configuration unchanged.
+
 ## 0.5.6
 
 - Expanded `docker-compose.image.yml` into a complete standalone production deployment.

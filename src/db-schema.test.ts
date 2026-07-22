@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const databaseSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 const secretSource = readFileSync(new URL("./security/secrets.ts", import.meta.url), "utf8");
 
-describe("v0.5 clean database schema", () => {
+describe("clean database schema", () => {
   it("uses one canonical schema without incremental migration statements", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS salta_metadata");
     expect(databaseSource).toContain('DATABASE_SCHEMA_VERSION = "0.5"');

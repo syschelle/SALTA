@@ -95,7 +95,7 @@ compose pull
 compose up -d --force-recreate --remove-orphans
 
 echo
-echo "SALTA v0.5.6 is starting."
+echo "SALTA v0.5.7 is starting."
 bind_address="$(sed -n 's/^SALTA_BIND_ADDRESS=//p' .env | tail -n1)"
 web_port="$(sed -n 's/^WEB_PORT=//p' .env | tail -n1)"
 case "$bind_address" in

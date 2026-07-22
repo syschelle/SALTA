@@ -1,6 +1,6 @@
 # Dependency notes
 
-The SALTA v0.5 release line removes deprecated code and dependency paths controlled directly by the project.
+SALTA removes deprecated code and dependency paths controlled directly by the project.
 
 - The direct `@fastify/static` dependency was removed and replaced with a small allow-listed static-file handler.
 - The obsolete `glob` dependency chain that accompanied it is no longer part of the lockfile.

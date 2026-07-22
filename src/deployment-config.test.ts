@@ -10,13 +10,13 @@ const restoreScript = readFileSync(new URL("../restore.sh", import.meta.url), "u
 
 const productionScripts = [installer, updater, backupScript, restoreScript];
 
-describe("v0.5 deployment configuration", () => {
+describe("production deployment configuration", () => {
   it("provides docker-compose.image.yml as a complete standalone production deployment", () => {
     expect(productionCompose).toContain("name: salta");
     expect(productionCompose).toContain("postgres:");
     expect(productionCompose).toContain("image: postgres:17-alpine");
     expect(productionCompose).toContain("salta:");
-    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.5.6}");
+    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.5.7}");
     expect(productionCompose).toContain("salta_postgres_data:");
     expect(productionCompose).toContain("frontend:");
     expect(productionCompose).toContain("backend:");
