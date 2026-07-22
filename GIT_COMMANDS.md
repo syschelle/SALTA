@@ -1,6 +1,6 @@
-# SALTA v0.5.3 – Git and Release Commands
+# SALTA v0.5.4 – Git and Release Commands
 
-Run these commands from the repository root after replacing the local files with the v0.5.3 package.
+Run these commands from the repository root after replacing the local files with the v0.5.4 package.
 
 ## Validate
 
@@ -18,24 +18,24 @@ git checkout main
 git pull --ff-only origin main
 git status
 git add -A
-git commit -m "fix: keep Shelly onboarding dialog open on authentication errors"
+git commit -m "docs: correct SALTA security guidance for v0.5.4"
 git push origin main
 ```
 
 ## Tag and publish the container
 
 ```bash
-git tag -a v0.5.3 -m "SALTA v0.5.3"
-git push origin v0.5.3
+git tag -a v0.5.4 -m "SALTA v0.5.4"
+git push origin v0.5.4
 ```
 
 ## Create the GitHub release
 
-Place `SALTA-v0.5.3.zip` in the repository root or adjust the file path.
+Place `SALTA-v0.5.4.zip` in the repository root or adjust the file path.
 
 ```bash
-gh release create v0.5.3 \
-  --title "SALTA v0.5.3" \
+gh release create v0.5.4 \
+  --title "SALTA v0.5.4" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.5.3.zip
+  ./SALTA-v0.5.4.zip
 ```

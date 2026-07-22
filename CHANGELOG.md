@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.5.4
+
+- Corrected the security documentation to match the implemented v0.5 behavior.
+- Clarified that SALTA does not terminate TLS and that direct LAN HTTP traffic is unencrypted.
+- Documented the exact `TRUSTED_PROXIES`, HTTPS detection, Secure-cookie and HSTS behavior.
+- Documented that direct Basic authentication is limited to `LOCAL_NETWORKS`, rejected through forwarded proxy requests and should be protected by HTTPS.
+- Clarified that application rate limits, sessions and login blocks are stored in process memory and reset on restart.
+- Corrected the Docker description of `/tmp` to writable, size-limited `tmpfs` with `noexec` and `nosuid`; the container root filesystem is not read-only.
+- Added narrower local-network guidance and security-control limitations without changing runtime behavior or the database schema.
+
 ## 0.5.3
 
 - Fixed the Shelly onboarding dialog closing after an upstream device authentication failure.

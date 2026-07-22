@@ -8,9 +8,9 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.5.3` is the current stable release. It introduces a clean-install architecture and removes SALTA-owned legacy migration and compatibility paths.
+`v0.5.4` is the current stable release. It corrects and expands the security documentation without changing runtime behavior.
 
-> **Breaking change:** v0.5.3 requires a fresh PostgreSQL volume. Databases and encrypted credentials from v0.4.x are intentionally not migrated.
+> **Breaking change from v0.4.x:** the v0.5 release line requires a fresh PostgreSQL volume. Databases and encrypted credentials from v0.4.x are intentionally not migrated.
 
 ## Supported architectures
 
@@ -37,7 +37,7 @@ chmod +x install.sh update.sh backup.sh restore.sh
 - creates `.env` when it does not exist;
 - generates the PostgreSQL password, administrator password, health token and encryption key;
 - validates the merged Compose configuration;
-- pulls `ghcr.io/syschelle/salta:0.5.3`;
+- pulls `ghcr.io/syschelle/salta:0.5.4`;
 - starts PostgreSQL and SALTA;
 - prints the generated administrator login once.
 
@@ -46,7 +46,7 @@ The default `.env.example` publishes SALTA to the local network:
 ```env
 WEB_PORT=8099
 SALTA_BIND_ADDRESS=0.0.0.0
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.5.3
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.5.4
 ```
 
 Open SALTA at:
@@ -116,13 +116,15 @@ Only restore backups created from the compatible v0.5 database schema.
 
 ## Security
 
-SALTA is fail-closed. A strong administrator password, a health token and an encryption key are mandatory. Browser access uses an opaque server-side session, `HttpOnly` cookies, CSRF protection and finite session lifetimes.
+SALTA is fail-closed. A strong administrator password, a health token and an encryption key are mandatory. Browser access uses an opaque server-side session, an `HttpOnly` and `SameSite=Strict` cookie, CSRF protection and finite session lifetimes.
 
-Direct Basic-authenticated API access is accepted only from `LOCAL_NETWORKS`. When a reverse proxy is used, configure `TRUSTED_PROXIES` with its exact IP address or CIDR.
+SALTA does not terminate TLS. Direct HTTP access is supported for trusted local networks but is unencrypted; Internet-facing or otherwise untrusted access must use an HTTPS reverse proxy. Configure `TRUSTED_PROXIES` with only the exact proxy IP address or required CIDR so SALTA can recognize HTTPS and set the `Secure` cookie attribute and HSTS correctly.
 
-PostgreSQL is available only on the internal Docker network. The SALTA container drops all Linux capabilities, enables `no-new-privileges`, uses a read-limited temporary filesystem and applies application-level rate limiting.
+Direct Basic-authenticated API access is accepted only from `LOCAL_NETWORKS` and only without forwarded proxy headers. Basic authentication is not encrypted by itself, so it should be used through HTTPS and with narrowly configured local networks.
 
-See `SECURITY.md` for details.
+PostgreSQL is available only on the internal Docker network. The SALTA container drops all Linux capabilities, enables `no-new-privileges`, limits its process count and uses a writable, size-limited `/tmp` with `noexec` and `nosuid`. Application rate limits and login blocks are held in process memory, reset on restart and do not replace firewall or reverse-proxy protection.
+
+See `SECURITY.md` for the exact behavior, configuration guidance and limitations.
 
 ## HomeKit
 
@@ -142,7 +144,7 @@ Shelly authentication supports:
 - `custom`: use encrypted credentials stored for one device;
 - `none`: connect without authentication.
 
-Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. The removed v1 compatibility format is not accepted by v0.5.3.
+Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. The removed v1 compatibility format is not accepted by v0.5.4.
 
 ## Rooms
 
