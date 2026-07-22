@@ -2,14 +2,21 @@
 
 All notable changes to SALTA are documented in this file.
 
-## 0.4.24
+## 0.4.25
+
+- Moved the device name into the top row beside the device icon.
+- Kept the room/type metadata directly below the title inside the same compact header block.
+- Reduced top whitespace in device cards.
+- Added frontend regression coverage for the compact device-title layout.
+
+## 0.4.25
 
 - Extended colored state-card styling to outlet devices such as Shelly Plug S (`SHPLG-S`).
 - Softened the outer state-card border colors so the right edge is less visually heavy.
 - Removed the redundant On/Off status metric from colored outlet cards.
 - Added frontend regression coverage for outlet state coloring.
 
-## 0.4.24
+## 0.4.25
 
 - Added green and red card-state colors for reachable switch and light devices.
 - Removed the redundant On/Off status metric from colored switch and light cards.

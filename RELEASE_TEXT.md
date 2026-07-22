@@ -1,22 +1,22 @@
-# SALTA v0.4.24
+# SALTA v0.4.25
 
-SALTA v0.4.24 extends colored state cards to Shelly Plug S and other outlet devices and softens the card border coloring.
+SALTA v0.4.25 moves the device name into the top row next to the icon to make device cards more compact.
 
 ## Fixed and Improved
 
-- Extended green/red state-card styling to outlet devices such as Shelly Plug S (`SHPLG-S`)
-- Kept colored cards for reachable switches and lights
-- Removed the redundant On/Off status metric from colored outlet cards as well
-- Softened the right and outer border coloring so the card accent feels less heavy
-- Kept the compact device-card spacing and compact measurement presentation
-- Added frontend regression coverage for outlet state coloring
+- Placed the device name directly beside the icon in the top header row
+- Kept the reachability dot on the right side of the same header row
+- Moved room and type metadata directly below the title in the same compact title block
+- Reduced vertical whitespace at the top of device cards
+- Kept the compact measurement presentation and colored state-card styling
+- Added frontend regression coverage for the compact device-title layout
 
 ## Updating
 
 No database migration is required.
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.24
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.25
 ```
 
 ```bash
@@ -27,7 +27,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.24
+0.4.25
 0.4
 latest
 ```
@@ -35,5 +35,5 @@ latest
 ## Git Tag
 
 ```text
-v0.4.24
+v0.4.25
 ```

@@ -8,7 +8,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 
 ## Release status
 
-`v0.4.24` is the current stable release. It extends colored state cards to outlet devices such as Shelly Plug S and softens the state-card border coloring.
+`v0.4.25` is the current stable release. It moves the device title beside the icon for a more compact device-card header.
 
 ## Supported architectures
 
@@ -25,16 +25,16 @@ Push a version tag to GitHub:
 
 ```bash
 git add .
-git commit -m "release: SALTA v0.4.24"
+git commit -m "release: SALTA v0.4.25"
 git push origin main
-git tag -a v0.4.24 -m "SALTA v0.4.24"
-git push origin v0.4.24
+git tag -a v0.4.25 -m "SALTA v0.4.25"
+git push origin v0.4.25
 ```
 
 GitHub Actions builds and publishes:
 
 ```text
-ghcr.io/<github-owner>/<repository>:0.4.24
+ghcr.io/<github-owner>/<repository>:0.4.25
 ghcr.io/<github-owner>/<repository>:0.4
 ghcr.io/<github-owner>/<repository>:latest
 ```
