@@ -2,6 +2,13 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.4.23
+
+- Added green and red card-state colors for reachable switch and light devices.
+- Removed the redundant On/Off status metric from colored switch and light cards.
+- Kept the compact device-card layout and compact measurement presentation.
+- Added frontend regression coverage for state-color card styling.
+
 ## 0.4.22
 
 - Grouped the device overview by room.

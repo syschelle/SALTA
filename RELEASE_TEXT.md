@@ -1,23 +1,22 @@
-# SALTA v0.4.22
+# SALTA v0.4.23
 
-SALTA v0.4.22 improves room-based organization in the device overview.
+SALTA v0.4.23 adds colored state cards for switches and lights and removes the redundant status value from those device cards.
 
 ## Fixed and Improved
 
-- Grouped devices by their assigned room
-- Applied the order configured on the Rooms page to the device overview
-- Added accessible up and down controls for arranging rooms
-- Persisted the complete room order atomically in PostgreSQL
-- Placed unassigned devices in a final dedicated group
-- Replaced the device-card Configure label with a compact gear-only button
-- Added frontend and API regression coverage
+- Added green device-card styling for reachable switches and lights in the **On** state
+- Added red device-card styling for reachable switches and lights in the **Off** state
+- Removed the redundant On/Off status metric from colored switch and light cards
+- Kept compact spacing and compact measurement presentation from the recent device-card layout work
+- Left energy meters, covers, outlets and other device types unchanged
+- Added frontend regression coverage for card-state coloring and hidden status metrics
 
 ## Updating
 
-No manual database migration is required.
+No database migration is required.
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.22
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.4.23
 ```
 
 ```bash
@@ -28,7 +27,7 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --force-r
 ## Container Tags
 
 ```text
-0.4.22
+0.4.23
 0.4
 latest
 ```
@@ -36,5 +35,5 @@ latest
 ## Git Tag
 
 ```text
-v0.4.22
+v0.4.23
 ```
