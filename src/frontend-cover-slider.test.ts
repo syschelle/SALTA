@@ -13,7 +13,7 @@ describe("window-covering position slider", () => {
 
   it("sends setTargetPosition and keeps active slider input stable during live refresh", () => {
     expect(source).toContain("capability:'setTargetPosition',value:position");
-    expect(source).toContain("if(!activeCoverSliderId)renderDevices()");
+    expect(source).toContain("if(!activeCoverSliderId&&!activeBrightnessSliderId)renderDevices()");
     expect(source).toContain("coverSliderDrafts.set(id,position)");
   });
 

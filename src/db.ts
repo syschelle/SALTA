@@ -2,7 +2,7 @@ import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { CredentialMode, Device, Room, ShellySettings } from "./types.js";
+import type { CredentialMode, Device, PhosconSettings, Room, ShellySettings } from "./types.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
 
@@ -14,7 +14,7 @@ export async function initializeDatabaseSchema(): Promise<void> {
   );
   const state = existing.rows[0];
   if (state?.devices && !state.metadata) {
-    throw new Error("INCOMPATIBLE_DATABASE_SCHEMA: SALTA v0.5.7 requires a fresh PostgreSQL volume");
+    throw new Error("INCOMPATIBLE_DATABASE_SCHEMA: this SALTA release requires a fresh PostgreSQL volume");
   }
   if (state?.metadata) {
     const version = await pool.query<{ value: string }>("SELECT value FROM salta_metadata WHERE key='schema_version'");
@@ -190,6 +190,7 @@ export async function deleteRoom(id: string): Promise<boolean> {
 interface CredentialEncryptionStatus {
   status: "ok" | "invalid";
   globalCredential: "ok" | "invalid" | "not-configured";
+  phosconCredential: "ok" | "invalid" | "not-configured";
   invalidDeviceIds: string[];
 }
 
@@ -205,16 +206,20 @@ function secretIsReadable(value: string): boolean {
 
 
 export async function inspectCredentialEncryption(): Promise<CredentialEncryptionStatus> {
-  const [globalResult, deviceResult] = await Promise.all([
+  const [globalResult, phosconResult, deviceResult] = await Promise.all([
     pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='shelly'"),
+    pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='phoscon'"),
     pool.query<{ id: string; credential_password: string }>("SELECT id,credential_password FROM devices WHERE credential_mode='custom' AND credential_password IS NOT NULL AND credential_password <> ''")
   ]);
   const globalSecret = globalResult.rows[0]?.encrypted_password ?? "";
+  const phosconSecret = phosconResult.rows[0]?.encrypted_password ?? "";
   const globalCredential = !globalSecret ? "not-configured" : secretIsReadable(globalSecret) ? "ok" : "invalid";
+  const phosconCredential = !phosconSecret ? "not-configured" : secretIsReadable(phosconSecret) ? "ok" : "invalid";
   const invalidDeviceIds = deviceResult.rows.filter(row => !secretIsReadable(row.credential_password)).map(row => row.id);
   return {
-    status: globalCredential === "invalid" || invalidDeviceIds.length > 0 ? "invalid" : "ok",
+    status: globalCredential === "invalid" || phosconCredential === "invalid" || invalidDeviceIds.length > 0 ? "invalid" : "ok",
     globalCredential,
+    phosconCredential,
     invalidDeviceIds
   };
 }
@@ -228,7 +233,7 @@ export async function getShellySettings(): Promise<ShellySettings> {
   return {
     username: current.username,
     passwordConfigured: current.passwordConfigured,
-    encryptionStatus: encryption.status,
+    encryptionStatus: encryption.globalCredential === "invalid" || encryption.invalidDeviceIds.length > 0 ? "invalid" : "ok",
     invalidDeviceCredentials: encryption.invalidDeviceIds.length
   };
 }
@@ -263,4 +268,45 @@ export async function getDeviceCredentials(id: string): Promise<{username:string
 export async function getGlobalShellyCredentials(): Promise<{username:string;password:string}> {
   const result=await pool.query("SELECT username,encrypted_password FROM adapter_settings WHERE adapter_id='shelly'"); const row=result.rows[0];
   return {username:row?.username??"",password:decryptStoredSecret(row?.encrypted_password)};
+}
+
+
+export async function getPhosconSettings(): Promise<PhosconSettings> {
+  const result = await pool.query<{ username: string; encrypted_password: string }>(
+    "SELECT username,encrypted_password FROM adapter_settings WHERE adapter_id='phoscon'"
+  );
+  const row = result.rows[0];
+  const secret = row?.encrypted_password ?? "";
+  return {
+    baseUrl: row?.username ?? "",
+    apiKeyConfigured: Boolean(secret),
+    encryptionStatus: secret && !secretIsReadable(secret) ? "invalid" : "ok"
+  };
+}
+
+export async function getPhosconConnection(): Promise<{ baseUrl: string; apiKey: string }> {
+  const result = await pool.query<{ username: string; encrypted_password: string }>(
+    "SELECT username,encrypted_password FROM adapter_settings WHERE adapter_id='phoscon'"
+  );
+  const row = result.rows[0];
+  return {
+    baseUrl: row?.username ?? "",
+    apiKey: decryptStoredSecret(row?.encrypted_password)
+  };
+}
+
+export async function updatePhosconSettings(baseUrl: string, apiKey?: string): Promise<PhosconSettings> {
+  const current = await pool.query<{ encrypted_password: string }>(
+    "SELECT encrypted_password FROM adapter_settings WHERE adapter_id='phoscon'"
+  );
+  const currentSecret = current.rows[0]?.encrypted_password ?? "";
+  if (apiKey === undefined && currentSecret && !secretIsReadable(currentSecret)) throw new Error("ENCRYPTION_KEY_MISMATCH");
+  const encrypted = apiKey === undefined ? currentSecret : (apiKey ? encryptSecret(apiKey) : "");
+  await pool.query(`INSERT INTO adapter_settings(adapter_id,username,encrypted_password) VALUES('phoscon',$1,$2)
+    ON CONFLICT(adapter_id) DO UPDATE SET username=EXCLUDED.username,encrypted_password=EXCLUDED.encrypted_password,updated_at=now()`, [baseUrl, encrypted]);
+  return getPhosconSettings();
+}
+
+export async function clearPhosconSettings(): Promise<void> {
+  await pool.query("DELETE FROM adapter_settings WHERE adapter_id='phoscon'");
 }

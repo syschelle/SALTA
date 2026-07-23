@@ -73,7 +73,7 @@ SALTA applies application-layer controls including:
 - per-client request limits;
 - a global request limit;
 - stricter limits for state-changing requests;
-- dedicated low limits for Shelly discovery, onboarding and reconciliation;
+- dedicated low limits for Shelly discovery and onboarding, Phoscon pairing, and adapter reconciliation;
 - login-failure limits and temporary IP blocks;
 - connection, request, header and keep-alive limits;
 - a 32 KiB request-body limit; and
@@ -126,10 +126,12 @@ Keep `.env` mode `0600`, store backups securely and never commit `.env` to the r
 - `SALTA_HEALTH_TOKEN`; and
 - `SALTA_ENCRYPTION_KEY`.
 
-Keep `SALTA_ENCRYPTION_KEY` stable for the lifetime of the installation and include it in protected backups. Changing or losing it makes stored Shelly credentials unreadable.
+Keep `SALTA_ENCRYPTION_KEY` stable for the lifetime of the installation and include it in protected backups. Changing or losing it makes stored Shelly credentials and the Phoscon API key unreadable.
+
+The Phoscon base address and encrypted API key are stored in PostgreSQL. Treat the API key as a password: do not place it in URLs, logs, screenshots or repository files. SALTA connects directly to the configured gateway address, so expose the deCONZ REST API only on trusted local networks and keep the gateway software updated.
 
 The PostgreSQL password must continue to match the existing database volume. Do not rotate it by editing only `.env`.
 
 ## Scope and limitations
 
-SALTA security controls protect the application boundary, but they cannot secure compromised Docker hosts, reverse proxies, local networks or Shelly devices. Keep the host operating system, Docker engine, proxy and device firmware updated, restrict network access and review logs for repeated authentication or rate-limit warnings.
+SALTA security controls protect the application boundary, but they cannot secure compromised Docker hosts, reverse proxies, local networks, Shelly devices or the Phoscon/deCONZ gateway. Keep the host operating system, Docker engine, proxy, gateway and device firmware updated, restrict network access and review logs for repeated authentication or rate-limit warnings.

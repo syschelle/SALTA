@@ -157,3 +157,15 @@ html[data-theme="dark"]{--state-on-bg:#13271f;--state-on-border:#2b3b33;--state-
 /* Authenticated session controls */
 .logout-button{width:100%;justify-content:flex-start;gap:9px;background:var(--input-bg);color:var(--text);border:1px solid var(--line);padding:9px 11px;font-size:12px}
 .logout-button>.mdi{font-size:17px}
+
+/* Phoscon / Zigbee integration */
+.welcome-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.secondary-link{background:var(--subtle-bg);color:var(--text);border:1px solid var(--line)}
+.settings-nav button{width:100%;justify-content:flex-start;padding:11px 12px;border-radius:9px;background:transparent;color:var(--muted);font-weight:700}.settings-nav button:hover{background:var(--hover-bg);box-shadow:none}.settings-nav button.active{background:var(--accent-bg);color:var(--accent)}
+.gateway-status{display:flex;align-items:center;gap:12px;margin:0 0 18px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--subtle-bg)}.gateway-status-dot{width:11px;height:11px;border-radius:50%;background:#9aa4b2;box-shadow:0 0 0 4px rgba(154,164,178,.14)}.gateway-status.connected .gateway-status-dot{background:var(--green);box-shadow:0 0 0 4px rgba(53,201,138,.14)}.gateway-status strong,.gateway-status small{display:block}.gateway-status small{margin-top:3px;color:var(--muted);line-height:1.45}.phoscon-pairing-help{padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--subtle-bg);font-size:14px}.phoscon-pairing-help ol{margin:8px 0 0;padding-left:20px;color:var(--muted);line-height:1.6}.split-actions{display:flex;gap:10px;flex-wrap:wrap}.split-actions .danger{margin-left:auto}.settings-card[hidden]{display:none}
+@media(max-width:1100px){.settings-nav button{width:auto;white-space:nowrap}}
+@media(max-width:620px){.welcome-actions,.split-actions{width:100%}.welcome-actions .button-link,.split-actions button{width:100%;justify-content:center}.split-actions .danger{margin-left:0}}
+
+.brightness-control{margin-top:11px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--subtle-bg)}
+.brightness-control-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px;font-size:12px;font-weight:750}
+.brightness-control output{color:var(--accent);font-variant-numeric:tabular-nums}
+.brightness-control input[type=range]{width:100%;margin:0;accent-color:var(--accent);cursor:pointer}

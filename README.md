@@ -170,6 +170,24 @@ Shelly authentication supports:
 
 Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. Removed legacy credential formats are not accepted.
 
+## Phoscon and Zigbee support
+
+SALTA can connect to one local Phoscon/deCONZ instance through its REST API. Configure the connection under **Settings → Phoscon / Zigbee** using the gateway base address and either an existing API key or the guided app-pairing workflow.
+
+For automatic pairing, temporarily enable third-party app authentication in the Phoscon gateway settings and request the API key from SALTA within the displayed authorization window. The key is encrypted in PostgreSQL with `SALTA_ENCRYPTION_KEY` and is never returned to the browser after it has been stored.
+
+The Zigbee page is separate from the Shelly page and imports supported resources from Phoscon:
+
+- lights and dimmable lights;
+- smart plugs and other on/off actuators;
+- window coverings;
+- motion, contact, temperature, humidity, light, water, smoke and button sensors; and
+- power and energy measurements exposed by deCONZ.
+
+Multiple deCONZ sensor resources belonging to the same physical Zigbee device are combined into one SALTA card. Metering or battery resources that belong to one unambiguous actuator are merged into that actuator instead of being shown as duplicate devices.
+
+SALTA can switch supported lights and plugs, set brightness and control compatible window coverings. Sensor resources are read-only. Names and room assignments are managed locally in SALTA; disconnecting Phoscon removes the synchronized SALTA records but does not delete or reset devices in Phoscon.
+
 ## Rooms
 
 Rooms are first-class database entities linked to devices by `room_id`. The obsolete duplicate room-name column and its synchronization logic have been removed.

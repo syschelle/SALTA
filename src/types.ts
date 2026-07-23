@@ -1,4 +1,4 @@
-export type DeviceType = "outlet" | "switch" | "energyMeter" | "windowCovering" | "light";
+export type DeviceType = "outlet" | "switch" | "energyMeter" | "windowCovering" | "light" | "motionSensor" | "contactSensor" | "temperatureSensor" | "humiditySensor" | "lightSensor" | "waterLeakSensor" | "smokeSensor" | "button" | "genericSensor";
 export type DevicePresentationType = "auto" | "outlet" | "switch" | "light" | "fan";
 export type DeviceState = Record<string, string | number | boolean | null>;
 export type CredentialMode = "inherit" | "custom" | "none";
@@ -60,4 +60,24 @@ export interface ShellySettings {
   passwordConfigured: boolean;
   encryptionStatus: "ok" | "invalid";
   invalidDeviceCredentials: number;
+}
+
+export interface PhosconSettings {
+  baseUrl: string;
+  apiKeyConfigured: boolean;
+  encryptionStatus: "ok" | "invalid";
+}
+
+export interface PhosconGatewayStatus {
+  connected: boolean;
+  name?: string;
+  deviceName?: string;
+  bridgeId?: string;
+  apiVersion?: string;
+  softwareVersion?: string;
+  firmwareVersion?: string;
+  zigbeeChannel?: number;
+  rfConnected?: boolean;
+  lastSync?: string;
+  lastError?: string;
 }

@@ -16,7 +16,7 @@ describe("production deployment configuration", () => {
     expect(productionCompose).toContain("postgres:");
     expect(productionCompose).toContain("image: postgres:17-alpine");
     expect(productionCompose).toContain("salta:");
-    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.5.7}");
+    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.6.0}");
     expect(productionCompose).toContain("salta_postgres_data:");
     expect(productionCompose).toContain("frontend:");
     expect(productionCompose).toContain("backend:");

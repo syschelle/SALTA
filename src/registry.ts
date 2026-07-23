@@ -62,6 +62,15 @@ export class DeviceRegistry extends EventEmitter {
     }
   }
 
+  async removeSource(source: string): Promise<number> {
+    const ids = this.all().filter(device => device.source === source).map(device => device.id);
+    let removed = 0;
+    for (const id of ids) {
+      if (await this.remove(id)) removed += 1;
+    }
+    return removed;
+  }
+
   updateRoomName(roomId: string, roomName: string): Device[] {
     const updated: Device[] = [];
     for (const [id, current] of this.devices) {

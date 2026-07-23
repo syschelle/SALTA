@@ -2,6 +2,19 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.6.0
+
+- Added a local Phoscon/deCONZ REST API integration with encrypted API-key storage.
+- Added guided Phoscon app pairing after enabling gateway authorization.
+- Split the former Devices navigation into dedicated Shelly and Zigbee pages.
+- Added Zigbee light, outlet, covering, sensor and metering discovery and synchronization.
+- Combined multiple deCONZ sensor resources belonging to one physical Zigbee device.
+- Merged unambiguous metering and battery sensor resources into their matching actuator card.
+- Added control for supported Zigbee on/off devices, dimmable lights and window coverings.
+- Added Phoscon connection state, manual synchronization and disconnect controls.
+- Extended credential-readiness validation and rate limiting to the Phoscon adapter.
+- Added adapter, API and frontend regression coverage.
+
 ## 0.5.7
 
 - Added practical hardware guidance for a dedicated SALTA-only host.

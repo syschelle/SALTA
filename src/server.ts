@@ -6,7 +6,8 @@ import { extname, join } from "node:path";
 import { z } from "zod";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
-import { createRoom, deleteRoom, getGlobalShellyCredentials, getShellySettings, inspectCredentialEncryption, listRooms, pool, reorderRooms, updateRoom, updateShellySettings } from "./db.js";
+import type { PhosconAdapter } from "./phoscon-adapter.js";
+import { createRoom, deleteRoom, getGlobalShellyCredentials, getPhosconSettings, getShellySettings, inspectCredentialEncryption, listRooms, pool, reorderRooms, updateRoom, updateShellySettings } from "./db.js";
 import { config } from "./config.js";
 import { supportsPresentationOverride } from "./device-presentation.js";
 import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
@@ -28,6 +29,8 @@ const roomOrderSchema = z.object({ roomIds: z.array(z.string().uuid()).max(10000
 const shellyAddSchema = z.object({ host:z.string().trim().min(1).max(255), name:z.string().trim().max(120).optional(), roomId:z.string().uuid().nullable().optional(), credentialMode:z.enum(["inherit","custom","none"]).default("inherit"), username:z.string().max(120).optional(), password:z.string().max(512).optional() }).strict();
 const shellyDiscoverySchema = z.object({ subnet:z.string().trim().min(7).max(32) }).strict();
 const shellySettingsSchema = z.object({ username: z.string().max(120).default(""), password: z.string().max(512).optional() }).strict();
+const phosconSettingsSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), apiKey: z.string().trim().min(1).max(512).optional() }).strict();
+const phosconPairSchema = z.object({ baseUrl: z.string().trim().min(1).max(512) }).strict();
 const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
 
 const STATIC_CONTENT_TYPES: Readonly<Record<string, string>> = {
@@ -65,6 +68,37 @@ function shellyRequestError(error: unknown): { status: number; code: string; mes
     default:
       if (rawCode.startsWith("HTTP_")) return { status: 502, code: "SHELLY_HTTP_ERROR", message: `The Shelly device returned ${rawCode.replace("HTTP_", "HTTP ")}.` };
       return { status: 500, code: "DEVICE_ADD_FAILED", message: "The Shelly device could not be added to SALTA." };
+  }
+}
+
+
+function phosconRequestError(error: unknown): { status: number; code: string; message: string } {
+  const rawCode = error instanceof Error ? error.message : "PHOSCON_REQUEST_FAILED";
+  switch (rawCode) {
+    case "PHOSCON_URL_REQUIRED":
+    case "PHOSCON_URL_INVALID":
+      return { status: 400, code: rawCode, message: "Enter a valid Phoscon/deCONZ base URL, for example http://192.168.178.20:8080." };
+    case "PHOSCON_API_KEY_REQUIRED":
+      return { status: 400, code: rawCode, message: "Enter an API key or pair SALTA with the Phoscon gateway." };
+    case "PHOSCON_NOT_CONFIGURED":
+      return { status: 409, code: rawCode, message: "Connect a Phoscon/deCONZ gateway before synchronizing Zigbee devices." };
+    case "PHOSCON_GATEWAY_LOCKED":
+      return { status: 409, code: rawCode, message: "Unlock third-party app authentication in Phoscon and try pairing again within 60 seconds." };
+    case "PHOSCON_AUTHENTICATION_FAILED":
+      return { status: 422, code: rawCode, message: "The Phoscon API key was rejected by the gateway." };
+    case "PHOSCON_UNREACHABLE":
+      return { status: 502, code: rawCode, message: "The Phoscon/deCONZ gateway is unreachable at the configured address." };
+    case "PHOSCON_TIMEOUT":
+      return { status: 504, code: rawCode, message: "The Phoscon/deCONZ gateway did not respond in time." };
+    case "PHOSCON_PAIRING_FAILED":
+    case "PHOSCON_INVALID_RESPONSE":
+      return { status: 502, code: rawCode, message: "The Phoscon/deCONZ gateway returned an invalid pairing or API response." };
+    case "ENCRYPTION_KEY_MISMATCH":
+      return { status: 409, code: rawCode, message: "The stored Phoscon API key cannot be decrypted with the current SALTA encryption key." };
+    default:
+      if (rawCode.startsWith("PHOSCON_API_ERROR:")) return { status: 502, code: "PHOSCON_API_ERROR", message: rawCode.slice("PHOSCON_API_ERROR:".length) };
+      if (rawCode.startsWith("PHOSCON_HTTP_")) return { status: 502, code: "PHOSCON_HTTP_ERROR", message: `The Phoscon gateway returned ${rawCode.replace("PHOSCON_HTTP_", "HTTP ")}.` };
+      return { status: 500, code: "PHOSCON_REQUEST_FAILED", message: "The Phoscon request failed." };
   }
 }
 
@@ -107,7 +141,7 @@ function securityError(reply: FastifyReply, request: FastifyRequest, status: num
   return reply.code(status).send({ error: { code, message, requestId: request.id } });
 }
 
-export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter) {
+export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter) {
   const trustedProxyEntries = config.TRUSTED_PROXIES.split(",").map(value => value.trim()).filter(Boolean);
   const trustedProxies = trustedProxyEntries.length ? trustedProxyEntries : false;
   const localNetworks = config.LOCAL_NETWORKS.split(",").map(value => value.trim()).filter(Boolean);
@@ -206,11 +240,13 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       : { allowed: true, retryAfterSeconds: 0, remaining: config.RATE_LIMIT_MUTATIONS_PER_MINUTE };
     const expensiveRouteLimit = path === "/api/adapters/shelly/discover"
       ? security.consumeRateLimit(`discover:${ip}`, 2, rateWindowMs)
-      : path === "/api/adapters/shelly/reconcile"
+      : path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile"
         ? security.consumeRateLimit(`reconcile:${ip}`, 12, rateWindowMs)
         : path === "/api/adapters/shelly/devices" && request.method === "POST"
           ? security.consumeRateLimit(`onboarding:${ip}`, 10, rateWindowMs)
-          : { allowed: true, retryAfterSeconds: 0, remaining: 1 };
+          : path === "/api/settings/phoscon/pair" && request.method === "POST"
+            ? security.consumeRateLimit(`phoscon-pairing:${ip}`, 5, rateWindowMs)
+            : { allowed: true, retryAfterSeconds: 0, remaining: 1 };
     const blocked = !globalLimit.allowed
       ? globalLimit
       : !clientLimit.allowed
@@ -312,9 +348,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.7" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.6.0" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.5.7", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.6.0", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -324,7 +360,10 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       const components = {
         database: "up",
         shellyAdapter: "up",
+        phosconAdapter: phosconAdapter.getStatus().connected ? "connected" : "disconnected",
         credentials: credentialEncryption.status,
+        shellyCredential: credentialEncryption.globalCredential,
+        phosconCredential: credentialEncryption.phosconCredential,
         invalidDeviceCredentials: credentialEncryption.invalidDeviceIds.length,
         devices: registry.all().length
       };
@@ -377,6 +416,36 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     }
   });
 
+  app.get("/api/settings/phoscon", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "phoscon-settings-read" } }
+  }, async () => ({ ...(await getPhosconSettings()), gateway: phosconAdapter.getStatus() }));
+  app.put<{Body:unknown}>("/api/settings/phoscon", async (request, reply) => {
+    const parsed = phosconSettingsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    try {
+      const gateway = await phosconAdapter.configure(parsed.data.baseUrl, parsed.data.apiKey);
+      return { ...(await getPhosconSettings()), gateway };
+    } catch (error) {
+      const response = phosconRequestError(error);
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+    }
+  });
+  app.post<{Body:unknown}>("/api/settings/phoscon/pair", async (request, reply) => {
+    const parsed = phosconPairSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    try {
+      const gateway = await phosconAdapter.pair(parsed.data.baseUrl);
+      return { ...(await getPhosconSettings()), gateway };
+    } catch (error) {
+      const response = phosconRequestError(error);
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+    }
+  });
+  app.delete("/api/settings/phoscon", async (_request, reply) => {
+    await phosconAdapter.disconnect();
+    return reply.code(204).send();
+  });
+
   app.get("/api/devices", async () => registry.all());
   app.get<{ Params: { id: string } }>("/api/devices/:id", async (request, reply) => registry.get(request.params.id) ?? reply.code(404).send({ error: { code: "DEVICE_NOT_FOUND", message: "Device not found", requestId: request.id } }));
   app.patch<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/config", async (request, reply) => {
@@ -406,8 +475,10 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   app.put<{Params:{id:string};Body:unknown}>("/api/devices/:id/credentials",async(request,reply)=>{
     const parsed=credentialSchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
     if(parsed.data.credentialMode==="custom" && !parsed.data.username) return reply.code(400).send({error:{code:"USERNAME_REQUIRED",message:"A username is required for custom credentials",requestId:request.id}});
-    try { return await registry.patchCredentials(request.params.id,parsed.data.credentialMode,parsed.data.username,parsed.data.password); }
-    catch { return reply.code(404).send({error:{code:"DEVICE_NOT_FOUND",message:"Device not found",requestId:request.id}}); }
+    const current = registry.get(request.params.id);
+    if (!current) return reply.code(404).send({error:{code:"DEVICE_NOT_FOUND",message:"Device not found",requestId:request.id}});
+    if (current.source !== "shelly") return reply.code(409).send({error:{code:"CREDENTIALS_NOT_SUPPORTED",message:"Per-device credentials are only supported for Shelly devices.",requestId:request.id}});
+    return registry.patchCredentials(request.params.id,parsed.data.credentialMode,parsed.data.username,parsed.data.password);
   });
   app.post<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/command", {
     config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "device-command" } }
@@ -417,11 +488,19 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     try {
       await pool.query("insert into commands(id,device_id,capability,value,source,status) values($1,$2,$3,$4,$5,$6)", [id, request.params.id, parsed.data.capability, JSON.stringify(parsed.data.value ?? null), "api", "requested"]);
       const current=registry.get(request.params.id); if(!current) throw new Error("DEVICE_NOT_FOUND");
-      if(current.source!=="shelly") throw new Error("ADAPTER_NOT_SUPPORTED");
-      const device = await shellyAdapter.command({ deviceId: request.params.id, capability: parsed.data.capability, value: parsed.data.value, source: "api" });
+      const command = { deviceId: request.params.id, capability: parsed.data.capability, value: parsed.data.value, source: "api" as const };
+      let device;
+      if (current.source === "shelly") device = await shellyAdapter.command(command);
+      else if (current.source === "phoscon") device = await phosconAdapter.command(command);
+      else throw new Error("ADAPTER_NOT_SUPPORTED");
       await pool.query("update commands set status='confirmed',updated_at=now() where id=$1", [id]); return { commandId: id, status: "confirmed", device };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "COMMAND_FAILED"; await pool.query("update commands set status='failed',error=$2,updated_at=now() where id=$1", [id, message]).catch(() => undefined);
+      const message = error instanceof Error ? error.message : "COMMAND_FAILED";
+      await pool.query("update commands set status='failed',error=$2,updated_at=now() where id=$1", [id, message]).catch(() => undefined);
+      if (message.startsWith("PHOSCON_") || message === "ENCRYPTION_KEY_MISMATCH") {
+        const response = phosconRequestError(error);
+        return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+      }
       return reply.code(message === "DEVICE_NOT_FOUND" ? 404 : 400).send({ error: { code: message, message, requestId: request.id } });
     }
   });
@@ -429,6 +508,18 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "commands-read" } }
   }, async () => (await pool.query("select * from commands order by created_at desc limit 100")).rows);
   app.post("/api/adapters/shelly/reconcile", async () => { await shellyAdapter.reconcile(); return { status: "ok" }; });
+  app.post("/api/adapters/phoscon/reconcile", async (request, reply) => {
+    try {
+      const settings = await getPhosconSettings();
+      if (!settings.apiKeyConfigured) throw new Error("PHOSCON_NOT_CONFIGURED");
+      await phosconAdapter.reconcile();
+      return { status: "ok", gateway: phosconAdapter.getStatus() };
+    }
+    catch (error) {
+      const response = phosconRequestError(error);
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+    }
+  });
   app.post<{Body:unknown}>("/api/adapters/shelly/discover",async(request,reply)=>{
     const parsed=shellyDiscoverySchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
     try { const credentials=await getGlobalShellyCredentials(); return {devices:await shellyAdapter.discover(parsed.data.subnet,credentials.username,credentials.password)}; }
@@ -454,7 +545,13 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       return reply.code(response.status).send({error:{code:response.code,message:response.message,requestId:request.id}});
     }
   });
-  app.get("/api/adapters", async () => [{ id: "shelly", name: "Shelly", status: "connected", devices: registry.all().filter(x=>x.source==="shelly").length }]);
+  app.get("/api/adapters", async () => {
+    const phosconStatus = phosconAdapter.getStatus();
+    return [
+      { id: "shelly", name: "Shelly", status: "connected", devices: registry.all().filter(x=>x.source==="shelly").length },
+      { id: "phoscon", name: "Phoscon / deCONZ", status: phosconStatus.connected ? "connected" : "disconnected", devices: registry.all().filter(x=>x.source==="phoscon").length, gateway: phosconStatus }
+    ];
+  });
   app.setErrorHandler((error, request, reply) => { request.log.error({ err: error }, "Unhandled request error"); return reply.code(500).send({ error: { code: "INTERNAL_ERROR", message: "Internal server error", requestId: request.id } }); });
   app.setNotFoundHandler(async (request, reply) => {
     const path = requestPath(request);

@@ -22,4 +22,10 @@ describe("explicit Fastify route rate limiting", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(source.slice(start, start + 280)).toContain("config: { rateLimit:");
   });
+  it("limits Phoscon pairing and reconciliation as expensive operations", () => {
+    expect(source).toContain('path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile"');
+    expect(source).toContain('path === "/api/settings/phoscon/pair" && request.method === "POST"');
+    expect(source).toContain('security.consumeRateLimit(`phoscon-pairing:${ip}`, 5, rateWindowMs)');
+  });
+
 });

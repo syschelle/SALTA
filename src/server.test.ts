@@ -2,6 +2,7 @@ import type { InjectOptions } from "light-my-request";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
+import type { PhosconAdapter } from "./phoscon-adapter.js";
 
 vi.mock("./config.js", () => ({
   config: {
@@ -25,16 +26,20 @@ vi.mock("./db.js", () => ({
   createRoom: vi.fn(),
   deleteRoom: vi.fn(),
   getGlobalShellyCredentials: vi.fn(),
+  getPhosconSettings: vi.fn(async () => ({ baseUrl: "", apiKeyConfigured: false, encryptionStatus: "ok" })),
   getShellySettings: vi.fn(),
-  inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", invalidDeviceIds: [] })),
+  inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", phosconCredential: "not-configured", invalidDeviceIds: [] })),
   listRooms: vi.fn(async () => []),
   pool: { query: vi.fn() },
   reorderRooms: vi.fn(),
   updateRoom: vi.fn(),
-  updateShellySettings: vi.fn()
+  updateShellySettings: vi.fn(),
+  getPhosconConnection: vi.fn(),
+  updatePhosconSettings: vi.fn(),
+  clearPhosconSettings: vi.fn()
 }));
 
-import { deleteRoom, getGlobalShellyCredentials, reorderRooms, updateRoom } from "./db.js";
+import { deleteRoom, getGlobalShellyCredentials, getPhosconSettings, reorderRooms, updateRoom } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -43,14 +48,33 @@ afterEach(async () => {
   await Promise.all(openServers.splice(0).map(server => server.close()));
 });
 
-function createServer(remove: ShellyAdapter["remove"], add: ShellyAdapter["add"] = vi.fn(), registryOverrides: Partial<DeviceRegistry> = {}) {
+function createServer(
+  remove: ShellyAdapter["remove"],
+  add: ShellyAdapter["add"] = vi.fn(),
+  registryOverrides: Partial<DeviceRegistry> = {},
+  phosconOverrides: Partial<PhosconAdapter> = {}
+) {
   const registry = {
     all: () => [],
     get: () => undefined,
     ...registryOverrides
   } as unknown as DeviceRegistry;
-  const adapter = { remove, add } as unknown as ShellyAdapter;
-  const server = buildServer(registry, adapter);
+  const adapter = {
+    remove,
+    add,
+    command: vi.fn(),
+    reconcile: vi.fn()
+  } as unknown as ShellyAdapter;
+  const phoscon = {
+    getStatus: vi.fn(() => ({ connected: false })),
+    configure: vi.fn(),
+    pair: vi.fn(),
+    disconnect: vi.fn(),
+    reconcile: vi.fn(),
+    command: vi.fn(),
+    ...phosconOverrides
+  } as unknown as PhosconAdapter;
+  const server = buildServer(registry, adapter, phoscon);
   openServers.push(server);
   return server;
 }
@@ -319,6 +343,78 @@ describe("POST /api/adapters/shelly/devices", () => {
   });
 });
 
+describe("Phoscon settings API", () => {
+  it("returns stored connection metadata and live gateway status", async () => {
+    vi.mocked(getPhosconSettings).mockResolvedValueOnce({
+      baseUrl: "http://phoscon.local:8080",
+      apiKeyConfigured: true,
+      encryptionStatus: "ok"
+    });
+    const getStatus = vi.fn(() => ({ connected: true, name: "Phoscon-GW", zigbeeChannel: 15 }));
+    const server = createServer(vi.fn(), vi.fn(), {}, { getStatus } as never);
+
+    const response = await authenticatedInject(server, {
+      method: "GET",
+      url: "/api/settings/phoscon"
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      baseUrl: "http://phoscon.local:8080",
+      apiKeyConfigured: true,
+      encryptionStatus: "ok",
+      gateway: { connected: true, name: "Phoscon-GW", zigbeeChannel: 15 }
+    });
+  });
+
+  it("maps a locked gateway pairing response to a readable conflict", async () => {
+    const pair = vi.fn(async () => { throw new Error("PHOSCON_GATEWAY_LOCKED"); });
+    const server = createServer(vi.fn(), vi.fn(), {}, { pair } as never);
+
+    const response = await authenticatedInject(server, {
+      method: "POST",
+      url: "/api/settings/phoscon/pair",
+      payload: { baseUrl: "http://192.168.178.20:8080" }
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: "PHOSCON_GATEWAY_LOCKED" } });
+    expect(pair).toHaveBeenCalledWith("http://192.168.178.20:8080");
+  });
+
+  it("rejects manual Zigbee synchronization before Phoscon is configured", async () => {
+    vi.mocked(getPhosconSettings).mockResolvedValueOnce({
+      baseUrl: "",
+      apiKeyConfigured: false,
+      encryptionStatus: "ok"
+    });
+    const reconcile = vi.fn();
+    const server = createServer(vi.fn(), vi.fn(), {}, { reconcile } as never);
+
+    const response = await authenticatedInject(server, {
+      method: "POST",
+      url: "/api/adapters/phoscon/reconcile"
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: "PHOSCON_NOT_CONFIGURED" } });
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+
+  it("disconnects Phoscon without deleting devices from the gateway", async () => {
+    const disconnect = vi.fn(async () => undefined);
+    const server = createServer(vi.fn(), vi.fn(), {}, { disconnect } as never);
+
+    const response = await authenticatedInject(server, {
+      method: "DELETE",
+      url: "/api/settings/phoscon"
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(disconnect).toHaveBeenCalledOnce();
+  });
+});
+
 describe("web security", () => {
   it("redirects unauthenticated browser requests to the login page", async () => {
     const server = createServer(vi.fn());
@@ -392,7 +488,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.5.7" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.6.0" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
