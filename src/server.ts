@@ -17,6 +17,7 @@ const patchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   roomId: z.string().uuid().nullable().optional(),
   homekitEnabled: z.boolean().optional(),
+  hidden: z.boolean().optional(),
   presentationType: z.enum(["auto", "outlet", "switch", "light", "fan"]).optional()
 }).strict();
 const credentialSchema = z.object({
@@ -348,9 +349,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.6.1" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.6.2" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.6.1", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.6.2", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -451,10 +452,15 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   app.patch<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/config", async (request, reply) => {
     const parsed = patchSchema.safeParse(request.body); if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
     try {
-      if (parsed.data.presentationType && parsed.data.presentationType !== "auto") {
-        const current = registry.get(request.params.id);
-        if (!current) return reply.code(404).send({ error: { code: "DEVICE_NOT_FOUND", message: "Device not found", requestId: request.id } });
-        if (!supportsPresentationOverride(current)) return reply.code(409).send({ error: { code: "PRESENTATION_TYPE_NOT_SUPPORTED", message: "This device cannot be assigned a switch, outlet, light or fan function.", requestId: request.id } });
+      const current = registry.get(request.params.id);
+      if ((parsed.data.presentationType && parsed.data.presentationType !== "auto" || parsed.data.hidden !== undefined) && !current) {
+        return reply.code(404).send({ error: { code: "DEVICE_NOT_FOUND", message: "Device not found", requestId: request.id } });
+      }
+      if (parsed.data.presentationType && parsed.data.presentationType !== "auto" && current && !supportsPresentationOverride(current)) {
+        return reply.code(409).send({ error: { code: "PRESENTATION_TYPE_NOT_SUPPORTED", message: "This device cannot be assigned a switch, outlet, light or fan function.", requestId: request.id } });
+      }
+      if (parsed.data.hidden !== undefined && current?.source !== "phoscon") {
+        return reply.code(409).send({ error: { code: "VISIBILITY_NOT_SUPPORTED", message: "Only Zigbee devices can be hidden from the Zigbee overview.", requestId: request.id } });
       }
       let room: string | undefined;
       if (parsed.data.roomId) room=(await listRooms()).find(item=>item.id===parsed.data.roomId)?.name;

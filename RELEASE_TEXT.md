@@ -1,22 +1,35 @@
-# SALTA v0.6.1
+# SALTA v0.6.2
 
-SALTA v0.6.1 fixes the Phoscon test-suite build failure introduced in v0.6.0.
+SALTA v0.6.2 separates Shelly-only credentials from Zigbee device settings and adds persistent visibility controls for Phoscon devices.
 
-## Build and test fix
+## Zigbee device settings
 
-- Moved Phoscon URL normalization, REST response parsing and Zigbee device mapping into a pure core module
-- Removed the indirect database and production configuration import from the Phoscon mapping tests
-- Prevented test collection from requiring `DATABASE_URL`, `ADMIN_PASSWORD`, `SALTA_HEALTH_TOKEN` or `SALTA_ENCRYPTION_KEY`
-- Kept database persistence, encrypted API-key handling, polling and device commands in the runtime Phoscon adapter
-- Preserved all Phoscon and Zigbee behavior introduced in v0.6.0
+- Corrected the device dialog so the Shelly authentication section is not displayed for Zigbee devices
+- Added a local “Hide device” setting for every synchronized Zigbee device
+- Keeps hidden devices visible as grey cards on the Zigbee page with an explicit hidden status badge
+- Allows hidden devices to be restored at any time from the same device dialog
+- Stores the visibility preference locally in SALTA without modifying the device in Phoscon
+- Preserves the visibility choice during periodic synchronization and after reconnecting the gateway
+
+## HomeKit behavior
+
+- Excludes hidden devices from HomeKit synchronization
+- Removes an existing HomeKit accessory immediately when its SALTA device is hidden or HomeKit export is disabled
+- Keeps the hidden-device exclusion in place for future Zigbee HomeKit support
+
+## Persistence
+
+- Added an additive `device_preferences` table for local per-device visibility settings
+- Creates the table automatically during normal startup
+- Requires no database reset, manual migration or new environment variable
+- Removes the preference automatically when the associated SALTA device is deleted
 
 ## Compatibility
 
-- No application behavior changed
-- No API behavior changed
-- No database schema migration is required
-- No new `.env` variable is required
 - No fresh installation is required
+- No existing Shelly or Zigbee device must be re-added
+- No Phoscon pairing change is required
+- No Docker Compose or `.env` change is required
 
 ## Updating
 
@@ -33,7 +46,7 @@ For a new installation:
 ## Container tags
 
 ```text
-0.6.1
+0.6.2
 0.6
 latest
 ```
@@ -41,5 +54,5 @@ latest
 ## Git tag
 
 ```text
-v0.6.1
+v0.6.2
 ```

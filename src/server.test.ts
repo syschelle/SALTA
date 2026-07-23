@@ -237,6 +237,43 @@ describe("PATCH /api/devices/:id/config", () => {
     });
   });
 
+
+  it("hides a Zigbee device through its local SALTA configuration", async () => {
+    const current = { id: "phoscon:lamp", source: "phoscon", type: "light", capabilities: ["turnOn", "turnOff"] };
+    const updatedDevice = { ...current, hidden: true };
+    const patch = vi.fn(async () => updatedDevice as never);
+    const server = createServer(vi.fn(), vi.fn(), { get: () => current as never, patch });
+
+    const response = await authenticatedInject(server, {
+      method: "PATCH",
+      url: "/api/devices/phoscon%3Alamp/config",
+      payload: { hidden: true }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(patch).toHaveBeenCalledWith("phoscon:lamp", {
+      hidden: true,
+      roomId: undefined,
+      room: undefined
+    });
+  });
+
+  it("does not expose the Zigbee visibility flag for Shelly devices", async () => {
+    const current = { id: "shelly:relay", source: "shelly", type: "switch", capabilities: ["turnOn", "turnOff"] };
+    const patch = vi.fn();
+    const server = createServer(vi.fn(), vi.fn(), { get: () => current as never, patch });
+
+    const response = await authenticatedInject(server, {
+      method: "PATCH",
+      url: "/api/devices/shelly%3Arelay/config",
+      payload: { hidden: true }
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: "VISIBILITY_NOT_SUPPORTED" } });
+    expect(patch).not.toHaveBeenCalled();
+  });
+
   it("rejects presentation overrides for non-switchable devices", async () => {
     const current = { id: "shelly:3em", type: "energyMeter", capabilities: [] };
     const patch = vi.fn();
@@ -488,7 +525,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.6.1" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.6.2" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {

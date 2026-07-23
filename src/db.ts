@@ -71,6 +71,11 @@ export async function initializeDatabaseSchema(): Promise<void> {
       last_event timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS device_preferences (
+      device_id text PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+      hidden boolean NOT NULL DEFAULT false,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS adapter_settings (
       adapter_id text PRIMARY KEY,
       username text NOT NULL DEFAULT '',
@@ -94,18 +99,25 @@ export async function initializeDatabaseSchema(): Promise<void> {
 
 export async function upsertDevice(d: Device): Promise<void> {
   const roomId = d.roomId ?? null;
-  await pool.query(`INSERT INTO devices
-    (id,source,source_id,type,presentation_type,name,host,generation,model,firmware_version,hostname,mac_address,profile,component_kind,component_id,channel_count,power_metering,cover_support,switch_support,light_support,input_support,room_id,reachable,state,capabilities,homekit_enabled,credential_mode,credential_username,last_seen,last_event,updated_at)
+  await pool.query(`WITH upserted_device AS (
+    INSERT INTO devices
+      (id,source,source_id,type,presentation_type,name,host,generation,model,firmware_version,hostname,mac_address,profile,component_kind,component_id,channel_count,power_metering,cover_support,switch_support,light_support,input_support,room_id,reachable,state,capabilities,homekit_enabled,credential_mode,credential_username,last_seen,last_event,updated_at)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,now())
     ON CONFLICT (id) DO UPDATE SET source=EXCLUDED.source, source_id=EXCLUDED.source_id, type=EXCLUDED.type, presentation_type=EXCLUDED.presentation_type, name=EXCLUDED.name,
-    host=EXCLUDED.host, generation=EXCLUDED.generation, model=EXCLUDED.model, firmware_version=EXCLUDED.firmware_version,
-    hostname=EXCLUDED.hostname, mac_address=EXCLUDED.mac_address, profile=EXCLUDED.profile, component_kind=EXCLUDED.component_kind, component_id=EXCLUDED.component_id,
-    channel_count=EXCLUDED.channel_count, power_metering=EXCLUDED.power_metering, cover_support=EXCLUDED.cover_support,
-    switch_support=EXCLUDED.switch_support, light_support=EXCLUDED.light_support, input_support=EXCLUDED.input_support,
-    room_id=EXCLUDED.room_id, reachable=EXCLUDED.reachable, state=EXCLUDED.state,
-    capabilities=EXCLUDED.capabilities, homekit_enabled=EXCLUDED.homekit_enabled, credential_mode=EXCLUDED.credential_mode,
-    credential_username=EXCLUDED.credential_username, last_seen=EXCLUDED.last_seen, last_event=EXCLUDED.last_event, updated_at=now()`,
-    [d.id,d.source,d.sourceId,d.type,d.presentationType??"auto",d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.profile??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent]);
+      host=EXCLUDED.host, generation=EXCLUDED.generation, model=EXCLUDED.model, firmware_version=EXCLUDED.firmware_version,
+      hostname=EXCLUDED.hostname, mac_address=EXCLUDED.mac_address, profile=EXCLUDED.profile, component_kind=EXCLUDED.component_kind, component_id=EXCLUDED.component_id,
+      channel_count=EXCLUDED.channel_count, power_metering=EXCLUDED.power_metering, cover_support=EXCLUDED.cover_support,
+      switch_support=EXCLUDED.switch_support, light_support=EXCLUDED.light_support, input_support=EXCLUDED.input_support,
+      room_id=EXCLUDED.room_id, reachable=EXCLUDED.reachable, state=EXCLUDED.state,
+      capabilities=EXCLUDED.capabilities, homekit_enabled=EXCLUDED.homekit_enabled, credential_mode=EXCLUDED.credential_mode,
+      credential_username=EXCLUDED.credential_username, last_seen=EXCLUDED.last_seen, last_event=EXCLUDED.last_event, updated_at=now()
+    RETURNING id
+  )
+  INSERT INTO device_preferences(device_id,hidden)
+  SELECT id,$31 FROM upserted_device
+  WHERE true
+  ON CONFLICT(device_id) DO UPDATE SET hidden=EXCLUDED.hidden,updated_at=now()`,
+    [d.id,d.source,d.sourceId,d.type,d.presentationType??"auto",d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.profile??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent,d.hidden]);
 }
 
 export async function deleteDevice(id: string): Promise<boolean> {
@@ -119,10 +131,13 @@ export async function listDevices(): Promise<Device[]> {
     d.component_id as "componentId",d.channel_count as "channelCount",d.power_metering as "powerMetering",
     d.cover_support as "coverSupport",d.switch_support as "switchSupport",d.light_support as "lightSupport",d.input_support as "inputSupport",
     d.room_id as "roomId",r.name as room,d.reachable,d.state,d.capabilities,
-    d.homekit_enabled as "homekitEnabled",d.credential_mode as "credentialMode",d.credential_username as "credentialUsername",
+    d.homekit_enabled as "homekitEnabled",COALESCE(p.hidden,false) as hidden,d.credential_mode as "credentialMode",d.credential_username as "credentialUsername",
     (d.credential_password IS NOT NULL AND d.credential_password <> '') as "passwordConfigured",
     d.last_seen as "lastSeen",d.last_event as "lastEvent"
-    FROM devices d LEFT JOIN rooms r ON r.id=d.room_id ORDER BY d.name`);
+    FROM devices d
+    LEFT JOIN rooms r ON r.id=d.room_id
+    LEFT JOIN device_preferences p ON p.device_id=d.id
+    ORDER BY d.name`);
   return r.rows;
 }
 

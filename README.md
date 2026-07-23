@@ -162,6 +162,8 @@ SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Det
 
 Compatible multi-channel and 2PM devices are represented according to their active switch or cover profile. Supported on/off devices can be presented as Automatic, Light, Switch, Outlet or Fan without changing the physical command routing.
 
+Shelly authentication is configured only for Shelly devices. Zigbee devices use the single encrypted Phoscon API key and do not expose per-device credential controls.
+
 Shelly authentication supports:
 
 - `inherit`: use the global Shelly credentials;
@@ -186,7 +188,11 @@ The Zigbee page is separate from the Shelly page and imports supported resources
 
 Multiple deCONZ sensor resources belonging to the same physical Zigbee device are combined into one SALTA card. Metering or battery resources that belong to one unambiguous actuator are merged into that actuator instead of being shown as duplicate devices.
 
-SALTA can switch supported lights and plugs, set brightness and control compatible window coverings. Sensor resources are read-only. Names and room assignments are managed locally in SALTA; disconnecting Phoscon removes the synchronized SALTA records but does not delete or reset devices in Phoscon.
+SALTA can switch supported lights and plugs, set brightness and control compatible window coverings. Sensor resources are read-only. Names and room assignments are managed locally in SALTA.
+
+Zigbee devices can be marked as hidden in their SALTA device settings. Hidden devices remain visible as grey cards on the Zigbee page so they can be restored later, but they are excluded from HomeKit synchronization. The visibility choice is stored locally and survives Phoscon synchronization and gateway reconnects.
+
+Disconnecting Phoscon removes the synchronized SALTA records but does not delete or reset devices in Phoscon.
 
 ## Rooms
 

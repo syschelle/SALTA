@@ -28,7 +28,8 @@ export class HomeKitBridge {
     this.accessoryNames.delete(deviceId);
   }
   private sync(d:Device):void{
-    if(!this.bridge || !d.homekitEnabled) return;
+    if(!this.bridge) return;
+    if(!d.homekitEnabled || d.hidden){ this.remove(d.id); return; }
     const serviceType=resolvePresentationType(d);
     let a=this.accessories.get(d.id);
     if(a && (this.accessoryTypes.get(d.id)!==serviceType || this.accessoryNames.get(d.id)!==d.name)){

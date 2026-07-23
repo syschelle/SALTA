@@ -13,6 +13,11 @@ describe("HomeKit device presentation", () => {
     expect(source).toContain("Characteristic.Active");
   });
 
+
+  it("removes hidden devices from HomeKit", () => {
+    expect(source).toContain("if(!d.homekitEnabled || d.hidden){ this.remove(d.id); return; }");
+  });
+
   it("persists the selected presentation type", () => {
     expect(databaseSource).toContain("presentation_type text NOT NULL DEFAULT 'auto'");
     expect(databaseSource).toContain('d.presentation_type as "presentationType"');

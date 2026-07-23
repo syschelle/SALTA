@@ -22,6 +22,7 @@ const device: Device = {
   state: { on: false },
   capabilities: ["toggle", "turnOn", "turnOff"],
   homekitEnabled: true,
+  hidden: false,
   credentialMode: "inherit",
   passwordConfigured: false,
   lastSeen: "2026-07-21T12:00:00.000Z",
@@ -105,6 +106,19 @@ describe("DeviceRegistry removal", () => {
 
     expect(registry.get(device.id)).toEqual(device);
   });
+
+  it("persists Zigbee visibility changes", async () => {
+    const registry = new DeviceRegistry();
+    const zigbee = { ...device, id: "phoscon:test", source: "phoscon", hidden: false };
+    await registry.set(zigbee);
+
+    const updated = await registry.patch(zigbee.id, { hidden: true });
+
+    expect(updated.hidden).toBe(true);
+    expect(registry.get(zigbee.id)?.hidden).toBe(true);
+    expect(dbMocks.upsertDevice).toHaveBeenLastCalledWith(expect.objectContaining({ hidden: true }));
+  });
+
   it("hydrates persisted devices without writing them back to PostgreSQL", () => {
     const registry = new DeviceRegistry();
     const deviceListener = vi.fn();

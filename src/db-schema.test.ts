@@ -20,6 +20,14 @@ describe("clean database schema", () => {
     expect(databaseSource).not.toContain("SELECT id FROM rooms WHERE name=$1");
   });
 
+
+  it("stores device visibility separately without altering the devices table", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS device_preferences");
+    expect(databaseSource).toContain("hidden boolean NOT NULL DEFAULT false");
+    expect(databaseSource).toContain('COALESCE(p.hidden,false) as hidden');
+    expect(databaseSource).toContain("LEFT JOIN device_preferences p ON p.device_id=d.id");
+  });
+
   it("accepts only the current v2 encrypted-secret format", () => {
     expect(secretSource).toContain('parts[0] === "v2"');
     expect(secretSource).not.toContain('parts[0] === "v1"');

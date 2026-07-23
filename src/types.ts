@@ -41,6 +41,7 @@ export interface Device {
   state: DeviceState;
   capabilities: string[];
   homekitEnabled: boolean;
+  hidden: boolean;
   credentialMode: CredentialMode;
   credentialUsername?: string;
   passwordConfigured: boolean;

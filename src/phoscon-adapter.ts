@@ -101,6 +101,7 @@ export class PhosconAdapter {
           room: existing?.room,
           presentationType: existing?.presentationType ?? discovered.presentationType,
           homekitEnabled: existing?.homekitEnabled ?? false,
+          hidden: existing?.hidden ?? false,
           lastEvent: existing && JSON.stringify(existing.state) === JSON.stringify(discovered.state) ? existing.lastEvent : discovered.lastEvent
         });
       }

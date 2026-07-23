@@ -1,6 +1,6 @@
-# SALTA v0.6.1 – Git and Release Commands
+# SALTA v0.6.2 – Git and Release Commands
 
-Run these commands from the repository root after replacing the local files with the v0.6.1 package.
+Run these commands from the repository root after replacing the local files with the v0.6.2 package.
 
 ## Validate
 
@@ -19,24 +19,24 @@ git pull --ff-only origin main
 
 git status
 git add -A
-git commit -m "fix: isolate Phoscon mapping tests from runtime config"
+git commit -m "feat: add persistent Zigbee device visibility"
 git push origin main
 ```
 
 ## Create and push the release tag
 
 ```bash
-git tag -a v0.6.1 -m "SALTA v0.6.1"
-git push origin v0.6.1
+git tag -a v0.6.2 -m "SALTA v0.6.2"
+git push origin v0.6.2
 ```
 
 ## Create the GitHub release
 
-Place `SALTA-v0.6.1.zip` in the repository root or adjust the file path.
+Place `SALTA-v0.6.2.zip` in the repository root or adjust the file path.
 
 ```bash
-gh release create v0.6.1 \
-  --title "SALTA v0.6.1" \
+gh release create v0.6.2 \
+  --title "SALTA v0.6.2" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.6.1.zip
+  ./SALTA-v0.6.2.zip
 ```

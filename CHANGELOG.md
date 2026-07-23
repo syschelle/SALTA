@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.6.2
+
+- Hid Shelly-only credential controls correctly in Zigbee device dialogs.
+- Added a persistent local visibility setting for Zigbee devices.
+- Kept hidden Zigbee devices visible as grey cards with an explicit status badge.
+- Excluded hidden devices from HomeKit synchronization, including dynamic removal of an existing accessory.
+- Added an additive `device_preferences` table that is created automatically without a database reset.
+- Preserved visibility choices across Phoscon synchronization and gateway reconnects.
+- Added API, persistence, HomeKit and frontend regression coverage.
+
 ## 0.6.1
 
 - Fixed the Phoscon adapter test suite importing the production database configuration during module collection.
