@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.6.1
+
+- Fixed the Phoscon adapter test suite importing the production database configuration during module collection.
+- Moved URL normalization, REST response parsing and Zigbee device mapping into a configuration-free Phoscon core module.
+- Kept database persistence and runtime polling isolated in the production adapter.
+- Added regression coverage through imports that no longer require `DATABASE_URL`, administrator credentials or SALTA secrets.
+- Kept Phoscon behavior, APIs, database schema and deployment configuration unchanged.
+
 ## 0.6.0
 
 - Added a local Phoscon/deCONZ REST API integration with encrypted API-key storage.

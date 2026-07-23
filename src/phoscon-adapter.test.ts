@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePhosconBaseUrl, phosconDevicesFromState } from "./phoscon-adapter.js";
+import { normalizePhosconBaseUrl, phosconDevicesFromState } from "./phoscon-core.js";
 
 describe("normalizePhosconBaseUrl", () => {
   it("adds HTTP and removes trailing slashes", () => {
