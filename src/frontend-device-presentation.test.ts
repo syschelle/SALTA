@@ -14,7 +14,8 @@ describe("device presentation configuration", () => {
 
   it("stores the selected role and uses it for dashboard presentation", () => {
     expect(source).toContain("const presentationType=devicePresentationSection.hidden");
-    expect(source).toContain("JSON.stringify({name,roomId:deviceRoom.value||null,presentationType})");
+    expect(source).toContain("const config={name,roomId:deviceRoom.value||null,presentationType}");
+    expect(source).toContain("body:JSON.stringify(config)");
     expect(source).toContain("const visualType=resolvedPresentationType(d)");
     expect(source).toContain("fan:'Ventilator'");
   });

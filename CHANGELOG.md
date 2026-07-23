@@ -2,6 +2,13 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.6.3
+
+- Fixed two frontend regression tests that still expected the pre-visibility device configuration payload.
+- Updated the assertions to validate the shared configuration object and its serialized request body.
+- Preserved the Zigbee `hidden` preference added conditionally for Phoscon devices.
+- Kept application runtime behavior, APIs, database schema and deployment configuration unchanged.
+
 ## 0.6.2
 
 - Hid Shelly-only credential controls correctly in Zigbee device dialogs.
