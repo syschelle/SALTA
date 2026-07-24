@@ -22,8 +22,14 @@ describe("OpenCCU frontend integration", () => {
     expect(script).toContain("deviceCredentialSection.hidden=!shelly");
   });
 
-  it("synchronizes OpenCCU separately and with the global action", () => {
+  it("synchronizes and diagnoses OpenCCU inside the application", () => {
     expect(script).toContain("api('/api/adapters/openccu/reconcile',{method:'POST'})");
+    expect(script).toContain("api('/api/settings/openccu/diagnose'");
     expect(script).toContain("async function reconcileOpenCcu()");
+    expect(script).toContain("async function diagnoseOpenCcu()");
+    expect(html).toContain('id="openCcuDiagnosticFeedback"');
+    expect(html).toContain('id="openCcuDiagnosticReport"');
+    expect(html).toContain('id="openCcuDiagnoseButton"');
+    expect(script).toContain("Remote-Code ${step.remoteCode}");
   });
 });

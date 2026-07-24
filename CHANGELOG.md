@@ -2,6 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.1
+
+- Added an in-application OpenCCU diagnostic workflow that identifies the exact JSON-RPC method and interface that failed.
+- Separated successful OpenCCU authentication from optional catalogue and device-name synchronization steps.
+- Treats `Device.listAllDetail` and individual `Interface.listDevices` failures as visible warnings where synchronization can continue.
+- Added persistent OpenCCU error details in Settings instead of relying only on a short-lived toast.
+- Added a dedicated System Log page with source and severity filters, manual refresh and clear controls.
+- Added a retained `system_logs` store with a 30-day and 2,000-entry limit.
+- Added startup, shutdown, OpenCCU connection, diagnostic and synchronization log events without storing credentials or session tokens.
+- Added API, database, adapter and frontend regression coverage for diagnostics and system logs.
+
 ## 0.7.0
 
 - Added a native OpenCCU/HomeMatic JSON-RPC integration.

@@ -35,6 +35,14 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("LEFT JOIN device_preferences p ON p.device_id=d.id");
   });
 
+
+  it("stores a bounded persistent system log", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS system_logs");
+    expect(databaseSource).toContain("CHECK(level IN ('info','warning','error'))");
+    expect(databaseSource).toContain("created_at < now() - interval '30 days'");
+    expect(databaseSource).toContain("ORDER BY created_at DESC, id DESC OFFSET 2000");
+  });
+
   it("accepts only the current v2 encrypted-secret format", () => {
     expect(secretSource).toContain('parts[0] === "v2"');
     expect(secretSource).not.toContain('parts[0] === "v1"');

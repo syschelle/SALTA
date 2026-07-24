@@ -136,6 +136,14 @@ The OpenCCU base address, username and encrypted password are stored in PostgreS
 
 The PostgreSQL password must continue to match the existing database volume. Do not rotate it by editing only `.env`.
 
+## System log and diagnostics
+
+The authenticated System Log page stores selected application lifecycle and adapter diagnostic events in PostgreSQL. OpenCCU entries may contain the JSON-RPC method name, interface name, duration, result count, remote error code and remote error message required for troubleshooting.
+
+SALTA does not intentionally write passwords, API keys, authorization headers, cookies, CSRF tokens, encryption keys or OpenCCU session identifiers to the system log. Do not paste secrets into device names, gateway names or other free-form fields that may later be included in diagnostics.
+
+System-log entries are retained for at most 30 days and capped at the newest 2,000 records. An authenticated administrator can clear them from the web interface. Database backups include retained system-log entries and must therefore be protected like the rest of the SALTA database.
+
 ## Scope and limitations
 
 SALTA security controls protect the application boundary, but they cannot secure compromised Docker hosts, reverse proxies, local networks, Shelly devices, the Phoscon/deCONZ gateway or the OpenCCU instance. Keep the host operating system, Docker engine, proxy, gateway and device firmware updated, restrict network access and review logs for repeated authentication or rate-limit warnings.

@@ -41,10 +41,13 @@ vi.mock("./db.js", () => ({
   clearPhosconSettings: vi.fn(),
   getOpenCcuConnection: vi.fn(),
   updateOpenCcuSettings: vi.fn(),
-  clearOpenCcuSettings: vi.fn()
+  clearOpenCcuSettings: vi.fn(),
+  listSystemLogs: vi.fn(async () => []),
+  clearSystemLogs: vi.fn(async () => undefined),
+  writeSystemLog: vi.fn(async () => undefined)
 }));
 
-import { deleteRoom, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, reorderRooms, updateRoom } from "./db.js";
+import { clearSystemLogs, deleteRoom, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, listSystemLogs, reorderRooms, updateRoom } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -85,6 +88,7 @@ function createServer(
     configure: vi.fn(),
     disconnect: vi.fn(),
     reconcile: vi.fn(),
+    diagnose: vi.fn(),
     command: vi.fn(),
     ...openCcuOverrides
   } as unknown as OpenCcuAdapter;
@@ -490,6 +494,34 @@ describe("OpenCCU settings API", () => {
     expect(response.json()).not.toHaveProperty("password");
   });
 
+
+
+  it("runs OpenCCU diagnostics inside SALTA and returns the method report", async () => {
+    const report = {
+      ok: true,
+      startedAt: "2026-07-24T10:00:00.000Z",
+      completedAt: "2026-07-24T10:00:01.000Z",
+      baseUrl: "http://openccu.local",
+      interfaces: ["HmIP-RF"],
+      steps: [
+        { method: "Session.login", status: "ok", durationMs: 20 },
+        { method: "Device.listAllDetail", status: "warning", durationMs: 30, code: "OPENCCU_API_ERROR", message: "TCL error" }
+      ]
+    };
+    const diagnose = vi.fn(async () => report);
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, { diagnose } as never);
+
+    const response = await authenticatedInject(server, {
+      method: "POST",
+      url: "/api/settings/openccu/diagnose",
+      payload: { baseUrl: "http://openccu.local", username: "salta", password: "secret-password" }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ report });
+    expect(diagnose).toHaveBeenCalledWith("http://openccu.local", "salta", "secret-password");
+  });
+
   it("validates and stores an OpenCCU connection through the adapter", async () => {
     const configure = vi.fn(async () => ({ connected: true, interfaces: ["BidCos-RF", "HmIP-RF"], devices: 2 }));
     vi.mocked(getOpenCcuSettings).mockResolvedValueOnce({
@@ -508,6 +540,28 @@ describe("OpenCCU settings API", () => {
 
     expect(response.statusCode).toBe(200);
     expect(configure).toHaveBeenCalledWith("http://openccu.local", "salta", "secret-password");
+  });
+});
+
+
+describe("system log API", () => {
+  it("returns filtered persistent log entries", async () => {
+    const entries = [{ id: "11111111-1111-4111-8111-111111111111", level: "error", source: "openccu", code: "OPENCCU_API_ERROR", message: "OpenCCU synchronization failed", details: { method: "Device.listAllDetail" }, createdAt: "2026-07-24T10:00:00.000Z" }];
+    vi.mocked(listSystemLogs).mockResolvedValueOnce(entries as never);
+    const server = createServer(vi.fn());
+
+    const response = await authenticatedInject(server, { method: "GET", url: "/api/logs?source=openccu&level=error&limit=50" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ entries });
+    expect(listSystemLogs).toHaveBeenCalledWith(50, "openccu", "error");
+  });
+
+  it("clears the persistent system log", async () => {
+    const server = createServer(vi.fn());
+    const response = await authenticatedInject(server, { method: "DELETE", url: "/api/logs" });
+    expect(response.statusCode).toBe(204);
+    expect(clearSystemLogs).toHaveBeenCalled();
   });
 });
 
@@ -584,7 +638,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.7.0" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.7.1" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {

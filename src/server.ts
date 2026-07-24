@@ -7,8 +7,8 @@ import { z } from "zod";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
 import type { PhosconAdapter } from "./phoscon-adapter.js";
-import type { OpenCcuAdapter } from "./openccu-adapter.js";
-import { createRoom, deleteRoom, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getShellySettings, inspectCredentialEncryption, listRooms, pool, reorderRooms, updateRoom, updateShellySettings } from "./db.js";
+import { openCcuErrorInfo, type OpenCcuAdapter } from "./openccu-adapter.js";
+import { clearSystemLogs, createRoom, deleteRoom, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getShellySettings, inspectCredentialEncryption, listRooms, listSystemLogs, pool, reorderRooms, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
 import { supportsPresentationOverride } from "./device-presentation.js";
 import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
@@ -34,6 +34,12 @@ const shellySettingsSchema = z.object({ username: z.string().max(120).default(""
 const phosconSettingsSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), apiKey: z.string().trim().min(1).max(512).optional() }).strict();
 const phosconPairSchema = z.object({ baseUrl: z.string().trim().min(1).max(512) }).strict();
 const openCcuSettingsSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), username: z.string().trim().min(1).max(120), password: z.string().max(512).optional() }).strict();
+const openCcuDiagnosticSchema = z.object({ baseUrl: z.string().trim().min(1).max(512).optional(), username: z.string().trim().min(1).max(120).optional(), password: z.string().max(512).optional() }).strict();
+const systemLogQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).default(200),
+  source: z.string().trim().min(1).max(80).optional(),
+  level: z.enum(["info", "warning", "error"]).optional()
+}).strict();
 const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
 
 const STATIC_CONTENT_TYPES: Readonly<Record<string, string>> = {
@@ -105,34 +111,42 @@ function phosconRequestError(error: unknown): { status: number; code: string; me
   }
 }
 
-function openCcuRequestError(error: unknown): { status: number; code: string; message: string } {
-  const rawCode = error instanceof Error ? error.message : "OPENCCU_REQUEST_FAILED";
+function openCcuRequestError(error: unknown): { status: number; code: string; message: string; details?: Record<string, string> } {
+  const info = openCcuErrorInfo(error);
+  const rawCode = info.code;
+  const details = Object.fromEntries(Object.entries({ method: info.method, remoteCode: info.remoteCode, remoteMessage: info.message }).filter(([, value]) => Boolean(value))) as Record<string, string>;
+  const withDetails = (response: { status: number; code: string; message: string }) => Object.keys(details).length ? { ...response, details } : response;
   switch (rawCode) {
     case "OPENCCU_URL_REQUIRED":
     case "OPENCCU_URL_INVALID":
-      return { status: 400, code: rawCode, message: "Enter a valid OpenCCU base URL, for example http://192.168.178.30." };
+      return withDetails({ status: 400, code: rawCode, message: "Enter a valid OpenCCU base URL, for example http://192.168.178.30." });
     case "OPENCCU_CREDENTIALS_REQUIRED":
-      return { status: 400, code: rawCode, message: "Enter an OpenCCU username and password." };
+      return withDetails({ status: 400, code: rawCode, message: "Enter an OpenCCU username and password." });
     case "OPENCCU_NOT_CONFIGURED":
-      return { status: 409, code: rawCode, message: "Connect an OpenCCU instance before synchronizing HomeMatic devices." };
+      return withDetails({ status: 409, code: rawCode, message: "Connect an OpenCCU instance before synchronizing HomeMatic devices." });
     case "OPENCCU_AUTHENTICATION_FAILED":
-      return { status: 422, code: rawCode, message: "OpenCCU rejected the configured username or password." };
+      return withDetails({ status: 422, code: rawCode, message: "OpenCCU rejected the configured username or password." });
     case "OPENCCU_UNREACHABLE":
-      return { status: 502, code: rawCode, message: "The OpenCCU instance is unreachable at the configured address." };
+      return withDetails({ status: 502, code: rawCode, message: "The OpenCCU instance is unreachable at the configured address." });
     case "OPENCCU_TIMEOUT":
-      return { status: 504, code: rawCode, message: "The OpenCCU instance did not respond in time." };
+      return withDetails({ status: 504, code: rawCode, message: "The OpenCCU instance did not respond in time." });
     case "OPENCCU_TLS_ERROR":
-      return { status: 502, code: rawCode, message: "The OpenCCU HTTPS certificate could not be verified. Use a trusted certificate or HTTP inside a trusted local network." };
+      return withDetails({ status: 502, code: rawCode, message: "The OpenCCU HTTPS certificate could not be verified. Use a trusted certificate or HTTP inside a trusted local network." });
     case "OPENCCU_INVALID_RESPONSE":
-      return { status: 502, code: rawCode, message: "OpenCCU returned an invalid JSON-RPC response." };
+      return withDetails({ status: 502, code: rawCode, message: "OpenCCU returned an invalid JSON-RPC response." });
+    case "OPENCCU_CATALOG_UNAVAILABLE":
+      return withDetails({ status: 502, code: rawCode, message: "OpenCCU did not return a usable device catalogue from any supported interface." });
     case "OPENCCU_DEVICE_METADATA_MISSING":
-      return { status: 409, code: rawCode, message: "The HomeMatic device is missing OpenCCU command metadata. Synchronize the adapter again." };
+      return withDetails({ status: 409, code: rawCode, message: "The HomeMatic device is missing OpenCCU command metadata. Synchronize the adapter again." });
     case "ENCRYPTION_KEY_MISMATCH":
-      return { status: 409, code: rawCode, message: "The stored OpenCCU password cannot be decrypted with the current SALTA encryption key." };
+      return withDetails({ status: 409, code: rawCode, message: "The stored OpenCCU password cannot be decrypted with the current SALTA encryption key." });
     default:
-      if (rawCode.startsWith("OPENCCU_API_ERROR:")) return { status: 502, code: "OPENCCU_API_ERROR", message: rawCode.split(":").slice(2).join(":") || "OpenCCU returned a JSON-RPC error." };
-      if (rawCode.startsWith("OPENCCU_HTTP_")) return { status: 502, code: "OPENCCU_HTTP_ERROR", message: `OpenCCU returned ${rawCode.replace("OPENCCU_HTTP_", "HTTP ")}.` };
-      return { status: 500, code: "OPENCCU_REQUEST_FAILED", message: "The OpenCCU request failed." };
+      if (rawCode === "OPENCCU_API_ERROR") {
+        const methodPrefix = info.method ? `${info.method}: ` : "";
+        return withDetails({ status: 502, code: rawCode, message: `${methodPrefix}${info.message || "OpenCCU returned a JSON-RPC error."}` });
+      }
+      if (rawCode.startsWith("OPENCCU_HTTP_")) return withDetails({ status: 502, code: "OPENCCU_HTTP_ERROR", message: `OpenCCU returned ${rawCode.replace("OPENCCU_HTTP_", "HTTP ")}.` });
+      return withDetails({ status: 500, code: "OPENCCU_REQUEST_FAILED", message: "The OpenCCU request failed." });
   }
 }
 
@@ -274,7 +288,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       : { allowed: true, retryAfterSeconds: 0, remaining: config.RATE_LIMIT_MUTATIONS_PER_MINUTE };
     const expensiveRouteLimit = path === "/api/adapters/shelly/discover"
       ? security.consumeRateLimit(`discover:${ip}`, 2, rateWindowMs)
-      : path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile" || path === "/api/adapters/openccu/reconcile"
+      : path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile" || path === "/api/adapters/openccu/reconcile" || path === "/api/settings/openccu/diagnose"
         ? security.consumeRateLimit(`reconcile:${ip}`, 12, rateWindowMs)
         : path === "/api/adapters/shelly/devices" && request.method === "POST"
           ? security.consumeRateLimit(`onboarding:${ip}`, 10, rateWindowMs)
@@ -382,9 +396,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.0" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.1" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.0", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.1", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -495,7 +509,21 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       return { ...(await getOpenCcuSettings()), gateway };
     } catch (error) {
       const response = openCcuRequestError(error);
-      return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+      await writeSystemLog("error", "openccu", response.code, "OpenCCU connection test failed", { ...(response.details ?? {}), requestId: request.id }).catch(() => undefined);
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, details: response.details, requestId: request.id } });
+    }
+  });
+  app.post<{ Body: unknown }>("/api/settings/openccu/diagnose", {
+    config: { rateLimit: { max: 6, timeWindow: rateWindowMs, groupId: "openccu-diagnostics" } }
+  }, async (request, reply) => {
+    const parsed = openCcuDiagnosticSchema.safeParse(request.body ?? {});
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    try {
+      return { report: await openCcuAdapter.diagnose(parsed.data.baseUrl, parsed.data.username, parsed.data.password) };
+    } catch (error) {
+      const response = openCcuRequestError(error);
+      await writeSystemLog("error", "openccu", response.code, "OpenCCU diagnostic could not be started", { ...(response.details ?? {}), requestId: request.id }).catch(() => undefined);
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, details: response.details, requestId: request.id } });
     }
   });
   app.delete("/api/settings/openccu", {
@@ -568,12 +596,12 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       }
       if (message.startsWith("OPENCCU_")) {
         const response = openCcuRequestError(error);
-        return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+        return reply.code(response.status).send({ error: { code: response.code, message: response.message, details: response.details, requestId: request.id } });
       }
       if (message === "ENCRYPTION_KEY_MISMATCH") {
         const source = registry.get(request.params.id)?.source;
         const response = source === "openccu" ? openCcuRequestError(error) : source === "phoscon" ? phosconRequestError(error) : shellyRequestError(error);
-        return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+        return reply.code(response.status).send({ error: { code: response.code, message: response.message, details: "details" in response ? response.details : undefined, requestId: request.id } });
       }
       return reply.code(message === "DEVICE_NOT_FOUND" ? 404 : 400).send({ error: { code: message, message, requestId: request.id } });
     }
@@ -600,13 +628,28 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     try {
       const settings = await getOpenCcuSettings();
       if (!settings.passwordConfigured) throw new Error("OPENCCU_NOT_CONFIGURED");
-      await openCcuAdapter.reconcile(true);
+      await openCcuAdapter.reconcile(true, "manual");
       return { status: "ok", gateway: openCcuAdapter.getStatus() };
     } catch (error) {
       const response = openCcuRequestError(error);
-      return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, details: response.details, requestId: request.id } });
     }
   });
+
+  app.get<{ Querystring: unknown }>("/api/logs", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "system-logs-read" } }
+  }, async (request, reply) => {
+    const parsed = systemLogQuerySchema.safeParse(request.query);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    return { entries: await listSystemLogs(parsed.data.limit, parsed.data.source, parsed.data.level) };
+  });
+  app.delete("/api/logs", {
+    config: { rateLimit: { max: 6, timeWindow: rateWindowMs, groupId: "system-logs-clear" } }
+  }, async (_request, reply) => {
+    await clearSystemLogs();
+    return reply.code(204).send();
+  });
+
   app.post<{Body:unknown}>("/api/adapters/shelly/discover",async(request,reply)=>{
     const parsed=shellyDiscoverySchema.safeParse(request.body); if(!parsed.success) return reply.code(400).send({error:{code:"INVALID_REQUEST",message:parsed.error.issues[0]?.message,requestId:request.id}});
     try { const credentials=await getGlobalShellyCredentials(); return {devices:await shellyAdapter.discover(parsed.data.subnet,credentials.username,credentials.password)}; }

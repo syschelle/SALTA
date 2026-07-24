@@ -1,56 +1,41 @@
-# SALTA v0.7.0
+# SALTA v0.7.1
 
-SALTA v0.7.0 adds the first native OpenCCU/HomeMatic integration and introduces a separate HomeMatic area in the web interface.
+SALTA v0.7.1 adds in-application OpenCCU diagnostics and a persistent system log while keeping user-facing connection errors visible.
 
-## OpenCCU connection
+## OpenCCU diagnostics
 
-- Added configuration for one local OpenCCU instance under Settings
-- Connects through the CCU-compatible JSON-RPC endpoint at `/api/homematic.cgi`
-- Stores the OpenCCU password encrypted with the existing `SALTA_ENCRYPTION_KEY`
-- Tests the configured address and credentials before saving them
-- Shows connection state, available interfaces, synchronized device count and the latest synchronization result
-- Supports clean disconnection without modifying devices in OpenCCU
+- Added a diagnostic action directly to the OpenCCU settings panel
+- Reports every tested JSON-RPC method with its status, duration, interface and result count
+- Shows the exact failed OpenCCU method and remote error message, including Tcl errors
+- Keeps blocking connection errors visible in the settings panel instead of relying only on a short-lived notification
+- Separates successful login and interface discovery from optional catalogue and device-name requests
+- Treats `Device.listAllDetail` failures as warnings and continues without detailed OpenCCU names
+- Treats a failed `Interface.listDevices` call as an interface-specific warning while continuing with other interfaces
+- Preserves the visible error message as part of the normal application workflow
 
-## HomeMatic devices
+## System log
 
-- Added a separate HomeMatic page with its own room filter, search and synchronization action
-- Imports supported channels from BidCos-RF, BidCos-Wired, HmIP-RF and VirtualDevices
-- Supports compatible switches, relays, plugs, dimmable lights and window coverings
-- Imports contact, motion, temperature, humidity, light, water, smoke, power and energy data
-- Keeps device names and room assignments local to SALTA
-- Keeps OpenCCU devices excluded from HomeKit in this initial integration
+- Added a protected System Log page to the web interface
+- Added filters for source and severity plus manual refresh and clear actions
+- Records SALTA startup and shutdown events
+- Records OpenCCU connection tests, diagnostic steps, synchronization results and failed JSON-RPC methods
+- Stores the method name, interface, duration, result count and remote error details needed for troubleshooting
+- Does not intentionally store passwords, API keys, encryption keys, cookies, CSRF tokens or OpenCCU session identifiers
+- Retains entries for up to 30 days and caps the log at the newest 2,000 records
 
-## Control and synchronization
+## Persistence and API
 
-- Added on, off and toggle commands for compatible actuators
-- Added 0–100 percent brightness control for compatible dimmers
-- Added open, close, stop and target-position commands for compatible coverings
-- Polls OpenCCU every 60 seconds and refreshes the device catalogue periodically
-- Uses short-lived JSON-RPC sessions and logs out after each synchronization or command transaction
-- Marks synchronized devices unreachable when OpenCCU cannot be contacted
-
-## Security and persistence
-
-- Added encrypted OpenCCU password storage
-- Added additive `openccu_settings` and `device_adapter_data` tables
-- Does not return the stored password to the browser
-- Keeps TLS certificate validation enabled for HTTPS OpenCCU endpoints
-- Added readiness reporting for the OpenCCU adapter and encrypted credential state
-
-## Initial limitations
-
-- No XML-RPC callback registration
-- No OpenCCU program or system-variable management
-- No device pairing or configuration changes
-- No thermostat setpoint control
-- No HomeKit export for OpenCCU devices in this release
+- Added an additive `system_logs` table created automatically during normal startup
+- Added authenticated read and clear endpoints for the system log
+- Added rate limiting for log access and OpenCCU diagnostic runs
+- Added database, API, adapter and frontend regression coverage
 
 ## Compatibility
 
 - No fresh installation is required
 - No new `.env` variable is required
-- Existing Shelly, Zigbee, room and Phoscon data remain unchanged
-- The additive tables are created automatically during normal startup
+- Existing Shelly, Zigbee, HomeMatic, room and adapter data remain unchanged
+- The additive log table is created automatically during normal startup
 
 ## Updating
 
@@ -67,7 +52,7 @@ For a new installation:
 ## Container tags
 
 ```text
-0.7.0
+0.7.1
 0.7
 latest
 ```
@@ -75,5 +60,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.0
+v0.7.1
 ```

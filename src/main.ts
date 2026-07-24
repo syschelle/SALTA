@@ -1,5 +1,5 @@
 import { config } from "./config.js";
-import { initializeDatabaseSchema, inspectCredentialEncryption, pool, listDevices } from "./db.js";
+import { initializeDatabaseSchema, inspectCredentialEncryption, pool, listDevices, writeSystemLog } from "./db.js";
 import { DeviceRegistry } from "./registry.js";
 import { HomeKitBridge } from "./homekit.js";
 import { buildServer } from "./server.js";
@@ -27,6 +27,7 @@ async function main(): Promise<void> {
   const server = buildServer(registry, shelly, phoscon, openCcu);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   server.log.info({ port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED, trustedProxiesConfigured: Boolean(config.TRUSTED_PROXIES.trim()) }, "SALTA started with mandatory authentication");
+  await writeSystemLog("info", "system", "SALTA_STARTED", "SALTA started", { port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED }).catch(() => undefined);
   const credentialEncryption = await inspectCredentialEncryption();
   if (credentialEncryption.status === "invalid") {
     server.log.error({
@@ -42,6 +43,7 @@ async function main(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     server.log.info({ signal }, "Shutting down SALTA");
+    await writeSystemLog("info", "system", "SALTA_STOPPING", "SALTA is shutting down", { signal }).catch(() => undefined);
     await server.close();
     homekit.stop();
     openCcu.stop();

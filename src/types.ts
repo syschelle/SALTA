@@ -92,10 +92,48 @@ export interface OpenCcuSettings {
   encryptionStatus: "ok" | "invalid";
 }
 
+export type OpenCcuDiagnosticStepStatus = "ok" | "warning" | "error";
+
+export interface OpenCcuDiagnosticStep {
+  method: string;
+  status: OpenCcuDiagnosticStepStatus;
+  durationMs: number;
+  interfaceName?: string;
+  resultCount?: number;
+  code?: string;
+  remoteCode?: string;
+  message?: string;
+}
+
+export interface OpenCcuDiagnosticReport {
+  ok: boolean;
+  startedAt: string;
+  completedAt: string;
+  baseUrl: string;
+  interfaces: string[];
+  steps: OpenCcuDiagnosticStep[];
+}
+
 export interface OpenCcuGatewayStatus {
   connected: boolean;
   interfaces: string[];
   devices: number;
   lastSync?: string;
   lastError?: string;
+  lastErrorMethod?: string;
+  lastErrorRemoteCode?: string;
+  lastErrorMessage?: string;
+  lastDiagnostic?: OpenCcuDiagnosticReport;
+}
+
+export type SystemLogLevel = "info" | "warning" | "error";
+
+export interface SystemLogEntry {
+  id: string;
+  level: SystemLogLevel;
+  source: string;
+  code?: string;
+  message: string;
+  details: Record<string, unknown>;
+  createdAt: string;
 }

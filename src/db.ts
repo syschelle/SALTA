@@ -2,7 +2,7 @@ import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { CredentialMode, Device, OpenCcuSettings, PhosconSettings, Room, ShellySettings } from "./types.js";
+import type { CredentialMode, Device, OpenCcuSettings, PhosconSettings, Room, ShellySettings, SystemLogEntry, SystemLogLevel } from "./types.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
 
@@ -106,6 +106,19 @@ export async function initializeDatabaseSchema(): Promise<void> {
       updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS commands_device_idx ON commands(device_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS system_logs (
+      id uuid PRIMARY KEY,
+      level text NOT NULL CHECK(level IN ('info','warning','error')),
+      source text NOT NULL,
+      code text,
+      message text NOT NULL,
+      details jsonb NOT NULL DEFAULT '{}'::jsonb,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS system_logs_created_idx ON system_logs(created_at DESC);
+    CREATE INDEX IF NOT EXISTS system_logs_source_idx ON system_logs(source, created_at DESC);
+    DELETE FROM system_logs WHERE created_at < now() - interval '30 days';
+    DELETE FROM system_logs WHERE id IN (SELECT id FROM system_logs ORDER BY created_at DESC, id DESC OFFSET 2000);
   `);
 }
 
@@ -388,4 +401,42 @@ export async function updateOpenCcuSettings(baseUrl: string, username: string, p
 
 export async function clearOpenCcuSettings(): Promise<void> {
   await pool.query("DELETE FROM openccu_settings WHERE adapter_id='openccu'");
+}
+
+
+export async function writeSystemLog(
+  level: SystemLogLevel,
+  source: string,
+  code: string | undefined,
+  message: string,
+  details: Record<string, unknown> = {}
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO system_logs(id,level,source,code,message,details) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,
+    [randomUUID(), level, source.slice(0, 80), code?.slice(0, 120) ?? null, message.slice(0, 1000), JSON.stringify(details)]
+  );
+  await pool.query("DELETE FROM system_logs WHERE created_at < now() - interval '30 days'");
+  await pool.query("DELETE FROM system_logs WHERE id IN (SELECT id FROM system_logs ORDER BY created_at DESC, id DESC OFFSET 2000)");
+}
+
+export async function listSystemLogs(
+  limit = 200,
+  source?: string,
+  level?: SystemLogLevel
+): Promise<SystemLogEntry[]> {
+  const values: unknown[] = [];
+  const conditions: string[] = [];
+  if (source) { values.push(source); conditions.push(`source=$${values.length}`); }
+  if (level) { values.push(level); conditions.push(`level=$${values.length}`); }
+  values.push(Math.max(1, Math.min(limit, 500)));
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const result = await pool.query<SystemLogEntry>(
+    `SELECT id,level,source,code,message,details,created_at as "createdAt" FROM system_logs ${where} ORDER BY created_at DESC LIMIT $${values.length}`,
+    values
+  );
+  return result.rows;
+}
+
+export async function clearSystemLogs(): Promise<void> {
+  await pool.query("DELETE FROM system_logs");
 }

@@ -212,6 +212,16 @@ SALTA can switch supported actuators, set light brightness and control compatibl
 
 SALTA currently polls OpenCCU every 60 seconds and refreshes the device catalogue periodically. It does not register XML-RPC callbacks, manage OpenCCU programs or variables, pair HomeMatic devices, or provide thermostat setpoint control in this initial release. Disconnecting OpenCCU removes the synchronized SALTA records but does not delete or reset devices in OpenCCU.
 
+### OpenCCU diagnostics
+
+The OpenCCU settings include an in-application diagnostic run. It checks login, interface discovery, device details and the device catalogue for each supported interface and shows the exact JSON-RPC method, interface, duration and remote error message. A Tcl error from an optional device-name request is displayed as a warning and does not hide an otherwise successful connection. Blocking authentication or interface errors remain visible in the settings panel until the next successful check or an explicit user action.
+
+## System log
+
+SALTA includes a protected **System Log** page for technical events and adapter diagnostics. It supports source and severity filters, manual refresh and clearing the retained entries. OpenCCU connection tests, failed JSON-RPC methods, synchronization results, application startup and shutdown are recorded. Passwords, API keys and OpenCCU session identifiers are not written to this log.
+
+Entries are kept for at most 30 days and the newest 2,000 records. Cleanup runs during database initialization and periodically while new entries are written. The system log is available only to an authenticated SALTA user.
+
 ## Rooms
 
 Rooms are first-class database entities linked to devices by `room_id`. The obsolete duplicate room-name column and its synchronization logic have been removed.
