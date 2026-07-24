@@ -10,6 +10,7 @@ import {
   openCcuCatalogFromDescriptions,
   openCcuDeviceFromChannel,
   openCcuRpcEndpoint,
+  reconciledOpenCcuName,
   record,
   stringifyRpcParams,
   unwrapRpcResult,
@@ -27,6 +28,8 @@ import type {
 import type { DeviceRegistry } from "./registry.js";
 
 const pollIntervalMs = 60_000;
+const reconnectIntervalMs = 15_000;
+const sessionRetryDelayMs = 60_000;
 const requestTimeoutMs = 15_000;
 const catalogRefreshMs = 15 * 60_000;
 const supportedInterfaces = new Set(["BidCos-RF", "BidCos-Wired", "HmIP-RF", "VirtualDevices"]);
@@ -77,6 +80,11 @@ export function openCcuErrorInfo(error: unknown): OpenCcuErrorInfo {
     };
   }
   return error instanceof Error ? legacyErrorInfo(error) : { code: "OPENCCU_REQUEST_FAILED" };
+}
+
+function sessionInvalidError(info: OpenCcuErrorInfo): boolean {
+  const message = `${info.message ?? ""} ${info.remoteCode ?? ""}`.toLowerCase();
+  return /(invalid|unknown|expired|missing) session|session (?:is )?(?:invalid|unknown|expired|missing)|not (?:logged|signed) in/.test(message);
 }
 
 function mappedError(error: unknown, method: string): OpenCcuAdapterError {
@@ -187,6 +195,10 @@ class OpenCcuJsonRpcClient {
     return task;
   }
 
+  invalidateSession(): void {
+    this.sessionId = undefined;
+  }
+
   async call(method: string, params: JsonRecord = {}, interfaceName?: string): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       await this.login();
@@ -195,9 +207,8 @@ class OpenCcuJsonRpcClient {
         return await this.post(method, { _session_id_: this.sessionId, ...params }, interfaceName);
       } catch (error) {
         const info = openCcuErrorInfo(error);
-        const invalidSession = (info.message ?? "").toLowerCase().includes("invalid session");
-        if (invalidSession && attempt === 0) {
-          this.sessionId = undefined;
+        if (sessionInvalidError(info) && attempt === 0) {
+          this.invalidateSession();
           continue;
         }
         throw error;
@@ -239,7 +250,8 @@ function stepError(step: OpenCcuDiagnosticStep): OpenCcuAdapterError {
 }
 
 export class OpenCcuAdapter {
-  private timer?: ReturnType<typeof setInterval>;
+  private timer?: ReturnType<typeof setTimeout>;
+  private running = false;
   private reconcileTask?: Promise<void>;
   private operationQueue: Promise<void> = Promise.resolve();
   private runtimeClient?: OpenCcuJsonRpcClient;
@@ -287,14 +299,31 @@ export class OpenCcuAdapter {
     return this.runtimeClient;
   }
 
-  start(): void {
-    void this.reconcile(false, "scheduled").catch(() => undefined);
-    this.timer = setInterval(() => void this.reconcile(false, "scheduled").catch(() => undefined), pollIntervalMs);
+  private scheduleReconcile(delayMs: number): void {
+    if (!this.running) return;
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = setTimeout(async () => {
+      this.timer = undefined;
+      try {
+        await this.reconcile(false, "scheduled");
+      } catch {
+        // The adapter status and system log already contain the failure details.
+      } finally {
+        if (this.running) this.scheduleReconcile(this.status.connected ? pollIntervalMs : reconnectIntervalMs);
+      }
+    }, delayMs);
     (this.timer as { unref?: () => void }).unref?.();
   }
 
+  start(): void {
+    if (this.running) return;
+    this.running = true;
+    this.scheduleReconcile(0);
+  }
+
   async stop(): Promise<void> {
-    if (this.timer) clearInterval(this.timer);
+    this.running = false;
+    if (this.timer) clearTimeout(this.timer);
     this.timer = undefined;
     await this.reconcileTask?.catch(() => undefined);
     await this.operationQueue.catch(() => undefined);
@@ -385,7 +414,7 @@ export class OpenCcuAdapter {
       await this.closeRuntimeClient();
       const report = await this.runDiagnostics(baseUrl, username, password);
       const firstError = report.steps.find(step => step.status === "error");
-      if (firstError?.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + 5 * 60_000;
+      if (firstError?.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + sessionRetryDelayMs;
       else if (report.ok) this.sessionRetryAfter = 0;
       this.status = {
         ...this.status,
@@ -423,7 +452,7 @@ export class OpenCcuAdapter {
       const interfaceStep = report.steps.find(step => step.method === "Interface.listInterfaces");
       const fatalStep = [loginStep, interfaceStep].find(step => step?.status === "error");
       if (fatalStep) {
-        if (fatalStep.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + 5 * 60_000;
+        if (fatalStep.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + sessionRetryDelayMs;
         this.status = {
           connected: false,
           interfaces: report.interfaces,
@@ -537,6 +566,9 @@ export class OpenCcuAdapter {
         }
       });
       if (generation !== this.configurationGeneration) return;
+      if (this.catalog.length > 0 && snapshotFailures === this.catalog.length) {
+        throw new OpenCcuAdapterError("OPENCCU_CHANNELS_UNAVAILABLE", "Interface.getParamset");
+      }
       const mapped = snapshots.filter((device): device is Device => Boolean(device));
       const seen = new Set(mapped.map(device => device.id));
       for (const discovered of mapped) {
@@ -545,7 +577,7 @@ export class OpenCcuAdapter {
         const existing = this.registry.get(discovered.id);
         await this.registry.set({
           ...discovered,
-          name: existing?.name ?? discovered.name,
+          name: reconciledOpenCcuName(existing, discovered),
           roomId: existing?.roomId,
           room: existing?.room,
           presentationType: existing?.presentationType ?? discovered.presentationType,
@@ -585,7 +617,9 @@ export class OpenCcuAdapter {
     } catch (error) {
       if (generation !== this.configurationGeneration) return;
       const info = openCcuErrorInfo(error);
-      if (info.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + 5 * 60_000;
+      this.runtimeClient?.invalidateSession();
+      this.catalogLoadedAt = 0;
+      if (info.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + sessionRetryDelayMs;
       this.status = {
         ...this.status,
         connected: false,
@@ -688,7 +722,7 @@ export class OpenCcuAdapter {
         this.sessionRetryAfter = 0;
       } catch (error) {
         const info = openCcuErrorInfo(error);
-        if (info.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + 5 * 60_000;
+        if (info.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + sessionRetryDelayMs;
         throw error;
       }
     }));

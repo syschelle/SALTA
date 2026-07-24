@@ -5,6 +5,7 @@ import {
   openCcuCatalogFromDescriptions,
   openCcuDeviceFromChannel,
   openCcuRpcEndpoint,
+  reconciledOpenCcuName,
   stringifyRpcParams,
   unwrapRpcResult
 } from "./openccu-core.js";
@@ -27,6 +28,25 @@ describe("OpenCCU JSON-RPC core", () => {
     expect(unwrapRpcResult({ result: ["HmIP-RF"], error: null })).toEqual(["HmIP-RF"]);
     expect(() => unwrapRpcResult({ error: { code: -1, message: "invalid session" } })).toThrow("OPENCCU_API_ERROR");
     expect(() => unwrapRpcResult({ error: "access denied" })).toThrow("OPENCCU_API_ERROR");
+  });
+
+
+  it("reads OpenCCU device and channel names from keyed detail payloads", () => {
+    const catalog = openCcuCatalogFromDescriptions("BidCos-RF", [
+      { ADDRESS: "NEQ1157537", TYPE: "HM-Sec-SCo", CHILDREN: ["NEQ1157537:0", "NEQ1157537:1"] },
+      { ADDRESS: "NEQ1157537:1", PARENT: "NEQ1157537", TYPE: "SHUTTER_CONTACT", PARAMSETS: ["VALUES"] }
+    ], {
+      NEQ1157537: {
+        address: "NEQ1157537",
+        name: "Fensterkontakt+Wohnzimmer",
+        channels: [{ address: "NEQ1157537:1", name: "Fensterkontakt+Wohnzimmer:1" }]
+      }
+    });
+
+    expect(catalog).toEqual([expect.objectContaining({
+      deviceName: "Fensterkontakt Wohnzimmer",
+      channelName: "Fensterkontakt Wohnzimmer:1"
+    })]);
   });
 
   it("accepts interface descriptions with upper- or lower-case property names", () => {
@@ -66,6 +86,35 @@ describe("OpenCCU HomeMatic device mapping", () => {
     firmwareVersion: "1.0.0",
     channelCount: 4
   };
+
+
+  it("replaces legacy generated names while preserving local SALTA names", () => {
+    const discovered = openCcuDeviceFromChannel({
+      ...base,
+      deviceAddress: "NEQ1157537",
+      deviceName: "Fensterkontakt Wohnzimmer",
+      model: "HM-Sec-SCo",
+      channelAddress: "NEQ1157537:1",
+      channelType: "SHUTTER_CONTACT",
+      values: { STATE: false }
+    });
+    expect(discovered).toBeDefined();
+    const legacy = { ...discovered!, name: "HM-Sec-SCo NEQ1157537:1", adapterData: {
+      interfaceName: "BidCos-RF",
+      channelAddress: "NEQ1157537:1",
+      channelType: "SHUTTER_CONTACT"
+    } };
+    expect(reconciledOpenCcuName(legacy, discovered!)).toBe("Fensterkontakt Wohnzimmer");
+
+    const sourceManaged = { ...discovered!, name: "Alter CCU-Name", adapterData: {
+      ...discovered!.adapterData,
+      sourceName: "Alter CCU-Name"
+    } };
+    expect(reconciledOpenCcuName(sourceManaged, discovered!)).toBe("Fensterkontakt Wohnzimmer");
+
+    const locallyRenamed = { ...sourceManaged, name: "Terrassentür" };
+    expect(reconciledOpenCcuName(locallyRenamed, discovered!)).toBe("Terrassentür");
+  });
 
   it("maps a switch channel with command metadata", () => {
     const device = openCcuDeviceFromChannel({

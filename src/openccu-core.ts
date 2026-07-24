@@ -43,7 +43,7 @@ function decodedName(value: unknown): string | undefined {
   const text = stringValue(value);
   if (!text) return undefined;
   try {
-    return decodeURIComponent(text);
+    return decodeURIComponent(text.replace(/\+/g, "%20"));
   } catch {
     return text;
   }
@@ -163,13 +163,46 @@ function isSwitchChannel(type: string, values: JsonRecord): boolean {
   return booleanValue(values.STATE) !== undefined && /(SWITCH|OUTPUT|ACTUATOR|RELAY|PLUG)/.test(type);
 }
 
+function fallbackDeviceName(snapshot: Pick<OpenCcuChannelSnapshot, "model" | "channelAddress">): string {
+  return `${snapshot.model ?? "HomeMatic"} ${snapshot.channelAddress}`;
+}
+
 function deviceName(snapshot: OpenCcuChannelSnapshot): string {
-  if (snapshot.channelName) return snapshot.channelName;
+  const channel = snapshot.channelAddress.split(":").at(-1);
+  if (snapshot.channelName) {
+    const normalizedChannelName = snapshot.channelName.trim();
+    const generatedChannelNames = snapshot.deviceName && channel
+      ? new Set([
+          `${snapshot.deviceName}:${channel}`.toLocaleLowerCase(),
+          `${snapshot.deviceName} ${channel}`.toLocaleLowerCase(),
+          `${snapshot.deviceName} · Kanal ${channel}`.toLocaleLowerCase()
+        ])
+      : new Set<string>();
+    if (!generatedChannelNames.has(normalizedChannelName.toLocaleLowerCase())) return normalizedChannelName;
+  }
   if (snapshot.deviceName) {
-    const channel = snapshot.channelAddress.split(":").at(-1);
     return channel && channel !== "1" ? `${snapshot.deviceName} · Kanal ${channel}` : snapshot.deviceName;
   }
-  return `${snapshot.model ?? "HomeMatic"} ${snapshot.channelAddress}`;
+  return fallbackDeviceName(snapshot);
+}
+
+function adapterString(device: Device | undefined, key: string): string | undefined {
+  const value = device?.adapterData?.[key];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/**
+ * Keeps a locally edited SALTA name while allowing names supplied by OpenCCU to
+ * replace old generated fallbacks and to follow later renames in OpenCCU.
+ */
+export function reconciledOpenCcuName(existing: Device | undefined, discovered: Device): string {
+  if (!existing) return discovered.name;
+  const previousSourceName = adapterString(existing, "sourceName");
+  const previousFallbackName = adapterString(existing, "sourceFallbackName")
+    ?? `${existing.model ?? "HomeMatic"} ${adapterString(existing, "channelAddress") ?? existing.sourceId.split("|").at(-1) ?? ""}`.trim();
+  const followsSourceName = previousSourceName !== undefined && existing.name === previousSourceName;
+  const usesGeneratedFallback = existing.name === previousFallbackName;
+  return followsSourceName || usesGeneratedFallback ? discovered.name : existing.name;
 }
 
 function idPart(value: string): string {
@@ -179,11 +212,13 @@ function idPart(value: string): string {
 function baseDevice(snapshot: OpenCcuChannelSnapshot): Omit<Device, "type" | "state" | "capabilities"> {
   const host = normalizeOpenCcuBaseUrl(snapshot.baseUrl);
   const reachableFlag = booleanValue(snapshot.values.UNREACH);
+  const sourceName = deviceName(snapshot);
+  const sourceFallbackName = fallbackDeviceName(snapshot);
   return {
     id: `openccu:${idPart(snapshot.interfaceName)}:${idPart(snapshot.channelAddress)}`,
     source: "openccu",
     sourceId: `${snapshot.interfaceName}|${snapshot.channelAddress}`,
-    name: deviceName(snapshot),
+    name: sourceName,
     host,
     model: snapshot.model,
     firmwareVersion: snapshot.firmwareVersion,
@@ -201,7 +236,9 @@ function baseDevice(snapshot: OpenCcuChannelSnapshot): Omit<Device, "type" | "st
     adapterData: {
       interfaceName: snapshot.interfaceName,
       channelAddress: snapshot.channelAddress,
-      channelType: snapshot.channelType
+      channelType: snapshot.channelType,
+      sourceName,
+      sourceFallbackName
     }
   };
 }
@@ -342,13 +379,25 @@ function stringArray(value: unknown): string[] {
   return [];
 }
 
+function recordArray(value: unknown, ...containerNames: string[]): JsonRecord[] {
+  if (Array.isArray(value)) return value.map(record);
+  const container = record(value);
+  for (const name of containerNames) {
+    const nested = property(container, name);
+    if (Array.isArray(nested)) return nested.map(record);
+  }
+  return Object.values(container)
+    .filter(item => item !== null && typeof item === "object" && !Array.isArray(item))
+    .map(record);
+}
+
 export function openCcuCatalogFromDescriptions(
   interfaceName: string,
   descriptionsPayload: unknown,
   detailsPayload: unknown
 ): OpenCcuCatalogEntry[] {
-  const descriptions = Array.isArray(descriptionsPayload) ? descriptionsPayload.map(record) : [];
-  const details = Array.isArray(detailsPayload) ? detailsPayload.map(record) : [];
+  const descriptions = recordArray(descriptionsPayload, "devices", "result");
+  const details = recordArray(detailsPayload, "devices", "result");
   const detailDevices = new Map<string, JsonRecord>();
   const detailChannels = new Map<string, JsonRecord>();
 

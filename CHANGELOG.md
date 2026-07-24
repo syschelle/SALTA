@@ -2,16 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
-## 0.7.2
+## 0.7.3
 
-- Reuses one persistent OpenCCU JSON-RPC session for scheduled synchronization and device commands instead of opening a new session for every operation.
-- Serializes diagnostics, configuration, synchronization and commands so SALTA never creates overlapping OpenCCU sessions.
-- Closes the runtime session on reconfiguration, disconnect and shutdown.
-- Added single-flight login handling and one automatic re-login when OpenCCU reports an expired session.
-- Distinguishes OpenCCU error 501 as an ambiguous credentials-or-session-limit condition instead of reporting it as a definite password error.
-- Pauses scheduled login retries for five minutes after error 501 to avoid increasing session pressure.
-- Shows `Session.logout` as part of the in-application diagnostic report and records failed logout attempts as warnings.
-- Added regression coverage for session reuse, logout and error-501 mapping.
+- Added automatic OpenCCU recovery after gateway restarts and temporary network outages.
+- Invalidates stale local JSON-RPC sessions after transport, catalogue or complete channel-read failures and creates a fresh session on the next retry.
+- Retries disconnected OpenCCU gateways every 15 seconds while keeping the normal connected polling interval at 60 seconds.
+- Refreshes the OpenCCU device catalogue after reconnecting so current device and channel names are loaded again.
+- Reads names from `Device.listAllDetail` from both array and keyed-object response shapes and decodes URL-encoded names.
+- Replaces legacy generated names such as `HM-Sec-SCo NEQ1157537:1` with the configured OpenCCU name.
+- Continues to preserve names that were deliberately edited locally in SALTA.
+- Reduced the error-501 automatic retry delay to one minute while retaining serialized, single-session access.
+- Added regression coverage for gateway restart recovery, legacy-name replacement and locally customized names.
 
 ## 0.7.0
 

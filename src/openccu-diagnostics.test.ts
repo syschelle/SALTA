@@ -103,6 +103,41 @@ describe("OpenCCU in-app diagnostics", () => {
     }));
   });
 
+
+  it("creates a fresh session automatically after an OpenCCU restart", async () => {
+    const methods: string[] = [];
+    let failNextInterfaceCall = false;
+    let loginNumber = 0;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { id: number; method: string };
+      methods.push(body.method);
+      if (body.method === "Session.login") return rpcResult(body.id, `session-${++loginNumber}`);
+      if (body.method === "Interface.listInterfaces") {
+        if (failNextInterfaceCall) {
+          failNextInterfaceCall = false;
+          const error = new Error("connect ECONNREFUSED") as Error & { cause?: { code: string } };
+          error.cause = { code: "ECONNREFUSED" };
+          throw error;
+        }
+        return rpcResult(body.id, ["BidCos-RF"]);
+      }
+      if (body.method === "Device.listAllDetail") return rpcResult(body.id, []);
+      if (body.method === "Interface.listDevices") return rpcResult(body.id, []);
+      if (body.method === "Session.logout") return rpcResult(body.id, true);
+      throw new Error(`Unexpected method ${body.method}`);
+    }));
+
+    const adapter = new OpenCcuAdapter(registry);
+    await adapter.reconcile(true, "manual");
+    failNextInterfaceCall = true;
+    await expect(adapter.reconcile(false, "manual")).rejects.toThrow("OPENCCU_UNREACHABLE");
+    await adapter.reconcile(false, "manual");
+    await adapter.stop();
+
+    expect(methods.filter(method => method === "Session.login")).toHaveLength(2);
+    expect(adapter.getStatus().connected).toBe(true);
+  });
+
   it("reuses one runtime session across periodic synchronizations and logs out on stop", async () => {
     const methods: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {

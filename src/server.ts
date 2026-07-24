@@ -138,6 +138,8 @@ function openCcuRequestError(error: unknown): { status: number; code: string; me
       return withDetails({ status: 502, code: rawCode, message: "OpenCCU returned an invalid JSON-RPC response." });
     case "OPENCCU_CATALOG_UNAVAILABLE":
       return withDetails({ status: 502, code: rawCode, message: "OpenCCU did not return a usable device catalogue from any supported interface." });
+    case "OPENCCU_CHANNELS_UNAVAILABLE":
+      return withDetails({ status: 502, code: rawCode, message: "OpenCCU did not return channel values. SALTA will create a fresh session and retry automatically." });
     case "OPENCCU_DEVICE_METADATA_MISSING":
       return withDetails({ status: 409, code: rawCode, message: "The HomeMatic device is missing OpenCCU command metadata. Synchronize the adapter again." });
     case "ENCRYPTION_KEY_MISMATCH":
@@ -398,9 +400,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.2" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.3" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.2", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.3", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {

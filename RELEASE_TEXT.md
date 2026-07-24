@@ -1,23 +1,27 @@
-# SALTA v0.7.2
+# SALTA v0.7.3
 
-SALTA v0.7.2 improves OpenCCU session management and prevents repeated JSON-RPC logins from exhausting the CCU session limit.
+SALTA v0.7.3 restores OpenCCU devices automatically after gateway restarts and improves HomeMatic device-name synchronization.
 
-## OpenCCU session management
+## Automatic OpenCCU reconnect
 
-- Reuses one persistent OpenCCU JSON-RPC session for scheduled synchronization and HomeMatic device commands
-- Serializes OpenCCU diagnostics, configuration, synchronization and commands so SALTA does not create overlapping sessions
-- Closes the runtime session when OpenCCU is reconfigured or disconnected and during a controlled SALTA shutdown
-- Adds single-flight login handling so concurrent calls cannot start duplicate login requests
-- Automatically creates a fresh session once when OpenCCU reports that the current session is invalid
-- Pauses scheduled login retries for five minutes after OpenCCU error 501 to avoid increasing session pressure
+- Detects OpenCCU restarts, network interruptions and unusable channel responses
+- Invalidates the stale local JSON-RPC session instead of continuing to reuse it
+- Creates a fresh OpenCCU session automatically on the next retry
+- Retries every 15 seconds while OpenCCU is offline and returns to the normal 60-second polling interval after recovery
+- Refreshes the device catalogue immediately after reconnecting
+- Marks devices reachable again without restarting the SALTA container
+- Keeps OpenCCU operations serialized and continues to use only one runtime session
+- Reduces the automatic retry delay after ambiguous OpenCCU error 501 from five minutes to one minute
 
-## Diagnostics and errors
+## HomeMatic device names
 
-- Distinguishes OpenCCU error 501 as an ambiguous credentials-or-session-limit condition instead of reporting it as a definite password failure
-- Keeps the original OpenCCU remote code and message visible in Settings and the System Log
-- Includes `Session.logout` in the diagnostic report
-- Treats a failed diagnostic logout as a warning without hiding the preceding diagnostic result
-- Logs a warning when the persistent runtime session cannot be closed cleanly
+- Reads device and channel names from `Device.listAllDetail`
+- Supports both array and keyed-object OpenCCU response shapes
+- Decodes URL-encoded and plus-separated OpenCCU names
+- Simplifies generated channel names such as `Device name:1` to the device name where appropriate
+- Replaces legacy SALTA fallback names such as `HM-Sec-SCo NEQ1157537:1` with the configured OpenCCU name
+- Follows later OpenCCU renames while the SALTA name has not been edited locally
+- Preserves deliberate local name changes made in SALTA
 
 ## Compatibility
 
@@ -41,7 +45,7 @@ For a new installation:
 ## Container tags
 
 ```text
-0.7.2
+0.7.3
 0.7
 latest
 ```
@@ -49,5 +53,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.2
+v0.7.3
 ```
