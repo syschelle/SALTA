@@ -21,6 +21,13 @@ describe("clean database schema", () => {
   });
 
 
+  it("stores OpenCCU credentials and adapter metadata in additive tables", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS openccu_settings");
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS device_adapter_data");
+    expect(databaseSource).toContain("encrypted_password text NOT NULL DEFAULT ''");
+    expect(databaseSource).toContain("LEFT JOIN device_adapter_data ad ON ad.device_id=d.id");
+  });
+
   it("stores device visibility separately without altering the devices table", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS device_preferences");
     expect(databaseSource).toContain("hidden boolean NOT NULL DEFAULT false");

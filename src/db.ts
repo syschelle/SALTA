@@ -2,7 +2,7 @@ import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { CredentialMode, Device, PhosconSettings, Room, ShellySettings } from "./types.js";
+import type { CredentialMode, Device, OpenCcuSettings, PhosconSettings, Room, ShellySettings } from "./types.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
 
@@ -82,6 +82,18 @@ export async function initializeDatabaseSchema(): Promise<void> {
       encrypted_password text NOT NULL DEFAULT '',
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS openccu_settings (
+      adapter_id text PRIMARY KEY DEFAULT 'openccu',
+      base_url text NOT NULL DEFAULT '',
+      username text NOT NULL DEFAULT '',
+      encrypted_password text NOT NULL DEFAULT '',
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS device_adapter_data (
+      device_id text PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+      data jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS commands (
       id uuid PRIMARY KEY,
       device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
@@ -112,12 +124,16 @@ export async function upsertDevice(d: Device): Promise<void> {
       capabilities=EXCLUDED.capabilities, homekit_enabled=EXCLUDED.homekit_enabled, credential_mode=EXCLUDED.credential_mode,
       credential_username=EXCLUDED.credential_username, last_seen=EXCLUDED.last_seen, last_event=EXCLUDED.last_event, updated_at=now()
     RETURNING id
+  ), upserted_preferences AS (
+    INSERT INTO device_preferences(device_id,hidden)
+    SELECT id,$31 FROM upserted_device
+    ON CONFLICT(device_id) DO UPDATE SET hidden=EXCLUDED.hidden,updated_at=now()
+    RETURNING device_id
   )
-  INSERT INTO device_preferences(device_id,hidden)
-  SELECT id,$31 FROM upserted_device
-  WHERE true
-  ON CONFLICT(device_id) DO UPDATE SET hidden=EXCLUDED.hidden,updated_at=now()`,
-    [d.id,d.source,d.sourceId,d.type,d.presentationType??"auto",d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.profile??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent,d.hidden]);
+  INSERT INTO device_adapter_data(device_id,data)
+  SELECT device_id,$32::jsonb FROM upserted_preferences
+  ON CONFLICT(device_id) DO UPDATE SET data=EXCLUDED.data,updated_at=now()`,
+    [d.id,d.source,d.sourceId,d.type,d.presentationType??"auto",d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.profile??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent,d.hidden,JSON.stringify(d.adapterData??{})]);
 }
 
 export async function deleteDevice(id: string): Promise<boolean> {
@@ -133,10 +149,11 @@ export async function listDevices(): Promise<Device[]> {
     d.room_id as "roomId",r.name as room,d.reachable,d.state,d.capabilities,
     d.homekit_enabled as "homekitEnabled",COALESCE(p.hidden,false) as hidden,d.credential_mode as "credentialMode",d.credential_username as "credentialUsername",
     (d.credential_password IS NOT NULL AND d.credential_password <> '') as "passwordConfigured",
-    d.last_seen as "lastSeen",d.last_event as "lastEvent"
+    d.last_seen as "lastSeen",d.last_event as "lastEvent",COALESCE(ad.data,'{}'::jsonb) as "adapterData"
     FROM devices d
     LEFT JOIN rooms r ON r.id=d.room_id
     LEFT JOIN device_preferences p ON p.device_id=d.id
+    LEFT JOIN device_adapter_data ad ON ad.device_id=d.id
     ORDER BY d.name`);
   return r.rows;
 }
@@ -206,6 +223,7 @@ interface CredentialEncryptionStatus {
   status: "ok" | "invalid";
   globalCredential: "ok" | "invalid" | "not-configured";
   phosconCredential: "ok" | "invalid" | "not-configured";
+  openCcuCredential: "ok" | "invalid" | "not-configured";
   invalidDeviceIds: string[];
 }
 
@@ -221,20 +239,24 @@ function secretIsReadable(value: string): boolean {
 
 
 export async function inspectCredentialEncryption(): Promise<CredentialEncryptionStatus> {
-  const [globalResult, phosconResult, deviceResult] = await Promise.all([
+  const [globalResult, phosconResult, openCcuResult, deviceResult] = await Promise.all([
     pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='shelly'"),
     pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='phoscon'"),
+    pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM openccu_settings WHERE adapter_id='openccu'"),
     pool.query<{ id: string; credential_password: string }>("SELECT id,credential_password FROM devices WHERE credential_mode='custom' AND credential_password IS NOT NULL AND credential_password <> ''")
   ]);
   const globalSecret = globalResult.rows[0]?.encrypted_password ?? "";
   const phosconSecret = phosconResult.rows[0]?.encrypted_password ?? "";
+  const openCcuSecret = openCcuResult.rows[0]?.encrypted_password ?? "";
   const globalCredential = !globalSecret ? "not-configured" : secretIsReadable(globalSecret) ? "ok" : "invalid";
   const phosconCredential = !phosconSecret ? "not-configured" : secretIsReadable(phosconSecret) ? "ok" : "invalid";
+  const openCcuCredential = !openCcuSecret ? "not-configured" : secretIsReadable(openCcuSecret) ? "ok" : "invalid";
   const invalidDeviceIds = deviceResult.rows.filter(row => !secretIsReadable(row.credential_password)).map(row => row.id);
   return {
-    status: globalCredential === "invalid" || phosconCredential === "invalid" || invalidDeviceIds.length > 0 ? "invalid" : "ok",
+    status: globalCredential === "invalid" || phosconCredential === "invalid" || openCcuCredential === "invalid" || invalidDeviceIds.length > 0 ? "invalid" : "ok",
     globalCredential,
     phosconCredential,
+    openCcuCredential,
     invalidDeviceIds
   };
 }
@@ -324,4 +346,46 @@ export async function updatePhosconSettings(baseUrl: string, apiKey?: string): P
 
 export async function clearPhosconSettings(): Promise<void> {
   await pool.query("DELETE FROM adapter_settings WHERE adapter_id='phoscon'");
+}
+
+export async function getOpenCcuSettings(): Promise<OpenCcuSettings> {
+  const result = await pool.query<{ base_url: string; username: string; encrypted_password: string }>(
+    "SELECT base_url,username,encrypted_password FROM openccu_settings WHERE adapter_id='openccu'"
+  );
+  const row = result.rows[0];
+  const secret = row?.encrypted_password ?? "";
+  return {
+    baseUrl: row?.base_url ?? "",
+    username: row?.username ?? "",
+    passwordConfigured: Boolean(secret),
+    encryptionStatus: secret && !secretIsReadable(secret) ? "invalid" : "ok"
+  };
+}
+
+export async function getOpenCcuConnection(): Promise<{ baseUrl: string; username: string; password: string }> {
+  const result = await pool.query<{ base_url: string; username: string; encrypted_password: string }>(
+    "SELECT base_url,username,encrypted_password FROM openccu_settings WHERE adapter_id='openccu'"
+  );
+  const row = result.rows[0];
+  return {
+    baseUrl: row?.base_url ?? "",
+    username: row?.username ?? "",
+    password: decryptStoredSecret(row?.encrypted_password)
+  };
+}
+
+export async function updateOpenCcuSettings(baseUrl: string, username: string, password?: string): Promise<OpenCcuSettings> {
+  const current = await pool.query<{ encrypted_password: string }>(
+    "SELECT encrypted_password FROM openccu_settings WHERE adapter_id='openccu'"
+  );
+  const currentSecret = current.rows[0]?.encrypted_password ?? "";
+  if (password === undefined && currentSecret && !secretIsReadable(currentSecret)) throw new Error("ENCRYPTION_KEY_MISMATCH");
+  const encrypted = password === undefined ? currentSecret : (password ? encryptSecret(password) : "");
+  await pool.query(`INSERT INTO openccu_settings(adapter_id,base_url,username,encrypted_password) VALUES('openccu',$1,$2,$3)
+    ON CONFLICT(adapter_id) DO UPDATE SET base_url=EXCLUDED.base_url,username=EXCLUDED.username,encrypted_password=EXCLUDED.encrypted_password,updated_at=now()`, [baseUrl, username, encrypted]);
+  return getOpenCcuSettings();
+}
+
+export async function clearOpenCcuSettings(): Promise<void> {
+  await pool.query("DELETE FROM openccu_settings WHERE adapter_id='openccu'");
 }

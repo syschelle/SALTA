@@ -1,6 +1,6 @@
 {
   "name": "salta",
-  "version": "0.6.3",
+  "version": "0.7.0",
   "description": "SALTA local-first smart-home control plane",
   "private": true,
   "type": "module",
@@ -38,6 +38,9 @@
     "shelly",
     "zigbee",
     "phoscon",
-    "deconz"
+    "deconz",
+    "openccu",
+    "homematic",
+    "homematic-ip"
   ]
 }

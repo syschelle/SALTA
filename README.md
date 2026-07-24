@@ -2,7 +2,7 @@
 
 > **Smart-home Abstraction & Local Transport Architecture**
 
-SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API and an optional HomeKit bridge.
+SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API and an optional HomeKit bridge. It integrates Shelly, Phoscon/deCONZ Zigbee and OpenCCU/HomeMatic devices.
 
 > Your home. Your hardware. Your rules.
 
@@ -162,7 +162,7 @@ SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Det
 
 Compatible multi-channel and 2PM devices are represented according to their active switch or cover profile. Supported on/off devices can be presented as Automatic, Light, Switch, Outlet or Fan without changing the physical command routing.
 
-Shelly authentication is configured only for Shelly devices. Zigbee devices use the single encrypted Phoscon API key and do not expose per-device credential controls.
+Shelly authentication is configured only for Shelly devices. Zigbee devices use the single encrypted Phoscon API key, while HomeMatic devices use the centrally configured OpenCCU account. Neither integration exposes per-device credential controls.
 
 Shelly authentication supports:
 
@@ -193,6 +193,24 @@ SALTA can switch supported lights and plugs, set brightness and control compatib
 Zigbee devices can be marked as hidden in their SALTA device settings. Hidden devices remain visible as grey cards on the Zigbee page so they can be restored later, but they are excluded from HomeKit synchronization. The visibility choice is stored locally and survives Phoscon synchronization and gateway reconnects.
 
 Disconnecting Phoscon removes the synchronized SALTA records but does not delete or reset devices in Phoscon.
+
+## OpenCCU and HomeMatic support
+
+SALTA can connect to one local OpenCCU instance through the CCU-compatible JSON-RPC endpoint at `/api/homematic.cgi`. Configure the connection under **Settings → OpenCCU / HomeMatic** with the OpenCCU base address and a dedicated username and password.
+
+The password is encrypted in PostgreSQL with `SALTA_ENCRYPTION_KEY` and is never returned to the browser after it has been stored. The OpenCCU firewall must allow the SALTA host to access the OpenCCU web and JSON-RPC service. HTTP is supported inside a trusted local network; use a trusted HTTPS certificate when the connection crosses an untrusted network.
+
+The separate HomeMatic page imports supported channels from the available `BidCos-RF`, `BidCos-Wired`, `HmIP-RF` and `VirtualDevices` interfaces. The initial integration supports:
+
+- switches, relays and compatible smart plugs;
+- dimmable lights;
+- blinds, shutters and compatible window coverings;
+- contact, motion, temperature, humidity, light, water and smoke sensors; and
+- power, current, voltage, frequency and energy values exposed by OpenCCU.
+
+SALTA can switch supported actuators, set light brightness and control compatible window coverings. Sensor channels are read-only. Device names and room assignments are managed locally in SALTA and do not modify the OpenCCU configuration. HomeKit export for OpenCCU devices is intentionally disabled in the initial integration.
+
+SALTA currently polls OpenCCU every 60 seconds and refreshes the device catalogue periodically. It does not register XML-RPC callbacks, manage OpenCCU programs or variables, pair HomeMatic devices, or provide thermostat setpoint control in this initial release. Disconnecting OpenCCU removes the synchronized SALTA records but does not delete or reset devices in OpenCCU.
 
 ## Rooms
 

@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.0
+
+- Added a native OpenCCU/HomeMatic JSON-RPC integration.
+- Added separate HomeMatic navigation, filtering and device cards.
+- Added encrypted OpenCCU account configuration under Settings.
+- Added periodic synchronization for BidCos-RF, BidCos-Wired, HmIP-RF and VirtualDevices.
+- Added control for compatible switches, dimmers and window coverings plus read-only sensor mapping.
+- Added additive OpenCCU settings and per-device adapter metadata storage.
+- Added OpenCCU core, persistence, frontend and API regression coverage.
+
 ## 0.6.3
 
 - Fixed two frontend regression tests that still expected the pre-visibility device configuration payload.

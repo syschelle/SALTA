@@ -1,15 +1,6 @@
-# SALTA v0.6.3 – Git and Release Commands
+# SALTA v0.7.0 – Git and Release Commands
 
-Run these commands from the repository root after replacing the local files with the v0.6.3 package.
-
-## Validate
-
-```bash
-npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
-npm run check
-sh -n install.sh update.sh backup.sh restore.sh
-docker compose --env-file .env.example -f docker-compose.image.yml config >/dev/null
-```
+Run these commands from the repository root after replacing the local files with the v0.7.0 package.
 
 ## Commit and push
 
@@ -19,24 +10,24 @@ git pull --ff-only origin main
 
 git status
 git add -A
-git commit -m "test: update device configuration assertions for v0.6.3"
+git commit -m "feat: add OpenCCU and HomeMatic integration for SALTA v0.7.0"
 git push origin main
 ```
 
 ## Create and push the release tag
 
 ```bash
-git tag -a v0.6.3 -m "SALTA v0.6.3"
-git push origin v0.6.3
+git tag -a v0.7.0 -m "SALTA v0.7.0"
+git push origin v0.7.0
 ```
 
 ## Create the GitHub release
 
-Place `SALTA-v0.6.3.zip` in the repository root or adjust the file path.
+Place `SALTA-v0.7.0.zip` in the repository root or adjust the file path.
 
 ```bash
-gh release create v0.6.3 \
-  --title "SALTA v0.6.3" \
+gh release create v0.7.0 \
+  --title "SALTA v0.7.0" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.6.3.zip
+  ./SALTA-v0.7.0.zip
 ```

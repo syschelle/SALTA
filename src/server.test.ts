@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
 import type { PhosconAdapter } from "./phoscon-adapter.js";
+import type { OpenCcuAdapter } from "./openccu-adapter.js";
 
 vi.mock("./config.js", () => ({
   config: {
@@ -27,8 +28,9 @@ vi.mock("./db.js", () => ({
   deleteRoom: vi.fn(),
   getGlobalShellyCredentials: vi.fn(),
   getPhosconSettings: vi.fn(async () => ({ baseUrl: "", apiKeyConfigured: false, encryptionStatus: "ok" })),
+  getOpenCcuSettings: vi.fn(async () => ({ baseUrl: "", username: "", passwordConfigured: false, encryptionStatus: "ok" })),
   getShellySettings: vi.fn(),
-  inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", phosconCredential: "not-configured", invalidDeviceIds: [] })),
+  inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", phosconCredential: "not-configured", openCcuCredential: "not-configured", invalidDeviceIds: [] })),
   listRooms: vi.fn(async () => []),
   pool: { query: vi.fn() },
   reorderRooms: vi.fn(),
@@ -36,10 +38,13 @@ vi.mock("./db.js", () => ({
   updateShellySettings: vi.fn(),
   getPhosconConnection: vi.fn(),
   updatePhosconSettings: vi.fn(),
-  clearPhosconSettings: vi.fn()
+  clearPhosconSettings: vi.fn(),
+  getOpenCcuConnection: vi.fn(),
+  updateOpenCcuSettings: vi.fn(),
+  clearOpenCcuSettings: vi.fn()
 }));
 
-import { deleteRoom, getGlobalShellyCredentials, getPhosconSettings, reorderRooms, updateRoom } from "./db.js";
+import { deleteRoom, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, reorderRooms, updateRoom } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -52,7 +57,8 @@ function createServer(
   remove: ShellyAdapter["remove"],
   add: ShellyAdapter["add"] = vi.fn(),
   registryOverrides: Partial<DeviceRegistry> = {},
-  phosconOverrides: Partial<PhosconAdapter> = {}
+  phosconOverrides: Partial<PhosconAdapter> = {},
+  openCcuOverrides: Partial<OpenCcuAdapter> = {}
 ) {
   const registry = {
     all: () => [],
@@ -74,7 +80,15 @@ function createServer(
     command: vi.fn(),
     ...phosconOverrides
   } as unknown as PhosconAdapter;
-  const server = buildServer(registry, adapter, phoscon);
+  const openCcu = {
+    getStatus: vi.fn(() => ({ connected: false, interfaces: [], devices: 0 })),
+    configure: vi.fn(),
+    disconnect: vi.fn(),
+    reconcile: vi.fn(),
+    command: vi.fn(),
+    ...openCcuOverrides
+  } as unknown as OpenCcuAdapter;
+  const server = buildServer(registry, adapter, phoscon, openCcu);
   openServers.push(server);
   return server;
 }
@@ -452,6 +466,51 @@ describe("Phoscon settings API", () => {
   });
 });
 
+describe("OpenCCU settings API", () => {
+  it("returns stored connection metadata without exposing the password", async () => {
+    vi.mocked(getOpenCcuSettings).mockResolvedValueOnce({
+      baseUrl: "http://openccu.local",
+      username: "salta",
+      passwordConfigured: true,
+      encryptionStatus: "ok"
+    });
+    const getStatus = vi.fn(() => ({ connected: true, interfaces: ["HmIP-RF"], devices: 4 }));
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, { getStatus } as never);
+
+    const response = await authenticatedInject(server, { method: "GET", url: "/api/settings/openccu" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      baseUrl: "http://openccu.local",
+      username: "salta",
+      passwordConfigured: true,
+      encryptionStatus: "ok",
+      gateway: { connected: true, interfaces: ["HmIP-RF"], devices: 4 }
+    });
+    expect(response.json()).not.toHaveProperty("password");
+  });
+
+  it("validates and stores an OpenCCU connection through the adapter", async () => {
+    const configure = vi.fn(async () => ({ connected: true, interfaces: ["BidCos-RF", "HmIP-RF"], devices: 2 }));
+    vi.mocked(getOpenCcuSettings).mockResolvedValueOnce({
+      baseUrl: "http://openccu.local",
+      username: "salta",
+      passwordConfigured: true,
+      encryptionStatus: "ok"
+    });
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, { configure } as never);
+
+    const response = await authenticatedInject(server, {
+      method: "PUT",
+      url: "/api/settings/openccu",
+      payload: { baseUrl: "http://openccu.local", username: "salta", password: "secret-password" }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(configure).toHaveBeenCalledWith("http://openccu.local", "salta", "secret-password");
+  });
+});
+
 describe("web security", () => {
   it("redirects unauthenticated browser requests to the login page", async () => {
     const server = createServer(vi.fn());
@@ -525,7 +584,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.6.3" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.7.0" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {

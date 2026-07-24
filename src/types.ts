@@ -47,6 +47,7 @@ export interface Device {
   passwordConfigured: boolean;
   lastSeen: string;
   lastEvent: string;
+  adapterData?: Record<string, string | number | boolean | null>;
 }
 
 export interface DeviceCommand {
@@ -79,6 +80,22 @@ export interface PhosconGatewayStatus {
   firmwareVersion?: string;
   zigbeeChannel?: number;
   rfConnected?: boolean;
+  lastSync?: string;
+  lastError?: string;
+}
+
+
+export interface OpenCcuSettings {
+  baseUrl: string;
+  username: string;
+  passwordConfigured: boolean;
+  encryptionStatus: "ok" | "invalid";
+}
+
+export interface OpenCcuGatewayStatus {
+  connected: boolean;
+  interfaces: string[];
+  devices: number;
   lastSync?: string;
   lastError?: string;
 }

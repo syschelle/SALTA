@@ -15,6 +15,10 @@ describe("explicit Fastify route rate limiting", () => {
     'app.get("/api/readiness", {',
     'app.get("/api/rooms", {',
     'app.get("/api/settings/shelly", {',
+    'app.get("/api/settings/openccu", {',
+    'app.put<{ Body: unknown }>("/api/settings/openccu", {',
+    'app.delete("/api/settings/openccu", {',
+    'app.post("/api/adapters/openccu/reconcile", {',
     'app.post<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/command", {',
     'app.get("/api/commands", {'
   ])("adds an explicit per-route limit to %s", routeDeclaration => {
@@ -23,7 +27,7 @@ describe("explicit Fastify route rate limiting", () => {
     expect(source.slice(start, start + 280)).toContain("config: { rateLimit:");
   });
   it("limits Phoscon pairing and reconciliation as expensive operations", () => {
-    expect(source).toContain('path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile"');
+    expect(source).toContain('path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile" || path === "/api/adapters/openccu/reconcile"');
     expect(source).toContain('path === "/api/settings/phoscon/pair" && request.method === "POST"');
     expect(source).toContain('security.consumeRateLimit(`phoscon-pairing:${ip}`, 5, rateWindowMs)');
   });

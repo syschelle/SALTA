@@ -18,6 +18,7 @@
     <a href="#overview" data-nav="overview"><span class="nav-icon mdi mdi-home-outline" aria-hidden="true"></span><span>Übersicht</span></a>
     <a href="#shelly" data-nav="shelly"><span class="nav-icon mdi mdi-power-plug-outline" aria-hidden="true"></span><span>Shelly</span></a>
     <a href="#zigbee" data-nav="zigbee"><span class="nav-icon mdi mdi-zigbee" aria-hidden="true"></span><span>Zigbee</span></a>
+    <a href="#openccu" data-nav="openccu"><span class="nav-icon mdi mdi-access-point-network" aria-hidden="true"></span><span>HomeMatic</span></a>
     <a href="#rooms" data-nav="rooms"><span class="nav-icon mdi mdi-floor-plan" aria-hidden="true"></span><span>Räume</span></a>
     <button type="button" data-nav="automations" onclick="showUnavailable('Automationen')"><span class="nav-icon mdi mdi-robot-outline" aria-hidden="true"></span><span>Automationen</span></button>
     <button type="button" data-nav="diagnostics" onclick="showUnavailable('Diagnose')"><span class="nav-icon mdi mdi-stethoscope" aria-hidden="true"></span><span>Diagnose</span></button>
@@ -30,7 +31,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.6.3</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.7.0</strong></div>
   </div>
 </aside>
 
@@ -41,7 +42,7 @@
       <button onclick="reconcile()"><span class="mdi mdi-sync" aria-hidden="true"></span>Synchronisieren</button>
     </header>
     <section class="stats"><article><span>Geräte</span><strong id="deviceCount">–</strong><small>registriert</small></article><article><span>Erreichbar</span><strong id="reachableCount">–</strong><small>online</small></article><article><span>Aktuelle Leistung</span><strong id="power">–</strong><small>Watt</small></article><article><span>Räume</span><strong id="roomCount">–</strong><small>konfiguriert</small></article></section>
-    <section class="panel welcome-panel"><div><p class="eyebrow">STATUS</p><h2>Alles an einem Ort</h2><p class="muted">Verwalte Shelly- und Zigbee-Geräte, Räume und Adapter über die Navigation. Änderungen bleiben lokal in deiner SALTA-Installation.</p></div><div class="welcome-actions"><a class="button-link" href="#shelly">Shelly anzeigen</a><a class="button-link secondary-link" href="#zigbee">Zigbee anzeigen</a></div></section>
+    <section class="panel welcome-panel"><div><p class="eyebrow">STATUS</p><h2>Alles an einem Ort</h2><p class="muted">Verwalte Shelly-, Zigbee- und HomeMatic-Geräte, Räume und Adapter über die Navigation. Änderungen bleiben lokal in deiner SALTA-Installation.</p></div><div class="welcome-actions"><a class="button-link" href="#shelly">Shelly anzeigen</a><a class="button-link secondary-link" href="#zigbee">Zigbee anzeigen</a><a class="button-link secondary-link" href="#openccu">HomeMatic anzeigen</a></div></section>
   </section>
 
   <section class="page" data-page="shelly" aria-labelledby="shelly-title" hidden>
@@ -57,6 +58,13 @@
     <section id="zigbeeGrid" class="device-groups"></section>
   </section>
 
+  <section class="page" data-page="openccu" aria-labelledby="openccu-title" hidden>
+    <header class="page-header"><div><p class="eyebrow">OPENCCU / HOMEMATIC</p><h1 id="openccu-title">HomeMatic</h1><p class="muted">HomeMatic- und HomeMatic-IP-Geräte aus einer lokalen OpenCCU-Instanz anzeigen und steuern.</p></div><div class="header-actions"><button class="secondary" onclick="reconcileOpenCcu()"><span class="mdi mdi-sync" aria-hidden="true"></span>Synchronisieren</button><a class="button-link" href="#settings" onclick="showSettingsPanel('openccu')"><span class="mdi mdi-link-variant" aria-hidden="true"></span>OpenCCU verbinden</a></div></header>
+    <div id="openCcuConnectionNotice" class="settings-warning" role="status" hidden></div>
+    <section class="section-head"><div><h2>HomeMatic-Geräte nach Räumen</h2><p class="muted">SALTA liest Geräte über die lokale OpenCCU-JSON-RPC-Schnittstelle und verwaltet die Raumzuordnung lokal.</p></div><div class="filters"><select id="openCcuRoomFilter"><option value="">Alle Räume</option></select><label class="search"><span class="mdi mdi-magnify" aria-hidden="true"></span><input id="openCcuFilter" placeholder="HomeMatic-Gerät suchen"></label></div></section>
+    <section id="openCcuGrid" class="device-groups"></section>
+  </section>
+
   <section class="page" data-page="rooms" aria-labelledby="rooms-title" hidden>
     <header class="page-header"><div><p class="eyebrow">ORGANISATION</p><h1 id="rooms-title">Räume</h1><p class="muted">Ordne Geräte früh und eindeutig nach Bereichen deines Zuhauses.</p></div></header>
     <section class="two-column-page">
@@ -68,9 +76,10 @@
   <section class="page" data-page="settings" aria-labelledby="settings-title" hidden>
     <header class="page-header"><div><p class="eyebrow">SYSTEMKONFIGURATION</p><h1 id="settings-title">Einstellungen</h1><p class="muted">Konfiguriere Adapter und globale Standardwerte.</p></div></header>
     <section class="settings-layout">
-      <nav class="settings-nav" aria-label="Einstellungsbereiche"><button type="button" class="active" data-settings-panel="shelly" onclick="showSettingsPanel('shelly')">Shelly</button><button type="button" data-settings-panel="phoscon" onclick="showSettingsPanel('phoscon')">Phoscon / Zigbee</button><span class="disabled">Allgemein · folgt</span><span class="disabled">Sicherheit · folgt</span></nav>
+      <nav class="settings-nav" aria-label="Einstellungsbereiche"><button type="button" class="active" data-settings-panel="shelly" onclick="showSettingsPanel('shelly')">Shelly</button><button type="button" data-settings-panel="phoscon" onclick="showSettingsPanel('phoscon')">Phoscon / Zigbee</button><button type="button" data-settings-panel="openccu" onclick="showSettingsPanel('openccu')">OpenCCU / HomeMatic</button><span class="disabled">Allgemein · folgt</span><span class="disabled">Sicherheit · folgt</span></nav>
       <article class="panel settings-card" data-settings-content="shelly"><div class="panel-head"><div><h2>Shelly-Zugangsdaten</h2><p class="muted">Globale Standardwerte. Jedes Gerät kann diese Zugangsdaten überschreiben oder ohne Authentifizierung arbeiten.</p></div><span class="adapter-badge">Shelly</span></div><div id="shellyCredentialWarning" class="settings-warning" role="alert" hidden></div><form id="shellyForm" class="page-form"><label>Benutzername<input id="shellyUsername" autocomplete="username"></label><label>Passwort<input id="shellyPassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label><p id="shellyPasswordState" class="setting-note"></p><div class="form-actions"><button type="submit">Einstellungen speichern</button></div></form></article>
       <article class="panel settings-card" data-settings-content="phoscon" hidden><div class="panel-head"><div><h2>Phoscon-Instanz</h2><p class="muted">Verbinde SALTA mit der lokalen deCONZ-REST-API deiner Phoscon-Installation.</p></div><span class="adapter-badge">Zigbee</span></div><div id="phosconCredentialWarning" class="settings-warning" role="alert" hidden></div><div id="phosconGatewayStatus" class="gateway-status"></div><form id="phosconForm" class="page-form"><label>Phoscon-/deCONZ-Adresse<input id="phosconBaseUrl" placeholder="z. B. http://192.168.178.20:8080" autocomplete="url" required><small>Trage die Basisadresse ohne <code>/api</code> ein.</small></label><label>API-Schlüssel<input id="phosconApiKey" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"><small>Alternativ kann SALTA nach Freigabe in Phoscon automatisch einen Schlüssel anfordern.</small></label><p id="phosconApiKeyState" class="setting-note"></p><div class="phoscon-pairing-help"><strong>Automatisch verbinden</strong><ol><li>Öffne in Phoscon: Einstellungen → Gateway → Erweitert.</li><li>Klicke auf „App verbinden“ bzw. „Authenticate app“.</li><li>Klicke innerhalb von 60 Sekunden hier auf „API-Schlüssel anfordern“.</li></ol></div><div class="form-actions split-actions"><button type="button" class="secondary" id="phosconPairButton" onclick="pairPhoscon()">API-Schlüssel anfordern</button><button type="submit">Speichern und testen</button><button type="button" class="danger" id="phosconDisconnectButton" onclick="disconnectPhoscon()">Verbindung trennen</button></div></form></article>
+      <article class="panel settings-card" data-settings-content="openccu" hidden><div class="panel-head"><div><h2>OpenCCU-Instanz</h2><p class="muted">Verbinde SALTA über die lokale JSON-RPC-Schnittstelle mit OpenCCU.</p></div><span class="adapter-badge">HomeMatic</span></div><div id="openCcuCredentialWarning" class="settings-warning" role="alert" hidden></div><div id="openCcuGatewayStatus" class="gateway-status"></div><form id="openCcuForm" class="page-form"><label>OpenCCU-Adresse<input id="openCcuBaseUrl" placeholder="z. B. http://192.168.178.30" autocomplete="url" required><small>Trage die Basisadresse ohne <code>/api/homematic.cgi</code> ein.</small></label><label>Benutzername<input id="openCcuUsername" autocomplete="username" required><small>Verwende möglichst einen eigenen OpenCCU-Benutzer für SALTA.</small></label><label>Passwort<input id="openCcuPassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label><p id="openCcuPasswordState" class="setting-note"></p><div class="phoscon-pairing-help"><strong>Netzwerkzugriff</strong><p>Die OpenCCU-Firewall muss JSON-RPC-Zugriffe vom SALTA-Host erlauben. Bei unverschlüsseltem HTTP sollten beide Systeme nur in einem vertrauenswürdigen lokalen Netzwerk betrieben werden.</p></div><div class="form-actions split-actions"><button type="submit">Speichern und testen</button><button type="button" class="danger" id="openCcuDisconnectButton" onclick="disconnectOpenCcu()">Verbindung trennen</button></div></form></article>
     </section>
   </section>
 </main>
@@ -79,6 +88,7 @@
   <a href="#overview" data-nav="overview"><span class="nav-icon mdi mdi-home-outline" aria-hidden="true"></span><small>Übersicht</small></a>
   <a href="#shelly" data-nav="shelly"><span class="nav-icon mdi mdi-power-plug-outline" aria-hidden="true"></span><small>Shelly</small></a>
   <a href="#zigbee" data-nav="zigbee"><span class="nav-icon mdi mdi-zigbee" aria-hidden="true"></span><small>Zigbee</small></a>
+  <a href="#openccu" data-nav="openccu"><span class="nav-icon mdi mdi-access-point-network" aria-hidden="true"></span><small>HomeMatic</small></a>
   <a href="#rooms" data-nav="rooms"><span class="nav-icon mdi mdi-floor-plan" aria-hidden="true"></span><small>Räume</small></a>
   <a href="#settings" data-nav="settings"><span class="nav-icon mdi mdi-cog-outline" aria-hidden="true"></span><small>Einstellungen</small></a>
 </nav>
