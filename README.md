@@ -210,7 +210,7 @@ The separate HomeMatic page imports supported channels from the available `BidCo
 
 SALTA can switch supported actuators, set light brightness and control compatible window coverings. Sensor channels are read-only. Device names and room assignments are managed locally in SALTA and do not modify the OpenCCU configuration. HomeKit export for OpenCCU devices is intentionally disabled in the initial integration.
 
-SALTA currently polls OpenCCU every 60 seconds and refreshes the device catalogue periodically. It does not register XML-RPC callbacks, manage OpenCCU programs or variables, pair HomeMatic devices, or provide thermostat setpoint control in this initial release. Disconnecting OpenCCU removes the synchronized SALTA records but does not delete or reset devices in OpenCCU.
+SALTA currently polls OpenCCU every 60 seconds and refreshes the device catalogue periodically. SALTA reuses one JSON-RPC runtime session for polling and commands, serializes OpenCCU operations, and closes the session during reconfiguration, disconnect and controlled shutdown. If OpenCCU returns error 501, SALTA keeps the combined credentials-or-session-limit message visible and pauses scheduled login retries for five minutes. It does not register XML-RPC callbacks, manage OpenCCU programs or variables, pair HomeMatic devices, or provide thermostat setpoint control in this initial release. Disconnecting OpenCCU removes the synchronized SALTA records but does not delete or reset devices in OpenCCU.
 
 ### OpenCCU diagnostics
 

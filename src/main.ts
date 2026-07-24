@@ -46,7 +46,7 @@ async function main(): Promise<void> {
     await writeSystemLog("info", "system", "SALTA_STOPPING", "SALTA is shutting down", { signal }).catch(() => undefined);
     await server.close();
     homekit.stop();
-    openCcu.stop();
+    await openCcu.stop();
     phoscon.stop();
     shelly.stop();
     await pool.end();

@@ -58,7 +58,8 @@ describe("OpenCCU in-app diagnostics", () => {
       expect.objectContaining({ method: "Session.login", status: "ok" }),
       expect.objectContaining({ method: "Interface.listInterfaces", status: "ok" }),
       expect.objectContaining({ method: "Device.listAllDetail", status: "warning", code: "OPENCCU_API_ERROR", remoteCode: "601", message: "TCL error" }),
-      expect.objectContaining({ method: "Interface.listDevices", interfaceName: "HmIP-RF", status: "ok" })
+      expect.objectContaining({ method: "Interface.listDevices", interfaceName: "HmIP-RF", status: "ok" }),
+      expect.objectContaining({ method: "Session.logout", status: "ok" })
     ]));
   });
 
@@ -83,4 +84,45 @@ describe("OpenCCU in-app diagnostics", () => {
       message: "TCL error"
     }));
   });
+  it("maps OpenCCU error 501 to the combined credentials or session-limit error", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { id: number; method: string };
+      if (body.method === "Session.login") return rpcError(body.id, 501, "Session.login: invalid credentials or too many sessions");
+      throw new Error(`Unexpected method ${body.method}`);
+    }));
+
+    const adapter = new OpenCcuAdapter(registry);
+    const report = await adapter.diagnose("http://openccu.local", "salta", "secret");
+
+    expect(report.ok).toBe(false);
+    expect(report.steps).toContainEqual(expect.objectContaining({
+      method: "Session.login",
+      status: "error",
+      code: "OPENCCU_AUTH_OR_SESSION_LIMIT",
+      remoteCode: "501"
+    }));
+  });
+
+  it("reuses one runtime session across periodic synchronizations and logs out on stop", async () => {
+    const methods: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { id: number; method: string };
+      methods.push(body.method);
+      if (body.method === "Session.login") return rpcResult(body.id, "persistent-session");
+      if (body.method === "Interface.listInterfaces") return rpcResult(body.id, ["BidCos-RF"]);
+      if (body.method === "Device.listAllDetail") return rpcResult(body.id, []);
+      if (body.method === "Interface.listDevices") return rpcResult(body.id, []);
+      if (body.method === "Session.logout") return rpcResult(body.id, true);
+      throw new Error(`Unexpected method ${body.method}`);
+    }));
+
+    const adapter = new OpenCcuAdapter(registry);
+    await adapter.reconcile(true, "manual");
+    await adapter.reconcile(false, "manual");
+    await adapter.stop();
+
+    expect(methods.filter(method => method === "Session.login")).toHaveLength(1);
+    expect(methods.filter(method => method === "Session.logout")).toHaveLength(1);
+  });
+
 });

@@ -126,6 +126,8 @@ function openCcuRequestError(error: unknown): { status: number; code: string; me
       return withDetails({ status: 409, code: rawCode, message: "Connect an OpenCCU instance before synchronizing HomeMatic devices." });
     case "OPENCCU_AUTHENTICATION_FAILED":
       return withDetails({ status: 422, code: rawCode, message: "OpenCCU rejected the configured username or password." });
+    case "OPENCCU_AUTH_OR_SESSION_LIMIT":
+      return withDetails({ status: 503, code: rawCode, message: "OpenCCU could not create a JSON-RPC session. The credentials may be invalid or the OpenCCU session limit may be exhausted." });
     case "OPENCCU_UNREACHABLE":
       return withDetails({ status: 502, code: rawCode, message: "The OpenCCU instance is unreachable at the configured address." });
     case "OPENCCU_TIMEOUT":
@@ -396,9 +398,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.1" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.2" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.1", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.2", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {

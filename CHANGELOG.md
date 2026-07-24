@@ -2,16 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
-## 0.7.1
+## 0.7.2
 
-- Added an in-application OpenCCU diagnostic workflow that identifies the exact JSON-RPC method and interface that failed.
-- Separated successful OpenCCU authentication from optional catalogue and device-name synchronization steps.
-- Treats `Device.listAllDetail` and individual `Interface.listDevices` failures as visible warnings where synchronization can continue.
-- Added persistent OpenCCU error details in Settings instead of relying only on a short-lived toast.
-- Added a dedicated System Log page with source and severity filters, manual refresh and clear controls.
-- Added a retained `system_logs` store with a 30-day and 2,000-entry limit.
-- Added startup, shutdown, OpenCCU connection, diagnostic and synchronization log events without storing credentials or session tokens.
-- Added API, database, adapter and frontend regression coverage for diagnostics and system logs.
+- Reuses one persistent OpenCCU JSON-RPC session for scheduled synchronization and device commands instead of opening a new session for every operation.
+- Serializes diagnostics, configuration, synchronization and commands so SALTA never creates overlapping OpenCCU sessions.
+- Closes the runtime session on reconfiguration, disconnect and shutdown.
+- Added single-flight login handling and one automatic re-login when OpenCCU reports an expired session.
+- Distinguishes OpenCCU error 501 as an ambiguous credentials-or-session-limit condition instead of reporting it as a definite password error.
+- Pauses scheduled login retries for five minutes after error 501 to avoid increasing session pressure.
+- Shows `Session.logout` as part of the in-application diagnostic report and records failed logout attempts as warnings.
+- Added regression coverage for session reuse, logout and error-501 mapping.
 
 ## 0.7.0
 
