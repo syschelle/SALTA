@@ -19,6 +19,17 @@ export interface OpenCcuChannelSnapshot {
 
 export interface OpenCcuCatalogEntry extends Omit<OpenCcuChannelSnapshot, "baseUrl" | "values"> {}
 
+export interface OpenCcuWriteOperation {
+  parameter: string;
+  valueType: string;
+  value: string | number | boolean;
+}
+
+export interface OpenCcuThermostatModePlan {
+  writes: OpenCcuWriteOperation[];
+  state: DeviceState;
+}
+
 const now = (): string => new Date().toISOString();
 
 export function record(value: unknown): JsonRecord {
@@ -205,7 +216,11 @@ function rpcValueType(snapshot: OpenCcuChannelSnapshot, key: string, fallback: "
   if (raw === "BOOL" || raw === "BOOLEAN") return "bool";
   if (["FLOAT", "DOUBLE"].includes(raw ?? "")) return "float";
   if (["INTEGER", "INT", "ENUM"].includes(raw ?? "")) return "int";
-  if (["STRING", "ACTION"].includes(raw ?? "")) return "string";
+  if (raw === "STRING") return "string";
+  // ACTION parameters use the concrete value type required by the command.
+  // For example AUTO_MODE and STOP are boolean actions, whereas MANU_MODE is
+  // commonly a floating-point temperature value.
+  if (raw === "ACTION") return fallback;
   return fallback;
 }
 
@@ -216,6 +231,184 @@ function parameterNumber(snapshot: OpenCcuChannelSnapshot, key: string, field: "
 function targetTemperatureParameter(snapshot: OpenCcuChannelSnapshot): string | undefined {
   return ["SET_TEMPERATURE", "SET_POINT_TEMPERATURE", "TARGET_TEMPERATURE", "SETPOINT"]
     .find(key => parameterExists(snapshot, key));
+}
+
+type ThermostatMode = "off" | "manual" | "auto" | "boost" | "party" | "away";
+
+interface ThermostatModeEntry {
+  value: string | number;
+  label: string;
+  mode?: ThermostatMode;
+}
+
+function thermostatModeFromLabel(value: unknown): ThermostatMode | undefined {
+  const normalized = String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_");
+  if (!normalized) return undefined;
+  if (/(^|_)OFF($|_)|(^|_)AUS($|_)/.test(normalized)) return "off";
+  if (/(^|_)AUTO(MATIC|MATIK)?($|_)/.test(normalized)) return "auto";
+  if (/(^|_)MANU(AL)?($|_)|(^|_)HAND($|_)/.test(normalized)) return "manual";
+  if (/(^|_)BOOST($|_)/.test(normalized)) return "boost";
+  if (/(^|_)PARTY($|_)/.test(normalized)) return "party";
+  if (/(^|_)AWAY($|_)|(^|_)VACATION($|_)|(^|_)HOLIDAY($|_)/.test(normalized)) return "away";
+  return undefined;
+}
+
+function thermostatModeEntries(snapshot: OpenCcuChannelSnapshot, key: string): ThermostatModeEntry[] {
+  const definition = parameterDefinition(snapshot, key);
+  const rawList = property(definition, "valueList", "value_list", "values");
+  const minimum = parameterNumber(snapshot, key, "min") ?? 0;
+  let labels: string[] = [];
+
+  if (Array.isArray(rawList)) {
+    labels = rawList.map(item => String(item).trim()).filter(Boolean);
+  } else if (typeof rawList === "string") {
+    const separator = rawList.includes(",") ? /\s*,\s*/ : rawList.includes(";") ? /\s*;\s*/ : /\s+/;
+    labels = rawList.split(separator).map(item => item.trim()).filter(Boolean);
+  } else {
+    const values = record(rawList);
+    if (Object.keys(values).length) {
+      return Object.entries(values).map(([rawValue, rawLabel]) => {
+        const numeric = numberValue(rawValue);
+        const label = String(rawLabel).trim();
+        return { value: numeric ?? rawValue, label, mode: thermostatModeFromLabel(label) };
+      });
+    }
+  }
+
+  return labels.map((label, index) => ({
+    value: minimum + index,
+    label,
+    mode: thermostatModeFromLabel(label)
+  }));
+}
+
+function thermostatModeValue(snapshot: OpenCcuChannelSnapshot, key: string, mode: ThermostatMode): string | number | undefined {
+  return thermostatModeEntries(snapshot, key).find(entry => entry.mode === mode)?.value;
+}
+
+function currentThermostatMode(
+  snapshot: OpenCcuChannelSnapshot,
+  targetParameter: string,
+  targetTemperature: number | undefined
+): string | undefined {
+  let resolved: ThermostatMode | undefined;
+  let rawFallback: string | undefined;
+
+  for (const key of ["CONTROL_MODE", "SET_POINT_MODE", "MODE"]) {
+    if (!(key in snapshot.values)) continue;
+    const rawValue = snapshot.values[key];
+    const numeric = numberValue(rawValue);
+    const entry = numeric === undefined
+      ? undefined
+      : thermostatModeEntries(snapshot, key).find(candidate => Number(candidate.value) === numeric);
+    resolved = entry?.mode ?? thermostatModeFromLabel(entry?.label ?? rawValue);
+    if (!resolved && numeric === 0) resolved = "auto";
+    if (!resolved && numeric === 1) resolved = "manual";
+    rawFallback ??= entry?.label ?? String(rawValue);
+    if (resolved) break;
+  }
+
+  const minimum = parameterNumber(snapshot, targetParameter, "min") ?? 4.5;
+  if (resolved === "manual" && targetTemperature !== undefined && targetTemperature <= minimum + 0.01) return "off";
+  return resolved ?? rawFallback;
+}
+
+function writableThermostatModeParameter(snapshot: OpenCcuChannelSnapshot): string | undefined {
+  return ["SET_POINT_MODE", "CONTROL_MODE", "MODE"].find(key => {
+    const definition = parameterDefinition(snapshot, key);
+    if (!Object.keys(definition).length || !parameterWritable(snapshot, key)) return false;
+    const modes = thermostatModeEntries(snapshot, key).map(entry => entry.mode);
+    return modes.includes("auto") && modes.includes("manual");
+  });
+}
+
+function primitiveCommandValue(value: unknown): string | number | boolean | undefined {
+  return ["string", "number", "boolean"].includes(typeof value)
+    ? value as string | number | boolean
+    : undefined;
+}
+
+/**
+ * Builds the native OpenCCU write sequence for the three SALTA thermostat
+ * operating modes. The adapter executes the returned writes in order inside
+ * its existing per-interface command queue.
+ */
+export function openCcuThermostatModePlan(
+  metadataInput: unknown,
+  state: DeviceState,
+  requestedMode: unknown
+): OpenCcuThermostatModePlan {
+  const metadata = record(metadataInput);
+  const mode = String(requestedMode ?? "").trim().toLowerCase();
+  if (!["off", "manual", "auto"].includes(mode)) throw new Error("INVALID_THERMOSTAT_MODE");
+
+  const writes: OpenCcuWriteOperation[] = [];
+  const addWrite = (parameter: unknown, valueType: unknown, value: unknown): void => {
+    const normalizedParameter = stringValue(parameter);
+    const normalizedValue = primitiveCommandValue(value);
+    if (!normalizedParameter || normalizedValue === undefined) throw new Error("CAPABILITY_NOT_SUPPORTED");
+    writes.push({
+      parameter: normalizedParameter,
+      valueType: stringValue(valueType) ?? "string",
+      value: normalizedValue
+    });
+  };
+
+  const minimum = numberValue(metadata.thermostatOffTemperature ?? metadata.targetTemperatureMin) ?? 4.5;
+  const maximum = numberValue(metadata.targetTemperatureMax) ?? 30;
+  const currentTarget = numberValue(state.targetTemperature);
+  const comfortableTarget = currentTarget !== undefined && currentTarget > minimum + 0.01
+    ? Math.min(maximum, Math.max(minimum, Math.round(currentTarget * 2) / 2))
+    : Math.min(maximum, Math.max(minimum, 20));
+  const actionValue = (valueType: string, temperature: number): string | number | boolean => {
+    if (valueType === "float") return temperature;
+    if (valueType === "int") return Math.round(temperature);
+    if (valueType === "string") return String(temperature);
+    return true;
+  };
+
+  if (mode === "auto") {
+    if (metadata.autoModeParameter) {
+      const valueType = stringValue(metadata.autoModeValueType) ?? "bool";
+      addWrite(metadata.autoModeParameter, valueType, actionValue(valueType, comfortableTarget));
+    } else if (metadata.modeParameter && primitiveCommandValue(metadata.modeAutoValue) !== undefined) {
+      addWrite(metadata.modeParameter, metadata.modeValueType ?? "int", metadata.modeAutoValue);
+    } else throw new Error("CAPABILITY_NOT_SUPPORTED");
+    return { writes, state: { controlMode: "auto" } };
+  }
+
+  if (mode === "manual") {
+    if (metadata.manualModeParameter) {
+      const valueType = stringValue(metadata.manualModeValueType) ?? "float";
+      addWrite(metadata.manualModeParameter, valueType, actionValue(valueType, comfortableTarget));
+      return { writes, state: { controlMode: "manual", targetTemperature: comfortableTarget } };
+    }
+    if (metadata.modeParameter && primitiveCommandValue(metadata.modeManualValue) !== undefined) {
+      addWrite(metadata.modeParameter, metadata.modeValueType ?? "int", metadata.modeManualValue);
+      const nextState: DeviceState = { controlMode: "manual" };
+      if (currentTarget === undefined || currentTarget <= minimum + 0.01) {
+        addWrite(metadata.targetTemperatureParameter, metadata.targetTemperatureValueType ?? "float", comfortableTarget);
+        nextState.targetTemperature = comfortableTarget;
+      }
+      return { writes, state: nextState };
+    }
+    throw new Error("CAPABILITY_NOT_SUPPORTED");
+  }
+
+  if (metadata.modeParameter && primitiveCommandValue(metadata.modeOffValue) !== undefined) {
+    addWrite(metadata.modeParameter, metadata.modeValueType ?? "int", metadata.modeOffValue);
+  } else if (metadata.manualModeParameter) {
+    const valueType = stringValue(metadata.manualModeValueType) ?? "float";
+    addWrite(metadata.manualModeParameter, valueType, actionValue(valueType, minimum));
+  } else if (metadata.modeParameter && primitiveCommandValue(metadata.modeManualValue) !== undefined) {
+    addWrite(metadata.modeParameter, metadata.modeValueType ?? "int", metadata.modeManualValue);
+    addWrite(metadata.targetTemperatureParameter, metadata.targetTemperatureValueType ?? "float", minimum);
+  } else throw new Error("CAPABILITY_NOT_SUPPORTED");
+
+  return { writes, state: { controlMode: "off", targetTemperature: minimum } };
 }
 
 function fallbackDeviceName(snapshot: Pick<OpenCcuChannelSnapshot, "model" | "channelAddress">): string {
@@ -316,8 +509,22 @@ export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Devi
     const valvePosition = valvePositionRaw === undefined
       ? undefined
       : Math.max(0, Math.min(100, valvePositionRaw <= 1 ? Math.round(valvePositionRaw * 100) : Math.round(valvePositionRaw)));
-    const controlMode = stringValue(values.CONTROL_MODE ?? values.MODE ?? values.SET_POINT_MODE);
+    const controlMode = currentThermostatMode(snapshot, targetParameter, targetTemperature);
     const writable = parameterWritable(snapshot, targetParameter);
+    const autoModeParameter = parameterExists(snapshot, "AUTO_MODE") && parameterWritable(snapshot, "AUTO_MODE")
+      ? "AUTO_MODE"
+      : undefined;
+    const manualModeParameter = parameterExists(snapshot, "MANU_MODE") && parameterWritable(snapshot, "MANU_MODE")
+      ? "MANU_MODE"
+      : undefined;
+    const modeParameter = writableThermostatModeParameter(snapshot);
+    const modeAutoValue = modeParameter ? thermostatModeValue(snapshot, modeParameter, "auto") : undefined;
+    const modeManualValue = modeParameter ? thermostatModeValue(snapshot, modeParameter, "manual") : undefined;
+    const modeOffValue = modeParameter ? thermostatModeValue(snapshot, modeParameter, "off") : undefined;
+    const thermostatModeWritable = Boolean((autoModeParameter || modeAutoValue !== undefined)
+      && (manualModeParameter || modeManualValue !== undefined)
+      && writable);
+    const minimum = parameterNumber(snapshot, targetParameter, "min") ?? 4.5;
     return {
       ...base,
       type: "thermostat",
@@ -329,14 +536,32 @@ export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Devi
         ...(valvePosition !== undefined ? { valvePosition } : {}),
         ...(controlMode ? { controlMode } : {})
       },
-      capabilities: writable ? ["setTargetTemperature"] : [],
+      capabilities: writable
+        ? ["setTargetTemperature", ...(thermostatModeWritable ? ["setThermostatMode"] : [])]
+        : [],
       adapterData: {
         ...(base.adapterData ?? {}),
         targetTemperatureParameter: targetParameter,
         targetTemperatureValueType: rpcValueType(snapshot, targetParameter, "float"),
-        targetTemperatureMin: parameterNumber(snapshot, targetParameter, "min") ?? 5,
+        targetTemperatureMin: minimum,
         targetTemperatureMax: parameterNumber(snapshot, targetParameter, "max") ?? 30,
-        targetTemperatureStep: 0.5
+        targetTemperatureStep: 0.5,
+        thermostatOffTemperature: minimum,
+        ...(autoModeParameter ? {
+          autoModeParameter,
+          autoModeValueType: rpcValueType(snapshot, autoModeParameter, "bool")
+        } : {}),
+        ...(manualModeParameter ? {
+          manualModeParameter,
+          manualModeValueType: rpcValueType(snapshot, manualModeParameter, "float")
+        } : {}),
+        ...(modeParameter ? {
+          modeParameter,
+          modeValueType: rpcValueType(snapshot, modeParameter, "int"),
+          ...(modeAutoValue !== undefined ? { modeAutoValue } : {}),
+          ...(modeManualValue !== undefined ? { modeManualValue } : {}),
+          ...(modeOffValue !== undefined ? { modeOffValue } : {})
+        } : {})
       }
     };
   }

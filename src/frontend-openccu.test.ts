@@ -32,4 +32,11 @@ describe("OpenCCU frontend integration", () => {
     expect(html).toContain('id="openCcuDiagnoseButton"');
     expect(script).toContain("Remote-Code ${step.remoteCode}");
   });
+
+  it("renders HomeMatic thermostat mode controls", () => {
+    expect(script).toContain("function thermostatModeControl(d)");
+    expect(script).toContain("capabilities.includes('setThermostatMode')");
+    expect(script).toContain("Betriebsart");
+    expect(script).toContain("Betriebsart auf ${labels[mode]||mode} gesetzt.");
+  });
 });

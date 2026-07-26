@@ -7,6 +7,7 @@ import {
   openCcuDeviceIds,
   openCcuObjectName,
   openCcuRpcEndpoint,
+  openCcuThermostatModePlan,
   reconciledOpenCcuName,
   stringifyRpcParams,
   unwrapRpcResult
@@ -184,6 +185,138 @@ describe("OpenCCU HomeMatic device mapping", () => {
         targetTemperatureMax: 30.5
       }
     });
+  });
+
+  it("maps classic HomeMatic thermostat mode actions for auto, manual and off", () => {
+    const device = openCcuDeviceFromChannel({
+      ...base,
+      interfaceName: "BidCos-RF",
+      model: "HM-CC-RT-DN",
+      channelAddress: "LEQ0422906:4",
+      channelType: "THERMAL_CONTROL_TRANSMIT",
+      paramsetDescription: {
+        SET_TEMPERATURE: { TYPE: "FLOAT", OPERATIONS: 7, MIN: 4.5, MAX: 30.5 },
+        CONTROL_MODE: { TYPE: "ENUM", OPERATIONS: 5, MIN: 0, VALUE_LIST: ["AUTO", "MANU", "PARTY", "BOOST"] },
+        AUTO_MODE: { TYPE: "ACTION", OPERATIONS: 2 },
+        MANU_MODE: { TYPE: "FLOAT", OPERATIONS: 2, MIN: 4.5, MAX: 30.5 }
+      },
+      values: {
+        ACTUAL_TEMPERATURE: 21.2,
+        SET_TEMPERATURE: 22.5,
+        CONTROL_MODE: 0,
+        AUTO_MODE: false,
+        MANU_MODE: 22.5
+      }
+    });
+
+    expect(device).toMatchObject({
+      type: "thermostat",
+      state: { targetTemperature: 22.5, controlMode: "auto" },
+      capabilities: ["setTargetTemperature", "setThermostatMode"],
+      adapterData: {
+        targetTemperatureMin: 4.5,
+        thermostatOffTemperature: 4.5,
+        autoModeParameter: "AUTO_MODE",
+        autoModeValueType: "bool",
+        manualModeParameter: "MANU_MODE",
+        manualModeValueType: "float"
+      }
+    });
+  });
+
+  it("maps Homematic IP enum modes and recognizes manual minimum temperature as off", () => {
+    const device = openCcuDeviceFromChannel({
+      ...base,
+      model: "HmIP-WTH-2",
+      channelAddress: "0011223344:1",
+      channelType: "HEATING_CLIMATECONTROL_TRANSCEIVER",
+      paramsetDescription: {
+        SET_POINT_TEMPERATURE: { TYPE: "FLOAT", OPERATIONS: 7, MIN: 4.5, MAX: 30.5 },
+        SET_POINT_MODE: { TYPE: "ENUM", OPERATIONS: 7, MIN: 0, VALUE_LIST: "AUTOMATIC MANUAL AWAY" }
+      },
+      values: {
+        ACTUAL_TEMPERATURE: 20.8,
+        SET_POINT_TEMPERATURE: 4.5,
+        SET_POINT_MODE: 1,
+        HUMIDITY: 48
+      }
+    });
+
+    expect(device).toMatchObject({
+      type: "thermostat",
+      state: { targetTemperature: 4.5, controlMode: "off", humidity: 48 },
+      capabilities: ["setTargetTemperature", "setThermostatMode"],
+      adapterData: {
+        targetTemperatureParameter: "SET_POINT_TEMPERATURE",
+        modeParameter: "SET_POINT_MODE",
+        modeValueType: "int",
+        modeAutoValue: 0,
+        modeManualValue: 1
+      }
+    });
+  });
+
+  it("builds native thermostat mode write sequences for classic and Homematic IP devices", () => {
+    const classicMetadata = {
+      targetTemperatureParameter: "SET_TEMPERATURE",
+      targetTemperatureValueType: "float",
+      targetTemperatureMin: 4.5,
+      targetTemperatureMax: 30.5,
+      thermostatOffTemperature: 4.5,
+      autoModeParameter: "AUTO_MODE",
+      autoModeValueType: "bool",
+      manualModeParameter: "MANU_MODE",
+      manualModeValueType: "float"
+    };
+
+    expect(openCcuThermostatModePlan(classicMetadata, { targetTemperature: 22.5 }, "auto")).toEqual({
+      writes: [{ parameter: "AUTO_MODE", valueType: "bool", value: true }],
+      state: { controlMode: "auto" }
+    });
+    expect(openCcuThermostatModePlan(classicMetadata, { targetTemperature: 22.5 }, "off")).toEqual({
+      writes: [{ parameter: "MANU_MODE", valueType: "float", value: 4.5 }],
+      state: { controlMode: "off", targetTemperature: 4.5 }
+    });
+    expect(openCcuThermostatModePlan(classicMetadata, { targetTemperature: 4.5 }, "manual")).toEqual({
+      writes: [{ parameter: "MANU_MODE", valueType: "float", value: 20 }],
+      state: { controlMode: "manual", targetTemperature: 20 }
+    });
+
+    const hmipMetadata = {
+      targetTemperatureParameter: "SET_POINT_TEMPERATURE",
+      targetTemperatureValueType: "float",
+      targetTemperatureMin: 4.5,
+      targetTemperatureMax: 30.5,
+      thermostatOffTemperature: 4.5,
+      modeParameter: "SET_POINT_MODE",
+      modeValueType: "int",
+      modeAutoValue: 0,
+      modeManualValue: 1
+    };
+
+    expect(openCcuThermostatModePlan(hmipMetadata, { targetTemperature: 4.5 }, "auto")).toEqual({
+      writes: [{ parameter: "SET_POINT_MODE", valueType: "int", value: 0 }],
+      state: { controlMode: "auto" }
+    });
+    expect(openCcuThermostatModePlan(hmipMetadata, { targetTemperature: 22 }, "off")).toEqual({
+      writes: [
+        { parameter: "SET_POINT_MODE", valueType: "int", value: 1 },
+        { parameter: "SET_POINT_TEMPERATURE", valueType: "float", value: 4.5 }
+      ],
+      state: { controlMode: "off", targetTemperature: 4.5 }
+    });
+    expect(openCcuThermostatModePlan({ ...hmipMetadata, modeOffValue: 2 }, { targetTemperature: 22 }, "off")).toEqual({
+      writes: [{ parameter: "SET_POINT_MODE", valueType: "int", value: 2 }],
+      state: { controlMode: "off", targetTemperature: 4.5 }
+    });
+    expect(openCcuThermostatModePlan(hmipMetadata, { targetTemperature: 4.5 }, "manual")).toEqual({
+      writes: [
+        { parameter: "SET_POINT_MODE", valueType: "int", value: 1 },
+        { parameter: "SET_POINT_TEMPERATURE", valueType: "float", value: 20 }
+      ],
+      state: { controlMode: "manual", targetTemperature: 20 }
+    });
+    expect(() => openCcuThermostatModePlan(hmipMetadata, {}, "party")).toThrow("INVALID_THERMOSTAT_MODE");
   });
 
   it("maps a switch channel with command metadata", () => {

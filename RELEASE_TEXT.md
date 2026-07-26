@@ -1,27 +1,27 @@
-# SALTA v0.7.7
+# SALTA v0.7.8
 
-SALTA v0.7.7 is a security maintenance release for the HTTP router used by Fastify.
+SALTA v0.7.8 adds operating-mode control for HomeMatic heating thermostats and wall thermostats.
 
-## Security fix
+## HomeMatic thermostat modes
 
-- Updated the transitive `find-my-way` dependency from 9.6.0 to 9.7.0
-- Fixed CVE-2026-47219 / GHSA-c96f-x56v-gq3h
-- Prevented a remotely triggerable denial-of-service condition when the router is used with a Node.js HTTP/2 server
-- Added an exact npm override so local installs, CI and Docker builds cannot resolve to the vulnerable release
-- Added regression coverage that verifies the patched dependency remains locked
+- Added **Off**, **Manual** and **Automatic** buttons to supported thermostat cards.
+- Added support for classic HomeMatic devices that expose `AUTO_MODE` and `MANU_MODE` actions.
+- Added support for Homematic IP devices that expose a writable mode enum such as `SET_POINT_MODE`.
+- Uses the OpenCCU VALUES parameter description to determine write access, native JSON-RPC value types and enum values.
+- Uses a device's native off mode when one is available.
+- Falls back to manual mode at the minimum frost-protection temperature when the device has no separate off mode.
+- Restores a practical target temperature when switching from Off to Manual and the current setpoint is still at the minimum.
+- Displays the active mode directly on the thermostat card.
 
-## Build behavior
+## Quality and compatibility
 
-The Docker build continues to use `npm ci`. The committed `package-lock.json` now resolves `find-my-way` to 9.7.0, so both `linux/amd64` and `linux/arm64` images install the fixed dependency reproducibly.
-
-## Compatibility
-
-- No application behavior changed
-- No API behavior changed
-- No database schema changed
-- No environment-variable changes are required
-- No Docker Compose migration is required
-- Existing SALTA configuration and PostgreSQL data remain compatible
+- Added mapping tests for classic HomeMatic heating thermostats.
+- Added mapping tests for Homematic IP wall thermostats.
+- Added frontend and command-path regression coverage.
+- Kept the `find-my-way` 9.7.0 security pin introduced in v0.7.7.
+- No database migration is required.
+- No environment-variable changes are required.
+- Existing OpenCCU, Shelly, Zigbee, HomeKit and PostgreSQL configuration remains compatible.
 
 ## Updating
 
@@ -35,15 +35,17 @@ For a new installation:
 ./install.sh
 ```
 
+After updating, open the HomeMatic page and run **Synchronize** once so SALTA refreshes the writable parameter descriptions for the thermostat channels.
+
 ## Verification
 
 ```bash
 npm ci --no-audit --no-fund
-npm ls find-my-way --all
 npm run check
+npm ls find-my-way --all
 ```
 
-The dependency tree must contain only:
+The dependency tree must continue to contain only:
 
 ```text
 find-my-way@9.7.0
@@ -52,7 +54,7 @@ find-my-way@9.7.0
 ## Container tags
 
 ```text
-0.7.7
+0.7.8
 0.7
 latest
 ```
@@ -60,5 +62,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.7
+v0.7.8
 ```

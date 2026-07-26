@@ -12,6 +12,7 @@ import {
   openCcuDeviceIds,
   openCcuObjectName,
   openCcuRpcEndpoint,
+  openCcuThermostatModePlan,
   reconciledOpenCcuName,
   record,
   stringValue,
@@ -738,63 +739,70 @@ export class OpenCcuAdapter {
     const connection = await getOpenCcuConnection();
     if (!connection.baseUrl || !connection.username || !connection.password) throw new Error("OPENCCU_NOT_CONFIGURED");
 
-    let parameter = "";
-    let valueType = "";
-    let value: string | number | boolean;
+    const writes: Array<{ parameter: string; valueType: string; value: string | number | boolean }> = [];
+    const addWrite = (parameter: unknown, valueType: unknown, value: string | number | boolean): void => {
+      const normalizedParameter = String(parameter ?? "").trim();
+      if (!normalizedParameter) throw new Error("CAPABILITY_NOT_SUPPORTED");
+      writes.push({
+        parameter: normalizedParameter,
+        valueType: String(valueType ?? "string"),
+        value
+      });
+    };
     const nextState = { ...device.state };
     if (["turnOn", "turnOff", "toggle"].includes(command.capability)) {
       const on = command.capability === "toggle" ? !Boolean(device.state.on) : command.capability === "turnOn";
       if (metadata.stateParameter) {
-        parameter = String(metadata.stateParameter);
-        valueType = String(metadata.stateValueType ?? "bool");
-        value = on;
+        addWrite(metadata.stateParameter, metadata.stateValueType ?? "bool", on);
       } else if (metadata.levelParameter) {
-        parameter = String(metadata.levelParameter);
-        valueType = String(metadata.levelValueType ?? "float");
-        value = on ? Math.max(0.01, Number(device.state.brightness ?? 100) / 100) : 0;
+        addWrite(
+          metadata.levelParameter,
+          metadata.levelValueType ?? "float",
+          on ? Math.max(0.01, Number(device.state.brightness ?? 100) / 100) : 0
+        );
       } else throw new Error("CAPABILITY_NOT_SUPPORTED");
       nextState.on = on;
     } else if (command.capability === "setBrightness") {
       const brightness = Number(command.value);
       if (!Number.isFinite(brightness) || brightness < 0 || brightness > 100) throw new Error("INVALID_BRIGHTNESS");
-      parameter = String(metadata.levelParameter ?? "");
-      valueType = String(metadata.levelValueType ?? "float");
-      value = brightness / 100;
+      addWrite(metadata.levelParameter, metadata.levelValueType ?? "float", brightness / 100);
       nextState.brightness = Math.round(brightness);
       nextState.on = brightness > 0;
     } else if (["open", "close", "setTargetPosition"].includes(command.capability)) {
       const position = command.capability === "open" ? 100 : command.capability === "close" ? 0 : Number(command.value);
       if (!Number.isFinite(position) || position < 0 || position > 100) throw new Error("INVALID_POSITION");
-      parameter = String(metadata.levelParameter ?? "");
-      valueType = String(metadata.levelValueType ?? "float");
-      value = position / 100;
+      addWrite(metadata.levelParameter, metadata.levelValueType ?? "float", position / 100);
       nextState.targetPosition = Math.round(position);
     } else if (command.capability === "stop") {
-      parameter = String(metadata.stopParameter ?? "");
-      valueType = String(metadata.stopValueType ?? "bool");
-      value = true;
+      addWrite(metadata.stopParameter, metadata.stopValueType ?? "bool", true);
     } else if (command.capability === "setTargetTemperature") {
       const temperature = Number(command.value);
-      const minimum = Number(metadata.targetTemperatureMin ?? 5);
+      const minimum = Number(metadata.targetTemperatureMin ?? 4.5);
       const maximum = Number(metadata.targetTemperatureMax ?? 30);
       if (!Number.isFinite(temperature) || temperature < minimum || temperature > maximum) throw new Error("INVALID_TARGET_TEMPERATURE");
-      parameter = String(metadata.targetTemperatureParameter ?? "");
-      valueType = String(metadata.targetTemperatureValueType ?? "float");
-      value = Math.round(temperature * 2) / 2;
-      nextState.targetTemperature = value;
+      const rounded = Math.round(temperature * 2) / 2;
+      addWrite(metadata.targetTemperatureParameter, metadata.targetTemperatureValueType ?? "float", rounded);
+      nextState.targetTemperature = rounded;
+      if (nextState.controlMode === "off" && rounded > minimum + 0.01) nextState.controlMode = "manual";
+    } else if (command.capability === "setThermostatMode") {
+      const plan = openCcuThermostatModePlan(metadata, device.state, command.value);
+      for (const write of plan.writes) addWrite(write.parameter, write.valueType, write.value);
+      Object.assign(nextState, plan.state);
     } else throw new Error("CAPABILITY_NOT_SUPPORTED");
-    if (!parameter) throw new Error("CAPABILITY_NOT_SUPPORTED");
+    if (!writes.length) throw new Error("CAPABILITY_NOT_SUPPORTED");
 
     await this.queueCommand(interfaceName, () => this.runExclusive(async () => {
       const client = await this.getRuntimeClient(connection.baseUrl, connection.username, connection.password);
       try {
-        await client.call("Interface.setValue", {
-          interface: interfaceName,
-          address: channelAddress,
-          valueKey: parameter,
-          type: valueType,
-          value
-        }, interfaceName);
+        for (const write of writes) {
+          await client.call("Interface.setValue", {
+            interface: interfaceName,
+            address: channelAddress,
+            valueKey: write.parameter,
+            type: write.valueType,
+            value: write.value
+          }, interfaceName);
+        }
         this.sessionRetryAfter = 0;
       } catch (error) {
         const info = openCcuErrorInfo(error);

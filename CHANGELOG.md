@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.8
+
+- Added HomeMatic thermostat operating-mode controls for **Off**, **Manual** and **Automatic**.
+- Supports classic HomeMatic thermostats and wall thermostats exposing `AUTO_MODE` / `MANU_MODE` actions.
+- Supports Homematic IP thermostats and wall thermostats exposing a writable mode enum such as `SET_POINT_MODE`.
+- Uses OpenCCU parameter descriptions to select the correct native value type and mode values instead of relying on device-model hardcoding.
+- Implements **Off** through a native off mode when available, otherwise through manual mode at the device's minimum frost-protection temperature.
+- Added active-state mode buttons to HomeMatic thermostat cards and regression coverage for both thermostat families.
+- No database migration or environment-variable change is required.
+
 ## 0.7.7
 
 - Updated the transitive Fastify router dependency `find-my-way` from 9.6.0 to 9.7.0.
