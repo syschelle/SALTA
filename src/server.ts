@@ -400,9 +400,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.11" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.12" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.11", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.12", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {

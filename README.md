@@ -112,6 +112,25 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.yml -f docker-compose.build.yml up -d --build
 ```
 
+## Development and release quality gate
+
+Run the same complete quality gate used by GitHub Actions and the Docker build before pushing a release:
+
+```bash
+npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+npm run check
+```
+
+The quality gate validates release-version consistency, npm registry URLs, security dependency overrides, the Homebridge DBus lock checksum, TypeScript types, all automated tests, the production compilation and browser JavaScript syntax.
+
+Use the safe version command for future releases:
+
+```bash
+npm run version:set -- 0.7.13
+```
+
+This command updates only the SALTA root version and known release surfaces. It deliberately does not replace matching version strings inside transitive package-lock entries, which prevents dependency tarball and integrity metadata from being corrupted during a release bump.
+
 ## Status and logs
 
 ```bash

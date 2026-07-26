@@ -14,3 +14,7 @@ SALTA removes deprecated code and dependency paths controlled directly by the pr
 The current HomeKit integration still brings in `node-persist@0.0.12` through `@homebridge/hap-nodejs`. That package in turn declares the deprecated `q` package. SALTA does not call `q` directly.
 
 This upstream dependency is intentionally retained to preserve HomeKit support. Removing it inside SALTA would require replacing or forking the HomeKit persistence implementation and should not be presented as a safe cleanup without full HomeKit interoperability testing.
+
+## Release lockfile validation
+
+`npm run validate:release` verifies the exact security overrides and the Homebridge DBus tarball metadata before tests or container publication. Future SALTA version bumps must use `npm run version:set -- <version>` so only the root application version is changed in `package-lock.json`.

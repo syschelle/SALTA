@@ -41,5 +41,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
 
-      - name: Run checks
+      - name: Run complete quality gate
         run: npm run check
+
+      - name: Validate shell scripts
+        shell: bash
+        run: sh -n install.sh update.sh backup.sh restore.sh

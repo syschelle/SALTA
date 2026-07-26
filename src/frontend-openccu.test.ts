@@ -1,8 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { hasFunction, parseJavaScriptSource } from "./test-utils/source-inspection.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const script = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+const scriptAst = parseJavaScriptSource(script);
 
 describe("OpenCCU frontend integration", () => {
   it("provides a separate HomeMatic page and navigation entry", () => {
@@ -25,8 +27,8 @@ describe("OpenCCU frontend integration", () => {
   it("synchronizes and diagnoses OpenCCU inside the application", () => {
     expect(script).toContain("api('/api/adapters/openccu/reconcile',{method:'POST'})");
     expect(script).toContain("api('/api/settings/openccu/diagnose'");
-    expect(script).toContain("async function reconcileOpenCcu()");
-    expect(script).toContain("async function diagnoseOpenCcu()");
+    expect(hasFunction(scriptAst, "reconcileOpenCcu")).toBe(true);
+    expect(hasFunction(scriptAst, "diagnoseOpenCcu")).toBe(true);
     expect(html).toContain('id="openCcuDiagnosticFeedback"');
     expect(html).toContain('id="openCcuDiagnosticReport"');
     expect(html).toContain('id="openCcuDiagnoseButton"');
@@ -34,7 +36,7 @@ describe("OpenCCU frontend integration", () => {
   });
 
   it("renders HomeMatic thermostat mode controls", () => {
-    expect(script).toContain("function thermostatModeControl(d)");
+    expect(hasFunction(scriptAst, "thermostatModeControl")).toBe(true);
     expect(script).toContain("capabilities.includes('setThermostatMode')");
     expect(script).toContain("d.source==='openccu'&&d.type==='thermostat'&&d.capabilities.includes('setTargetTemperature')&&Boolean(displayed)");
     expect(script).toContain("const displayed=String(d.state?.controlMode||'').trim()");

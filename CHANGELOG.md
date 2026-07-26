@@ -2,6 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.12
+
+- Fixed the false-negative OpenCCU frontend test that still required the obsolete exact call `targetTemperatureControl(d)` after the renderer added an instance argument for duplicate-ID protection.
+- Replaced critical exact frontend call-string assertions with TypeScript-AST source contracts that validate function existence and call relationships independently of formatting and additional compatible arguments.
+- Added a release validator for root-version consistency, public npm registry URLs, pinned security overrides, and the Homebridge DBus tarball checksum.
+- Added a safe `npm run version:set -- <version>` command that updates only SALTA root version fields and known release surfaces without modifying transitive dependency versions or integrity values.
+- Expanded `npm run check` to include release validation and browser JavaScript syntax validation.
+- Changed the Docker build to run the complete quality gate instead of only compiling TypeScript.
+- Added an explicit verification job to the release workflow before QEMU and multi-architecture image publication.
+- No application runtime behavior, database schema, environment variable, device integration, room overview, or thermostat control behavior changed.
+
 ## 0.7.11
 
 - Replaced the overview page's static **STATUS / Alles an einem Ort** panel with live device cards grouped by room.

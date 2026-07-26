@@ -11,9 +11,11 @@ RUN --mount=type=cache,target=/root/.npm \
     npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
 
 FROM deps AS build
-COPY tsconfig.json ./
-COPY src ./src
-RUN npm run build
+COPY . .
+# Run the complete quality gate inside the image build. A release image can no
+# longer be published when tests, type checking, release metadata validation,
+# frontend syntax validation, or the production compilation fail.
+RUN npm run check
 
 FROM deps AS production-deps
 RUN npm prune --omit=dev --no-audit --no-fund \

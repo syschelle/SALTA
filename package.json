@@ -1,6 +1,6 @@
 {
   "name": "salta",
-  "version": "0.7.11",
+  "version": "0.7.12",
   "description": "SALTA local-first smart-home control plane",
   "private": true,
   "type": "module",
@@ -13,7 +13,9 @@
     "start": "node dist/main.js",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run validate:release && npm run typecheck && npm test && npm run build && node --check public/app.js",
+    "validate:release": "node scripts/validate-release.mjs",
+    "version:set": "node scripts/set-version.mjs"
   },
   "dependencies": {
     "@fastify/rate-limit": "^10.3.0",
