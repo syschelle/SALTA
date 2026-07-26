@@ -1,60 +1,51 @@
-# SALTA v0.7.8
+# SALTA v0.7.9
 
-SALTA v0.7.8 adds operating-mode control for HomeMatic heating thermostats and wall thermostats.
+SALTA v0.7.9 is a build-reliability maintenance release for the complete HomeMatic thermostat update delivered in v0.7.8.
 
-## HomeMatic thermostat modes
+## Build fix
 
-- Added **Off**, **Manual** and **Automatic** buttons to supported thermostat cards.
-- Added support for classic HomeMatic devices that expose `AUTO_MODE` and `MANU_MODE` actions.
-- Added support for Homematic IP devices that expose a writable mode enum such as `SET_POINT_MODE`.
-- Uses the OpenCCU VALUES parameter description to determine write access, native JSON-RPC value types and enum values.
-- Uses a device's native off mode when one is available.
-- Falls back to manual mode at the minimum frost-protection temperature when the device has no separate off mode.
-- Restores a practical target temperature when switching from Off to Manual and the current setpoint is still at the minimum.
-- Displays the active mode directly on the thermostat card.
+- Fixed `npm ci` failing with `EINTEGRITY` for `@homebridge/dbus-native`.
+- Restored the package-lock entry to the internally consistent upstream 0.7.7 record.
+- Restored the matching tarball URL and SHA-512 integrity checksum.
+- Restored the original `@homebridge/hap-nodejs` dependency declaration of `^0.7.7`.
+- Added an exact npm override for `@homebridge/dbus-native` 0.7.7 to prevent an accidental lockfile drift.
+- Added regression coverage for package version, tarball URL, integrity checksum and parent dependency metadata.
 
-## Quality and compatibility
+The `q@1.1.2` message remains an upstream deprecation warning inherited through the HomeKit dependency chain. It does not fail the build.
 
-- Added mapping tests for classic HomeMatic heating thermostats.
-- Added mapping tests for Homematic IP wall thermostats.
-- Added frontend and command-path regression coverage.
-- Kept the `find-my-way` 9.7.0 security pin introduced in v0.7.7.
+## Included HomeMatic functionality
+
+- **Off**, **Manual** and **Automatic** controls for supported heating and wall thermostats.
+- Support for classic HomeMatic `AUTO_MODE` / `MANU_MODE` actions.
+- Support for writable Homematic IP mode enums such as `SET_POINT_MODE`.
+- Native Off mode when available, with frost-protection fallback for devices without a separate Off mode.
+
+## Security and compatibility
+
+- Retains the `find-my-way` 9.7.0 security override.
 - No database migration is required.
 - No environment-variable changes are required.
 - Existing OpenCCU, Shelly, Zigbee, HomeKit and PostgreSQL configuration remains compatible.
 
-## Updating
-
-```bash
-./update.sh
-```
-
-For a new installation:
-
-```bash
-./install.sh
-```
-
-After updating, open the HomeMatic page and run **Synchronize** once so SALTA refreshes the writable parameter descriptions for the thermostat channels.
-
 ## Verification
 
 ```bash
-npm ci --no-audit --no-fund
+npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
 npm run check
-npm ls find-my-way --all
+npm ls @homebridge/dbus-native find-my-way --all
 ```
 
-The dependency tree must continue to contain only:
+The dependency tree must contain:
 
 ```text
+@homebridge/dbus-native@0.7.7
 find-my-way@9.7.0
 ```
 
 ## Container tags
 
 ```text
-0.7.8
+0.7.9
 0.7
 latest
 ```
@@ -62,5 +53,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.8
+v0.7.9
 ```

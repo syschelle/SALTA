@@ -7,6 +7,7 @@ SALTA removes deprecated code and dependency paths controlled directly by the pr
 - The redundant direct `pino` dependency was removed; Fastify continues to provide the runtime logger through its own dependency graph.
 - No SALTA direct dependency is marked as deprecated in `package-lock.json`.
 - `find-my-way` is pinned through an npm override to `9.7.0` to remediate CVE-2026-47219 / GHSA-c96f-x56v-gq3h. This keeps Docker builds using `npm ci` on the patched Fastify router release.
+- `@homebridge/dbus-native` is pinned to `0.7.7`. SALTA v0.7.8 accidentally changed its lockfile package version and URL to 0.7.8 while retaining the 0.7.7 integrity checksum, causing `npm ci` to stop with `EINTEGRITY`. The v0.7.9 lockfile restores one internally consistent package record.
 
 ## Upstream HomeKit exception
 

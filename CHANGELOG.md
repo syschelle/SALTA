@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.9
+
+- Fixed the reproducible `npm ci` build failure caused by mismatched `@homebridge/dbus-native` version and integrity metadata in `package-lock.json`.
+- Restored the upstream `@homebridge/dbus-native` 0.7.7 package record, tarball URL and matching SHA-512 integrity value.
+- Added an exact npm override for `@homebridge/dbus-native` 0.7.7 so future lockfile refreshes cannot accidentally select the problematic 0.7.8 record.
+- Added regression coverage that verifies the dependency version, resolved tarball, integrity checksum and `@homebridge/hap-nodejs` dependency declaration remain consistent.
+- Retained the HomeMatic thermostat mode controls introduced in v0.7.8 and the `find-my-way` 9.7.0 security fix.
+- No database migration or environment-variable change is required.
+
 ## 0.7.8
 
 - Added HomeMatic thermostat operating-mode controls for **Off**, **Manual** and **Automatic**.
