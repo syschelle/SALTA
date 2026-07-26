@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.7
+
+- Updated the transitive Fastify router dependency `find-my-way` from 9.6.0 to 9.7.0.
+- Fixed CVE-2026-47219 / GHSA-c96f-x56v-gq3h, a remotely triggerable denial-of-service condition when `find-my-way` is used with Node.js HTTP/2.
+- Added an exact npm override so `npm ci` and Docker builds reproducibly install the patched router release.
+- Added regression coverage that rejects vulnerable `find-my-way` versions in `package-lock.json`.
+- Kept application behavior, APIs, database schema, environment variables and device integrations unchanged.
+
 ## 0.7.6
 
 - Updated the window-covering slider regression test for the shared live-refresh guard introduced with thermostat target-temperature control.

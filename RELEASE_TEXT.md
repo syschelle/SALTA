@@ -1,20 +1,27 @@
-# SALTA v0.7.6
+# SALTA v0.7.7
 
-SALTA v0.7.6 fixes the frontend regression-test failure introduced with HomeMatic thermostat target-temperature controls.
+SALTA v0.7.7 is a security maintenance release for the HTTP router used by Fastify.
 
-## Build and test fix
+## Security fix
 
-- Updated the window-covering slider regression test to match the current shared live-refresh guard
-- Verifies that active cover, brightness and target-temperature sliders prevent periodic device-card re-rendering
-- Preserves the thermostat control and OpenCCU behavior introduced in v0.7.5
+- Updated the transitive `find-my-way` dependency from 9.6.0 to 9.7.0
+- Fixed CVE-2026-47219 / GHSA-c96f-x56v-gq3h
+- Prevented a remotely triggerable denial-of-service condition when the router is used with a Node.js HTTP/2 server
+- Added an exact npm override so local installs, CI and Docker builds cannot resolve to the vulnerable release
+- Added regression coverage that verifies the patched dependency remains locked
 
-## Runtime behavior
+## Build behavior
 
-- No application runtime behavior changed
+The Docker build continues to use `npm ci`. The committed `package-lock.json` now resolves `find-my-way` to 9.7.0, so both `linux/amd64` and `linux/arm64` images install the fixed dependency reproducibly.
+
+## Compatibility
+
+- No application behavior changed
 - No API behavior changed
 - No database schema changed
-- No Docker Compose or `.env` change is required
-- No fresh installation is required
+- No environment-variable changes are required
+- No Docker Compose migration is required
+- Existing SALTA configuration and PostgreSQL data remain compatible
 
 ## Updating
 
@@ -28,10 +35,24 @@ For a new installation:
 ./install.sh
 ```
 
+## Verification
+
+```bash
+npm ci --no-audit --no-fund
+npm ls find-my-way --all
+npm run check
+```
+
+The dependency tree must contain only:
+
+```text
+find-my-way@9.7.0
+```
+
 ## Container tags
 
 ```text
-0.7.6
+0.7.7
 0.7
 latest
 ```
@@ -39,5 +60,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.6
+v0.7.7
 ```
