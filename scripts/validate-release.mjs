@@ -8,6 +8,15 @@ const fail = (message) => {
   throw new Error(`Release validation failed: ${message}`);
 };
 
+const publicIndex = read("public/index.html");
+const roomGroupingScript = '<script src="/room-grouping.js"></script>';
+const appScript = '<script src="/app.js"></script>';
+if (!publicIndex.includes(roomGroupingScript)) fail("public/index.html does not load room-grouping.js");
+if (publicIndex.indexOf(roomGroupingScript) > publicIndex.indexOf(appScript)) fail("room-grouping.js must load before app.js");
+const serverSource = read("src/server.ts");
+if (!serverSource.includes('["/room-grouping.js", "room-grouping.js"]')) fail("server does not serve room-grouping.js");
+if (!serverSource.includes('immutableVendorAsset ? "public, max-age=31536000, immutable" : "no-store"')) fail("application assets are not protected from stale browser caching");
+
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");
 const version = String(packageJson.version ?? "");

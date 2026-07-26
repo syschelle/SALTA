@@ -2,6 +2,18 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.13
+
+- Fixed the overview page so devices with valid room assignments are reliably displayed in their configured room.
+- Added normalized room-ID matching to handle UUID formatting differences safely.
+- Added a unique room-name fallback for legacy device records and adapter refreshes that retain a room name without a usable room UUID.
+- Kept devices without a valid, unambiguous room assignment completely hidden from the overview page.
+- Added a dedicated browser room-grouping helper with behavior-based regression tests for assigned, legacy, stale, ambiguous and unassigned devices.
+- Added explicit overview DOM initialization and release validation that guarantees the grouping helper loads before the main application script.
+- Disabled browser caching for SALTA-owned HTML, JavaScript and CSS assets so a new page can no longer run with an older cached application script after an upgrade; immutable bundled vendor assets remain long-lived.
+- Extended the complete quality gate to syntax-check both browser scripts.
+- No database migration or environment-variable change is required.
+
 ## 0.7.12
 
 - Fixed the false-negative OpenCCU frontend test that still required the obsolete exact call `targetTemperatureControl(d)` after the renderer added an instance argument for duplicate-ID protection.

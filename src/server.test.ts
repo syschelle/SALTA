@@ -584,12 +584,29 @@ describe("web security", () => {
     expect(script.headers["content-type"]).toContain("text/javascript");
   });
 
-  it("serves allow-listed application assets after authentication", async () => {
+  it("serves current application assets without stale browser caching", async () => {
     const server = createServer(vi.fn());
-    const response = await authenticatedInject(server, { method: "GET", url: "/styles.css" });
+    const stylesheet = await authenticatedInject(server, { method: "GET", url: "/styles.css" });
+    const application = await authenticatedInject(server, { method: "GET", url: "/app.js" });
+    const roomGrouping = await authenticatedInject(server, { method: "GET", url: "/room-grouping.js" });
+
+    expect(stylesheet.statusCode).toBe(200);
+    expect(stylesheet.headers["content-type"]).toContain("text/css");
+    expect(stylesheet.headers["cache-control"]).toBe("no-store");
+    expect(application.statusCode).toBe(200);
+    expect(application.headers["content-type"]).toContain("text/javascript");
+    expect(application.headers["cache-control"]).toBe("no-store");
+    expect(roomGrouping.statusCode).toBe(200);
+    expect(roomGrouping.headers["content-type"]).toContain("text/javascript");
+    expect(roomGrouping.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("keeps versioned vendor assets immutable", async () => {
+    const server = createServer(vi.fn());
+    const response = await authenticatedInject(server, { method: "GET", url: "/vendor/mdi/materialdesignicons.min.css" });
 
     expect(response.statusCode).toBe(200);
-    expect(response.headers["content-type"]).toContain("text/css");
+    expect(response.headers["cache-control"]).toBe("public, max-age=31536000, immutable");
   });
 
   it("protects health and readiness API routes", async () => {
@@ -638,7 +655,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.7.12" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.7.13" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {

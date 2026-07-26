@@ -1,6 +1,6 @@
-# SALTA v0.7.12 – Git and Release Commands
+# SALTA v0.7.13 – Git and Release Commands
 
-Run these commands from the repository root after replacing the local files with the complete v0.7.12 package.
+Run these commands from the repository root after replacing the local files with the complete v0.7.13 package.
 
 ## Verify
 
@@ -23,7 +23,7 @@ find-my-way@9.7.0
 
 ```bash
 git add -A
-git commit -m "fix(build): harden release quality gates"
+git commit -m "fix(overview): restore room devices and prevent stale assets"
 git push origin main
 ```
 
@@ -32,26 +32,24 @@ Wait for the `CI` workflow on `main` to finish successfully before creating the 
 ## Tag and publish
 
 ```bash
-git tag -a v0.7.12 -m "SALTA v0.7.12"
-git push origin v0.7.12
+git tag -a v0.7.13 -m "SALTA v0.7.13"
+git push origin v0.7.13
 ```
-
-The release workflow runs the complete verification job again before it starts the multi-architecture Docker build.
 
 ## Create the GitHub release
 
 ```bash
-gh release create v0.7.12 \
-  --title "SALTA v0.7.12" \
+gh release create v0.7.13 \
+  --title "SALTA v0.7.13" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.7.12.zip \
-  ./SALTA-v0.7.12.zip.sha256
+  ./SALTA-v0.7.13.zip \
+  ./SALTA-v0.7.13.zip.sha256
 ```
 
 ## Deploy the published image
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.7.12
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.7.13
 ```
 
 ```bash
@@ -63,6 +61,6 @@ docker compose --env-file .env -f docker-compose.image.yml ps
 ## Future safe version bump
 
 ```bash
-npm run version:set -- 0.7.13
+npm run version:set -- 0.7.14
 npm run check
 ```

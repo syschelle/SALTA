@@ -53,7 +53,8 @@ async function sendPublicFile(reply: FastifyReply, publicDir: string, fileName: 
   const data = await readFile(join(publicDir, fileName));
   const contentType = STATIC_CONTENT_TYPES[extname(fileName)] ?? "application/octet-stream";
   reply.type(contentType);
-  reply.header("Cache-Control", fileName.endsWith(".html") ? "no-store" : "public, max-age=3600");
+  const immutableVendorAsset = fileName.startsWith("vendor/");
+  reply.header("Cache-Control", immutableVendorAsset ? "public, max-age=31536000, immutable" : "no-store");
   return reply.send(data);
 }
 
@@ -225,6 +226,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   const publicPaths = new Set(["/login", "/login.html", "/login.js", "/login.css", "/theme-init.js"]);
   const staticFiles = new Map<string, string>([
     ["/app.js", "app.js"],
+    ["/room-grouping.js", "room-grouping.js"],
     ["/styles.css", "styles.css"],
     ["/theme-init.js", "theme-init.js"],
     ["/login.html", "login.html"],
@@ -400,9 +402,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.12" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.13" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.12", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.13", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {

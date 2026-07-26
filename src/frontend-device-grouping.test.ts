@@ -22,9 +22,11 @@ describe("room-grouped device overview", () => {
     expect(htmlSource).not.toContain("Alles an einem Ort");
     expect(htmlSource).not.toContain('<p class="eyebrow">STATUS</p>');
     expect(hasFunction(appAst, "renderOverviewDevices")).toBe(true);
-    expect(appSource).toContain("device.roomId&&knownRoomIds.has(device.roomId)");
-    expect(appSource).toContain("overviewDeviceGrid.innerHTML=groups.map(group=>deviceRoomGroup(group,true,'overview')).join('')");
+    expect(appSource).toContain("roomGrouping.groupAssignedDevicesByRoom(rooms,all)");
+    expect(appSource).toContain("overviewDeviceGridElement.innerHTML=groups.map(group=>deviceRoomGroup(group,true,'overview')).join('')");
     expect(functionCalls(appAst, "renderDevices", "renderOverviewDevices")).toBe(true);
+    expect(htmlSource).toContain('<script src="/room-grouping.js"></script>');
+    expect(appSource).toContain("Auf der Übersicht werden ausschließlich Geräte mit einer gültigen Raumzuordnung angezeigt.");
     expect(appSource).toContain("const controlId=`brightness-${d.id}${instance?`-${instance}`:''}`");
     expect(appSource).toContain("const controlId=`target-temperature-${d.id}${instance?`-${instance}`:''}`");
     expect(appSource).toContain("const controlId=`cover-position-${d.id}${instance?`-${instance}`:''}`");
