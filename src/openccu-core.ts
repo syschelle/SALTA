@@ -13,6 +13,7 @@ export interface OpenCcuChannelSnapshot {
   model?: string;
   firmwareVersion?: string;
   channelCount?: number;
+  paramsetDescription?: JsonRecord;
   values: JsonRecord;
 }
 
@@ -47,6 +48,25 @@ function decodedName(value: unknown): string | undefined {
   } catch {
     return text;
   }
+}
+
+/** Reads and decodes the configured ReGa name from Device.get-like payloads. */
+export function openCcuObjectName(value: unknown): string | undefined {
+  const object = record(value);
+  return decodedName(property(object, "name", "deviceName", "device_name", "label"));
+}
+
+export function openCcuDeviceIds(payload: unknown): string[] {
+  const values = Array.isArray(payload)
+    ? payload
+    : Object.values(record(payload));
+  const ids = values
+    .map(value => {
+      if (typeof value === "string" || typeof value === "number") return String(value).trim();
+      return stringValue(property(record(value), "id", "deviceId", "device_id"));
+    })
+    .filter((value): value is string => Boolean(value));
+  return [...new Set(ids)];
 }
 
 export function numberValue(value: unknown): number | undefined {
@@ -163,25 +183,59 @@ function isSwitchChannel(type: string, values: JsonRecord): boolean {
   return booleanValue(values.STATE) !== undefined && /(SWITCH|OUTPUT|ACTUATOR|RELAY|PLUG)/.test(type);
 }
 
+function parameterDefinition(snapshot: OpenCcuChannelSnapshot, key: string): JsonRecord {
+  return record(property(snapshot.paramsetDescription ?? {}, key));
+}
+
+function parameterExists(snapshot: OpenCcuChannelSnapshot, key: string): boolean {
+  return key in snapshot.values || Object.keys(parameterDefinition(snapshot, key)).length > 0;
+}
+
+function parameterWritable(snapshot: OpenCcuChannelSnapshot, key: string): boolean {
+  const definition = parameterDefinition(snapshot, key);
+  const operations = numberValue(property(definition, "operations"));
+  // HomeMatic operation flags use bit 2 for write access. Older CCU versions
+  // may omit the description, in which case the known control parameters are
+  // treated as writable and OpenCCU remains the final authority.
+  return operations === undefined || (operations & 2) === 2;
+}
+
+function rpcValueType(snapshot: OpenCcuChannelSnapshot, key: string, fallback: "bool" | "float" | "int" | "string"): string {
+  const raw = stringValue(property(parameterDefinition(snapshot, key), "type"))?.toUpperCase();
+  if (raw === "BOOL" || raw === "BOOLEAN") return "bool";
+  if (["FLOAT", "DOUBLE"].includes(raw ?? "")) return "float";
+  if (["INTEGER", "INT", "ENUM"].includes(raw ?? "")) return "int";
+  if (["STRING", "ACTION"].includes(raw ?? "")) return "string";
+  return fallback;
+}
+
+function parameterNumber(snapshot: OpenCcuChannelSnapshot, key: string, field: "min" | "max" | "default"): number | undefined {
+  return numberValue(property(parameterDefinition(snapshot, key), field));
+}
+
+function targetTemperatureParameter(snapshot: OpenCcuChannelSnapshot): string | undefined {
+  return ["SET_TEMPERATURE", "SET_POINT_TEMPERATURE", "TARGET_TEMPERATURE", "SETPOINT"]
+    .find(key => parameterExists(snapshot, key));
+}
+
 function fallbackDeviceName(snapshot: Pick<OpenCcuChannelSnapshot, "model" | "channelAddress">): string {
   return `${snapshot.model ?? "HomeMatic"} ${snapshot.channelAddress}`;
 }
 
 function deviceName(snapshot: OpenCcuChannelSnapshot): string {
-  const channel = snapshot.channelAddress.split(":").at(-1);
+  // The card title represents the physical OpenCCU device. Channel names are
+  // retained as metadata and are used only when the physical device has no
+  // configured ReGa name. This avoids replacing a user-defined device name
+  // with technical channel labels such as "DEVICE-NAME:4".
+  if (snapshot.deviceName) return snapshot.deviceName.trim();
   if (snapshot.channelName) {
-    const normalizedChannelName = snapshot.channelName.trim();
-    const generatedChannelNames = snapshot.deviceName && channel
-      ? new Set([
-          `${snapshot.deviceName}:${channel}`.toLocaleLowerCase(),
-          `${snapshot.deviceName} ${channel}`.toLocaleLowerCase(),
-          `${snapshot.deviceName} · Kanal ${channel}`.toLocaleLowerCase()
-        ])
-      : new Set<string>();
-    if (!generatedChannelNames.has(normalizedChannelName.toLocaleLowerCase())) return normalizedChannelName;
-  }
-  if (snapshot.deviceName) {
-    return channel && channel !== "1" ? `${snapshot.deviceName} · Kanal ${channel}` : snapshot.deviceName;
+    const channel = snapshot.channelAddress.split(":").at(-1);
+    const normalized = snapshot.channelName.trim();
+    if (channel && normalized.toLocaleLowerCase().endsWith(`:${channel}`.toLocaleLowerCase())) {
+      const parent = normalized.slice(0, -(channel.length + 1)).trim();
+      if (parent) return parent;
+    }
+    return normalized;
   }
   return fallbackDeviceName(snapshot);
 }
@@ -237,6 +291,8 @@ function baseDevice(snapshot: OpenCcuChannelSnapshot): Omit<Device, "type" | "st
       interfaceName: snapshot.interfaceName,
       channelAddress: snapshot.channelAddress,
       channelType: snapshot.channelType,
+      ...(snapshot.deviceName ? { deviceName: snapshot.deviceName } : {}),
+      ...(snapshot.channelName ? { channelName: snapshot.channelName } : {}),
       sourceName,
       sourceFallbackName
     }
@@ -250,6 +306,40 @@ export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Devi
   const base = baseDevice(snapshot);
   const level = numberValue(values.LEVEL);
   const stateValue = booleanValue(values.STATE);
+  const actualTemperature = numberValue(values.ACTUAL_TEMPERATURE ?? values.TEMPERATURE);
+  const humidity = numberValue(values.HUMIDITY);
+  const targetParameter = targetTemperatureParameter(snapshot);
+  const targetTemperature = targetParameter ? numberValue(values[targetParameter]) : undefined;
+
+  if (targetParameter && (targetTemperature !== undefined || /(THERMOSTAT|CLIMATE|HEATING|RADIATOR|THERMAL_CONTROL)/.test(type))) {
+    const valvePositionRaw = numberValue(values.VALVE_STATE ?? values.LEVEL);
+    const valvePosition = valvePositionRaw === undefined
+      ? undefined
+      : Math.max(0, Math.min(100, valvePositionRaw <= 1 ? Math.round(valvePositionRaw * 100) : Math.round(valvePositionRaw)));
+    const controlMode = stringValue(values.CONTROL_MODE ?? values.MODE ?? values.SET_POINT_MODE);
+    const writable = parameterWritable(snapshot, targetParameter);
+    return {
+      ...base,
+      type: "thermostat",
+      state: {
+        ...common,
+        ...(actualTemperature !== undefined ? { temperature: actualTemperature } : {}),
+        ...(humidity !== undefined ? { humidity } : {}),
+        ...(targetTemperature !== undefined ? { targetTemperature } : {}),
+        ...(valvePosition !== undefined ? { valvePosition } : {}),
+        ...(controlMode ? { controlMode } : {})
+      },
+      capabilities: writable ? ["setTargetTemperature"] : [],
+      adapterData: {
+        ...(base.adapterData ?? {}),
+        targetTemperatureParameter: targetParameter,
+        targetTemperatureValueType: rpcValueType(snapshot, targetParameter, "float"),
+        targetTemperatureMin: parameterNumber(snapshot, targetParameter, "min") ?? 5,
+        targetTemperatureMax: parameterNumber(snapshot, targetParameter, "max") ?? 30,
+        targetTemperatureStep: 0.5
+      }
+    };
+  }
 
   if (isCoverChannel(type, values) && level !== undefined) {
     const position = Math.max(0, Math.min(100, Math.round(level * 100)));
@@ -263,13 +353,15 @@ export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Devi
         targetPosition: position,
         ...(positionStateRaw ? { positionState: positionStateRaw } : {})
       },
-      capabilities: ["open", "close", ...("STOP" in values ? ["stop"] : []), "setTargetPosition"],
+      capabilities: parameterWritable(snapshot, "LEVEL")
+        ? ["open", "close", ...(parameterExists(snapshot, "STOP") && parameterWritable(snapshot, "STOP") ? ["stop"] : []), "setTargetPosition"]
+        : [],
       coverSupport: true,
       adapterData: {
         ...(base.adapterData ?? {}),
         levelParameter: "LEVEL",
-        levelValueType: "double",
-        ...("STOP" in values ? { stopParameter: "STOP", stopValueType: "boolean" } : {})
+        levelValueType: rpcValueType(snapshot, "LEVEL", "float"),
+        ...(parameterExists(snapshot, "STOP") ? { stopParameter: "STOP", stopValueType: rpcValueType(snapshot, "STOP", "bool") } : {})
       }
     };
   }
@@ -281,14 +373,14 @@ export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Devi
       ...base,
       type: "light",
       state: { ...common, on, brightness },
-      capabilities: ["turnOn", "turnOff", "toggle", "setBrightness"],
+      capabilities: parameterWritable(snapshot, "LEVEL") ? ["turnOn", "turnOff", "toggle", "setBrightness"] : [],
       switchSupport: true,
       lightSupport: true,
       adapterData: {
         ...(base.adapterData ?? {}),
         levelParameter: "LEVEL",
-        levelValueType: "double",
-        ...(stateValue !== undefined ? { stateParameter: "STATE", stateValueType: "boolean" } : {})
+        levelValueType: rpcValueType(snapshot, "LEVEL", "float"),
+        ...(stateValue !== undefined ? { stateParameter: "STATE", stateValueType: rpcValueType(snapshot, "STATE", "bool") } : {})
       }
     };
   }
@@ -307,18 +399,17 @@ export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Devi
       ...base,
       type: "switch",
       state: { ...common, on: stateValue },
-      capabilities: ["turnOn", "turnOff", "toggle"],
+      capabilities: parameterWritable(snapshot, "STATE") ? ["turnOn", "turnOff", "toggle"] : [],
       switchSupport: true,
       adapterData: {
         ...(base.adapterData ?? {}),
         stateParameter: "STATE",
-        stateValueType: "boolean"
+        stateValueType: rpcValueType(snapshot, "STATE", "bool")
       }
     };
   }
 
-  const temperature = numberValue(values.ACTUAL_TEMPERATURE ?? values.TEMPERATURE);
-  const humidity = numberValue(values.HUMIDITY);
+  const temperature = actualTemperature;
   if (temperature !== undefined || humidity !== undefined) {
     return {
       ...base,
@@ -402,15 +493,46 @@ export function openCcuCatalogFromDescriptions(
   const detailChannels = new Map<string, JsonRecord>();
 
   for (const detail of details) {
-    const address = stringValue(property(detail, "address"));
-    if (address) detailDevices.set(address, detail);
-    const channels = property(detail, "channels");
-    if (Array.isArray(channels)) {
-      for (const channel of channels) {
-        const raw = record(channel);
-        const channelAddress = stringValue(property(raw, "address"));
-        if (channelAddress) detailChannels.set(channelAddress, raw);
+    const channels = recordArray(property(detail, "channels"), "channels", "result");
+    let inferredDeviceName: string | undefined;
+
+    for (const channel of channels) {
+      const channelAddress = stringValue(property(channel, "address", "channelAddress", "channel_address"));
+      if (!channelAddress) continue;
+      detailChannels.set(channelAddress, channel);
+
+      if (!inferredDeviceName) {
+        const channelName = decodedName(property(channel, "name", "channelName", "channel_name"));
+        const channelIndex = channelAddress.split(":").at(-1);
+        if (channelName && channelIndex && channelName.toLocaleLowerCase().endsWith(`:${channelIndex}`.toLocaleLowerCase())) {
+          inferredDeviceName = channelName.slice(0, -(channelIndex.length + 1)).trim() || undefined;
+        }
       }
+    }
+
+    const explicitDeviceName = decodedName(property(detail, "name", "deviceName", "device_name"));
+    const enrichedDetail = explicitDeviceName || inferredDeviceName
+      ? { ...detail, name: explicitDeviceName ?? inferredDeviceName }
+      : detail;
+    const detailAddress = stringValue(property(
+      detail,
+      "address",
+      "deviceAddress",
+      "device_address",
+      "serial",
+      "serialNumber",
+      "serial_number"
+    ));
+    if (detailAddress) detailDevices.set(detailAddress, enrichedDetail);
+
+    // Some OpenCCU versions omit the physical device address in the detail
+    // object while still returning fully qualified channel addresses. Derive
+    // the parent address from those channels so the ReGa names can still be
+    // joined with Interface.listDevices.
+    for (const channel of channels) {
+      const channelAddress = stringValue(property(channel, "address", "channelAddress", "channel_address"));
+      const parentAddress = channelAddress?.split(":")[0];
+      if (parentAddress && !detailDevices.has(parentAddress)) detailDevices.set(parentAddress, enrichedDetail);
     }
   }
 

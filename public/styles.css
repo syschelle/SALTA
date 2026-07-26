@@ -183,3 +183,9 @@ html[data-theme="dark"]{--state-on-bg:#13271f;--state-on-border:#2b3b33;--state-
 .diagnostic-step .mdi{font-size:18px}.diagnostic-step.ok .mdi{color:var(--green)}.diagnostic-step.warning .mdi{color:#d69d24}.diagnostic-step.error .mdi{color:#d44}
 .diagnostic-step strong,.diagnostic-step small{display:block}.diagnostic-step small{margin-top:3px;color:var(--muted);line-height:1.4}.diagnostic-step time{font-size:11px;color:var(--muted);white-space:nowrap}
 @media(max-width:760px){.system-log-entry{grid-template-columns:1fr}.diagnostic-step{grid-template-columns:24px minmax(0,1fr)}.diagnostic-step time{grid-column:2}}
+
+.temperature-control{margin-top:11px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--subtle-bg)}
+.temperature-control-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px;font-size:12px;font-weight:750}
+.temperature-control output{color:var(--accent);font-variant-numeric:tabular-nums}
+.temperature-control input[type=range]{width:100%;margin:0;accent-color:var(--accent);cursor:pointer}
+.temperature-control input[type=range]:disabled{cursor:not-allowed}

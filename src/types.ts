@@ -1,4 +1,4 @@
-export type DeviceType = "outlet" | "switch" | "energyMeter" | "windowCovering" | "light" | "motionSensor" | "contactSensor" | "temperatureSensor" | "humiditySensor" | "lightSensor" | "waterLeakSensor" | "smokeSensor" | "button" | "genericSensor";
+export type DeviceType = "outlet" | "switch" | "energyMeter" | "windowCovering" | "light" | "thermostat" | "motionSensor" | "contactSensor" | "temperatureSensor" | "humiditySensor" | "lightSensor" | "waterLeakSensor" | "smokeSensor" | "button" | "genericSensor";
 export type DevicePresentationType = "auto" | "outlet" | "switch" | "light" | "fan";
 export type DeviceState = Record<string, string | number | boolean | null>;
 export type CredentialMode = "inherit" | "custom" | "none";

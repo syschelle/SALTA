@@ -9,9 +9,12 @@ import {
   normalizeOpenCcuBaseUrl,
   openCcuCatalogFromDescriptions,
   openCcuDeviceFromChannel,
+  openCcuDeviceIds,
+  openCcuObjectName,
   openCcuRpcEndpoint,
   reconciledOpenCcuName,
   record,
+  stringValue,
   stringifyRpcParams,
   unwrapRpcResult,
   type JsonRecord,
@@ -186,8 +189,11 @@ class OpenCcuJsonRpcClient {
         }
         throw error;
       }
-      if (typeof result !== "string" || !result.trim()) throw new OpenCcuAdapterError("OPENCCU_AUTHENTICATION_FAILED", "Session.login");
-      this.sessionId = result.trim();
+      const sessionId = typeof result === "string"
+        ? result.trim()
+        : stringValue(record(result)._session_id_ ?? record(result).session_id);
+      if (!sessionId) throw new OpenCcuAdapterError("OPENCCU_AUTHENTICATION_FAILED", "Session.login");
+      this.sessionId = sessionId;
     })().finally(() => {
       if (this.loginTask === task) this.loginTask = undefined;
     });
@@ -533,7 +539,68 @@ export class OpenCcuAdapter {
     });
     const successful = descriptions.filter((item): item is { interfaceName: string; payload: unknown } => Boolean(item));
     if (interfaces.length && !successful.length) throw new OpenCcuAdapterError("OPENCCU_CATALOG_UNAVAILABLE", "Interface.listDevices");
-    this.catalog = successful.flatMap(item => openCcuCatalogFromDescriptions(item.interfaceName, item.payload, details));
+
+    let catalog = successful.flatMap(item => openCcuCatalogFromDescriptions(item.interfaceName, item.payload, details));
+
+    // Device.get expects a ReGa object id, not a radio address. Ask ReGa for
+    // its configured device ids first, then join each returned object's
+    // physical address and name back to the RPC catalogue. This makes the
+    // card title independent from the varying Device.listAllDetail shapes.
+    const catalogDeviceAddresses = new Set(catalog.map(entry => entry.deviceAddress));
+    const resolvedNames = new Map<string, string>();
+    let nameFailures = 0;
+    try {
+      const deviceIds = openCcuDeviceIds(await client.call("Device.listAll"));
+      await mapWithConcurrency(deviceIds, 4, async id => {
+        try {
+          const result = record(await client.call("Device.get", { id }));
+          const address = stringValue(result.address ?? result.deviceAddress ?? result.device_address);
+          const name = openCcuObjectName(result);
+          if (address && name && catalogDeviceAddresses.has(address)) resolvedNames.set(address, name);
+        } catch {
+          nameFailures += 1;
+        }
+      });
+    } catch {
+      nameFailures = catalogDeviceAddresses.size;
+    }
+    catalog = catalog.map(entry => ({
+      ...entry,
+      deviceName: resolvedNames.get(entry.deviceAddress) ?? entry.deviceName
+    }));
+
+    // Cache the VALUES parameter schema during the catalogue refresh. It
+    // identifies writable parameters and their native HomeMatic JSON-RPC type
+    // (bool/float/int/string), preventing control requests with guessed types.
+    let descriptionFailures = 0;
+    catalog = await mapWithConcurrency(catalog, 4, async entry => {
+      try {
+        const paramsetDescription = record(await client.call("Interface.getParamsetDescription", {
+          interface: entry.interfaceName,
+          address: entry.channelAddress,
+          paramsetKey: "VALUES"
+        }, entry.interfaceName));
+        return { ...entry, paramsetDescription };
+      } catch {
+        descriptionFailures += 1;
+        return entry;
+      }
+    });
+
+    if (nameFailures) {
+      this.log("warning", "OPENCCU_DEVICE_NAME_PARTIAL", "Some OpenCCU device names could not be resolved", {
+        failedDevices: nameFailures,
+        catalogDevices: catalogDeviceAddresses.size
+      });
+    }
+    if (descriptionFailures) {
+      this.log("warning", "OPENCCU_PARAMSET_DESCRIPTION_PARTIAL", "Some OpenCCU control descriptions could not be loaded", {
+        failedChannels: descriptionFailures,
+        catalogChannels: catalog.length
+      });
+    }
+
+    this.catalog = catalog;
     this.catalogLoadedAt = Date.now();
   }
 
@@ -679,11 +746,11 @@ export class OpenCcuAdapter {
       const on = command.capability === "toggle" ? !Boolean(device.state.on) : command.capability === "turnOn";
       if (metadata.stateParameter) {
         parameter = String(metadata.stateParameter);
-        valueType = String(metadata.stateValueType ?? "boolean");
+        valueType = String(metadata.stateValueType ?? "bool");
         value = on;
       } else if (metadata.levelParameter) {
         parameter = String(metadata.levelParameter);
-        valueType = String(metadata.levelValueType ?? "double");
+        valueType = String(metadata.levelValueType ?? "float");
         value = on ? Math.max(0.01, Number(device.state.brightness ?? 100) / 100) : 0;
       } else throw new Error("CAPABILITY_NOT_SUPPORTED");
       nextState.on = on;
@@ -691,7 +758,7 @@ export class OpenCcuAdapter {
       const brightness = Number(command.value);
       if (!Number.isFinite(brightness) || brightness < 0 || brightness > 100) throw new Error("INVALID_BRIGHTNESS");
       parameter = String(metadata.levelParameter ?? "");
-      valueType = String(metadata.levelValueType ?? "double");
+      valueType = String(metadata.levelValueType ?? "float");
       value = brightness / 100;
       nextState.brightness = Math.round(brightness);
       nextState.on = brightness > 0;
@@ -699,13 +766,22 @@ export class OpenCcuAdapter {
       const position = command.capability === "open" ? 100 : command.capability === "close" ? 0 : Number(command.value);
       if (!Number.isFinite(position) || position < 0 || position > 100) throw new Error("INVALID_POSITION");
       parameter = String(metadata.levelParameter ?? "");
-      valueType = String(metadata.levelValueType ?? "double");
+      valueType = String(metadata.levelValueType ?? "float");
       value = position / 100;
       nextState.targetPosition = Math.round(position);
     } else if (command.capability === "stop") {
       parameter = String(metadata.stopParameter ?? "");
-      valueType = String(metadata.stopValueType ?? "boolean");
+      valueType = String(metadata.stopValueType ?? "bool");
       value = true;
+    } else if (command.capability === "setTargetTemperature") {
+      const temperature = Number(command.value);
+      const minimum = Number(metadata.targetTemperatureMin ?? 5);
+      const maximum = Number(metadata.targetTemperatureMax ?? 30);
+      if (!Number.isFinite(temperature) || temperature < minimum || temperature > maximum) throw new Error("INVALID_TARGET_TEMPERATURE");
+      parameter = String(metadata.targetTemperatureParameter ?? "");
+      valueType = String(metadata.targetTemperatureValueType ?? "float");
+      value = Math.round(temperature * 2) / 2;
+      nextState.targetTemperature = value;
     } else throw new Error("CAPABILITY_NOT_SUPPORTED");
     if (!parameter) throw new Error("CAPABILITY_NOT_SUPPORTED");
 

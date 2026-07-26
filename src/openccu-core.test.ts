@@ -4,6 +4,8 @@ import {
   normalizeOpenCcuBaseUrl,
   openCcuCatalogFromDescriptions,
   openCcuDeviceFromChannel,
+  openCcuDeviceIds,
+  openCcuObjectName,
   openCcuRpcEndpoint,
   reconciledOpenCcuName,
   stringifyRpcParams,
@@ -17,6 +19,10 @@ describe("OpenCCU JSON-RPC core", () => {
     expect(openCcuRpcEndpoint("http://openccu.local")).toBe("http://openccu.local/api/homematic.cgi");
     expect(() => normalizeOpenCcuBaseUrl("ftp://openccu.local")).toThrow("OPENCCU_URL_INVALID");
     expect(() => normalizeOpenCcuBaseUrl("http://openccu.local/path")).toThrow("OPENCCU_URL_INVALID");
+  });
+
+  it("reads unique ReGa device ids for Device.get", () => {
+    expect(openCcuDeviceIds([12, "13", { ID: "14" }, { deviceId: 12 }])).toEqual(["12", "13", "14"]);
   });
 
   it("serializes JSON-RPC parameters using the string values expected by OpenCCU", () => {
@@ -47,6 +53,32 @@ describe("OpenCCU JSON-RPC core", () => {
       deviceName: "Fensterkontakt Wohnzimmer",
       channelName: "Fensterkontakt Wohnzimmer:1"
     })]);
+  });
+
+  it("derives device names from generated channel names when OpenCCU omits the device address", () => {
+    const catalog = openCcuCatalogFromDescriptions("BidCos-RF", [
+      { ADDRESS: "LEQ0422906", TYPE: "HM-CC-RT-DN", CHILDREN: ["LEQ0422906:0", "LEQ0422906:4"] },
+      { ADDRESS: "LEQ0422906:4", PARENT: "LEQ0422906", TYPE: "THERMAL_CONTROL_TRANSMIT", PARAMSETS: ["VALUES"] }
+    ], [
+      {
+        id: "1234",
+        channels: [
+          { address: "LEQ0422906:4", name: "Heizung+Wohnzimmer:4" }
+        ]
+      }
+    ]);
+
+    expect(catalog).toEqual([expect.objectContaining({
+      deviceName: "Heizung Wohnzimmer",
+      channelName: "Heizung Wohnzimmer:4"
+    })]);
+
+    const device = openCcuDeviceFromChannel({
+      ...catalog[0]!,
+      baseUrl: "http://openccu.local",
+      values: { ACTUAL_TEMPERATURE: 21.5, OPERATING_VOLTAGE: 2.5 }
+    });
+    expect(device?.name).toBe("Heizung Wohnzimmer");
   });
 
   it("accepts interface descriptions with upper- or lower-case property names", () => {
@@ -116,6 +148,44 @@ describe("OpenCCU HomeMatic device mapping", () => {
     expect(reconciledOpenCcuName(locallyRenamed, discovered!)).toBe("Terrassentür");
   });
 
+
+  it("reads the physical device name and prefers it over a channel label", () => {
+    expect(openCcuObjectName({ address: "NEQ1157537", name: "Fensterkontakt+Wohnzimmer" })).toBe("Fensterkontakt Wohnzimmer");
+
+    const device = openCcuDeviceFromChannel({
+      ...base,
+      deviceName: "Heizung Wohnzimmer",
+      channelName: "Heizung Wohnzimmer:4",
+      channelAddress: "0011223344:4",
+      channelType: "CLIMATECONTROL_REGULATOR",
+      values: { ACTUAL_TEMPERATURE: 21.2, SET_TEMPERATURE: 22.5 }
+    });
+    expect(device?.name).toBe("Heizung Wohnzimmer");
+  });
+
+  it("maps writable thermostat setpoints with native RPC metadata", () => {
+    const device = openCcuDeviceFromChannel({
+      ...base,
+      channelAddress: "0011223344:4",
+      channelType: "CLIMATECONTROL_REGULATOR",
+      paramsetDescription: {
+        SET_TEMPERATURE: { TYPE: "FLOAT", OPERATIONS: 7, MIN: 4.5, MAX: 30.5 }
+      },
+      values: { ACTUAL_TEMPERATURE: 21.2, SET_TEMPERATURE: 22.5, VALVE_STATE: 34 }
+    });
+    expect(device).toMatchObject({
+      type: "thermostat",
+      state: { temperature: 21.2, targetTemperature: 22.5, valvePosition: 34 },
+      capabilities: ["setTargetTemperature"],
+      adapterData: {
+        targetTemperatureParameter: "SET_TEMPERATURE",
+        targetTemperatureValueType: "float",
+        targetTemperatureMin: 4.5,
+        targetTemperatureMax: 30.5
+      }
+    });
+  });
+
   it("maps a switch channel with command metadata", () => {
     const device = openCcuDeviceFromChannel({
       ...base,
@@ -130,7 +200,7 @@ describe("OpenCCU HomeMatic device mapping", () => {
       state: { on: true },
       capabilities: ["turnOn", "turnOff", "toggle"],
       homekitEnabled: false,
-      adapterData: { interfaceName: "HmIP-RF", channelAddress: "0011223344:4", stateParameter: "STATE" }
+      adapterData: { interfaceName: "HmIP-RF", channelAddress: "0011223344:4", stateParameter: "STATE", stateValueType: "bool" }
     });
   });
 

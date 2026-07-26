@@ -1,27 +1,25 @@
-# SALTA v0.7.3
+# SALTA v0.7.5
 
-SALTA v0.7.3 restores OpenCCU devices automatically after gateway restarts and improves HomeMatic device-name synchronization.
+SALTA v0.7.5 fixes OpenCCU device-name display and enables reliable HomeMatic controls, including thermostat target temperatures.
 
-## Automatic OpenCCU reconnect
+## OpenCCU device names
 
-- Detects OpenCCU restarts, network interruptions and unusable channel responses
-- Invalidates the stale local JSON-RPC session instead of continuing to reuse it
-- Creates a fresh OpenCCU session automatically on the next retry
-- Retries every 15 seconds while OpenCCU is offline and returns to the normal 60-second polling interval after recovery
-- Refreshes the device catalogue immediately after reconnecting
-- Marks devices reachable again without restarting the SALTA container
-- Keeps OpenCCU operations serialized and continues to use only one runtime session
-- Reduces the automatic retry delay after ambiguous OpenCCU error 501 from five minutes to one minute
+- Reads the ReGa device IDs through `Device.listAll`, resolves each configured physical HomeMatic device through `Device.get`, and joins the returned address and name to the RPC catalogue
+- Uses the physical OpenCCU device name as the card title instead of a technical channel label or model/serial fallback
+- Displays a distinct channel name as secondary metadata when it helps identify a channel of a multi-channel device
+- Replaces existing source-managed fallback names during the next full synchronization
+- Continues to preserve names deliberately edited locally in SALTA
 
-## HomeMatic device names
+## HomeMatic control
 
-- Reads device and channel names from `Device.listAllDetail`
-- Supports both array and keyed-object OpenCCU response shapes
-- Decodes URL-encoded and plus-separated OpenCCU names
-- Simplifies generated channel names such as `Device name:1` to the device name where appropriate
-- Replaces legacy SALTA fallback names such as `HM-Sec-SCo NEQ1157537:1` with the configured OpenCCU name
-- Follows later OpenCCU renames while the SALTA name has not been edited locally
-- Preserves deliberate local name changes made in SALTA
+- Loads the OpenCCU VALUES parameter description for synchronized channels
+- Uses the parameter write flags to expose controls only for writable values
+- Uses native OpenCCU JSON-RPC value types such as `bool` and `float` instead of guessed `boolean` and `double` types
+- Keeps on/off control for compatible switches, relays and plugs
+- Keeps brightness control for compatible dimmers
+- Keeps position and stop control for compatible window coverings
+- Adds target-temperature control for compatible classic HomeMatic and HomeMatic IP radiator and wall thermostats
+- Keeps contact, motion, weather and other pure sensor channels read-only
 
 ## Compatibility
 
@@ -45,7 +43,7 @@ For a new installation:
 ## Container tags
 
 ```text
-0.7.3
+0.7.5
 0.7
 latest
 ```
@@ -53,5 +51,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.3
+v0.7.5
 ```

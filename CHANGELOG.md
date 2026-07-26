@@ -2,7 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
-## 0.7.3
+## 0.7.5
+
+- Reads ReGa device IDs through `Device.listAll`, resolves each physical device through `Device.get`, and joins its configured name to the RPC catalogue by address.
+- Keeps distinct OpenCCU channel names as secondary card metadata for multi-channel devices.
+- Refreshes VALUES parameter descriptions to identify writable parameters and their native JSON-RPC value types.
+- Corrected HomeMatic command value types from guessed `boolean`/`double` values to the OpenCCU-compatible `bool`/`float` types.
+- Added target-temperature control for compatible classic HomeMatic and HomeMatic IP radiator and wall thermostats.
+- Continues to keep contact, motion and other pure sensor channels read-only.
+- Added regression coverage for physical device names, thermostat mapping, control metadata and frontend temperature controls.
+
+## 0.7.4
 
 - Added automatic OpenCCU recovery after gateway restarts and temporary network outages.
 - Invalidates stale local JSON-RPC sessions after transport, catalogue or complete channel-read failures and creates a fresh session on the next retry.
