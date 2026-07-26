@@ -79,3 +79,49 @@ export function functionCalls(
   ts.forEachChild(functionNode, visit);
   return found;
 }
+export function functionTransitivelyCalls(
+  sourceFile: ts.SourceFile,
+  startingFunctionName: string,
+  calledFunctionName: string,
+  minimumArgumentCount = 0,
+  maximumDepth = 8,
+): boolean {
+  const visited = new Set<string>();
+
+  const visitFunction = (functionName: string, depth: number): boolean => {
+    if (depth > maximumDepth || visited.has(functionName)) return false;
+    visited.add(functionName);
+
+    const functionNode = findFunctionNode(sourceFile, functionName);
+    const nestedCalls: string[] = [];
+    let found = false;
+
+    const visit = (node: ts.Node): void => {
+      if (found) return;
+      if (ts.isCallExpression(node)) {
+        const name = callName(node.expression);
+        if (name === calledFunctionName && node.arguments.length >= minimumArgumentCount) {
+          found = true;
+          return;
+        }
+        if (name && name !== functionName) nestedCalls.push(name);
+      }
+      ts.forEachChild(node, visit);
+    };
+
+    ts.forEachChild(functionNode, visit);
+    if (found) return true;
+
+    for (const nestedCall of nestedCalls) {
+      try {
+        if (visitFunction(nestedCall, depth + 1)) return true;
+      } catch {
+        // Calls to browser APIs, methods and imported helpers are not local functions.
+      }
+    }
+    return false;
+  };
+
+  return visitFunction(startingFunctionName, 0);
+}
+

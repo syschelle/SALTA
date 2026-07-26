@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { functionCalls, functionSource, hasFunction, parseJavaScriptSource } from "./test-utils/source-inspection.js";
+import { functionSource, functionTransitivelyCalls, hasFunction, parseJavaScriptSource } from "./test-utils/source-inspection.js";
 
 const adapter = readFileSync(new URL("./openccu-adapter.ts", import.meta.url), "utf8");
 const core = readFileSync(new URL("./openccu-core.ts", import.meta.url), "utf8");
@@ -19,7 +19,7 @@ describe("OpenCCU control and naming integration", () => {
     expect(adapter).toContain('command.capability === "setTargetTemperature"');
     expect(adapter).toContain('metadata.targetTemperatureValueType ?? "float"');
     expect(hasFunction(frontendAst, "targetTemperatureControl")).toBe(true);
-    expect(functionCalls(frontendAst, "deviceCard", "targetTemperatureControl", 1)).toBe(true);
+    expect(functionTransitivelyCalls(frontendAst, "deviceCard", "targetTemperatureControl", 1)).toBe(true);
     expect(functionSource(frontendAst, "targetTemperatureControl")).toContain(
       "setTargetTemperature('${d.id}',this.value)",
     );
@@ -33,7 +33,7 @@ describe("OpenCCU control and naming integration", () => {
     expect(core).toContain('metadata.manualModeParameter');
     expect(core).toContain('metadata.modeAutoValue');
     expect(hasFunction(frontendAst, "thermostatModeControl")).toBe(true);
-    expect(functionCalls(frontendAst, "deviceCard", "thermostatModeControl", 1)).toBe(true);
+    expect(functionTransitivelyCalls(frontendAst, "deviceCard", "thermostatModeControl", 1)).toBe(true);
     expect(frontend).toContain("setThermostatMode('${d.id}','${value}')");
     expect(frontend).toContain("['off','Aus'");
     expect(frontend).toContain("['manual','Hand'");

@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.15
+
+- Fixed five false-negative build tests introduced with the compact device-card layout.
+- Replaced last-rule-only CSS assertions with shared rule inspection that recognizes both desktop declarations and later mobile media-query overrides.
+- Added transitive TypeScript-AST call-graph inspection so OpenCCU tests follow `deviceCard` through the shared `deviceControls` renderer to thermostat controls.
+- Added regression tests for override-aware CSS inspection, composed renderer calls and cyclic helper graphs.
+- Extended release validation to prevent the obsolete test patterns from returning.
+- Retained every compact and responsive device-card change from v0.7.14 without changing runtime behavior.
+- No database migration or environment-variable change is required.
+
 ## 0.7.14
 
 - Redesigned device cards with denser spacing, smaller headers and compact measurement chips.

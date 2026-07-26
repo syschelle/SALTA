@@ -1,6 +1,6 @@
-# SALTA v0.7.14 – Git and Release Commands
+# SALTA v0.7.15 – Git and Release Commands
 
-Run these commands from the repository root after replacing the local files with the complete v0.7.14 package.
+Run these commands from the repository root after replacing the local files with the complete v0.7.15 package.
 
 ## Verify
 
@@ -23,7 +23,7 @@ find-my-way@9.7.0
 
 ```bash
 git add -A
-git commit -m "feat(ui): compact responsive device cards"
+git commit -m "fix(build): make frontend layout tests override-aware"
 git push origin main
 ```
 
@@ -32,24 +32,24 @@ Wait for the `CI` workflow on `main` to finish successfully before creating the 
 ## Tag and publish
 
 ```bash
-git tag -a v0.7.14 -m "SALTA v0.7.14"
-git push origin v0.7.14
+git tag -a v0.7.15 -m "SALTA v0.7.15"
+git push origin v0.7.15
 ```
 
 ## Create the GitHub release
 
 ```bash
-gh release create v0.7.14 \
-  --title "SALTA v0.7.14" \
+gh release create v0.7.15 \
+  --title "SALTA v0.7.15" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.7.14.zip \
-  ./SALTA-v0.7.14.zip.sha256
+  ./SALTA-v0.7.15.zip \
+  ./SALTA-v0.7.15.zip.sha256
 ```
 
 ## Deploy the published image
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.7.14
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.7.15
 ```
 
 ```bash
@@ -61,6 +61,6 @@ docker compose --env-file .env -f docker-compose.image.yml ps
 ## Future safe version bump
 
 ```bash
-npm run version:set -- 0.7.15
+npm run version:set -- 0.7.16
 npm run check
 ```

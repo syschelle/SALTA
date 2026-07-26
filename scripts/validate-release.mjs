@@ -105,4 +105,17 @@ for (const file of testFiles) {
   }
 }
 
+const densityTest = read("src/frontend-device-density.test.ts");
+if (densityTest.includes("latestRule(")) {
+  fail("frontend-device-density.test.ts must inspect all matching CSS rules instead of only the last media-query override");
+}
+if (!densityTest.includes("cssRuleContains")) {
+  fail("frontend-device-density.test.ts must use the shared CSS rule inspection helper");
+}
+
+const openCcuControlTest = read("src/openccu-control.test.ts");
+if (!openCcuControlTest.includes("functionTransitivelyCalls")) {
+  fail("openccu-control.test.ts must follow the renderer call graph through composed control helpers");
+}
+
 console.log(`Release validation passed for SALTA v${version}.`);

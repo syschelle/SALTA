@@ -1,6 +1,20 @@
-# SALTA v0.7.14
+# SALTA v0.7.15
 
-SALTA v0.7.14 introduces a substantially more compact and responsive device-card layout for the room-grouped overview and the individual adapter pages.
+SALTA v0.7.15 fixes the build regressions in the compact device-card release while retaining the complete responsive layout introduced in v0.7.14.
+
+## Build and test reliability fixes
+
+- Fixed the device-density tests so they no longer inspect only the final CSS rule for a selector.
+- CSS assertions now inspect all matching rules, allowing the desktop base rule and later mobile media-query overrides to coexist correctly.
+- Fixed the OpenCCU control tests after device controls were moved into the shared `deviceControls` renderer.
+- Added transitive TypeScript-AST call-graph inspection so tests verify that `deviceCard` reaches thermostat controls through composed helper functions.
+- Added dedicated regression tests for:
+  - CSS selectors that have both base and mobile declarations;
+  - whitespace-independent CSS declaration matching;
+  - composed renderer call chains; and
+  - cyclic helper call graphs.
+- Extended release validation to reject the obsolete last-rule-only CSS test pattern and direct-only OpenCCU renderer assertions.
+- No runtime functionality was removed or changed by these test corrections.
 
 ## Compact device cards
 
@@ -23,26 +37,27 @@ SALTA v0.7.14 introduces a substantially more compact and responsive device-card
 
 ## Responsive layout
 
-- Device grids now adapt automatically to the available width instead of using a fixed three-column desktop layout.
+- Device grids adapt automatically to the available width instead of using a fixed three-column desktop layout.
 - Wider desktop views can display more compact cards per row.
 - Tablet layouts use the available width without stretching cards to match taller neighboring controls.
 - Smartphone views use a clear single-column device layout.
 - The four overview statistics use a compact two-by-two grid on smartphones.
-- Mobile padding, room headings, value chips, buttons and sliders were reduced without removing controls.
+- Mobile padding, room headings, value chips, buttons and sliders are reduced without removing controls.
 
 ## Overview behavior
 
 - Devices continue to be grouped by their assigned room.
-- Shelly, Zigbee and HomeMatic devices can continue to appear together in the same room.
+- Shelly, Zigbee and HomeMatic devices can appear together in the same room.
 - Room ordering continues to follow the Rooms configuration page.
 - Devices without a valid room assignment remain excluded from the overview.
 - Unassigned devices remain available on their respective adapter pages.
 
 ## Reliability
 
-- Added source-structure tests for the compact control composition and configuration-button placement.
-- Added regression coverage that prevents empty action rows from returning on sensor-only cards.
-- Added responsive-layout checks for the adaptive desktop grid and mobile single-column layout.
+- Source-structure tests cover compact control composition and configuration-button placement.
+- Regression coverage prevents empty action rows from returning on sensor-only cards.
+- Responsive-layout checks cover the adaptive desktop grid and mobile single-column layout.
+- Test helpers now understand CSS media-query overrides and composed frontend renderer call graphs.
 - Retains the stale-asset cache protection introduced in v0.7.13.
 - Retains the `find-my-way` 9.7.0 security update.
 - Retains the corrected `@homebridge/dbus-native` 0.7.7 dependency lock.
@@ -66,7 +81,7 @@ sh -n install.sh update.sh backup.sh restore.sh
 ## Container tags
 
 ```text
-0.7.14
+0.7.15
 0.7
 latest
 ```
@@ -74,5 +89,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.14
+v0.7.15
 ```
