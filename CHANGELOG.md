@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.11
+
+- Replaced the overview page's static **STATUS / Alles an einem Ort** panel with live device cards grouped by room.
+- Shows all Shelly, Zigbee and HomeMatic devices that have a valid room assignment.
+- Preserves the room order configured on the Rooms page and omits unassigned or stale room references from the overview.
+- Keeps device controls, live values, thermostat modes, dimmers and window-covering controls available directly on the overview cards.
+- Displays the source system on mixed overview cards so Shelly, Zigbee and HomeMatic devices remain distinguishable.
+- Added frontend regression coverage for overview grouping, removal of the old status panel and live rendering integration.
+- No database migration or environment-variable change is required.
+
 ## 0.7.10
 
 - Made an already displayed HomeMatic thermostat control mode directly writable in the web interface.

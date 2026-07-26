@@ -1,23 +1,35 @@
-# SALTA v0.7.10
+# SALTA v0.7.11
 
-SALTA v0.7.10 makes the HomeMatic thermostat control mode shown in the web interface directly writable, including devices for which OpenCCU exposes the current mode but omits the writable mode parameter from its parameter description.
+SALTA v0.7.11 turns the overview page into a live, room-based control dashboard.
 
-## HomeMatic thermostat control
+## Room-based overview
 
-- Shows the **Off**, **Manual** and **Automatic** controls whenever SALTA can display a thermostat's current control mode and the target temperature is writable.
-- Uses explicit writable mode metadata from OpenCCU whenever it is available.
-- Adds a safe device-family fallback when OpenCCU only exposes the read-only `CONTROL_MODE` value.
-- Uses `AUTO_MODE` and `MANU_MODE` for classic HomeMatic radiator and wall thermostats.
-- Uses `SET_POINT_MODE` with `0` for automatic and `1` for manual on Homematic IP thermostats.
-- Keeps the existing frost-protection fallback for **Off** when a device has no dedicated off mode.
-- Allows already synchronized v0.7.9 thermostat records to use the inferred control path immediately, while the next synchronization persists the complete capability metadata.
+- Removed the static **STATUS / Alles an einem Ort** panel from the overview page.
+- Added all room-assigned Shelly, Zigbee and HomeMatic devices directly to the overview.
+- Groups devices by room in the exact order configured on the Rooms page.
+- Omits devices without a valid room assignment so the overview remains focused on the configured home layout.
+- Shows the source system on each mixed overview card: Shelly, Zigbee or HomeMatic.
+
+## Device control
+
+The overview uses the same live device cards as the dedicated adapter pages. Depending on device capabilities, the following controls remain available directly from the overview:
+
+- On/off switching
+- Light brightness
+- Window-covering position and open/stop/close commands
+- Thermostat target temperature
+- HomeMatic thermostat modes: Off, Manual and Automatic
+- Device configuration
+
+Device states continue to refresh automatically with the existing live-refresh interval.
 
 ## Regression coverage
 
-- Added classic HomeMatic wall-thermostat coverage where only `CONTROL_MODE` is described.
-- Added Homematic IP wall-thermostat coverage where only `CONTROL_MODE` is described.
-- Added command-plan tests for inferred `AUTO_MODE`, `MANU_MODE` and `SET_POINT_MODE` writes.
-- Added frontend coverage ensuring the controls are rendered for an already displayed OpenCCU control mode.
+- Added checks that the overview device grid exists and is rendered during normal and live data refreshes.
+- Added checks that only devices with valid room assignments are included.
+- Added checks that room order is preserved.
+- Added checks that the old status panel and its text are no longer present.
+- Added checks for source labels on mixed device cards.
 
 ## Security and compatibility
 
@@ -25,7 +37,7 @@ SALTA v0.7.10 makes the HomeMatic thermostat control mode shown in the web inter
 - Retains the internally consistent `@homebridge/dbus-native` 0.7.7 lock entry.
 - No database migration is required.
 - No environment-variable changes are required.
-- Existing OpenCCU, Shelly, Zigbee, HomeKit and PostgreSQL configuration remains compatible.
+- Existing Shelly, Zigbee, OpenCCU, HomeKit and PostgreSQL configuration remains compatible.
 
 ## Verification
 
@@ -35,12 +47,10 @@ npm ls @homebridge/dbus-native find-my-way --all
 npm run check
 ```
 
-After deployment, open the HomeMatic page and run **Synchronize** once. Thermostats that already show a control mode should then display working **Off**, **Manual** and **Automatic** buttons.
-
 ## Container tags
 
 ```text
-0.7.10
+0.7.11
 0.7
 latest
 ```
@@ -48,5 +58,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.10
+v0.7.11
 ```

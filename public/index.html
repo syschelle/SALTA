@@ -31,7 +31,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.7.10</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.7.11</strong></div>
   </div>
 </aside>
 
@@ -42,7 +42,8 @@
       <button onclick="reconcile()"><span class="mdi mdi-sync" aria-hidden="true"></span>Synchronisieren</button>
     </header>
     <section class="stats"><article><span>Geräte</span><strong id="deviceCount">–</strong><small>registriert</small></article><article><span>Erreichbar</span><strong id="reachableCount">–</strong><small>online</small></article><article><span>Aktuelle Leistung</span><strong id="power">–</strong><small>Watt</small></article><article><span>Räume</span><strong id="roomCount">–</strong><small>konfiguriert</small></article></section>
-    <section class="panel welcome-panel"><div><p class="eyebrow">STATUS</p><h2>Alles an einem Ort</h2><p class="muted">Verwalte Shelly-, Zigbee- und HomeMatic-Geräte, Räume und Adapter über die Navigation. Änderungen bleiben lokal in deiner SALTA-Installation.</p></div><div class="welcome-actions"><a class="button-link" href="#shelly">Shelly anzeigen</a><a class="button-link secondary-link" href="#zigbee">Zigbee anzeigen</a><a class="button-link secondary-link" href="#openccu">HomeMatic anzeigen</a></div></section>
+    <section class="section-head overview-section-head"><div><h2>Geräte nach Räumen</h2><p class="muted">Alle einem Raum zugeordneten Shelly-, Zigbee- und HomeMatic-Geräte.</p></div></section>
+    <section id="overviewDeviceGrid" class="device-groups overview-device-groups"></section>
   </section>
 
   <section class="page" data-page="shelly" aria-labelledby="shelly-title" hidden>

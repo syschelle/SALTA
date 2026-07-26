@@ -14,6 +14,22 @@ describe("room-grouped device overview", () => {
     expect(styles).toContain(".device-groups{display:grid;gap:28px}");
   });
 
+  it("shows all room-assigned devices on the overview and removes the old status panel", () => {
+    expect(htmlSource).toContain('id="overviewDeviceGrid" class="device-groups overview-device-groups"');
+    expect(htmlSource).toContain("Alle einem Raum zugeordneten Shelly-, Zigbee- und HomeMatic-Geräte.");
+    expect(htmlSource).not.toContain("Alles an einem Ort");
+    expect(htmlSource).not.toContain('<p class="eyebrow">STATUS</p>');
+    expect(appSource).toContain("function renderOverviewDevices()");
+    expect(appSource).toContain("device.roomId&&knownRoomIds.has(device.roomId)");
+    expect(appSource).toContain("overviewDeviceGrid.innerHTML=groups.map(group=>deviceRoomGroup(group,true,'overview')).join('')");
+    expect(appSource).toContain("function renderDevices(){renderOverviewDevices();");
+    expect(appSource).toContain("const controlId=`brightness-${d.id}${instance?`-${instance}`:''}`");
+    expect(appSource).toContain("const controlId=`target-temperature-${d.id}${instance?`-${instance}`:''}`");
+    expect(appSource).toContain("const controlId=`cover-position-${d.id}${instance?`-${instance}`:''}`");
+    expect(appSource).toContain("const sourceLabels={shelly:'Shelly',phoscon:'Zigbee',openccu:'HomeMatic'}");
+    expect(styles).toContain(".overview-section-head{margin-top:0}");
+  });
+
   it("uses an icon-only configure button with an accessible label", () => {
     expect(appSource).toContain('class=\"secondary device-config-button\"');
     expect(appSource).toContain('title=\"Konfigurieren\"');

@@ -226,6 +226,8 @@ Entries are kept for at most 30 days and the newest 2,000 records. Cleanup runs 
 
 Rooms are first-class database entities linked to devices by `room_id`. The obsolete duplicate room-name column and its synchronization logic have been removed.
 
+The overview page groups every room-assigned Shelly, Zigbee and HomeMatic device by the configured room order. The same live controls used on the adapter pages are available on the overview, while unassigned devices remain on their dedicated adapter page until a room is selected.
+
 ## Icons
 
 SALTA bundles Material Design Icons (MDI) by Pictogrammers locally. No icon CDN is used at runtime. The bundled icon assets are provided under the Apache License 2.0; see `public/vendor/mdi/LICENSE`.

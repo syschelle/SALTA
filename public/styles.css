@@ -197,3 +197,4 @@ html[data-theme="dark"]{--state-on-bg:#13271f;--state-on-border:#2b3b33;--state-
 .thermostat-mode-buttons button.active{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .thermostat-mode-buttons button:disabled{opacity:.55}
 .thermostat-mode-buttons .mdi{font-size:15px}
+.overview-section-head{margin-top:0}
