@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.10
+
+- Made an already displayed HomeMatic thermostat control mode directly writable in the web interface.
+- Added a safe fallback for OpenCCU installations that expose read-only `CONTROL_MODE` but omit the writable mode parameter from `getParamsetDescription`.
+- Uses native `AUTO_MODE` / `MANU_MODE` actions for classic HomeMatic thermostats and `SET_POINT_MODE` values 0 / 1 for Homematic IP thermostats.
+- Allows existing synchronized thermostat records to use the inferred command path immediately and persists complete metadata after synchronization.
+- Added runtime and regression coverage for classic HomeMatic and Homematic IP wall thermostats.
+- Retained the `find-my-way` 9.7.0 security fix and the corrected `@homebridge/dbus-native` 0.7.7 lock entry.
+- No database migration or environment-variable change is required.
+
 ## 0.7.9
 
 - Fixed the reproducible `npm ci` build failure caused by mismatched `@homebridge/dbus-native` version and integrity metadata in `package-lock.json`.

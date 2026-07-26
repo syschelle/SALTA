@@ -36,6 +36,9 @@ describe("OpenCCU frontend integration", () => {
   it("renders HomeMatic thermostat mode controls", () => {
     expect(script).toContain("function thermostatModeControl(d)");
     expect(script).toContain("capabilities.includes('setThermostatMode')");
+    expect(script).toContain("d.source==='openccu'&&d.type==='thermostat'&&d.capabilities.includes('setTargetTemperature')&&Boolean(displayed)");
+    expect(script).toContain("const displayed=String(d.state?.controlMode||'').trim()");
+    expect(script).toContain("displayed?fmt('controlMode',displayed):'–'");
     expect(script).toContain("Betriebsart");
     expect(script).toContain("Betriebsart auf ${labels[mode]||mode} gesetzt.");
   });

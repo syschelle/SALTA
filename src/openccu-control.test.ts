@@ -22,6 +22,7 @@ describe("OpenCCU control and naming integration", () => {
 
   it("supports thermostat off, manual and automatic mode commands", () => {
     expect(adapter).toContain('command.capability === "setThermostatMode"');
+    expect(adapter).toContain('const inferredThermostatModeCapability = command.capability === "setThermostatMode"');
     expect(adapter).toContain("openCcuThermostatModePlan(metadata, device.state, command.value)");
     expect(core).toContain('metadata.autoModeParameter');
     expect(core).toContain('metadata.manualModeParameter');

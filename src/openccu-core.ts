@@ -318,11 +318,65 @@ function currentThermostatMode(
 
 function writableThermostatModeParameter(snapshot: OpenCcuChannelSnapshot): string | undefined {
   return ["SET_POINT_MODE", "CONTROL_MODE", "MODE"].find(key => {
+    if (!parameterExists(snapshot, key) || !parameterWritable(snapshot, key)) return false;
     const definition = parameterDefinition(snapshot, key);
-    if (!Object.keys(definition).length || !parameterWritable(snapshot, key)) return false;
     const modes = thermostatModeEntries(snapshot, key).map(entry => entry.mode);
-    return modes.includes("auto") && modes.includes("manual");
+    if (modes.includes("auto") && modes.includes("manual")) return true;
+
+    // Some OpenCCU/HmIP combinations expose SET_POINT_MODE as a live value but
+    // omit its enum labels from getParamsetDescription. The protocol-defined
+    // values 0=automatic and 1=manual are still safe to use in this case.
+    return key === "SET_POINT_MODE" && !Object.keys(definition).length;
   });
+}
+
+function isHomematicIpThermostat(snapshot: Pick<OpenCcuChannelSnapshot, "interfaceName" | "channelType" | "model">): boolean {
+  return snapshot.interfaceName.toUpperCase().includes("HMIP")
+    || String(snapshot.model ?? "").toUpperCase().startsWith("HMIP-")
+    || snapshot.channelType.toUpperCase().includes("HEATING_CLIMATECONTROL");
+}
+
+function inferredThermostatModeMetadata(
+  snapshot: OpenCcuChannelSnapshot,
+  controlMode: string | undefined
+): JsonRecord {
+  if (!controlMode) return {};
+
+  if (isHomematicIpThermostat(snapshot)) {
+    return {
+      modeParameter: "SET_POINT_MODE",
+      modeValueType: "int",
+      modeAutoValue: 0,
+      modeManualValue: 1,
+      thermostatModeInferred: true
+    };
+  }
+
+  return {
+    autoModeParameter: "AUTO_MODE",
+    autoModeValueType: "bool",
+    manualModeParameter: "MANU_MODE",
+    manualModeValueType: "float",
+    thermostatModeInferred: true
+  };
+}
+
+function inferredThermostatModePlanMetadata(metadata: JsonRecord): JsonRecord {
+  if (metadata.autoModeParameter || metadata.manualModeParameter || metadata.modeParameter) return metadata;
+
+  const interfaceName = stringValue(metadata.interfaceName) ?? "";
+  const channelType = stringValue(metadata.channelType) ?? "";
+  const model = stringValue(metadata.model);
+  const hasFamilySignal = Boolean(interfaceName || channelType || model);
+  if (!hasFamilySignal) return metadata;
+
+  const isHmIp = interfaceName.toUpperCase().includes("HMIP")
+    || String(model ?? "").toUpperCase().startsWith("HMIP-")
+    || channelType.toUpperCase().includes("HEATING_CLIMATECONTROL");
+
+  return isHmIp
+    ? { ...metadata, modeParameter: "SET_POINT_MODE", modeValueType: "int", modeAutoValue: 0, modeManualValue: 1, thermostatModeInferred: true }
+    : { ...metadata, autoModeParameter: "AUTO_MODE", autoModeValueType: "bool", manualModeParameter: "MANU_MODE", manualModeValueType: "float", thermostatModeInferred: true };
 }
 
 function primitiveCommandValue(value: unknown): string | number | boolean | undefined {
@@ -341,7 +395,7 @@ export function openCcuThermostatModePlan(
   state: DeviceState,
   requestedMode: unknown
 ): OpenCcuThermostatModePlan {
-  const metadata = record(metadataInput);
+  const metadata = inferredThermostatModePlanMetadata(record(metadataInput));
   const mode = String(requestedMode ?? "").trim().toLowerCase();
   if (!["off", "manual", "auto"].includes(mode)) throw new Error("INVALID_THERMOSTAT_MODE");
 
@@ -518,12 +572,36 @@ export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Devi
       ? "MANU_MODE"
       : undefined;
     const modeParameter = writableThermostatModeParameter(snapshot);
-    const modeAutoValue = modeParameter ? thermostatModeValue(snapshot, modeParameter, "auto") : undefined;
-    const modeManualValue = modeParameter ? thermostatModeValue(snapshot, modeParameter, "manual") : undefined;
+    const modeAutoValue = modeParameter
+      ? thermostatModeValue(snapshot, modeParameter, "auto") ?? (modeParameter === "SET_POINT_MODE" ? 0 : undefined)
+      : undefined;
+    const modeManualValue = modeParameter
+      ? thermostatModeValue(snapshot, modeParameter, "manual") ?? (modeParameter === "SET_POINT_MODE" ? 1 : undefined)
+      : undefined;
     const modeOffValue = modeParameter ? thermostatModeValue(snapshot, modeParameter, "off") : undefined;
-    const thermostatModeWritable = Boolean((autoModeParameter || modeAutoValue !== undefined)
-      && (manualModeParameter || modeManualValue !== undefined)
-      && writable);
+    const explicitModeMetadata: JsonRecord = {
+      ...(autoModeParameter ? {
+        autoModeParameter,
+        autoModeValueType: rpcValueType(snapshot, autoModeParameter, "bool")
+      } : {}),
+      ...(manualModeParameter ? {
+        manualModeParameter,
+        manualModeValueType: rpcValueType(snapshot, manualModeParameter, "float")
+      } : {}),
+      ...(modeParameter ? {
+        modeParameter,
+        modeValueType: rpcValueType(snapshot, modeParameter, "int"),
+        ...(modeAutoValue !== undefined ? { modeAutoValue } : {}),
+        ...(modeManualValue !== undefined ? { modeManualValue } : {}),
+        ...(modeOffValue !== undefined ? { modeOffValue } : {})
+      } : {})
+    };
+    const modeMetadata = Object.keys(explicitModeMetadata).length
+      ? explicitModeMetadata
+      : inferredThermostatModeMetadata(snapshot, controlMode);
+    const thermostatModeWritable = Boolean(writable
+      && ((modeMetadata.autoModeParameter || modeMetadata.modeAutoValue !== undefined)
+        && (modeMetadata.manualModeParameter || modeMetadata.modeManualValue !== undefined)));
     const minimum = parameterNumber(snapshot, targetParameter, "min") ?? 4.5;
     return {
       ...base,
@@ -547,21 +625,7 @@ export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Devi
         targetTemperatureMax: parameterNumber(snapshot, targetParameter, "max") ?? 30,
         targetTemperatureStep: 0.5,
         thermostatOffTemperature: minimum,
-        ...(autoModeParameter ? {
-          autoModeParameter,
-          autoModeValueType: rpcValueType(snapshot, autoModeParameter, "bool")
-        } : {}),
-        ...(manualModeParameter ? {
-          manualModeParameter,
-          manualModeValueType: rpcValueType(snapshot, manualModeParameter, "float")
-        } : {}),
-        ...(modeParameter ? {
-          modeParameter,
-          modeValueType: rpcValueType(snapshot, modeParameter, "int"),
-          ...(modeAutoValue !== undefined ? { modeAutoValue } : {}),
-          ...(modeManualValue !== undefined ? { modeManualValue } : {}),
-          ...(modeOffValue !== undefined ? { modeOffValue } : {})
-        } : {})
+        ...modeMetadata
       }
     };
   }

@@ -256,6 +256,71 @@ describe("OpenCCU HomeMatic device mapping", () => {
     });
   });
 
+  it("infers writable classic thermostat modes when OpenCCU only exposes the displayed CONTROL_MODE", () => {
+    const device = openCcuDeviceFromChannel({
+      ...base,
+      interfaceName: "BidCos-RF",
+      model: "HM-TC-IT-WM-W-EU",
+      channelAddress: "MEQ1234567:2",
+      channelType: "THERMOSTAT",
+      paramsetDescription: {
+        SET_TEMPERATURE: { TYPE: "FLOAT", OPERATIONS: 7, MIN: 4.5, MAX: 30.5 },
+        CONTROL_MODE: { TYPE: "ENUM", OPERATIONS: 5, MIN: 0, VALUE_LIST: "AUTO MANU PARTY BOOST" }
+      },
+      values: {
+        ACTUAL_TEMPERATURE: 21.1,
+        SET_TEMPERATURE: 22,
+        CONTROL_MODE: 0
+      }
+    });
+
+    expect(device).toMatchObject({
+      type: "thermostat",
+      state: { controlMode: "auto" },
+      capabilities: ["setTargetTemperature", "setThermostatMode"],
+      adapterData: {
+        autoModeParameter: "AUTO_MODE",
+        autoModeValueType: "bool",
+        manualModeParameter: "MANU_MODE",
+        manualModeValueType: "float",
+        thermostatModeInferred: true
+      }
+    });
+  });
+
+  it("infers writable HmIP thermostat modes when only the displayed CONTROL_MODE is described", () => {
+    const device = openCcuDeviceFromChannel({
+      ...base,
+      interfaceName: "HmIP-RF",
+      model: "HmIP-WTH-2",
+      channelAddress: "0011223344:1",
+      channelType: "HEATING_CLIMATECONTROL_TRANSCEIVER",
+      paramsetDescription: {
+        SET_POINT_TEMPERATURE: { TYPE: "FLOAT", OPERATIONS: 7, MIN: 4.5, MAX: 30.5 },
+        CONTROL_MODE: { TYPE: "ENUM", OPERATIONS: 5, MIN: 0, VALUE_LIST: "AUTOMATIC MANUAL AWAY" }
+      },
+      values: {
+        ACTUAL_TEMPERATURE: 20.5,
+        SET_POINT_TEMPERATURE: 21.5,
+        CONTROL_MODE: 1,
+        HUMIDITY: 51
+      }
+    });
+
+    expect(device).toMatchObject({
+      type: "thermostat",
+      state: { controlMode: "manual", targetTemperature: 21.5 },
+      capabilities: ["setTargetTemperature", "setThermostatMode"],
+      adapterData: {
+        modeParameter: "SET_POINT_MODE",
+        modeValueType: "int",
+        modeAutoValue: 0,
+        modeManualValue: 1,
+        thermostatModeInferred: true
+      }
+    });
+  });
+
   it("builds native thermostat mode write sequences for classic and Homematic IP devices", () => {
     const classicMetadata = {
       targetTemperatureParameter: "SET_TEMPERATURE",
@@ -315,6 +380,28 @@ describe("OpenCCU HomeMatic device mapping", () => {
         { parameter: "SET_POINT_TEMPERATURE", valueType: "float", value: 20 }
       ],
       state: { controlMode: "manual", targetTemperature: 20 }
+    });
+    expect(openCcuThermostatModePlan({
+      interfaceName: "HmIP-RF",
+      channelType: "HEATING_CLIMATECONTROL_TRANSCEIVER",
+      targetTemperatureParameter: "SET_POINT_TEMPERATURE",
+      targetTemperatureValueType: "float",
+      targetTemperatureMin: 4.5,
+      targetTemperatureMax: 30.5
+    }, { targetTemperature: 21 }, "auto")).toEqual({
+      writes: [{ parameter: "SET_POINT_MODE", valueType: "int", value: 0 }],
+      state: { controlMode: "auto" }
+    });
+    expect(openCcuThermostatModePlan({
+      interfaceName: "BidCos-RF",
+      channelType: "THERMOSTAT",
+      targetTemperatureParameter: "SET_TEMPERATURE",
+      targetTemperatureValueType: "float",
+      targetTemperatureMin: 4.5,
+      targetTemperatureMax: 30.5
+    }, { targetTemperature: 21 }, "manual")).toEqual({
+      writes: [{ parameter: "MANU_MODE", valueType: "float", value: 21 }],
+      state: { controlMode: "manual", targetTemperature: 21 }
     });
     expect(() => openCcuThermostatModePlan(hmipMetadata, {}, "party")).toThrow("INVALID_THERMOSTAT_MODE");
   });
