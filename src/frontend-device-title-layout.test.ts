@@ -11,9 +11,10 @@ describe("compact device title layout", () => {
     expect(appSource).toContain('class="device-title-block"');
   });
 
-  it("styles the compact header row for icon, title and meta data", () => {
-    expect(styles).toContain('.device-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}');
-    expect(styles).toContain('.device-head-main{display:flex;align-items:flex-start;gap:10px;min-width:0;flex:1}');
-    expect(styles).toContain('.device h3{margin:0;line-height:1.25}');
+  it("styles the compact header row for icon, title and truncated metadata", () => {
+    expect(styles).toContain('.device-head{align-items:center;gap:8px}');
+    expect(styles).toContain('.device-head-main{align-items:center;gap:8px}');
+    expect(styles).toContain('.device h3{font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
+    expect(styles).toContain('.meta{font-size:10.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}');
   });
 });

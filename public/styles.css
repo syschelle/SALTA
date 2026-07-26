@@ -198,3 +198,69 @@ html[data-theme="dark"]{--state-on-bg:#13271f;--state-on-border:#2b3b33;--state-
 .thermostat-mode-buttons button:disabled{opacity:.55}
 .thermostat-mode-buttons .mdi{font-size:15px}
 .overview-section-head{margin-top:0}
+
+/* Compact responsive device cards */
+main{max-width:1680px}
+.grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.device-groups{gap:20px}
+.device-room-group{gap:8px}
+.device-room-title{gap:8px}
+.device-room-title h2{font-size:17px}
+.device-room-title p{margin-top:1px;font-size:11px}
+.device-room-icon{width:30px;height:30px;border-radius:8px}
+.device-room-icon>.mdi{font-size:17px}
+.device{padding:12px;border-radius:13px}
+.device-head{align-items:center;gap:8px}
+.device-head-main{align-items:center;gap:8px}
+.device-title-block{gap:1px}
+.device h3{font-size:14px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:10.5px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon{width:32px;height:32px;border-radius:8px;font-size:16px}
+.icon>.mdi{font-size:18px}
+.device-statuses{gap:5px}
+.dot{width:7px;height:7px;margin-top:0}
+.device-config-button{width:28px;height:28px;padding:0;flex:0 0 28px;border-radius:8px}
+.device-config-button>.mdi{font-size:15px}
+.hidden-device-badge{padding:2px 6px;font-size:9px}
+.values{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:5px;margin-top:8px;padding-top:8px}
+.value{min-width:0;padding:5px 6px;border:1px solid var(--line);border-radius:8px;background:var(--subtle-bg)}
+.value b{font-size:12px;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.value small{font-size:8.5px;line-height:1.1;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.device-controls{display:grid;gap:6px;margin-top:7px}
+.brightness-control,.temperature-control,.thermostat-mode-control,.cover-control{margin-top:0;padding:7px 8px;border-radius:9px}
+.brightness-control-head,.temperature-control-head,.cover-control-head{margin-bottom:3px;font-size:10.5px}
+.thermostat-mode-head{margin-bottom:5px;font-size:10.5px}
+.brightness-control input[type=range],.temperature-control input[type=range],.cover-control input[type=range]{height:16px}
+.thermostat-mode-buttons{gap:4px}
+.thermostat-mode-buttons button{padding:5px 4px;border-radius:7px;font-size:10px;gap:3px}
+.thermostat-mode-buttons .mdi{font-size:13px}
+.cover-position-unavailable{margin-top:0;padding:7px 8px;font-size:10.5px}
+.actions{gap:4px;margin-top:7px}
+.actions button{min-height:28px;padding:5px 7px;border-radius:8px;font-size:10.5px}
+.device .actions button>.mdi{font-size:14px}
+.device.device-state-on,.device.device-state-off{box-shadow:inset 3px 0 0 var(--state-on-accent),var(--shadow-card)}
+.device.device-state-off{box-shadow:inset 3px 0 0 var(--state-off-accent),var(--shadow-card)}
+.overview-device-groups .grid{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+
+@media(max-width:620px){
+  main{padding:70px 12px 24px}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:22px 0}
+  .stats article{padding:12px;border-radius:12px}
+  .stats strong{font-size:21px;margin:5px 0}
+  .stats span,.stats small{font-size:10px}
+  .grid,.overview-device-groups .grid{grid-template-columns:1fr;gap:8px}
+  .device-groups{gap:17px}
+  .device-room-group{gap:7px}
+  .device-room-heading{align-items:center}
+  .device-room-title h2{font-size:16px}
+  .device{padding:10px}
+  .values{grid-template-columns:repeat(auto-fit,minmax(70px,1fr));margin-top:7px;padding-top:7px}
+  .actions button{flex:1}
+  .device-config-button{flex:0 0 28px}
+}
+
+@media(max-width:380px){
+  main{padding-left:9px;padding-right:9px}
+  .device{padding:9px}
+  .thermostat-mode-buttons button{font-size:9px;padding:5px 2px}
+}

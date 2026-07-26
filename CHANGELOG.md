@@ -2,6 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.14
+
+- Redesigned device cards with denser spacing, smaller headers and compact measurement chips.
+- Moved the configure action into the card header so read-only sensor cards no longer render an otherwise empty bottom action row.
+- Grouped dimmer, thermostat and window-covering controls in a compact control section while preserving all existing actions.
+- Changed device grids to an adaptive layout that uses available desktop and tablet width more efficiently.
+- Added a dedicated mobile layout with single-column device cards, reduced padding and a compact two-by-two summary grid.
+- Kept the room-grouped overview behavior unchanged: only devices with a valid room assignment are displayed.
+- Added AST and responsive-layout regression coverage for control composition, configuration placement and empty-action suppression.
+- No database migration or environment-variable change is required.
+
 ## 0.7.13
 
 - Fixed the overview page so devices with valid room assignments are reliably displayed in their configured room.
