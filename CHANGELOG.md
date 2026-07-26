@@ -2,6 +2,12 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.6
+
+- Updated the window-covering slider regression test for the shared live-refresh guard introduced with thermostat target-temperature control.
+- Verifies that active cover, brightness and target-temperature sliders are all protected from periodic device-card re-rendering.
+- Keeps runtime behavior, OpenCCU control, database schema and deployment configuration unchanged.
+
 ## 0.7.5
 
 - Reads ReGa device IDs through `Device.listAll`, resolves each physical device through `Device.get`, and joins its configured name to the RPC catalogue by address.

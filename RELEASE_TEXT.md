@@ -1,32 +1,20 @@
-# SALTA v0.7.5
+# SALTA v0.7.6
 
-SALTA v0.7.5 fixes OpenCCU device-name display and enables reliable HomeMatic controls, including thermostat target temperatures.
+SALTA v0.7.6 fixes the frontend regression-test failure introduced with HomeMatic thermostat target-temperature controls.
 
-## OpenCCU device names
+## Build and test fix
 
-- Reads the ReGa device IDs through `Device.listAll`, resolves each configured physical HomeMatic device through `Device.get`, and joins the returned address and name to the RPC catalogue
-- Uses the physical OpenCCU device name as the card title instead of a technical channel label or model/serial fallback
-- Displays a distinct channel name as secondary metadata when it helps identify a channel of a multi-channel device
-- Replaces existing source-managed fallback names during the next full synchronization
-- Continues to preserve names deliberately edited locally in SALTA
+- Updated the window-covering slider regression test to match the current shared live-refresh guard
+- Verifies that active cover, brightness and target-temperature sliders prevent periodic device-card re-rendering
+- Preserves the thermostat control and OpenCCU behavior introduced in v0.7.5
 
-## HomeMatic control
+## Runtime behavior
 
-- Loads the OpenCCU VALUES parameter description for synchronized channels
-- Uses the parameter write flags to expose controls only for writable values
-- Uses native OpenCCU JSON-RPC value types such as `bool` and `float` instead of guessed `boolean` and `double` types
-- Keeps on/off control for compatible switches, relays and plugs
-- Keeps brightness control for compatible dimmers
-- Keeps position and stop control for compatible window coverings
-- Adds target-temperature control for compatible classic HomeMatic and HomeMatic IP radiator and wall thermostats
-- Keeps contact, motion, weather and other pure sensor channels read-only
-
-## Compatibility
-
-- No database schema migration is required
-- No new `.env` variable is required
+- No application runtime behavior changed
+- No API behavior changed
+- No database schema changed
+- No Docker Compose or `.env` change is required
 - No fresh installation is required
-- Existing Shelly, Zigbee, HomeMatic, room and adapter data remain unchanged
 
 ## Updating
 
@@ -43,7 +31,7 @@ For a new installation:
 ## Container tags
 
 ```text
-0.7.5
+0.7.6
 0.7
 latest
 ```
@@ -51,5 +39,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.5
+v0.7.6
 ```
