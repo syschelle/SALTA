@@ -56,14 +56,16 @@ describe("automation frontend", () => {
     expect(ui).toContain("automationPrimaryEventValues");
     expect(ui).toContain("automationTogglePrimaryEvent");
     expect(ui).toContain("sameDeviceEventTriggers");
-    expect(ui).toContain("Mehrere Ereignisse werden ODER-verknüpft");
+    expect(html).toContain("Mehrere Ereignisse werden ODER-verknüpft");
     expect(cssRuleContains(styles, ".automation-event-picker", "border:1px solid var(--line)")).toBe(true);
   });
 
   it("keeps multiple OR triggers compact and collapsed until they are needed", () => {
     expect(html).toContain('id="automationAdditionalTriggers"');
     expect(html).toContain('id="automationAddTriggerButton"');
-    expect(ui).toContain("additionalTriggers:automationAdditionalTriggerPayload()");
+    expect(functionCalls(uiAst, "automationPayload", "automationAdditionalTriggerPayload")).toBe(true);
+    expect(ui).toContain("sameDeviceEventTriggers");
+    expect(ui).toContain("additionalTriggers:");
     expect(hasFunction(uiAst, "addAutomationAdditionalTrigger")).toBe(true);
     expect(hasFunction(uiAst, "renderAutomationAdditionalTriggers")).toBe(true);
     expect(ui).toContain("Auslöser (ODER)");

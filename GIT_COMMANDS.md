@@ -1,37 +1,30 @@
-# SALTA v0.8.9 – Git and Release Commands
-
-## Verify before committing
-
-```bash
-npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
-npm run check
-sh -n install.sh update.sh backup.sh restore.sh
-git status
-```
+# SALTA v0.8.10 – Git and Release Commands
 
 ## Commit and push main
 
 ```bash
 git checkout main
 git pull --ff-only origin main
+
 git add -A
-git commit -m "fix(phoscon): harden realtime button events"
+git status
+git commit -m "fix(ci): align automation and Phoscon tests"
 git push origin main
 ```
 
-Wait for a green GitHub CI run before creating the release tag.
+Wait for the GitHub CI workflow on `main` to be green.
 
-## Tag and publish
+## Tag
 
 ```bash
-git tag -a v0.8.9 -m "SALTA v0.8.9"
-git push origin v0.8.9
+git tag -a v0.8.10 -m "SALTA v0.8.10"
+git push origin v0.8.10
 ```
 
 ## Production update
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.9
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.10
 ```
 
 ```bash

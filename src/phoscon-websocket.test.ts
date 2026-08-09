@@ -8,7 +8,8 @@ describe("Phoscon realtime button events", () => {
   it("keeps a reconnecting deCONZ websocket and emits every buttonevent", () => {
     expect(adapter).toContain("new WebSocket(target)");
     expect(adapter).toContain('event.resource !== "sensors"');
-    expect(adapter).toContain('typeof statePatch.buttonEvent === "number"');
+    expect(adapter).toContain("const eventValue = numberValue(statePatch.buttonEvent)");
+    expect(adapter).toContain("if (!shouldEmit || eventValue === undefined) return");
     expect(adapter).toContain("this.registry.emitDeviceEvent({");
     expect(adapter).toContain('key: "buttonEvent"');
     expect(adapter).toContain("this.scheduleReconnect(generation)");

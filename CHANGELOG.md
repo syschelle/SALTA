@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.10
+
+- Fixed the GitHub CI regressions in the v0.8.9 automation and Phoscon frontend tests.
+- Updated the multi-event UI test to verify the explanatory hint in its actual HTML owner instead of `automation-ui.js`.
+- Replaced the outdated exact additional-trigger payload assertion with behavioral AST/source checks that support the v0.8.9 merged event/device OR-trigger payload.
+- Updated the Phoscon realtime test to verify the normalized `numberValue(...)` event path rather than the removed direct `typeof` check.
+- Added release-validation guards that reject these three stale assertions if they are reintroduced.
+- Retained the complete Aqara WebSocket/fallback handling and compact multi-event automation functionality from v0.8.9.
+- Kept the npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.9
 
 - Fixed Aqara/deCONZ button events not reaching automations when the deCONZ WebSocket port is unavailable from the SALTA container.
