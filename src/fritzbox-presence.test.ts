@@ -93,6 +93,47 @@ describe("FRITZ!Box presence transport", () => {
     expect(body).toContain("<NewMACAddress>AA:BB:CC:DD:EE:FF</NewMACAddress>");
   });
 
+
+  it("supports AVM SOAP content-level authentication", async () => {
+    let requests = 0;
+    let firstBody = "";
+    let secondBody = "";
+    const baseUrl = await localServer(async (request, response) => {
+      requests += 1;
+      const body = await requestBody(request);
+      if (requests === 1) {
+        firstBody = body;
+        response.writeHead(500, { "content-type": "text/xml" });
+        response.end(`<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Header><h:Challenge xmlns:h="http://soap-authentication.org/digest/2001/10/"><Status>Unauthenticated</Status><Nonce>F758BE72FB999CEA</Nonce><Realm>F!Box SOAP-Auth</Realm></h:Challenge></s:Header><s:Body><s:Fault><errorCode>503</errorCode><errorDescription>Auth. failed</errorDescription></s:Fault></s:Body></s:Envelope>`);
+        return;
+      }
+      secondBody = body;
+      response.writeHead(200, { "content-type": "text/xml" });
+      response.end(`<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Header><h:NextChallenge xmlns:h="http://soap-authentication.org/digest/2001/10/"><Status>Authenticated</Status><Nonce>0B9813494DD27C93</Nonce><Realm>F!Box SOAP-Auth</Realm></h:NextChallenge></s:Header><s:Body><u:GetHostNumberOfEntriesResponse xmlns:u="urn:dslforum-org:service:Hosts:1"><HostNumberOfEntries>42</HostNumberOfEntries></u:GetHostNumberOfEntriesResponse></s:Body></s:Envelope>`);
+    });
+
+    await expect(fritzBoxHostCount(baseUrl, "admin", "gurkensalat")).resolves.toBe(42);
+    expect(requests).toBe(2);
+    expect(firstBody).toContain("<h:InitChallenge");
+    expect(firstBody).toContain("<UserID>admin</UserID>");
+    expect(secondBody).toContain("<h:ClientAuth");
+    expect(secondBody).toContain("<Nonce>F758BE72FB999CEA</Nonce>");
+    expect(secondBody).toContain("<Realm>F!Box SOAP-Auth</Realm>");
+    expect(secondBody).toContain("<Auth>b4f67585f22b0af7c4615db5a18faa14</Auth>");
+  });
+
+  it("maps a failed SOAP content-level login to the authentication error", async () => {
+    let requests = 0;
+    const baseUrl = await localServer(async (_request, response) => {
+      requests += 1;
+      response.writeHead(500, { "content-type": "text/xml" });
+      response.end(`<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Header><h:Challenge xmlns:h="http://soap-authentication.org/digest/2001/10/"><Status>Unauthenticated</Status><Nonce>${requests === 1 ? "ABC" : "DEF"}</Nonce><Realm>F!Box SOAP-Auth</Realm></h:Challenge></s:Header><s:Body><s:Fault><errorCode>503</errorCode><errorDescription>Auth. failed</errorDescription></s:Fault></s:Body></s:Envelope>`);
+    });
+
+    await expect(fritzBoxHostCount(baseUrl, "salta", "wrong")).rejects.toThrow("FRITZBOX_AUTHENTICATION_FAILED");
+    expect(requests).toBe(2);
+  });
+
   it("retries a protected Hosts request with HTTP Digest authentication", async () => {
     let requests = 0;
     let authorization = "";

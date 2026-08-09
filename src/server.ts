@@ -274,7 +274,9 @@ function fritzBoxRequestError(error: unknown): { status: number; code: string; m
   if(code==="FRITZBOX_URL_INVALID") return {status:400,code,message:"Enter a valid FRITZ!Box TR-064 address using HTTP or HTTPS and port 49000 or 49443."};
   if(code==="FRITZBOX_TLS_CERTIFICATE") return {status:422,code,message:"The FRITZ!Box HTTPS certificate could not be verified. Enable the explicit certificate-check bypass only if you trust this local FRITZ!Box."};
   if(code==="PRESENCE_MAC_INVALID") return {status:400,code,message:"Enter a valid MAC address in the format AA:BB:CC:DD:EE:FF."};
-  if(code==="FRITZBOX_AUTHENTICATION_FAILED") return {status:422,code,message:"The FRITZ!Box rejected the configured credentials."};
+  if(code==="FRITZBOX_AUTHENTICATION_REQUIRED") return {status:422,code,message:"The FRITZ!Box TR-064 Hosts service requires authentication. Enter a FRITZ!Box username and password."};
+  if(code==="FRITZBOX_AUTHENTICATION_FAILED") return {status:422,code,message:"TR-064 is reachable, but the FRITZ!Box rejected the configured username or password."};
+  if(code==="FRITZBOX_AUTHORIZATION_FAILED") return {status:403,code,message:"The FRITZ!Box user is authenticated but does not have the required TR-064 permissions."};
   if(code==="FRITZBOX_UNREACHABLE") return {status:502,code,message:"The FRITZ!Box TR-064 interface is unreachable."};
   if(code==="FRITZBOX_TIMEOUT") return {status:504,code,message:"The FRITZ!Box TR-064 interface did not respond in time."};
   if(code==="ENCRYPTION_KEY_MISMATCH") return {status:409,code,message:"The stored FRITZ!Box password cannot be decrypted with the current SALTA encryption key."};
@@ -496,9 +498,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.16" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.17" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.16", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.17", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {

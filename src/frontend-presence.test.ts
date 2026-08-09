@@ -31,6 +31,10 @@ describe("presence page", () => {
     expect(app).toContain("presenceBaseUrlFromForm()");
     expect(app).toContain("tlsInsecure:presenceProtocol.value==='https'&&presenceTlsInsecure.checked");
     expect(app).toContain("FRITZBOX_TLS_CERTIFICATE");
+    expect(app).toContain("FRITZBOX_AUTHENTICATION_REQUIRED");
+    expect(app).toContain("FRITZBOX_AUTHENTICATION_FAILED");
+    expect(app).toContain("FRITZBOX_AUTHORIZATION_FAILED");
+    expect(app).toContain("TR-064 erreichbar · Anmeldung fehlgeschlagen");
     expect(app).toContain("FRITZ!Box erreichbar");
     expect(app).toContain("Verbindung noch nicht geprüft");
     expect(app).toContain("lastTestSuccess");

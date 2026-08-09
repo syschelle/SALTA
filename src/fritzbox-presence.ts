@@ -11,6 +11,7 @@ const defaultBaseUrl = "http://fritz.box:49000";
 const houseDeviceId = "presence:house";
 
 type DigestChallenge = { realm: string; nonce: string; algorithm: string; qop?: string; opaque?: string };
+type ContentAuthChallenge = { realm: string; nonce: string; status?: string };
 type HostEntry = { active: boolean; ipAddress?: string; interfaceType?: string; hostName?: string };
 
 function now(): string { return new Date().toISOString(); }
@@ -88,9 +89,32 @@ function digestAuthHeader(challenge: DigestChallenge, username: string, password
   if (challenge.opaque) fields.push(`opaque="${quoteDigest(challenge.opaque)}"`); if (qop) fields.push(`qop=${qop}`,`nc=${nc}`,`cnonce="${cnonce}"`); return `Digest ${fields.join(", ")}`;
 }
 
-function soapEnvelope(action: string, args: Record<string,string>): string {
+function soapEnvelope(action: string, args: Record<string,string>, headerXml = ""): string {
   const argumentsXml = Object.entries(args).map(([key,value])=>`<${key}>${xmlEscape(value)}</${key}>`).join("");
-  return `<?xml version="1.0" encoding="utf-8"?><s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><u:${action} xmlns:u="${serviceType}">${argumentsXml}</u:${action}></s:Body></s:Envelope>`;
+  const header = headerXml ? `<s:Header>${headerXml}</s:Header>` : "";
+  return `<?xml version="1.0" encoding="utf-8"?><s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">${header}<s:Body><u:${action} xmlns:u="${serviceType}">${argumentsXml}</u:${action}></s:Body></s:Envelope>`;
+}
+
+function contentAuthInitHeader(username: string): string {
+  return `<h:InitChallenge xmlns:h="http://soap-authentication.org/digest/2001/10/" s:mustUnderstand="1"><UserID>${xmlEscape(username)}</UserID></h:InitChallenge>`;
+}
+
+function contentAuthDigest(username: string, password: string, realm: string, nonce: string): string {
+  const secret = createHash("md5").update(`${username}:${realm}:${password}`, "utf8").digest("hex");
+  return createHash("md5").update(`${secret}:${nonce}`, "utf8").digest("hex");
+}
+
+function contentAuthClientHeader(username: string, password: string, challenge: ContentAuthChallenge): string {
+  const auth = contentAuthDigest(username,password,challenge.realm,challenge.nonce);
+  return `<h:ClientAuth xmlns:h="http://soap-authentication.org/digest/2001/10/" s:mustUnderstand="1"><Nonce>${xmlEscape(challenge.nonce)}</Nonce><Auth>${auth}</Auth><UserID>${xmlEscape(username)}</UserID><Realm>${xmlEscape(challenge.realm)}</Realm></h:ClientAuth>`;
+}
+
+function contentAuthChallenge(xml: string): ContentAuthChallenge | undefined {
+  if (!/<(?:(?:[A-Za-z0-9_-]+):)?Challenge(?:\s|>)/i.test(xml)) return undefined;
+  const nonce = xmlValue(xml,"Nonce");
+  const realm = xmlValue(xml,"Realm");
+  if (!nonce || !realm) return undefined;
+  return { nonce, realm, status: xmlValue(xml,"Status") };
 }
 
 type SoapHttpResponse = { status: number; headers: IncomingHttpHeaders; text: string };
@@ -131,19 +155,47 @@ async function executeSoapRequest(url: string, headers: Record<string,string>, b
 
 async function requestSoap(baseUrl: string, username: string, password: string, action: string, args: Record<string,string> = {}, tlsInsecure = false): Promise<string> {
   const url = `${normalizeFritzBoxBaseUrl(baseUrl)}/upnp/control/hosts`;
-  const body = soapEnvelope(action,args);
-  const execute = (authorization?: string) => executeSoapRequest(url,{"content-type":"text/xml; charset=utf-8",soapaction:`"${serviceType}#${action}"`,...(authorization?{authorization}:{})},body,tlsInsecure);
-  let response = await execute();
-  if ((response.status===401||response.status===403) && (username||password)) {
-    const challenge = parseDigestChallenge(headerValue(response.headers,"www-authenticate"));
-    if (challenge) response = await execute(digestAuthHeader(challenge,username||"admin",password,"POST",url));
+  const effectiveUsername = username.trim();
+  const execute = (body: string, authorization?: string) => executeSoapRequest(url,{"content-type":"text/xml; charset=utf-8",soapaction:`"${serviceType}#${action}"`,...(authorization?{authorization}:{})},body,tlsInsecure);
+
+  const normalBody = soapEnvelope(action,args);
+  let response: SoapHttpResponse;
+
+  if (effectiveUsername) {
+    // Prefer AVM's SOAP content-level authentication. It avoids depending on an
+    // unauthenticated HTTP 401 round trip and also works when FRITZ!OS answers
+    // repeated unauthenticated requests with a SOAP authentication fault.
+    response = await execute(soapEnvelope(action,args,contentAuthInitHeader(effectiveUsername)));
+    const challenge = contentAuthChallenge(response.text);
+    if (challenge) {
+      response = await execute(soapEnvelope(action,args,contentAuthClientHeader(effectiveUsername,password,challenge)));
+    } else if ((response.status===401||response.status===403)) {
+      // FRITZ!OS also supports standard HTTP Digest authentication. Keep this
+      // as a compatibility fallback for boxes that challenge at HTTP level.
+      const digestChallenge = parseDigestChallenge(headerValue(response.headers,"www-authenticate"));
+      if (digestChallenge) response = await execute(normalBody,digestAuthHeader(digestChallenge,effectiveUsername,password,"POST",url));
+    }
+  } else {
+    response = await execute(normalBody);
   }
+
   const text = response.text;
   const faultCode = xmlValue(text,"errorCode");
+  const faultDescription = xmlValue(text,"errorDescription") ?? "";
+  const challenge = contentAuthChallenge(text);
+
+  if (challenge?.status?.toLowerCase() === "unauthenticated" || faultCode === "503" && /auth/i.test(faultDescription)) {
+    throw new Error(effectiveUsername ? "FRITZBOX_AUTHENTICATION_FAILED" : "FRITZBOX_AUTHENTICATION_REQUIRED");
+  }
+  if (faultCode === "606") throw new Error("FRITZBOX_AUTHORIZATION_FAILED");
   if (response.status < 200 || response.status >= 300) {
     if (faultCode === "714") return text;
-    if (response.status===401||response.status===403) throw new Error("FRITZBOX_AUTHENTICATION_FAILED");
+    if (response.status===401||response.status===403) throw new Error(effectiveUsername ? "FRITZBOX_AUTHENTICATION_FAILED" : "FRITZBOX_AUTHENTICATION_REQUIRED");
     throw new Error(faultCode ? `FRITZBOX_SOAP_${faultCode}` : `FRITZBOX_HTTP_${response.status}`);
+  }
+  if (faultCode) {
+    if (faultCode === "714") return text;
+    throw new Error(`FRITZBOX_SOAP_${faultCode}`);
   }
   if (!text.includes("Envelope")) throw new Error("FRITZBOX_INVALID_RESPONSE");
   return text;

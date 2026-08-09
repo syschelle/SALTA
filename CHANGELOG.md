@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.17
+
+- Added AVM SOAP content-level authentication (`InitChallenge` / `ClientAuth`) for FRITZ!Box TR-064 Hosts requests.
+- Kept standard HTTP Digest authentication as a compatibility fallback instead of replacing it.
+- Correctly handles FRITZ!OS SOAP authentication faults with error code `503` instead of reporting them as a generic presence failure.
+- Added distinct errors for authentication required, invalid credentials and insufficient TR-064 user permissions.
+- Added regression tests using the official AVM content-authentication example digest.
+- Fixed an accidental duplicate presence-device initialization statement in the v0.8.16 source tree.
+- Kept the database schema and npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.16
 
 - Fixed unsaved FRITZ!Box Presence credentials being overwritten by the five-second live refresh while the user was editing the form.

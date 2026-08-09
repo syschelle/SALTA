@@ -1,55 +1,50 @@
-# SALTA v0.8.16
+# SALTA v0.8.17
 
-SALTA v0.8.16 fixes unsaved FRITZ!Box Presence credentials being cleared by the live page refresh while connection settings are being edited.
+SALTA v0.8.17 improves FRITZ!Box TR-064 authentication for Wi-Fi presence detection and makes authentication failures visible as clear, actionable connection errors.
 
-## Presence settings editing
+## FRITZ!Box TR-064 authentication
 
-- Fixed the FRITZ!Box password field being cleared a few seconds after entering a new password.
-- Added a form-level unsaved-changes guard for the complete FRITZ!Box Presence configuration.
-- While the form contains unsaved changes, SALTA no longer replaces the following fields during the five-second live refresh:
-  - Presence detection enabled state
-  - Protocol
-  - FRITZ!Box host
-  - Port
-  - HTTPS certificate-verification option
-  - Username
-  - Password
-  - Polling interval
-  - Default absence delay
-- The same protection applies when a background device refresh updates the Presence page.
-- The connection status, household-presence summary and presence-device cards can still refresh normally while the settings form is being edited.
+- Added AVM SOAP content-level authentication for protected TR-064 actions.
+- SALTA now performs the documented `InitChallenge` / `Challenge` / `ClientAuth` exchange when a FRITZ!Box username is configured.
+- The response digest is calculated from the configured username, the FRITZ!Box `F!Box SOAP-Auth` realm, password and server nonce.
+- The authenticated SOAP request is used for both `GetHostNumberOfEntries` and `GetSpecificHostEntry`.
+- Standard HTTP Digest authentication remains available as a compatibility fallback for FRITZ!Box models or configurations that challenge at HTTP level.
+- No MAC address is required for the **Connection test**; the test still validates the `Hosts:1` service using `GetHostNumberOfEntries`.
 
-## Saving credentials
+## Better authentication error handling
 
-- The unsaved state is cleared only after the Presence settings have been stored successfully.
-- After a successful save, SALTA reloads the persisted settings and intentionally clears the password input because passwords are never returned by the API.
-- A stored password is still represented only by the existing `passwordConfigured` state and remains encrypted at rest.
-- Leaving the password field empty continues to preserve an already stored FRITZ!Box password.
+- SOAP authentication fault `503 / Auth. failed` is now recognized as an authentication result instead of a generic TR-064 failure.
+- Added a dedicated **Authentication required** result when the Hosts service needs credentials but no usable username is configured.
+- Added a dedicated **Authentication failed** result when the configured username or password is rejected.
+- Added a dedicated **Authorization failed** result when login succeeds but the FRITZ!Box user does not have the required TR-064 permissions.
+- The Presence page now explains these states directly in the FRITZ!Box connection card.
 
-## TR-064 connection behavior
+## Compatibility and reliability
 
-- Access to `/tr64desc.xml` confirms that the selected FRITZ!Box TR-064 HTTPS/HTTP endpoint is reachable.
-- The actual Presence integration still uses the FRITZ!Box `Hosts:1` SOAP service for host-count and MAC-address queries.
-- Depending on the FRITZ!Box configuration, those Hosts actions may require authentication even when `tr64desc.xml` itself can be opened without credentials.
-- HTTP/HTTPS selection, ports `49000`/`49443`, Digest authentication and the request-scoped self-signed-certificate option remain unchanged.
-
-## Compatibility
-
+- HTTP and HTTPS transport selection remains unchanged.
+- Ports `49000` and `49443` remain independently selectable.
+- The explicit self-signed-certificate option remains scoped only to FRITZ!Box HTTPS requests.
+- Existing encrypted FRITZ!Box credentials remain compatible.
+- Existing presence targets, absence delays and automations remain unchanged.
+- Fixed a duplicated presence-device initialization statement that had accidentally remained in the previous source tree.
 - No database migration is required.
 - No new database table is required.
 - No fresh PostgreSQL volume is required.
 - No new environment variable is required.
-- Existing FRITZ!Box settings and encrypted passwords remain compatible.
-- Existing presence targets and automations remain unchanged.
-- Existing Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device and HomeKit functionality remains unchanged.
+
+## Tests
+
+- Added a transport test for AVM SOAP content-level authentication.
+- The test verifies the official AVM example digest value for `admin`, realm `F!Box SOAP-Auth` and the documented nonce.
+- Added coverage for rejected SOAP content-level credentials.
+- Existing HTTP Digest compatibility coverage remains in place.
 
 ## Security and dependencies
 
-- FRITZ!Box passwords are still never returned to the browser after storage.
+- FRITZ!Box passwords remain encrypted at rest and are never returned to the browser.
 - HTTPS certificate verification remains enabled by default.
-- The optional certificate-verification bypass remains scoped only to FRITZ!Box HTTPS requests.
 - SALTA does not set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
-- No production npm dependency was added or intentionally changed in v0.8.16.
+- No production npm dependency was added or intentionally changed in v0.8.17.
 - The locked dependency tree remains unchanged apart from the SALTA root version.
 - Retains `find-my-way` 9.7.0.
 - Retains `@homebridge/dbus-native` 0.7.7.
@@ -57,7 +52,7 @@ SALTA v0.8.16 fixes unsaved FRITZ!Box Presence credentials being cleared by the 
 ## Container tags
 
 ```text
-0.8.16
+0.8.17
 0.8
 latest
 ```
@@ -65,5 +60,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.16
+v0.8.17
 ```
