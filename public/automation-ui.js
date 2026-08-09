@@ -9,14 +9,20 @@ const automationElements={
   name:document.getElementById('automationName'),
   enabled:document.getElementById('automationEnabled'),
   triggerDevice:document.getElementById('automationTriggerDevice'),
+  triggerSearch:document.getElementById('automationTriggerDeviceSearch'),
+  triggerCount:document.getElementById('automationTriggerDeviceCount'),
   triggerState:document.getElementById('automationTriggerState'),
   triggerValue:document.getElementById('automationTriggerValue'),
   conditionEnabled:document.getElementById('automationConditionEnabled'),
   conditionFields:document.getElementById('automationConditionFields'),
   conditionDevice:document.getElementById('automationConditionDevice'),
+  conditionSearch:document.getElementById('automationConditionDeviceSearch'),
+  conditionCount:document.getElementById('automationConditionDeviceCount'),
   conditionState:document.getElementById('automationConditionState'),
   conditionValue:document.getElementById('automationConditionValue'),
   actionDevice:document.getElementById('automationActionDevice'),
+  actionSearch:document.getElementById('automationActionDeviceSearch'),
+  actionCount:document.getElementById('automationActionDeviceCount'),
   action:document.getElementById('automationAction'),
   cancel:document.getElementById('automationCancelButton'),
   save:document.getElementById('automationSaveButton')
@@ -39,9 +45,26 @@ function automationDeviceLabel(device){return `${device.name} · ${sourceLabels?
 function automationDeviceById(id){return all.find(device=>device.id===id)}
 function automationTriggerDevices(){return all.filter(device=>automationBooleanStateKeys(device).length>0)}
 function automationActionDevices(){return all.filter(device=>['turnOn','turnOff','toggle'].some(action=>device.capabilities?.includes(action)))}
-function fillAutomationSelect(select,devices,selected,placeholder='Gerät wählen'){
-  const options=[`<option value="">${placeholder}</option>`,...devices.map(device=>`<option value="${escapeHtml(device.id)}"${device.id===selected?' selected':''}>${escapeHtml(automationDeviceLabel(device))}</option>`)];
+function normalizedAutomationSearch(value){return String(value||'').trim().toLocaleLowerCase('de-DE')}
+function automationDeviceSearchText(device){return [device.name,device.room,sourceLabels?.[device.source]||device.source,device.model,typeLabels?.[device.type]||device.type].filter(Boolean).join(' ').toLocaleLowerCase('de-DE')}
+function automationDeviceMatchesSearch(device,query){const terms=normalizedAutomationSearch(query).split(/\s+/).filter(Boolean);if(!terms.length)return true;const haystack=automationDeviceSearchText(device);return terms.every(term=>haystack.includes(term))}
+function sortedAutomationDevices(devices){return [...devices].sort((a,b)=>String(a.room||'ZZZ').localeCompare(String(b.room||'ZZZ'),'de',{sensitivity:'base'})||String(a.name||'').localeCompare(String(b.name||''),'de',{sensitivity:'base'})||String(a.source||'').localeCompare(String(b.source||''),'de',{sensitivity:'base'}))}
+function fillAutomationSelect(select,devices,selected,placeholder='Gerät wählen',query='',countElement=null){
+  const sorted=sortedAutomationDevices(devices);
+  const matches=sorted.filter(device=>automationDeviceMatchesSearch(device,query));
+  const current=selected?sorted.find(device=>device.id===selected):null;
+  const visible=current&&!matches.some(device=>device.id===current.id)?[current,...matches]:matches;
+  const emptyLabel=normalizedAutomationSearch(query)&&!matches.length?'Keine passenden Geräte gefunden':placeholder;
+  const options=[`<option value="">${escapeHtml(emptyLabel)}</option>`,...visible.map(device=>{const label=automationDeviceLabel(device);const retained=current?.id===device.id&&!matches.some(match=>match.id===device.id);return `<option value="${escapeHtml(device.id)}"${device.id===selected?' selected':''} title="${escapeHtml(label)}">${escapeHtml(label)}${retained?' · aktuelle Auswahl':''}</option>`})];
   select.innerHTML=options.join('');
+  if(selected&&visible.some(device=>device.id===selected))select.value=selected;
+  if(countElement)countElement.textContent=normalizedAutomationSearch(query)?`${matches.length} von ${sorted.length} Geräten gefunden`:`${sorted.length} Geräte verfügbar`;
+}
+function clearAutomationDeviceSearches(){for(const input of [automationElements.triggerSearch,automationElements.conditionSearch,automationElements.actionSearch])if(input)input.value=''}
+function refreshAutomationDeviceSearch(kind){
+  if(kind==='trigger')fillAutomationSelect(automationElements.triggerDevice,automationTriggerDevices(),automationElements.triggerDevice.value,'Triggergerät wählen',automationElements.triggerSearch?.value,automationElements.triggerCount);
+  if(kind==='condition')fillAutomationSelect(automationElements.conditionDevice,automationTriggerDevices().filter(device=>device.id!==automationElements.triggerDevice.value),automationElements.conditionDevice.value,'Anderes Bedingungsgerät wählen',automationElements.conditionSearch?.value,automationElements.conditionCount);
+  if(kind==='action')fillAutomationSelect(automationElements.actionDevice,automationActionDevices().filter(device=>device.id!==automationElements.triggerDevice.value),automationElements.actionDevice.value,'Zielgerät wählen',automationElements.actionSearch?.value,automationElements.actionCount);
 }
 function fillAutomationStateSelect(select,deviceId,selected){
   const device=automationDeviceById(deviceId);const keys=device?automationBooleanStateKeys(device):[];
@@ -58,19 +81,19 @@ function fillAutomationActionSelect(selected){
 }
 function updateAutomationFormOptions(values={}){
   const triggerSelected=values.triggerDeviceId??automationElements.triggerDevice.value;
-  fillAutomationSelect(automationElements.triggerDevice,automationTriggerDevices(),triggerSelected,'Triggergerät wählen');
+  fillAutomationSelect(automationElements.triggerDevice,automationTriggerDevices(),triggerSelected,'Triggergerät wählen',automationElements.triggerSearch?.value,automationElements.triggerCount);
   const triggerId=automationElements.triggerDevice.value||triggerSelected;
   fillAutomationStateSelect(automationElements.triggerState,triggerId,values.triggerStateKey??automationElements.triggerState.value);
   fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value,values.triggerValue??(automationElements.triggerValue.value?automationElements.triggerValue.value==='true':undefined));
 
   const conditionSelected=values.conditionDeviceId??automationElements.conditionDevice.value;
-  fillAutomationSelect(automationElements.conditionDevice,automationTriggerDevices().filter(device=>device.id!==automationElements.triggerDevice.value),conditionSelected,'Anderes Bedingungsgerät wählen');
+  fillAutomationSelect(automationElements.conditionDevice,automationTriggerDevices().filter(device=>device.id!==automationElements.triggerDevice.value),conditionSelected,'Anderes Bedingungsgerät wählen',automationElements.conditionSearch?.value,automationElements.conditionCount);
   const conditionId=automationElements.conditionDevice.value||conditionSelected;
   fillAutomationStateSelect(automationElements.conditionState,conditionId,values.conditionStateKey??automationElements.conditionState.value);
   fillAutomationValueSelect(automationElements.conditionValue,automationElements.conditionState.value,values.conditionValue??(automationElements.conditionValue.value?automationElements.conditionValue.value==='true':undefined));
 
   const actionSelected=values.actionDeviceId??automationElements.actionDevice.value;
-  fillAutomationSelect(automationElements.actionDevice,automationActionDevices().filter(device=>device.id!==automationElements.triggerDevice.value),actionSelected,'Zielgerät wählen');
+  fillAutomationSelect(automationElements.actionDevice,automationActionDevices().filter(device=>device.id!==automationElements.triggerDevice.value),actionSelected,'Zielgerät wählen',automationElements.actionSearch?.value,automationElements.actionCount);
   if(actionSelected&&[...automationElements.actionDevice.options].some(option=>option.value===actionSelected))automationElements.actionDevice.value=actionSelected;
   fillAutomationActionSelect(values.action??automationElements.action.value);
 }
@@ -90,10 +113,11 @@ async function loadAutomations(){
   const payload=await api('/api/automations');automationRules=payload?.automations||[];renderAutomations();updateAutomationFormOptions();
 }
 function resetAutomationForm(){
-  editingAutomationId=null;automationElements.form.reset();automationElements.enabled.checked=true;automationElements.conditionEnabled.checked=false;automationElements.conditionFields.hidden=true;automationElements.title.textContent='Automation hinzufügen';automationElements.save.textContent='Automation speichern';automationElements.cancel.hidden=true;updateAutomationFormOptions();
+  editingAutomationId=null;automationElements.form.reset();clearAutomationDeviceSearches();automationElements.enabled.checked=true;automationElements.conditionEnabled.checked=false;automationElements.conditionFields.hidden=true;automationElements.title.textContent='Automation hinzufügen';automationElements.save.textContent='Automation speichern';automationElements.cancel.hidden=true;updateAutomationFormOptions();
 }
 function cancelAutomationEdit(){resetAutomationForm()}
 function editAutomation(id){
+  clearAutomationDeviceSearches();
   const rule=automationRules.find(item=>item.id===id);if(!rule)return;editingAutomationId=id;automationElements.title.textContent='Automation bearbeiten';automationElements.save.textContent='Änderungen speichern';automationElements.cancel.hidden=false;automationElements.name.value=rule.name;automationElements.enabled.checked=rule.enabled;automationElements.conditionEnabled.checked=Boolean(rule.conditionDeviceId);automationElements.conditionFields.hidden=!rule.conditionDeviceId;updateAutomationFormOptions(rule);automationElements.triggerDevice.value=rule.triggerDeviceId;fillAutomationStateSelect(automationElements.triggerState,rule.triggerDeviceId,rule.triggerStateKey);fillAutomationValueSelect(automationElements.triggerValue,rule.triggerStateKey,rule.triggerValue);if(rule.conditionDeviceId){automationElements.conditionDevice.value=rule.conditionDeviceId;fillAutomationStateSelect(automationElements.conditionState,rule.conditionDeviceId,rule.conditionStateKey);fillAutomationValueSelect(automationElements.conditionValue,rule.conditionStateKey,rule.conditionValue)}automationElements.actionDevice.value=rule.actionDeviceId;fillAutomationActionSelect(rule.action);automationElements.name.focus();window.scrollTo({top:0,behavior:'smooth'});
 }
 function automationPayload(){
@@ -108,10 +132,13 @@ async function deleteAutomation(id){const rule=automationRules.find(item=>item.i
 
 function automationDevicesChanged(){updateAutomationFormOptions();renderAutomations()}
 
-automationElements.triggerDevice?.addEventListener('change',()=>{fillAutomationStateSelect(automationElements.triggerState,automationElements.triggerDevice.value);fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value);updateAutomationFormOptions()});
+automationElements.triggerSearch?.addEventListener('input',()=>refreshAutomationDeviceSearch('trigger'));
+automationElements.conditionSearch?.addEventListener('input',()=>refreshAutomationDeviceSearch('condition'));
+automationElements.actionSearch?.addEventListener('input',()=>refreshAutomationDeviceSearch('action'));
+automationElements.triggerDevice?.addEventListener('change',()=>{if(automationElements.triggerSearch)automationElements.triggerSearch.value='';fillAutomationStateSelect(automationElements.triggerState,automationElements.triggerDevice.value);fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value);updateAutomationFormOptions()});
 automationElements.triggerState?.addEventListener('change',()=>fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value));
 automationElements.conditionEnabled?.addEventListener('change',()=>{automationElements.conditionFields.hidden=!automationElements.conditionEnabled.checked;if(automationElements.conditionEnabled.checked)updateAutomationFormOptions()});
-automationElements.conditionDevice?.addEventListener('change',()=>{fillAutomationStateSelect(automationElements.conditionState,automationElements.conditionDevice.value);fillAutomationValueSelect(automationElements.conditionValue,automationElements.conditionState.value)});
+automationElements.conditionDevice?.addEventListener('change',()=>{if(automationElements.conditionSearch)automationElements.conditionSearch.value='';fillAutomationStateSelect(automationElements.conditionState,automationElements.conditionDevice.value);fillAutomationValueSelect(automationElements.conditionValue,automationElements.conditionState.value)});
 automationElements.conditionState?.addEventListener('change',()=>fillAutomationValueSelect(automationElements.conditionValue,automationElements.conditionState.value));
-automationElements.actionDevice?.addEventListener('change',()=>fillAutomationActionSelect());
+automationElements.actionDevice?.addEventListener('change',()=>{if(automationElements.actionSearch)automationElements.actionSearch.value='';fillAutomationActionSelect();updateAutomationFormOptions()});
 automationElements.form?.addEventListener('submit',event=>{event.preventDefault();saveAutomation().catch(error=>notify(friendlyAutomationError(error),true))});

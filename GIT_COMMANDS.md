@@ -1,4 +1,4 @@
-# SALTA v0.8.2 – Git and Release Commands
+# SALTA v0.8.3 – Git and Release Commands
 
 ## Verify before committing
 
@@ -9,48 +9,40 @@ sh -n install.sh update.sh backup.sh restore.sh
 git status
 ```
 
-## Commit and push
+## Commit and push to main
 
 ```bash
 git checkout main
 git pull --ff-only origin main
-
 git add -A
-git status
-git commit -m "fix(ci): make Vitest bootstrap self-contained"
+git commit -m "feat(automations): add searchable device selectors"
 git push origin main
 ```
 
-Wait until the normal GitHub CI workflow on `main` is green.
+Wait until the normal CI workflow on `main` completes successfully before creating the release tag.
 
 ## Create and push the release tag
 
 ```bash
-git tag -a v0.8.2 -m "SALTA v0.8.2"
-git push origin v0.8.2
+git tag -a v0.8.3 -m "SALTA v0.8.3"
+git push origin v0.8.3
 ```
 
-## Create the GitHub release
-
-Run this from the directory containing the release artifacts:
+## Optional GitHub CLI release
 
 ```bash
-gh release create v0.8.2 \
-  --title "SALTA v0.8.2" \
+gh release create v0.8.3 \
+  --title "SALTA v0.8.3" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.8.2.zip \
-  ./SALTA-v0.8.2.zip.sha256
+  ./SALTA-v0.8.3.zip \
+  ./SALTA-v0.8.3.zip.sha256
 ```
 
-## Production deployment
-
-Use the fixed release image in `.env`:
+## Production update
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.2
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.3
 ```
-
-Then update the production system:
 
 ```bash
 docker compose --env-file .env -f docker-compose.image.yml pull

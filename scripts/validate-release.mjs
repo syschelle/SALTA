@@ -49,6 +49,8 @@ if (!publicIndex.includes('data-nav="automations"')) fail("Automations navigatio
 if (!publicIndex.includes('data-page="automations"')) fail("Automations page is missing");
 if (!automationFrontend.includes("turnOn:'An',turnOff:'Aus',toggle:'Toggle'")) fail("Automation action choices are incomplete");
 if (!automationFrontend.includes("conditionDeviceId")) fail("Automation condition UI is missing");
+if (!publicIndex.includes('id="automationTriggerDeviceSearch"') || !publicIndex.includes('id="automationConditionDeviceSearch"') || !publicIndex.includes('id="automationActionDeviceSearch"')) fail("Automation searchable device selectors are incomplete");
+if (!automationFrontend.includes("automationDeviceMatchesSearch") || !automationFrontend.includes("automationDeviceSearchText")) fail("Automation device search implementation is missing");
 if (!serverSource.includes('"/api/automations"')) fail("Automation API routes are missing");
 if (!automationEngineSource.includes('source: "automation"')) fail("Automation commands do not use the shared automation source");
 if (!automationEngineSource.includes('AUTOMATION_CYCLE_NOT_ALLOWED')) fail("Automation loop protection is missing");

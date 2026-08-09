@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.3
+
+- Added searchable trigger, condition and target device selectors to the Automations editor.
+- Device search matches names, rooms, adapter/source labels, models and logical device types.
+- Added match counts and deterministic room/name sorting so large installations are easier to navigate.
+- Widened the automation editor on large screens while keeping the existing single-column responsive layout on smaller screens.
+- Added regression coverage for all three searchable selectors without changing automation-engine behavior or npm dependencies.
+
 ## 0.8.2
 
 - Removed the CI dependency on a standalone `vitest.config.ts` bootstrap file.

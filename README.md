@@ -244,6 +244,8 @@ The first automation rule format contains exactly three stages:
 2. **Only if** — optionally require a second device to have a selected boolean state. Conditions are evaluated from the current reachable device state at execution time.
 3. **Then** — choose a different target device and execute **On**, **Off** or **Toggle**, depending on the capabilities exposed by that device.
 
+The device selectors for trigger, condition and target are searchable. Type any part of the device name, room, source (for example Shelly, Zigbee, HomeMatic or Virtual), model or logical device type to narrow the list. The editor also shows how many matching devices are currently available.
+
 The engine works across supported SALTA device sources because actions use the shared device command router. For example, a Zigbee motion sensor can switch a Shelly relay, or a HomeMatic contact can toggle a SALTA virtual switch. Rules can be enabled, disabled, edited and deleted from the web interface.
 
 Automation rules are stored in PostgreSQL and restored after restart. References to deleted trigger, condition or target devices are removed automatically by the database. SALTA also rejects automation graphs that would create a device-to-device cycle, preventing simple toggle loops.
