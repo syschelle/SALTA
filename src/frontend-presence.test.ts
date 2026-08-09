@@ -18,9 +18,12 @@ describe("presence page", () => {
     expect(html).toContain('id="presenceHost"');
     expect(html).toContain('id="presencePort"');
     expect(html).toContain('id="presenceTlsInsecure"');
+    expect(html).toContain('class="presence-connection-status-row"');
+    expect(html).toContain('class="presence-endpoint-group"');
+    expect(html).toContain('class="presence-transport-options"');
   });
   it("loads, tests, refreshes and edits presence targets through the presence API", () => {
-    expect(app).toContain("async function loadPresence()");
+    expect(app).toContain("async function loadPresence({applySettings=true}={})");
     expect(app).toContain("'/api/presence/test'");
     expect(app).toContain("'/api/presence/refresh'");
     expect(app).toContain("'/api/presence/devices'");
@@ -28,6 +31,10 @@ describe("presence page", () => {
     expect(app).toContain("presenceBaseUrlFromForm()");
     expect(app).toContain("tlsInsecure:presenceProtocol.value==='https'&&presenceTlsInsecure.checked");
     expect(app).toContain("FRITZBOX_TLS_CERTIFICATE");
+    expect(app).toContain("FRITZ!Box erreichbar");
+    expect(app).toContain("Verbindung noch nicht geprüft");
+    expect(app).toContain("lastTestSuccess");
+    expect(app).toContain("loadPresence({applySettings:false})");
   });
   it("exposes individual and house presence booleans to the generic automation editor", () => {
     expect(automationUi).toContain("'present'");
@@ -40,5 +47,9 @@ describe("presence page", () => {
     expect(styles).toContain(".presence-top-grid");
     expect(styles).toContain(".presence-devices-layout");
     expect(styles).toContain(".presence-target-card.present");
+    expect(styles).toContain(".presence-connection-status-row");
+    expect(styles).toContain(".presence-endpoint-group");
+    expect(styles).toContain(".presence-transport-options");
+    expect(styles).toContain(".gateway-status.failed");
   });
 });

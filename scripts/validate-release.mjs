@@ -115,6 +115,9 @@ if (!presenceSource.includes("missingSince") || !presenceSource.includes("absenc
 if (!presenceSource.includes("rejectUnauthorized:!tlsInsecure") || presenceSource.includes("NODE_TLS_REJECT_UNAUTHORIZED")) fail("FRITZ!Box TLS certificate bypass must be request-scoped");
 if (!serverSource.includes("FRITZBOX_TLS_CERTIFICATE") || !serverSource.includes("tlsInsecure")) fail("FRITZ!Box TLS certificate handling is incomplete");
 if (!publicIndex.includes('<option value="http">HTTP</option>') || !publicIndex.includes('<option value="https">HTTPS</option>') || !publicIndex.includes('<option value="49000">49000</option>') || !publicIndex.includes('<option value="49443">49443</option>')) fail("FRITZ!Box protocol/port selectors are incomplete");
+if (!publicIndex.includes('class="presence-connection-status-row"') || !publicIndex.includes('class="presence-endpoint-group"') || !publicIndex.includes('class="presence-transport-options"')) fail("FRITZ!Box presence connection layout is not the compact v0.8.15 layout");
+if (!presenceSource.includes("lastTestSuccess") || !presenceSource.includes("lastTestHostCount") || !presenceSource.includes("lastTestBaseUrl")) fail("FRITZ!Box manual connection test status is not retained by the adapter");
+if (!virtualFrontend.includes("Verbindung noch nicht geprüft") || !virtualFrontend.includes("FRITZ!Box erreichbar") || !virtualFrontend.includes("loadPresence({applySettings:false})")) fail("FRITZ!Box connection test result is not rendered independently of presence activation");
 if (!presenceSource.includes('name:"Hauspräsenz"') || !presenceSource.includes("nobodyHome") || !presenceSource.includes("presentCount")) fail("House presence aggregation is missing");
 for (const route of ['/api/presence', '/api/presence/settings', '/api/presence/test', '/api/presence/devices', '/api/presence/refresh']) {
   if (!serverSource.includes(route)) fail(`Presence API route is missing: ${route}`);

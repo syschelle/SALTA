@@ -1,52 +1,53 @@
-# SALTA v0.8.14
+# SALTA v0.8.15
 
-SALTA v0.8.14 improves the FRITZ!Box presence integration with explicit TR-064 transport controls and safe, request-scoped support for self-signed HTTPS certificates.
+SALTA v0.8.15 improves the FRITZ!Box Presence page with a clear TR-064 connection status and a cleaner connection-settings layout.
 
-## FRITZ!Box connection settings
+## Clear FRITZ!Box connection status
 
-- Split the previous combined TR-064 address field into dedicated **Protocol**, **FRITZ!Box / Host** and **Port** controls on the Presence page.
-- Added explicit selection of both supported transport protocols:
-  - `HTTP`
-  - `HTTPS`
-- Added both common FRITZ!Box TR-064 ports:
-  - `49000`
-  - `49443`
-- Protocol and port remain independently selectable, so SALTA does not force a specific combination.
-- Existing v0.8.13 `baseUrl` settings are parsed automatically and shown in the new controls.
+- The Presence page now shows whether the FRITZ!Box TR-064 endpoint is technically reachable independently of whether automatic presence detection is enabled.
+- Added dedicated connection states for:
+  - Connection not tested yet
+  - Connection in progress / waiting for the first automatic query
+  - FRITZ!Box reachable
+  - Connection failed
+- A successful manual test shows the number of FRITZ!Box home-network devices returned by TR-064.
+- The last manual test time and tested endpoint are shown in the connection status.
+- Failed manual tests remain visible in the connection card with the corresponding SALTA-friendly error message.
+- The adapter keeps the latest manual connection-test result in memory so returning to the Presence page does not immediately lose the result.
 
-## Self-signed HTTPS certificates
+## Improved connection test workflow
 
-- Added an explicit **Disable certificate verification** checkbox to the Presence page.
-- The option is available only for HTTPS connections.
-- When enabled, SALTA accepts a self-signed or otherwise locally untrusted certificate for the configured FRITZ!Box connection.
-- The bypass is scoped only to FRITZ!Box HTTPS requests.
-- SALTA does **not** set `NODE_TLS_REJECT_UNAUTHORIZED=0` and does not weaken TLS verification for Phoscon, OpenCCU, Shelly, HomeKit, the web server or any other integration.
-- Added a dedicated `FRITZBOX_TLS_CERTIFICATE` error so a failed certificate check is shown clearly in the Presence UI.
+- Moved **Connection test** directly next to the FRITZ!Box connection status.
+- The result is now visible in the page itself instead of relying only on a temporary toast notification.
+- The connection test continues to work while **Presence detection** is disabled.
+- Testing unsaved connection settings no longer overwrites the protocol, host, port, TLS, username or password fields while the result is refreshed.
 
-## TR-064 transport
+## Cleaner TR-064 endpoint layout
 
-- Reworked FRITZ!Box SOAP communication to use request-scoped Node.js HTTP/HTTPS requests.
-- HTTPS requests use normal certificate validation by default.
-- `rejectUnauthorized` is disabled only for the individual FRITZ!Box request when the user explicitly enables the certificate-verification bypass.
-- Retains HTTP Digest authentication for protected FRITZ!Box Hosts requests.
-- Retains request timeouts, host-count connection testing and targeted `GetSpecificHostEntry` requests by MAC address.
-- Existing presence hysteresis, last-known-state preservation and house-presence aggregation remain unchanged.
+- Reorganized the FRITZ!Box connection form for better visual balance.
+- **FRITZ!Box / Host** now uses the full available width.
+- **Protocol** and **Port** are displayed below the host as two equally sized controls.
+- HTTP and HTTPS remain independently selectable.
+- Ports `49000` and `49443` remain independently selectable.
+- The existing HTTPS-only **Disable certificate verification** option remains unchanged.
+- Added responsive behavior so the connection status, test button, protocol and port stack cleanly on narrow screens.
 
-## Persistence and compatibility
+## Compatibility
 
-- Added the canonical additive `fritzbox_presence_transport_settings` table for the TLS verification preference.
-- No incremental `ALTER TABLE` migration is used.
-- The new table is created automatically during normal SALTA schema initialization.
-- No manual database command is required.
-- Existing FRITZ!Box credentials, presence targets and v0.8.13 connection addresses remain compatible.
+- No database migration is required.
+- No new database table is required.
 - No fresh PostgreSQL volume is required.
 - No new environment variable is required.
+- Existing FRITZ!Box connection settings and presence targets remain compatible.
+- Existing presence automations remain unchanged.
+- Existing Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device and HomeKit functionality remains unchanged.
 
 ## Security and dependencies
 
-- Certificate verification remains enabled by default.
-- Disabling verification requires an explicit user setting and applies only to the configured FRITZ!Box HTTPS transport.
-- No production npm dependency was added or intentionally changed in v0.8.14.
+- HTTPS certificate verification remains enabled by default.
+- The existing certificate-verification bypass remains explicitly opt-in and scoped only to FRITZ!Box HTTPS requests.
+- SALTA still does not set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+- No production npm dependency was added or intentionally changed in v0.8.15.
 - The locked dependency tree remains unchanged apart from the SALTA root version.
 - Retains `find-my-way` 9.7.0.
 - Retains `@homebridge/dbus-native` 0.7.7.
@@ -54,7 +55,7 @@ SALTA v0.8.14 improves the FRITZ!Box presence integration with explicit TR-064 t
 ## Container tags
 
 ```text
-0.8.14
+0.8.15
 0.8
 latest
 ```
@@ -62,5 +63,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.14
+v0.8.15
 ```

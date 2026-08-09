@@ -33,7 +33,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.14</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.15</strong></div>
   </div>
 </aside>
 
@@ -79,20 +79,25 @@
     <section class="presence-top-grid">
       <article class="panel presence-connection-panel">
         <div class="panel-head"><div><h2>FRITZ!Box-Verbindung</h2><p class="muted">SALTA fragt die lokale TR-064-Hosts-Schnittstelle gezielt nach den hinterlegten MAC-Adressen ab.</p></div><span class="adapter-badge">TR-064</span></div>
-        <div id="presenceGatewayStatus" class="gateway-status"></div>
+        <div class="presence-connection-status-row">
+          <div id="presenceGatewayStatus" class="gateway-status"></div>
+          <button id="presenceTestButton" type="button" class="secondary" onclick="testPresenceConnection()"><span class="mdi mdi-lan-connect" aria-hidden="true"></span>Verbindung testen</button>
+        </div>
         <div id="presenceCredentialWarning" class="settings-warning" role="alert" hidden></div>
         <form id="presenceSettingsForm" class="page-form">
           <label class="presence-enabled-row"><span><strong>Präsenzerkennung aktiv</strong><small>FRITZ!Box regelmäßig nach den bekannten Geräten fragen</small></span><input id="presenceEnabled" type="checkbox"></label>
-          <div class="presence-transport-row">
-            <label>Protokoll<select id="presenceProtocol" required><option value="http">HTTP</option><option value="https">HTTPS</option></select></label>
-            <label>FRITZ!Box / Host<input id="presenceHost" placeholder="fritz.box" autocomplete="url" required><small>Hostname oder IP-Adresse ohne Protokoll und Port.</small></label>
-            <label>Port<select id="presencePort" required><option value="49000">49000</option><option value="49443">49443</option></select></label>
+          <div class="presence-endpoint-group">
+            <label class="presence-host-field">FRITZ!Box / Host<input id="presenceHost" placeholder="fritz.box" autocomplete="url" required><small>Hostname oder IP-Adresse ohne Protokoll und Port.</small></label>
+            <div class="presence-transport-options">
+              <label>Protokoll<select id="presenceProtocol" required><option value="http">HTTP</option><option value="https">HTTPS</option></select></label>
+              <label>Port<select id="presencePort" required><option value="49000">49000</option><option value="49443">49443</option></select></label>
+            </div>
           </div>
           <label class="presence-enabled-row presence-tls-row"><span><strong>Zertifikatsprüfung deaktivieren</strong><small>Nur für HTTPS. Erlaubt selbstsignierte FRITZ!Box-Zertifikate. Nur aktivieren, wenn du deiner lokalen FRITZ!Box vertraust.</small></span><input id="presenceTlsInsecure" type="checkbox"></label>
           <div class="presence-form-row"><label>Benutzername<input id="presenceUsername" autocomplete="username" placeholder="FRITZ!Box-Benutzer"></label><label>Passwort<input id="presencePassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label></div>
           <p id="presencePasswordState" class="setting-note"></p>
           <div class="presence-form-row"><label>Prüfintervall<select id="presencePollInterval"><option value="15">15 Sekunden</option><option value="30">30 Sekunden</option><option value="60">60 Sekunden</option><option value="120">2 Minuten</option></select></label><label>Standard: abwesend nach<select id="presenceAbsenceDelay"><option value="0">sofort</option><option value="60">1 Minute</option><option value="180">3 Minuten</option><option value="300">5 Minuten</option><option value="600">10 Minuten</option><option value="900">15 Minuten</option></select></label></div>
-          <div class="form-actions split-actions"><button id="presenceTestButton" type="button" class="secondary" onclick="testPresenceConnection()">Verbindung testen</button><button type="submit">Einstellungen speichern</button></div>
+          <div class="form-actions"><button type="submit">Einstellungen speichern</button></div>
         </form>
       </article>
       <article class="panel presence-house-panel">

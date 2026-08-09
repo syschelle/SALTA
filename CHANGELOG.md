@@ -2,6 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.15
+
+- Reworked the FRITZ!Box Presence connection card so TR-064 reachability is visible independently of whether automatic presence polling is enabled.
+- Added persistent in-memory manual connection-test status with success/failure, host count, tested endpoint and test timestamp.
+- Moved **Connection test** next to the connection status so the result is immediately visible instead of only appearing as a toast.
+- Reorganized the TR-064 endpoint form: the FRITZ!Box host now uses the full row, with protocol and port arranged as two equal controls below it.
+- Preserved unsaved connection fields while refreshing the status after a manual test.
+- Added distinct neutral, pending, connected and failed connection states plus responsive mobile layout.
+- Extended frontend, adapter and release-validation coverage for the new status behavior and layout.
+- Kept the database schema and npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.14
 
 - Added separate FRITZ!Box TR-064 protocol, host and port controls on the Presence page.

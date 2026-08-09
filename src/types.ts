@@ -131,6 +131,11 @@ export interface FritzBoxPresenceStatus {
   hostCount?: number;
   lastSync?: string;
   lastError?: string;
+  lastTestAt?: string;
+  lastTestSuccess?: boolean;
+  lastTestHostCount?: number;
+  lastTestError?: string;
+  lastTestBaseUrl?: string;
 }
 
 export type OpenCcuDiagnosticStepStatus = "ok" | "warning" | "error";

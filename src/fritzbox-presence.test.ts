@@ -8,7 +8,8 @@ vi.mock("./db.js", () => ({
   writeSystemLog: vi.fn(async () => undefined)
 }));
 
-import { fritzBoxHostByMac, fritzBoxHostCount, normalizeFritzBoxBaseUrl, normalizePresenceMac } from "./fritzbox-presence.js";
+import { FritzBoxPresenceAdapter, fritzBoxHostByMac, fritzBoxHostCount, normalizeFritzBoxBaseUrl, normalizePresenceMac } from "./fritzbox-presence.js";
+import type { DeviceRegistry } from "./registry.js";
 
 const soap = (body: string) => `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>${body}</s:Body></s:Envelope>`;
 const servers: Array<ReturnType<typeof createServer>> = [];
@@ -56,6 +57,29 @@ describe("FRITZ!Box presence transport", () => {
     });
     await expect(fritzBoxHostCount(baseUrl)).resolves.toBe(17);
     expect(soapAction).toBe('"urn:dslforum-org:service:Hosts:1#GetHostNumberOfEntries"');
+  });
+
+
+  it("keeps the result of a manual connection test visible independently of presence polling", async () => {
+    const baseUrl = await localServer((_request, response) => {
+      response.writeHead(200, { "content-type": "text/xml" });
+      response.end(soap("<u:GetHostNumberOfEntriesResponse><NewHostNumberOfEntries>9</NewHostNumberOfEntries></u:GetHostNumberOfEntriesResponse>"));
+    });
+    const adapter = new FritzBoxPresenceAdapter({} as DeviceRegistry);
+    await expect(adapter.testConnection({baseUrl,username:"",password:"",tlsInsecure:false})).resolves.toEqual({hostCount:9});
+    expect(adapter.getStatus()).toMatchObject({lastTestSuccess:true,lastTestHostCount:9,lastTestBaseUrl:baseUrl});
+    expect(adapter.getStatus().lastTestAt).toBeTruthy();
+  });
+
+  it("keeps a failed manual connection test visible for the Presence page", async () => {
+    const baseUrl = await localServer((_request, response) => {
+      response.writeHead(503, { "content-type": "text/xml" });
+      response.end(soap("<u:Fault></u:Fault>"));
+    });
+    const adapter = new FritzBoxPresenceAdapter({} as DeviceRegistry);
+    await expect(adapter.testConnection({baseUrl,username:"",password:"",tlsInsecure:false})).rejects.toThrow("FRITZBOX_HTTP_503");
+    expect(adapter.getStatus()).toMatchObject({lastTestSuccess:false,lastTestError:"FRITZBOX_HTTP_503",lastTestBaseUrl:baseUrl});
+    expect(adapter.getStatus().lastTestAt).toBeTruthy();
   });
 
   it("queries a known MAC with GetSpecificHostEntry", async () => {
