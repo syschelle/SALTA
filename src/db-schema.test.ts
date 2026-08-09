@@ -41,6 +41,9 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
     expect(databaseSource).toContain("condition_device_id text REFERENCES devices(id) ON DELETE CASCADE");
     expect(databaseSource).toContain("action_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
+    expect(databaseSource).toContain("room_id uuid REFERENCES rooms(id) ON DELETE SET NULL");
+    expect(databaseSource).toContain("ALTER TABLE automations ADD COLUMN IF NOT EXISTS room_id uuid REFERENCES rooms(id) ON DELETE SET NULL");
+    expect(databaseSource).toContain('room_id as "roomId"');
     expect(databaseSource).toContain("CHECK(action IN ('turnOn','turnOff','toggle'))");
   });
 

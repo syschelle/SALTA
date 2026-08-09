@@ -111,6 +111,7 @@ export async function initializeDatabaseSchema(): Promise<void> {
       id uuid PRIMARY KEY,
       name text NOT NULL,
       enabled boolean NOT NULL DEFAULT true,
+      room_id uuid REFERENCES rooms(id) ON DELETE SET NULL,
       trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
       trigger_state_key text NOT NULL,
       trigger_value boolean NOT NULL,
@@ -125,6 +126,8 @@ export async function initializeDatabaseSchema(): Promise<void> {
       CHECK ((condition_device_id IS NULL AND condition_state_key IS NULL AND condition_value IS NULL) OR
              (condition_device_id IS NOT NULL AND condition_state_key IS NOT NULL AND condition_value IS NOT NULL))
     );
+    ALTER TABLE automations ADD COLUMN IF NOT EXISTS room_id uuid REFERENCES rooms(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS automations_room_idx ON automations(room_id);
     CREATE INDEX IF NOT EXISTS automations_trigger_idx ON automations(trigger_device_id, enabled);
     CREATE INDEX IF NOT EXISTS automations_action_idx ON automations(action_device_id);
     CREATE TABLE IF NOT EXISTS system_logs (
@@ -262,6 +265,7 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
     id: String(row.id),
     name: String(row.name),
     enabled: Boolean(row.enabled),
+    roomId: row.roomId ? String(row.roomId) : undefined,
     triggerDeviceId: String(row.triggerDeviceId),
     triggerStateKey: String(row.triggerStateKey),
     triggerValue: Boolean(row.triggerValue),
@@ -276,7 +280,7 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
   };
 }
 
-const automationColumns = `id,name,enabled,trigger_device_id as "triggerDeviceId",trigger_state_key as "triggerStateKey",trigger_value as "triggerValue",
+const automationColumns = `id,name,enabled,room_id as "roomId",trigger_device_id as "triggerDeviceId",trigger_state_key as "triggerStateKey",trigger_value as "triggerValue",
   condition_device_id as "conditionDeviceId",condition_state_key as "conditionStateKey",condition_value as "conditionValue",
   action_device_id as "actionDeviceId",action,last_triggered_at as "lastTriggeredAt",created_at as "createdAt",updated_at as "updatedAt"`;
 
@@ -288,19 +292,19 @@ export async function listAutomations(): Promise<AutomationRule[]> {
 export async function createAutomation(input: AutomationInput): Promise<AutomationRule> {
   const id = randomUUID();
   const result = await pool.query(`WITH changed AS (
-    INSERT INTO automations(id,name,enabled,trigger_device_id,trigger_state_key,trigger_value,condition_device_id,condition_state_key,condition_value,action_device_id,action)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    INSERT INTO automations(id,name,enabled,room_id,trigger_device_id,trigger_state_key,trigger_value,condition_device_id,condition_state_key,condition_value,action_device_id,action)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
     RETURNING *
-  ) SELECT ${automationColumns} FROM changed`, [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action]);
+  ) SELECT ${automationColumns} FROM changed`, [id,input.name,input.enabled,input.roomId??null,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action]);
   return automationRow(result.rows[0]);
 }
 
 export async function updateAutomation(id: string, input: AutomationInput): Promise<AutomationRule | undefined> {
   const result = await pool.query(`WITH changed AS (
-    UPDATE automations SET name=$2,enabled=$3,trigger_device_id=$4,trigger_state_key=$5,trigger_value=$6,
-      condition_device_id=$7,condition_state_key=$8,condition_value=$9,action_device_id=$10,action=$11,updated_at=now()
+    UPDATE automations SET name=$2,enabled=$3,room_id=$4,trigger_device_id=$5,trigger_state_key=$6,trigger_value=$7,
+      condition_device_id=$8,condition_state_key=$9,condition_value=$10,action_device_id=$11,action=$12,updated_at=now()
     WHERE id=$1 RETURNING *
-  ) SELECT ${automationColumns} FROM changed`, [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action]);
+  ) SELECT ${automationColumns} FROM changed`, [id,input.name,input.enabled,input.roomId??null,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action]);
   return result.rows[0] ? automationRow(result.rows[0]) : undefined;
 }
 

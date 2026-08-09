@@ -15,6 +15,7 @@ describe("automation frontend", () => {
     expect(html).toContain('id="automationTriggerDevice"');
     expect(html).toContain('id="automationConditionEnabled"');
     expect(html).toContain('id="automationAction"');
+    expect(html).toContain('id="automationRoom"');
   });
 
   it("offers boolean state transitions and deCONZ button-event triggers", () => {
@@ -35,6 +36,18 @@ describe("automation frontend", () => {
     expect(functionCalls(uiAst, "fillAutomationSelect", "automationDeviceMatchesSearch", 2)).toBe(true);
     expect(ui).toContain("device.name,device.room");
     expect(ui).toContain("sourceLabels?.[device.source]");
+  });
+
+  it("keeps the editor aligned, supports room assignment and formats the last event relatively", () => {
+    expect(html).toContain('class="page-form automation-form"');
+    expect(html).toContain('class="automation-form-basics"');
+    expect(html).toContain('class="automation-field-row"');
+    expect(ui).toContain("roomId:automationElements.room?.value||null");
+    expect(hasFunction(uiAst, "fillAutomationRoomSelect")).toBe(true);
+    expect(hasFunction(uiAst, "automationLastEventLabel")).toBe(true);
+    expect(ui).toContain("days===0?'Heute':days===1?'Gestern':`vor ${days} Tagen`");
+    expect(cssRuleContains(styles, ".page-form .automation-device-search", "display:flex")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-field-row", "grid-template-columns:minmax(0,1fr) minmax(0,1fr)")).toBe(true);
   });
 
   it("keeps automation cards responsive on mobile", () => {

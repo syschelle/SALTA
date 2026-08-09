@@ -105,6 +105,21 @@ describe("AutomationEngine", () => {
     }
   });
 
+  it("preserves optional room metadata and clears it when the room is removed", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const engine = new AutomationEngine(registry as never, { command: vi.fn(async command => registry.get(command.deviceId)!) }, memoryStore());
+    await engine.start();
+    const rule = await engine.create({ name: "Room rule", enabled: true, roomId: "11111111-1111-4111-8111-111111111111", triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true, actionDeviceId: "target", action: "turnOn" });
+    expect(rule.roomId).toBe("11111111-1111-4111-8111-111111111111");
+    await engine.setEnabled(rule.id, false);
+    expect(engine.list()[0]?.roomId).toBe("11111111-1111-4111-8111-111111111111");
+    engine.clearRoomAssignment("11111111-1111-4111-8111-111111111111");
+    expect(engine.list()[0]?.roomId).toBeUndefined();
+    engine.stop();
+  });
+
   it("requires the optional condition to use a different device than the trigger", async () => {
     const registry = new TestRegistry();
     registry.devices.set("trigger", device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));

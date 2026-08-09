@@ -1,119 +1,108 @@
-# SALTA v0.8.5
+# SALTA v0.8.6
 
-SALTA v0.8.5 adds real-time deCONZ/Phoscon button events to the local automation engine. Zigbee remotes such as Aqara `lumi.remote...` devices are now imported as dedicated button devices and can trigger automations immediately through the deCONZ WebSocket event stream.
+SALTA v0.8.6 refines the Automations editor, adds optional room assignments to automation rules and makes the last automation event easier to read with relative local timestamps. The realtime deCONZ/Phoscon button-event support introduced in v0.8.5 remains fully available.
 
-## Real-time Phoscon / deCONZ events
+## Automation editor alignment
 
-- Added a persistent deCONZ WebSocket client to the Phoscon adapter.
-- SALTA reads the gateway WebSocket port from the deCONZ `config.websocketport` value, so no additional port setting is required in SALTA.
-- The WebSocket connection is started after a successful Phoscon synchronization.
-- Added automatic reconnect with bounded exponential backoff after gateway, network or socket interruptions.
-- The existing REST reconciliation remains active as a recovery and inventory path.
-- Added handling for deCONZ sensor `changed`, `added` and `deleted` events.
-- Added and deleted resources cause an inventory reconciliation so newly paired or removed sensors are reflected in SALTA.
+- Reworked the Automations editor layout so fields align consistently across the entire form.
+- Search controls no longer inherit the generic form-label grid styling that caused the magnifier, input and device selector to look offset.
+- Device search is now rendered as a dedicated flex control with a consistent height.
+- Trigger and value/event fields are grouped into an aligned two-column row on desktop.
+- Optional condition state/value fields use the same layout.
+- The layout automatically collapses to a clean single-column form on narrow screens.
+- Name, room and enabled state are grouped into a compact metadata section at the top of the editor.
+- The automation editor keeps the wider desktop column introduced for large device lists while remaining responsive on tablets and phones.
 
-## Zigbee buttons and remotes
+## Automation room assignment
 
-- `ZHASwitch` and compatible `ZGP` switch resources are imported as SALTA devices of type **Button**.
-- Aqara/Xiaomi resources such as `lumi.remote...` are no longer lost because they are read-only event devices.
-- Button resources are kept as dedicated SALTA devices and are not merged into a matching actuator card.
-- Added a fallback for deCONZ switch resources without a usable `uniqueid`, using the stable gateway resource identifier instead of dropping the device completely.
-- The current `buttonevent` and battery state remain visible on the Zigbee device card.
-- Sensor resource IDs are stored in adapter metadata so incoming WebSocket messages can be resolved back to the correct SALTA device without polling.
+- Added an optional **Room** selector to the automation create/edit form.
+- An automation can be assigned to any existing SALTA room or left unassigned.
+- Existing automations created by previous v0.8.x releases remain valid and appear as unassigned until a room is selected.
+- The selected room is persisted in PostgreSQL.
+- Added an additive `room_id` column to the existing `automations` table.
+- The room reference uses `ON DELETE SET NULL`, so deleting a SALTA room never deletes the automation itself.
+- SALTA also clears the in-memory room metadata immediately after a room is deleted, so the Automations page does not require a restart to reflect the change.
+- The API validates that a selected room still exists before an automation is created or updated.
+- Automation cards display the assigned room as a compact room badge.
 
-## Discrete button-event bus
+## Relative last-event display
 
-- Added a dedicated SALTA `deviceEvent` channel beside the existing device-state update channel.
-- Every received deCONZ `buttonevent` is published as a discrete event.
-- Repeated identical values are intentionally not deduplicated.
-- Two consecutive button messages carrying the same value therefore trigger two automation events.
-- The latest event value is still persisted in the normal device state for display and diagnostics.
+- Replaced the previous raw locale timestamp on automation cards with a compact relative label.
+- The last successful automation execution is now displayed using local browser time as:
+  - **Heute · HH:MM Uhr** for an event from today;
+  - **Gestern · HH:MM Uhr** for an event from yesterday; or
+  - **vor X Tagen · HH:MM Uhr** for older events.
+- Automations that have never executed display **Letztes Event: noch nicht ausgeführt**.
+- The stored timestamp remains the existing ISO/timestamptz value; this is a presentation change only.
 
-## Button-event automation triggers
+## Realtime Zigbee button events retained from v0.8.5
 
-The existing automation structure remains:
+- The persistent deCONZ/Phoscon WebSocket client remains active with automatic reconnect and WebSocket-port discovery from the gateway.
+- `ZHASwitch` and compatible `ZGP` resources continue to be imported as dedicated SALTA button devices.
+- Aqara/Xiaomi `lumi.remote...` devices remain available as automation triggers even though they are read-only event devices.
+- Every received deCONZ `buttonevent` continues to be published as a discrete SALTA event.
+- Repeated identical event values are intentionally not deduplicated, so two consecutive single-click events execute the matching automation twice.
+- Known Aqara model identifiers continue to expose readable deCONZ event choices while retaining the raw numeric event code.
+- REST reconciliation remains available for inventory recovery while realtime button events use the WebSocket path.
+
+## Automation engine retained
+
+SALTA continues to use the persistent local automation model:
 
 **When → Only if (optional) → Then**
 
-The **When** stage now supports both:
+### Trigger
 
-- boolean device-state transitions; and
-- Zigbee/deCONZ button events.
+- Boolean state transitions remain supported.
+- deCONZ button events remain supported as discrete event triggers.
+- Repeated polling of an unchanged boolean value does not retrigger a rule.
+- Repeated button events with the same event code do trigger again.
 
-For a supported button device, the trigger editor offers **Button event** and a list of event codes. The raw deCONZ value is always shown together with a readable action label.
+### Optional condition
 
-Common button actions include:
+- One optional boolean device condition remains supported.
+- The condition device must be different from the trigger device.
+- Physical condition devices must be reachable before the action executes.
 
-- short click / short release;
-- double click;
-- hold;
-- release;
-- triple and additional multi-click events where the device exposes them.
+### Action
 
-Known Aqara model identifiers receive focused event choices, including the WXKG11LM families exposed by deCONZ as `lumi.remote.b1acn01` or `lumi.sensor_switch.aq2`. The currently observed raw `buttonevent` is also retained as a selectable value when it is not part of the predefined list.
+A compatible target device can execute:
 
-### Aqara / deCONZ event-code note
+- **On**
+- **Off**
+- **Toggle**
 
-SALTA evaluates the normalized deCONZ `state.buttonevent` value delivered by the REST/WebSocket API. This is distinct from a raw Zigbee `attribute_id` and raw attribute value. For the deCONZ mapping of the Aqara WXKG11LM 2018 model (`lumi.remote.b1acn01`), the focused choices are `1002` short release / single click, `1004` double press, `1001` hold and `1003` long release. The raw numeric deCONZ code is always shown in the UI so the actual gateway mapping stays visible.
+Cross-system rules continue to work between Shelly, Zigbee, HomeMatic and SALTA-native virtual devices through the shared `DeviceCommandRouter`.
 
-## Repeated-event execution
+## Searchable automation device selectors retained
 
-- Event-triggered rules are queued per automation instead of being discarded while a previous action is still running.
-- Rapid repeated button presses are therefore executed sequentially.
-- Existing boolean transition rules continue to fire only when the configured state is actually entered.
-- Optional device conditions are evaluated immediately before each queued action is executed.
-- Existing cycle protection remains active.
-
-## Cross-system examples
-
-Examples now supported include:
-
-- Aqara Zigbee button single click → Shelly light **Toggle**.
-- Aqara Zigbee button double click → Shelly relay **Off**.
-- Zigbee button event → only if a HomeMatic or virtual switch is **On** → target device **Toggle**.
-- Zigbee button event → SALTA/HomeKit virtual switch **On/Off/Toggle**.
-
-Actions continue to use the shared `DeviceCommandRouter`, so trigger and target devices may belong to different supported integrations.
-
-## Searchable automation selectors retained
-
-- Trigger, condition and target device selectors remain searchable.
+- Trigger, optional condition and target device selectors remain searchable.
 - Search covers device name, room, integration/source, model and logical device type.
-- Button devices are included in the trigger-device search even though they do not expose a writable switch state.
-- Optional condition devices remain limited to devices that expose boolean state because conditions in the current v0.8.x rule model are still state based.
+- Multiple search terms can be combined.
+- Match counts remain visible.
+- Device options remain sorted by room and then by device name.
+- Existing selections remain preserved while search text is refined.
 
 ## Persistence and compatibility
 
-- No database schema migration is required for v0.8.5.
-- Button-event triggers are encoded in the existing automation trigger key, preserving the current PostgreSQL automation table and existing v0.8.x rules.
-- Existing boolean automation rules remain unchanged and compatible.
+- The automation room change is additive and does not require a destructive database migration.
+- Existing v0.8.x automation rules remain compatible.
 - Existing Shelly, Zigbee, OpenCCU/HomeMatic, virtual-device, room and HomeKit configuration remains compatible.
 - No new production environment variable is required.
 
-## Existing SALTA functionality retained
+## Build and regression protection
 
-- Shelly cards retain the direct shortcut to each Shelly device web interface.
-- Virtual switches remain available in SALTA and HomeKit.
-- HomeMatic thermostat **Off**, **Manual** and **Automatic** controls remain available.
-- Room-assigned devices remain grouped on the overview page.
-- Devices without a valid room assignment remain excluded from the overview.
-- Compact responsive device cards remain optimized for desktop, tablet and mobile layouts.
-- SALTA-owned frontend assets continue to use no-store caching across upgrades.
-
-## Build and test reliability
-
-- Added Phoscon mapping tests for `ZHASwitch` / Aqara button resources.
-- Added deCONZ WebSocket URL and message parsing tests.
-- Added automation-engine coverage proving that two identical button events execute twice.
-- Added frontend coverage for deCONZ button-event trigger choices.
-- Added release validation for the WebSocket client, reconnect path, event bus and automation event subscription.
-- Existing test-symbol preflight and media-query-aware frontend tests remain active.
+- Added frontend regression coverage for the room selector and aligned automation form structure.
+- Added regression coverage for relative **Heute / Gestern / vor X Tagen** event labels.
+- Added database-schema coverage for the additive automation room column and room foreign key.
+- Added API coverage for valid and stale automation room assignments.
+- Added engine coverage proving room metadata survives enable/disable updates and is cleared when its room is removed.
+- Existing test-symbol preflight, release validation and media-query-aware CSS checks remain active.
 
 ## Security and dependency status
 
-- No new npm package is required for WebSocket support; SALTA uses the WebSocket client available in the supported Node.js runtime.
-- No production npm dependency was added or changed in v0.8.5.
-- The transitive dependency tree remains unchanged from v0.8.4 apart from the SALTA root version.
+- No production npm dependency was added or changed in v0.8.6.
+- The transitive dependency tree remains unchanged from v0.8.5 apart from the SALTA root version.
 - Retains `find-my-way` 9.7.0.
 - Retains `@homebridge/dbus-native` 0.7.7 with its matching integrity checksum.
 - Retains the patched `fast-uri` dependency lines already present in the lockfile.
@@ -136,7 +125,7 @@ sh -n install.sh update.sh backup.sh restore.sh
 ## Container tags
 
 ```text
-0.8.5
+0.8.6
 0.8
 latest
 ```
@@ -144,5 +133,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.5
+v0.8.6
 ```

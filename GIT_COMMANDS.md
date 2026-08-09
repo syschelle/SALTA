@@ -1,4 +1,4 @@
-# SALTA v0.8.5 – Git and Release Commands
+# SALTA v0.8.6 – Git and Release Commands
 
 ## Verify before committing
 
@@ -15,7 +15,7 @@ git status
 git checkout main
 git pull --ff-only origin main
 git add -A
-git commit -m "feat(automations): add realtime Zigbee button events"
+git commit -m "feat(automations): add rooms and refine editor layout"
 git push origin main
 ```
 
@@ -24,18 +24,18 @@ Wait until the GitHub CI workflow on `main` is green before creating the release
 ## Tag and publish
 
 ```bash
-git tag -a v0.8.5 -m "SALTA v0.8.5"
-git push origin v0.8.5
+git tag -a v0.8.6 -m "SALTA v0.8.6"
+git push origin v0.8.6
 ```
 
 Optional GitHub CLI release creation from the directory containing the release files:
 
 ```bash
-gh release create v0.8.5 \
-  --title "SALTA v0.8.5" \
+gh release create v0.8.6 \
+  --title "SALTA v0.8.6" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.8.5.zip \
-  ./SALTA-v0.8.5.zip.sha256
+  ./SALTA-v0.8.6.zip \
+  ./SALTA-v0.8.6.zip.sha256
 ```
 
 ## Production update
@@ -43,7 +43,7 @@ gh release create v0.8.5 \
 Use the matching image tag in `.env`:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.5
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.6
 ```
 
 Then update the production stack:

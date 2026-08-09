@@ -42,6 +42,7 @@ const virtualDeviceSchema = z.object({ name: z.string().trim().min(1).max(120), 
 const automationSchema = z.object({
   name: z.string().trim().min(1).max(120),
   enabled: z.boolean().default(true),
+  roomId: z.string().uuid().nullable().optional(),
   triggerDeviceId: z.string().min(1).max(255),
   triggerStateKey: z.string().trim().min(1).max(80),
   triggerValue: z.boolean(),
@@ -216,6 +217,7 @@ function automationError(error: unknown): { status: number; code: string; messag
   const messages: Record<string, string> = {
     AUTOMATION_NOT_FOUND: "Automation not found.",
     AUTOMATION_NAME_REQUIRED: "Enter a name for the automation.",
+    AUTOMATION_ROOM_NOT_FOUND: "The selected room does not exist.",
     AUTOMATION_TRIGGER_DEVICE_NOT_FOUND: "The trigger device no longer exists.",
     AUTOMATION_TRIGGER_STATE_UNSUPPORTED: "The selected trigger state is not available on this device.",
     AUTOMATION_TRIGGER_EVENT_UNSUPPORTED: "The selected trigger event is not available on this device.",
@@ -234,6 +236,7 @@ function normalizeAutomationInput(data: z.infer<typeof automationSchema>) {
   return {
     name: data.name,
     enabled: data.enabled,
+    roomId: data.roomId ?? undefined,
     triggerDeviceId: data.triggerDeviceId,
     triggerStateKey: data.triggerStateKey,
     triggerValue: data.triggerValue,
@@ -243,6 +246,11 @@ function normalizeAutomationInput(data: z.infer<typeof automationSchema>) {
     actionDeviceId: data.actionDeviceId,
     action: data.action
   };
+}
+
+async function automationRoomExists(roomId: string | null | undefined): Promise<boolean> {
+  if (!roomId) return true;
+  return (await listRooms()).some(room => room.id === roomId);
 }
 
 export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine) {
@@ -454,9 +462,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.5" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.6" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.5", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.6", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -507,6 +515,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const deleted = await deleteRoom(request.params.id);
     if (!deleted) return reply.code(404).send({error:{code:"ROOM_NOT_FOUND",message:"Room not found",requestId:request.id}});
     registry.clearRoom(request.params.id);
+    automationEngine?.clearRoomAssignment?.(request.params.id);
     return reply.code(204).send();
   });
 
@@ -617,6 +626,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     if (!automationEngine) return reply.code(503).send({ error: { code: "AUTOMATION_ENGINE_UNAVAILABLE", message: "Automations are not available.", requestId: request.id } });
     const parsed = automationSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
+    if (!await automationRoomExists(parsed.data.roomId)) return reply.code(404).send({ error: { code: "AUTOMATION_ROOM_NOT_FOUND", message: "The selected room does not exist.", requestId: request.id } });
     try {
       const automation = await automationEngine.create(normalizeAutomationInput(parsed.data));
       await writeSystemLog("info", "automation", "AUTOMATION_CREATED", "Automation created", { automationId: automation.id, automationName: automation.name }).catch(() => undefined);
@@ -632,6 +642,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     if (!automationEngine) return reply.code(503).send({ error: { code: "AUTOMATION_ENGINE_UNAVAILABLE", message: "Automations are not available.", requestId: request.id } });
     const parsed = automationSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
+    if (!await automationRoomExists(parsed.data.roomId)) return reply.code(404).send({ error: { code: "AUTOMATION_ROOM_NOT_FOUND", message: "The selected room does not exist.", requestId: request.id } });
     try { return await automationEngine.update(request.params.id, normalizeAutomationInput(parsed.data)); }
     catch (error) { const response = automationError(error); return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } }); }
   });

@@ -108,6 +108,7 @@ function createServer(
     update: vi.fn(),
     setEnabled: vi.fn(),
     remove: vi.fn(),
+    clearRoomAssignment: vi.fn(),
     ...automationOverrides
   } as unknown as AutomationEngine;
   const server = buildServer(registry, adapter, phoscon, openCcu, virtual, undefined, automation);
@@ -673,7 +674,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.5" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.6" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -704,13 +705,25 @@ describe("web security", () => {
 
 
 describe("automations", () => {
-  it("creates a device-state automation with an optional condition and toggle action", async () => {
-    const created = { id: "11111111-1111-4111-8111-111111111111", name: "Motion light", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, actionDeviceId: "light", action: "toggle", createdAt: "2026-08-09T00:00:00.000Z", updatedAt: "2026-08-09T00:00:00.000Z" };
+  it("creates a device-state automation with a room, optional condition and toggle action", async () => {
+    const room = { id: "22222222-2222-4222-8222-222222222222", name: "Hallway", icon: "door-open", sortOrder: 0, createdAt: "2026-08-09T00:00:00.000Z", updatedAt: "2026-08-09T00:00:00.000Z" };
+    vi.mocked(listRooms).mockResolvedValueOnce([room]);
+    const created = { id: "11111111-1111-4111-8111-111111111111", name: "Motion light", enabled: true, roomId: room.id, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, actionDeviceId: "light", action: "toggle", createdAt: "2026-08-09T00:00:00.000Z", updatedAt: "2026-08-09T00:00:00.000Z" };
     const create = vi.fn(async () => created as never);
     const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, { create });
-    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "Motion light", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, actionDeviceId: "light", action: "toggle" } });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "Motion light", enabled: true, roomId: room.id, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, actionDeviceId: "light", action: "toggle" } });
     expect(response.statusCode).toBe(201);
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ triggerValue: true, conditionValue: false, action: "toggle" }));
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ roomId: room.id, triggerValue: true, conditionValue: false, action: "toggle" }));
+  });
+
+  it("rejects a room assignment that no longer exists", async () => {
+    vi.mocked(listRooms).mockResolvedValueOnce([]);
+    const create = vi.fn();
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, { create });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "Missing room", enabled: true, roomId: "22222222-2222-4222-8222-222222222222", triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "light", action: "toggle" } });
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toMatchObject({ error: { code: "AUTOMATION_ROOM_NOT_FOUND" } });
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("toggles an automation enabled state through its dedicated endpoint", async () => {

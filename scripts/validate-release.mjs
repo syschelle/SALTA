@@ -53,6 +53,11 @@ if (!automationFrontend.includes("turnOn:'An',turnOff:'Aus',toggle:'Toggle'")) f
 if (!automationFrontend.includes("conditionDeviceId")) fail("Automation condition UI is missing");
 if (!publicIndex.includes('id="automationTriggerDeviceSearch"') || !publicIndex.includes('id="automationConditionDeviceSearch"') || !publicIndex.includes('id="automationActionDeviceSearch"')) fail("Automation searchable device selectors are incomplete");
 if (!automationFrontend.includes("automationDeviceMatchesSearch") || !automationFrontend.includes("automationDeviceSearchText")) fail("Automation device search implementation is missing");
+if (!publicIndex.includes('id="automationRoom"')) fail("Automation room selector is missing");
+if (!automationFrontend.includes("roomId:automationElements.room?.value||null")) fail("Automation room assignment is not included in the frontend payload");
+if (!automationFrontend.includes("automationLastEventLabel") || !automationFrontend.includes("days===0?'Heute':days===1?'Gestern'")) fail("Automation relative last-event display is missing");
+if (!read("src/db.ts").includes('ALTER TABLE automations ADD COLUMN IF NOT EXISTS room_id uuid REFERENCES rooms(id) ON DELETE SET NULL')) fail("Automation room persistence migration is missing");
+
 if (!automationFrontend.includes("automationButtonEventMarker='event:buttonEvent'")) fail("Automation button-event trigger UI is missing");
 if (!automationFrontend.includes("event:buttonEvent:${eventValue}")) fail("Automation button events are not persisted through the existing trigger key");
 if (!serverSource.includes('"/api/automations"')) fail("Automation API routes are missing");

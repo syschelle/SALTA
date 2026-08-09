@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.6
+
+- Realigned the Automations editor so search inputs, device selectors, trigger/value fields and action fields use consistent widths and spacing.
+- Added an optional SALTA room assignment to automation rules, persisted with an additive `room_id` column that is cleared automatically when a room is deleted.
+- Added room badges to automation cards and kept existing automations without a room fully compatible.
+- Replaced the raw last-run timestamp with a relative German event label such as `Heute · 19:01 Uhr`, `Gestern · 08:45 Uhr` or `vor 3 Tagen · 21:07 Uhr`.
+- Added API validation and regression coverage for automation room assignments while retaining all realtime deCONZ button-event functionality from v0.8.5.
+
 ## 0.8.5
 
 - Added a persistent deCONZ/Phoscon WebSocket client with automatic reconnect and WebSocket-port discovery from gateway configuration.

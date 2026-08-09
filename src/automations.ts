@@ -7,6 +7,7 @@ export interface AutomationRule {
   id: string;
   name: string;
   enabled: boolean;
+  roomId?: string;
   triggerDeviceId: string;
   triggerStateKey: string;
   triggerValue: boolean;
@@ -23,6 +24,7 @@ export interface AutomationRule {
 export interface AutomationInput {
   name: string;
   enabled: boolean;
+  roomId?: string;
   triggerDeviceId: string;
   triggerStateKey: string;
   triggerValue: boolean;
@@ -270,6 +272,7 @@ export class AutomationEngine {
     return this.update(id, {
       name: current.name,
       enabled,
+      roomId: current.roomId,
       triggerDeviceId: current.triggerDeviceId,
       triggerStateKey: current.triggerStateKey,
       triggerValue: current.triggerValue,
@@ -279,6 +282,10 @@ export class AutomationEngine {
       actionDeviceId: current.actionDeviceId,
       action: current.action
     });
+  }
+
+  clearRoomAssignment(roomId: string): void {
+    this.rules = this.rules.map(rule => rule.roomId === roomId ? { ...rule, roomId: undefined } : rule);
   }
 
   async remove(id: string): Promise<void> {
