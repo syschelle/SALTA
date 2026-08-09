@@ -105,6 +105,66 @@ describe("AutomationEngine", () => {
     }
   });
 
+  it("treats multiple trigger devices as an OR group without requiring both states", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("left", device("left", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("right", device("right", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const command = vi.fn(async () => registry.get("target")!);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+    await engine.start();
+    await engine.create({
+      name: "Two wall switches", enabled: true,
+      triggerDeviceId: "left", triggerStateKey: "on", triggerValue: true,
+      additionalTriggers: [{ deviceId: "right", stateKey: "on", value: true }],
+      actionDeviceId: "target", action: "toggle"
+    });
+
+    registry.publish(device("right", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    expect(command).toHaveBeenCalledTimes(1);
+
+    registry.publish(device("left", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    expect(command).toHaveBeenCalledTimes(2);
+    engine.stop();
+  });
+
+  it("supports a realtime button event as an additional OR trigger", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("switch", device("switch", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("button", { ...device("button", { buttonEvent: 1002 }), source: "phoscon", type: "button", adapterData: { buttonEventProtocol: "deconz" } });
+    registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const command = vi.fn(async () => registry.get("target")!);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+    await engine.start();
+    await engine.create({
+      name: "Switch or button", enabled: true,
+      triggerDeviceId: "switch", triggerStateKey: "on", triggerValue: true,
+      additionalTriggers: [{ deviceId: "button", stateKey: encodeAutomationEventTrigger("buttonEvent", 1002), value: true }],
+      actionDeviceId: "target", action: "toggle"
+    });
+    registry.emit("deviceEvent", { deviceId: "button", source: "phoscon", key: "buttonEvent", value: 1002, receivedAt: new Date().toISOString() });
+    await tick();
+    expect(command).toHaveBeenCalledTimes(1);
+    engine.stop();
+  });
+
+  it("includes additional OR triggers in cycle protection", async () => {
+    const registry = new TestRegistry();
+    for (const id of ["a", "b", "c"]) registry.devices.set(id, device(id, { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const engine = new AutomationEngine(registry as never, { command: vi.fn(async command => registry.get(command.deviceId)!) }, memoryStore());
+    await engine.start();
+    await engine.create({ name: "A to B", enabled: true, triggerDeviceId: "a", triggerStateKey: "on", triggerValue: true, actionDeviceId: "b", action: "toggle" });
+    await expect(engine.create({
+      name: "C or B to A", enabled: true,
+      triggerDeviceId: "c", triggerStateKey: "on", triggerValue: true,
+      additionalTriggers: [{ deviceId: "b", stateKey: "on", value: true }],
+      actionDeviceId: "a", action: "toggle"
+    })).rejects.toThrow("AUTOMATION_CYCLE_NOT_ALLOWED");
+    engine.stop();
+  });
+
   it("preserves optional room metadata and clears it when the room is removed", async () => {
     const registry = new TestRegistry();
     registry.devices.set("trigger", device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));

@@ -12,6 +12,10 @@ describe("Phoscon realtime button events", () => {
     expect(adapter).toContain("this.registry.emitDeviceEvent({");
     expect(adapter).toContain('key: "buttonEvent"');
     expect(adapter).toContain("this.scheduleReconnect(generation)");
+    expect(adapter).toContain("buttonFallbackIntervalMs = 2_000");
+    expect(adapter).toContain("pollButtonSensors");
+    expect(adapter).toContain("buttonEventLastUpdated");
+    expect(adapter).toContain('transport: "websocket" | "poll"');
   });
 
   it("provides a dedicated registry event channel separate from state updates", () => {

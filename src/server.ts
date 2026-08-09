@@ -39,6 +39,11 @@ const phosconPairSchema = z.object({ baseUrl: z.string().trim().min(1).max(512) 
 const openCcuSettingsSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), username: z.string().trim().min(1).max(120), password: z.string().max(512).optional() }).strict();
 const openCcuDiagnosticSchema = z.object({ baseUrl: z.string().trim().min(1).max(512).optional(), username: z.string().trim().min(1).max(120).optional(), password: z.string().max(512).optional() }).strict();
 const virtualDeviceSchema = z.object({ name: z.string().trim().min(1).max(120), type: z.literal("switch").default("switch"), roomId: z.string().uuid().nullable().optional() }).strict();
+const automationAdditionalTriggerSchema = z.object({
+  deviceId: z.string().min(1).max(255),
+  stateKey: z.string().trim().min(1).max(80),
+  value: z.boolean()
+}).strict();
 const automationSchema = z.object({
   name: z.string().trim().min(1).max(120),
   enabled: z.boolean().default(true),
@@ -46,6 +51,7 @@ const automationSchema = z.object({
   triggerDeviceId: z.string().min(1).max(255),
   triggerStateKey: z.string().trim().min(1).max(80),
   triggerValue: z.boolean(),
+  additionalTriggers: z.array(automationAdditionalTriggerSchema).max(7).default([]),
   conditionDeviceId: z.string().min(1).max(255).nullable().optional(),
   conditionStateKey: z.string().trim().min(1).max(80).nullable().optional(),
   conditionValue: z.boolean().nullable().optional(),
@@ -221,6 +227,8 @@ function automationError(error: unknown): { status: number; code: string; messag
     AUTOMATION_TRIGGER_DEVICE_NOT_FOUND: "The trigger device no longer exists.",
     AUTOMATION_TRIGGER_STATE_UNSUPPORTED: "The selected trigger state is not available on this device.",
     AUTOMATION_TRIGGER_EVENT_UNSUPPORTED: "The selected trigger event is not available on this device.",
+    AUTOMATION_TRIGGER_LIMIT: "An automation can use at most eight OR triggers.",
+    AUTOMATION_TRIGGER_DUPLICATE: "The same trigger is configured more than once.",
     AUTOMATION_ACTION_DEVICE_NOT_FOUND: "The action device no longer exists.",
     AUTOMATION_TRIGGER_ACTION_SAME_DEVICE: "Trigger and action must use different devices.",
     AUTOMATION_ACTION_UNSUPPORTED: "The selected action is not supported by the target device.",
@@ -240,6 +248,7 @@ function normalizeAutomationInput(data: z.infer<typeof automationSchema>) {
     triggerDeviceId: data.triggerDeviceId,
     triggerStateKey: data.triggerStateKey,
     triggerValue: data.triggerValue,
+    additionalTriggers: data.additionalTriggers.map(trigger => ({ deviceId: trigger.deviceId, stateKey: trigger.stateKey, value: trigger.value })),
     conditionDeviceId: data.conditionDeviceId ?? undefined,
     conditionStateKey: data.conditionStateKey ?? undefined,
     conditionValue: data.conditionValue ?? undefined,
@@ -462,9 +471,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.7" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.9" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.7", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.9", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {

@@ -57,12 +57,27 @@ if (!publicIndex.includes('id="automationRoom"')) fail("Automation room selector
 if (!automationFrontend.includes("roomId:automationElements.room?.value||null")) fail("Automation room assignment is not included in the frontend payload");
 if (!automationFrontend.includes("automationLastEventLabel") || !automationFrontend.includes("days===0?'Heute':days===1?'Gestern'")) fail("Automation relative last-event display is missing");
 const databaseSource = read("src/db.ts");
+const phosconAdapterSource = read("src/phoscon-adapter.ts");
+const phosconCoreSource = read("src/phoscon-core.ts");
 if (/ALTER\s+TABLE/i.test(databaseSource)) fail("canonical database schema must not contain incremental ALTER TABLE migrations");
 if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS automation_preferences")) fail("Automation room preference table is missing");
 if (!databaseSource.includes("automation_id uuid PRIMARY KEY REFERENCES automations(id) ON DELETE CASCADE")) fail("Automation room preference ownership is missing");
 if (!databaseSource.includes("room_id uuid REFERENCES rooms(id) ON DELETE SET NULL")) fail("Automation room preference foreign key is missing");
 if (!databaseSource.includes("LEFT JOIN automation_preferences p ON p.automation_id=a.id")) fail("Automation room preferences are not joined when reading rules");
 if (!databaseSource.includes("INSERT INTO automation_preferences(automation_id,room_id)")) fail("Automation room preference upsert is missing");
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS automation_triggers")) fail("Automation OR-trigger table is missing");
+if (!databaseSource.includes("position smallint NOT NULL CHECK(position BETWEEN 1 AND 7)")) fail("Automation OR-trigger limit is missing from the canonical schema");
+if (!databaseSource.includes("trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE")) fail("Automation OR-trigger device reference is missing");
+if (!databaseSource.includes('as "additionalTriggers"')) fail("Automation OR triggers are not loaded with rules");
+if (!publicIndex.includes('id="automationAdditionalTriggers"') || !publicIndex.includes('id="automationAddTriggerButton"')) fail("Compact OR-trigger editor controls are missing");
+if (!automationFrontend.includes("automationAdditionalTriggerPayload()") || !automationFrontend.includes("additionalTriggers:")) fail("Automation OR triggers are not included in the frontend payload");
+if (!automationFrontend.includes("automationAdditionalTriggerPayload") || !automationFrontend.includes("renderAutomationAdditionalTriggers")) fail("Automation OR-trigger UI implementation is incomplete");
+if (!phosconAdapterSource.includes("buttonFallbackIntervalMs = 2_000") || !phosconAdapterSource.includes("pollButtonSensors")) fail("Phoscon button fallback polling is missing");
+if (!phosconAdapterSource.includes("buttonEventLastUpdated") || !phosconAdapterSource.includes('transport: "websocket" | "poll"')) fail("Phoscon button-event revision tracking is missing");
+if (!automationFrontend.includes("automationPrimaryEventValues") || !automationFrontend.includes("sameDeviceEventTriggers")) fail("Automation multi-event selection is missing");
+if (!publicIndex.includes('id="automationTriggerEventPicker"') || !publicIndex.includes('id="automationTriggerEventOptions"')) fail("Automation multi-event picker markup is missing");
+if (!automationEngineSource.includes("automationRuleTriggers") || !automationEngineSource.includes("AUTOMATION_TRIGGER_LIMIT")) fail("Automation engine does not validate multiple OR triggers");
+if (!serverSource.includes("additionalTriggers: z.array(automationAdditionalTriggerSchema).max(7).default([])")) fail("Automation API does not accept bounded additional OR triggers");
 
 if (!automationFrontend.includes("automationButtonEventMarker='event:buttonEvent'")) fail("Automation button-event trigger UI is missing");
 if (!automationFrontend.includes("event:buttonEvent:${eventValue}")) fail("Automation button events are not persisted through the existing trigger key");
@@ -73,8 +88,6 @@ if (!automationEngineSource.includes('this.registry.on("deviceEvent", this.onDev
 if (!automationEngineSource.includes("parseAutomationEventTrigger")) fail("Automation event trigger parser is missing");
 if (!mainSource.includes("await automations.start()")) fail("Automation engine is not started during SALTA startup");
 if (!mainSource.includes("automations.stop()")) fail("Automation engine is not stopped during SALTA shutdown");
-const phosconAdapterSource = read("src/phoscon-adapter.ts");
-const phosconCoreSource = read("src/phoscon-core.ts");
 if (!phosconAdapterSource.includes("new WebSocket(target)")) fail("Phoscon realtime websocket client is missing");
 if (!phosconAdapterSource.includes("emitDeviceEvent")) fail("Phoscon button events are not forwarded to the SALTA event bus");
 if (!phosconAdapterSource.includes("scheduleReconnect")) fail("Phoscon websocket reconnect handling is missing");

@@ -1,4 +1,4 @@
-# SALTA v0.8.7 – Git and Release Commands
+# SALTA v0.8.9 – Git and Release Commands
 
 ## Verify before committing
 
@@ -15,23 +15,23 @@ git status
 git checkout main
 git pull --ff-only origin main
 git add -A
-git commit -m "fix(database): persist automation rooms without migrations"
+git commit -m "fix(phoscon): harden realtime button events"
 git push origin main
 ```
 
-Wait until the GitHub CI workflow on `main` is green before creating the release tag.
+Wait for a green GitHub CI run before creating the release tag.
 
 ## Tag and publish
 
 ```bash
-git tag -a v0.8.7 -m "SALTA v0.8.7"
-git push origin v0.8.7
+git tag -a v0.8.9 -m "SALTA v0.8.9"
+git push origin v0.8.9
 ```
 
 ## Production update
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.7
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.9
 ```
 
 ```bash

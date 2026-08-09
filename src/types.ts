@@ -90,6 +90,11 @@ export interface PhosconGatewayStatus {
   rfConnected?: boolean;
   lastSync?: string;
   lastError?: string;
+  realtimeConnected?: boolean;
+  realtimeUrl?: string;
+  realtimeLastEvent?: string;
+  realtimeLastError?: string;
+  realtimeFallbackPolling?: boolean;
 }
 
 

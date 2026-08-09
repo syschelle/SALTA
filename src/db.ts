@@ -131,6 +131,15 @@ export async function initializeDatabaseSchema(): Promise<void> {
       updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS automation_preferences_room_idx ON automation_preferences(room_id);
+    CREATE TABLE IF NOT EXISTS automation_triggers (
+      automation_id uuid NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+      position smallint NOT NULL CHECK(position BETWEEN 1 AND 7),
+      trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+      trigger_state_key text NOT NULL,
+      trigger_value boolean NOT NULL,
+      PRIMARY KEY(automation_id,position)
+    );
+    CREATE INDEX IF NOT EXISTS automation_triggers_device_idx ON automation_triggers(trigger_device_id,automation_id);
     CREATE INDEX IF NOT EXISTS automations_trigger_idx ON automations(trigger_device_id, enabled);
     CREATE INDEX IF NOT EXISTS automations_action_idx ON automations(action_device_id);
     CREATE TABLE IF NOT EXISTS system_logs (
@@ -264,6 +273,14 @@ function automationDate(value: unknown): string {
 }
 
 function automationRow(row: Record<string, unknown>): AutomationRule {
+  const additionalTriggers = Array.isArray(row.additionalTriggers)
+    ? row.additionalTriggers.flatMap(value => {
+        if (!value || typeof value !== "object") return [];
+        const trigger = value as Record<string, unknown>;
+        if (!trigger.deviceId || !trigger.stateKey || typeof trigger.value !== "boolean") return [];
+        return [{ deviceId: String(trigger.deviceId), stateKey: String(trigger.stateKey), value: trigger.value }];
+      })
+    : [];
   return {
     id: String(row.id),
     name: String(row.name),
@@ -272,6 +289,7 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
     triggerDeviceId: String(row.triggerDeviceId),
     triggerStateKey: String(row.triggerStateKey),
     triggerValue: Boolean(row.triggerValue),
+    additionalTriggers,
     conditionDeviceId: row.conditionDeviceId ? String(row.conditionDeviceId) : undefined,
     conditionStateKey: row.conditionStateKey ? String(row.conditionStateKey) : undefined,
     conditionValue: typeof row.conditionValue === "boolean" ? row.conditionValue : undefined,
@@ -284,6 +302,7 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
 }
 
 const automationColumns = `a.id,a.name,a.enabled,p.room_id as "roomId",a.trigger_device_id as "triggerDeviceId",a.trigger_state_key as "triggerStateKey",a.trigger_value as "triggerValue",
+  COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',t.trigger_device_id,'stateKey',t.trigger_state_key,'value',t.trigger_value) ORDER BY t.position) FROM automation_triggers t WHERE t.automation_id=a.id),'[]'::jsonb) as "additionalTriggers",
   a.condition_device_id as "conditionDeviceId",a.condition_state_key as "conditionStateKey",a.condition_value as "conditionValue",
   a.action_device_id as "actionDeviceId",a.action,a.last_triggered_at as "lastTriggeredAt",a.created_at as "createdAt",a.updated_at as "updatedAt"`;
 
@@ -297,37 +316,57 @@ export async function listAutomations(): Promise<AutomationRule[]> {
 
 export async function createAutomation(input: AutomationInput): Promise<AutomationRule> {
   const id = randomUUID();
-  const result = await pool.query(`WITH changed AS (
-    INSERT INTO automations(id,name,enabled,trigger_device_id,trigger_state_key,trigger_value,condition_device_id,condition_state_key,condition_value,action_device_id,action)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-    RETURNING *
-  ), preferences AS (
-    INSERT INTO automation_preferences(automation_id,room_id)
-    SELECT id,$12 FROM changed
-    ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()
-    RETURNING automation_id,room_id
-  )
-  SELECT ${automationColumns}
-  FROM changed a
-  LEFT JOIN preferences p ON p.automation_id=a.id`, [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action,input.roomId??null]);
-  return automationRow(result.rows[0]);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`INSERT INTO automations(id,name,enabled,trigger_device_id,trigger_state_key,trigger_value,condition_device_id,condition_state_key,condition_value,action_device_id,action)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+      [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action]);
+    await client.query(`INSERT INTO automation_preferences(automation_id,room_id) VALUES($1,$2)
+      ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()`, [id,input.roomId??null]);
+    for (const [index, trigger] of (input.additionalTriggers ?? []).entries()) {
+      await client.query(`INSERT INTO automation_triggers(automation_id,position,trigger_device_id,trigger_state_key,trigger_value) VALUES($1,$2,$3,$4,$5)`,
+        [id,index+1,trigger.deviceId,trigger.stateKey,trigger.value]);
+    }
+    const result = await client.query(`SELECT ${automationColumns} FROM automations a LEFT JOIN automation_preferences p ON p.automation_id=a.id WHERE a.id=$1`, [id]);
+    await client.query("COMMIT");
+    return automationRow(result.rows[0]);
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch { /* Preserve the original transaction error. */ }
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateAutomation(id: string, input: AutomationInput): Promise<AutomationRule | undefined> {
-  const result = await pool.query(`WITH changed AS (
-    UPDATE automations SET name=$2,enabled=$3,trigger_device_id=$4,trigger_state_key=$5,trigger_value=$6,
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const changed = await client.query(`UPDATE automations SET name=$2,enabled=$3,trigger_device_id=$4,trigger_state_key=$5,trigger_value=$6,
       condition_device_id=$7,condition_state_key=$8,condition_value=$9,action_device_id=$10,action=$11,updated_at=now()
-    WHERE id=$1 RETURNING *
-  ), preferences AS (
-    INSERT INTO automation_preferences(automation_id,room_id)
-    SELECT id,$12 FROM changed
-    ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()
-    RETURNING automation_id,room_id
-  )
-  SELECT ${automationColumns}
-  FROM changed a
-  LEFT JOIN preferences p ON p.automation_id=a.id`, [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action,input.roomId??null]);
-  return result.rows[0] ? automationRow(result.rows[0]) : undefined;
+      WHERE id=$1 RETURNING id`,
+      [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action]);
+    if (!changed.rows[0]) {
+      await client.query("ROLLBACK");
+      return undefined;
+    }
+    await client.query(`INSERT INTO automation_preferences(automation_id,room_id) VALUES($1,$2)
+      ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()`, [id,input.roomId??null]);
+    await client.query("DELETE FROM automation_triggers WHERE automation_id=$1", [id]);
+    for (const [index, trigger] of (input.additionalTriggers ?? []).entries()) {
+      await client.query(`INSERT INTO automation_triggers(automation_id,position,trigger_device_id,trigger_state_key,trigger_value) VALUES($1,$2,$3,$4,$5)`,
+        [id,index+1,trigger.deviceId,trigger.stateKey,trigger.value]);
+    }
+    const result = await client.query(`SELECT ${automationColumns} FROM automations a LEFT JOIN automation_preferences p ON p.automation_id=a.id WHERE a.id=$1`, [id]);
+    await client.query("COMMIT");
+    return result.rows[0] ? automationRow(result.rows[0]) : undefined;
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch { /* Preserve the original transaction error. */ }
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function deleteAutomation(id: string): Promise<boolean> {

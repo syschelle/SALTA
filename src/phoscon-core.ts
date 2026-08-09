@@ -13,6 +13,13 @@ function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function resourceIdentifier(value: unknown): string | undefined {
+  const text = stringValue(value);
+  if (text) return text;
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) return String(value);
+  return undefined;
+}
+
 function numberValue(value: unknown): number | undefined {
   if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
   if (typeof value !== "string" || !value.trim()) return undefined;
@@ -277,7 +284,15 @@ function mappedSensorGroup(baseUrl: string, gatewayIdentity: string, groupKey: s
     lastEvent,
     adapterData: {
       sensorResourceIds: sorted.map(resource => resource.resourceId).join(","),
-      ...(sensorDeviceType(primary.profile) === "button" ? { buttonEventProtocol: "deconz" } : {})
+      ...(sensorDeviceType(primary.profile) === "button" ? (() => {
+        const buttonResource = sorted.find(resource => sensorDeviceType(resource.profile) === "button") ?? primary;
+        const buttonState = record(buttonResource.raw.state);
+        return {
+          buttonEventProtocol: "deconz",
+          buttonEventResourceId: buttonResource.resourceId,
+          buttonEventLastUpdated: stringValue(buttonState.lastupdated)
+        };
+      })() : {})
     }
   };
 }
@@ -318,7 +333,7 @@ export function parsePhosconWebSocketEvent(payload: unknown): PhosconWebSocketEv
   return {
     event: raw.e,
     resource: raw.r,
-    id: stringValue(raw.id),
+    id: resourceIdentifier(raw.id),
     uniqueId: stringValue(raw.uniqueid),
     state: raw.state && typeof raw.state === "object" && !Array.isArray(raw.state) ? record(raw.state) : undefined,
     config: raw.config && typeof raw.config === "object" && !Array.isArray(raw.config) ? record(raw.config) : undefined,

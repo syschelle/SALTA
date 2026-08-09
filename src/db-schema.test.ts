@@ -51,6 +51,12 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("INSERT INTO automation_preferences(automation_id,room_id)");
     expect(databaseSource).toContain("ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()");
     expect(databaseSource).toContain('p.room_id as "roomId"');
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_triggers");
+    expect(databaseSource).toContain("automation_id uuid NOT NULL REFERENCES automations(id) ON DELETE CASCADE");
+    expect(databaseSource).toContain("position smallint NOT NULL CHECK(position BETWEEN 1 AND 7)");
+    expect(databaseSource).toContain("trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
+    expect(databaseSource).toContain("PRIMARY KEY(automation_id,position)");
+    expect(databaseSource).toContain('as "additionalTriggers"');
   });
 
   it("stores a bounded persistent system log", () => {

@@ -179,7 +179,12 @@ describe("phosconDevicesFromState", () => {
       model: "lumi.remote.b1acn01",
       reachable: true,
       state: { buttonEvent: 1002, battery: 91 },
-      adapterData: { sensorResourceIds: "30", buttonEventProtocol: "deconz" }
+      adapterData: {
+        sensorResourceIds: "30",
+        buttonEventProtocol: "deconz",
+        buttonEventResourceId: "30",
+        buttonEventLastUpdated: "2026-08-09T16:00:00"
+      }
     });
   });
 
@@ -191,6 +196,12 @@ describe("phosconDevicesFromState", () => {
       state: { buttonevent: 1002, lastupdated: "2026-08-09T16:00:00" }
     }))).toMatchObject({
       event: "changed", resource: "sensors", id: "30", state: { buttonevent: 1002 }
+    });
+    expect(parsePhosconWebSocketEvent(JSON.stringify({
+      t: "event", e: "changed", r: "sensors", id: 30,
+      state: { buttonevent: 1004, lastupdated: "2026-08-09T16:00:01" }
+    }))).toMatchObject({
+      event: "changed", resource: "sensors", id: "30", state: { buttonevent: 1004 }
     });
   });
 

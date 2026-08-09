@@ -1,5 +1,8 @@
 let automationRules=[];
 let editingAutomationId=null;
+let automationAdditionalTriggers=[];
+let automationAdditionalTriggerSequence=0;
+let automationPrimaryEventValues=[];
 
 const automationElements={
   list:document.getElementById('automationList'),
@@ -14,6 +17,12 @@ const automationElements={
   triggerCount:document.getElementById('automationTriggerDeviceCount'),
   triggerState:document.getElementById('automationTriggerState'),
   triggerValue:document.getElementById('automationTriggerValue'),
+  triggerEventPicker:document.getElementById('automationTriggerEventPicker'),
+  triggerEventSummary:document.getElementById('automationTriggerEventSummary'),
+  triggerEventOptions:document.getElementById('automationTriggerEventOptions'),
+  triggerEventHint:document.getElementById('automationTriggerEventHint'),
+  additionalTriggers:document.getElementById('automationAdditionalTriggers'),
+  addTrigger:document.getElementById('automationAddTriggerButton'),
   conditionEnabled:document.getElementById('automationConditionEnabled'),
   conditionFields:document.getElementById('automationConditionFields'),
   conditionDevice:document.getElementById('automationConditionDevice'),
@@ -66,11 +75,45 @@ function automationButtonEventValues(device){
   return values;
 }
 function automationParseStoredEventTrigger(value){const match=/^event:buttonEvent:(-?\d+)$/.exec(String(value||''));if(!match)return null;const eventValue=Number(match[1]);return Number.isSafeInteger(eventValue)?{key:'buttonEvent',value:eventValue}:null}
+function automationPrimaryEventCapacity(){return Math.max(1,8-automationAdditionalTriggers.length)}
+function automationSetPrimaryEventValues(values){
+  const unique=[...new Set(values.map(Number).filter(Number.isSafeInteger))];
+  automationPrimaryEventValues=unique.slice(0,automationPrimaryEventCapacity());
+}
+function automationTogglePrimaryEvent(value,checked){
+  const numeric=Number(value);if(!Number.isSafeInteger(numeric))return;
+  const current=new Set(automationPrimaryEventValues);
+  if(checked){
+    if(current.size>=automationPrimaryEventCapacity()){notify('Maximal acht Auslöser insgesamt.',true);renderAutomationPrimaryEventPicker();return}
+    current.add(numeric);
+  }else{
+    current.delete(numeric);
+    if(!current.size)current.add(numeric);
+  }
+  automationSetPrimaryEventValues([...current]);renderAutomationPrimaryEventPicker();
+}
+function renderAutomationPrimaryEventPicker(){
+  const isEvent=automationElements.triggerState?.value===automationButtonEventMarker;
+  if(!automationElements.triggerEventPicker)return;
+  automationElements.triggerValue.hidden=isEvent;
+  automationElements.triggerEventPicker.hidden=!isEvent;
+  automationElements.triggerEventHint.hidden=!isEvent;
+  if(!isEvent)return;
+  const device=automationDeviceById(automationElements.triggerDevice.value);
+  const values=automationButtonEventValues(device);
+  if(!automationPrimaryEventValues.length)automationSetPrimaryEventValues([values[0]]);
+  automationPrimaryEventValues=automationPrimaryEventValues.filter(value=>values.includes(value));
+  if(!automationPrimaryEventValues.length)automationSetPrimaryEventValues([values[0]]);
+  automationElements.triggerEventOptions.innerHTML=values.map(value=>`<label class="automation-event-option"><input type="checkbox" value="${value}" ${automationPrimaryEventValues.includes(value)?'checked':''} onchange="automationTogglePrimaryEvent(${value},this.checked)"><span>${escapeHtml(automationButtonEventLabel(value))}</span></label>`).join('');
+  const labelsSelected=automationPrimaryEventValues.map(automationButtonEventLabel);
+  automationElements.triggerEventSummary.textContent=labelsSelected.length===1?labelsSelected[0]:`${labelsSelected.length} Ereignisse ausgewählt`;
+}
 function automationDeviceLabel(device){return `${device.name} · ${sourceLabels?.[device.source]||device.source}${device.room?` · ${device.room}`:''}`}
 function automationDeviceById(id){return all.find(device=>device.id===id)}
 function automationTriggerDevices(){return all.filter(device=>automationBooleanStateKeys(device).length>0||automationEventStateKeys(device).length>0)}
 function automationConditionDevices(){return all.filter(device=>automationBooleanStateKeys(device).length>0)}
 function automationActionDevices(){return all.filter(device=>['turnOn','turnOff','toggle'].some(action=>device.capabilities?.includes(action)))}
+function automationAllTriggerDeviceIds(){return new Set([automationElements.triggerDevice?.value,...automationAdditionalTriggers.map(trigger=>trigger.deviceId)].filter(Boolean))}
 function normalizedAutomationSearch(value){return String(value||'').trim().toLocaleLowerCase('de-DE')}
 function automationDeviceSearchText(device){return [device.name,device.room,sourceLabels?.[device.source]||device.source,device.model,typeLabels?.[device.type]||device.type].filter(Boolean).join(' ').toLocaleLowerCase('de-DE')}
 function automationDeviceMatchesSearch(device,query){const terms=normalizedAutomationSearch(query).split(/\s+/).filter(Boolean);if(!terms.length)return true;const haystack=automationDeviceSearchText(device);return terms.every(term=>haystack.includes(term))}
@@ -88,9 +131,10 @@ function fillAutomationSelect(select,devices,selected,placeholder='Gerät wähle
 }
 function clearAutomationDeviceSearches(){for(const input of [automationElements.triggerSearch,automationElements.conditionSearch,automationElements.actionSearch])if(input)input.value=''}
 function refreshAutomationDeviceSearch(kind){
+  const triggerIds=automationAllTriggerDeviceIds();
   if(kind==='trigger')fillAutomationSelect(automationElements.triggerDevice,automationTriggerDevices(),automationElements.triggerDevice.value,'Triggergerät wählen',automationElements.triggerSearch?.value,automationElements.triggerCount);
-  if(kind==='condition')fillAutomationSelect(automationElements.conditionDevice,automationConditionDevices().filter(device=>device.id!==automationElements.triggerDevice.value),automationElements.conditionDevice.value,'Anderes Bedingungsgerät wählen',automationElements.conditionSearch?.value,automationElements.conditionCount);
-  if(kind==='action')fillAutomationSelect(automationElements.actionDevice,automationActionDevices().filter(device=>device.id!==automationElements.triggerDevice.value),automationElements.actionDevice.value,'Zielgerät wählen',automationElements.actionSearch?.value,automationElements.actionCount);
+  if(kind==='condition')fillAutomationSelect(automationElements.conditionDevice,automationConditionDevices().filter(device=>!triggerIds.has(device.id)),automationElements.conditionDevice.value,'Anderes Bedingungsgerät wählen',automationElements.conditionSearch?.value,automationElements.conditionCount);
+  if(kind==='action')fillAutomationSelect(automationElements.actionDevice,automationActionDevices().filter(device=>!triggerIds.has(device.id)),automationElements.actionDevice.value,'Zielgerät wählen',automationElements.actionSearch?.value,automationElements.actionCount);
 }
 function fillAutomationStateSelect(select,deviceId,selected,includeEvents=false){
   const device=automationDeviceById(deviceId);const keys=device?automationBooleanStateKeys(device):[];
@@ -99,9 +143,9 @@ function fillAutomationStateSelect(select,deviceId,selected,includeEvents=false)
   select.innerHTML=options.length?options.map(option=>`<option value="${escapeHtml(option.value)}"${option.value===selected?' selected':''}>${escapeHtml(option.label)}</option>`).join(''):'<option value="">Kein Trigger verfügbar</option>';
   if(!options.some(option=>option.value===select.value)&&options.length)select.value=options[0].value;
 }
-function fillAutomationValueSelect(select,stateKey,selected){
+function fillAutomationValueSelect(select,stateKey,selected,deviceId=automationElements.triggerDevice.value){
   if(stateKey===automationButtonEventMarker){
-    const device=automationDeviceById(automationElements.triggerDevice.value);const values=automationButtonEventValues(device);const numeric=Number(selected);const current=Number.isSafeInteger(numeric)&&values.includes(numeric)?numeric:values[0];
+    const device=automationDeviceById(deviceId);const values=automationButtonEventValues(device);const numeric=Number(selected);const current=Number.isSafeInteger(numeric)&&values.includes(numeric)?numeric:values[0];
     select.innerHTML=values.map(value=>`<option value="${value}"${value===current?' selected':''}>${escapeHtml(automationButtonEventLabel(value))}</option>`).join('');return;
   }
   const current=selected===undefined?true:selected===true||selected==='true';
@@ -119,19 +163,60 @@ function updateAutomationFormOptions(values={}){
   const triggerState=storedEvent?automationButtonEventMarker:(values.triggerStateKey??automationElements.triggerState.value);
   fillAutomationStateSelect(automationElements.triggerState,triggerId,triggerState,true);
   const triggerValue=storedEvent?.value??values.triggerValue??automationElements.triggerValue.value;
-  fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value,triggerValue);
+  fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value,triggerValue,triggerId);
+  if(automationElements.triggerState.value===automationButtonEventMarker&&!automationPrimaryEventValues.length)automationSetPrimaryEventValues([Number(triggerValue)]);
+  renderAutomationPrimaryEventPicker();
 
+  const triggerIds=automationAllTriggerDeviceIds();
   const conditionSelected=values.conditionDeviceId??automationElements.conditionDevice.value;
-  fillAutomationSelect(automationElements.conditionDevice,automationConditionDevices().filter(device=>device.id!==automationElements.triggerDevice.value),conditionSelected,'Anderes Bedingungsgerät wählen',automationElements.conditionSearch?.value,automationElements.conditionCount);
+  fillAutomationSelect(automationElements.conditionDevice,automationConditionDevices().filter(device=>!triggerIds.has(device.id)),conditionSelected,'Anderes Bedingungsgerät wählen',automationElements.conditionSearch?.value,automationElements.conditionCount);
   const conditionId=automationElements.conditionDevice.value||conditionSelected;
   fillAutomationStateSelect(automationElements.conditionState,conditionId,values.conditionStateKey??automationElements.conditionState.value,false);
-  fillAutomationValueSelect(automationElements.conditionValue,automationElements.conditionState.value,values.conditionValue??automationElements.conditionValue.value);
+  fillAutomationValueSelect(automationElements.conditionValue,automationElements.conditionState.value,values.conditionValue??automationElements.conditionValue.value,conditionId);
 
   const actionSelected=values.actionDeviceId??automationElements.actionDevice.value;
-  fillAutomationSelect(automationElements.actionDevice,automationActionDevices().filter(device=>device.id!==automationElements.triggerDevice.value),actionSelected,'Zielgerät wählen',automationElements.actionSearch?.value,automationElements.actionCount);
+  fillAutomationSelect(automationElements.actionDevice,automationActionDevices().filter(device=>!triggerIds.has(device.id)),actionSelected,'Zielgerät wählen',automationElements.actionSearch?.value,automationElements.actionCount);
   if(actionSelected&&[...automationElements.actionDevice.options].some(option=>option.value===actionSelected))automationElements.actionDevice.value=actionSelected;
   fillAutomationActionSelect(values.action??automationElements.action.value);
+  renderAutomationAdditionalTriggers();
 }
+function automationStoredAdditionalTrigger(trigger){
+  const storedEvent=automationParseStoredEventTrigger(trigger?.stateKey);
+  return {id:++automationAdditionalTriggerSequence,deviceId:String(trigger?.deviceId||''),stateKey:storedEvent?automationButtonEventMarker:String(trigger?.stateKey||''),value:storedEvent?.value??trigger?.value??true,query:'',expanded:false};
+}
+function automationAdditionalTriggerSummary(trigger){
+  const device=automationDeviceById(trigger.deviceId);if(!device)return 'Auslöser noch nicht vollständig';
+  if(trigger.stateKey===automationButtonEventMarker)return `${device.name} · ${automationButtonEventLabel(trigger.value)}`;
+  return `${device.name} · ${automationStateLabel(trigger.stateKey)} = ${automationValueLabel(trigger.stateKey,trigger.value===true||trigger.value==='true')}`;
+}
+function renderAutomationAdditionalTriggers(){
+  if(!automationElements.additionalTriggers)return;
+  automationElements.additionalTriggers.innerHTML=automationAdditionalTriggers.map((trigger,index)=>`<article class="automation-or-trigger ${trigger.expanded?'expanded':''}" data-trigger-id="${trigger.id}"><div class="automation-or-trigger-head"><button class="automation-or-trigger-summary" type="button" onclick="toggleAutomationAdditionalTrigger(${trigger.id})" aria-expanded="${trigger.expanded}"><span class="automation-or-badge">ODER</span><span><small>Auslöser ${index+2}</small><strong>${escapeHtml(automationAdditionalTriggerSummary(trigger))}</strong></span><span class="mdi ${trigger.expanded?'mdi-chevron-up':'mdi-chevron-down'}" aria-hidden="true"></span></button><button class="automation-or-trigger-remove" type="button" onclick="removeAutomationAdditionalTrigger(${trigger.id})" aria-label="Auslöser ${index+2} entfernen" title="Auslöser entfernen"><span class="mdi mdi-close" aria-hidden="true"></span></button></div><div class="automation-or-trigger-body" ${trigger.expanded?'':'hidden'}><div class="automation-device-field"><label for="automationExtraDevice-${trigger.id}">Gerät</label><div class="automation-device-picker"><div class="search automation-device-search"><span class="mdi mdi-magnify" aria-hidden="true"></span><input id="automationExtraSearch-${trigger.id}" type="search" value="${escapeHtml(trigger.query)}" placeholder="Gerät suchen …" autocomplete="off" oninput="searchAutomationAdditionalTrigger(${trigger.id},this.value)" aria-label="Weiteres Triggergerät suchen"></div><select id="automationExtraDevice-${trigger.id}" onchange="changeAutomationAdditionalTriggerDevice(${trigger.id},this.value)"></select><small id="automationExtraCount-${trigger.id}" class="automation-device-match-count" aria-live="polite"></small></div></div><div class="automation-field-row"><label>Trigger<select id="automationExtraState-${trigger.id}" onchange="changeAutomationAdditionalTriggerState(${trigger.id},this.value)"></select></label><label>Wert / Ereignis<select id="automationExtraValue-${trigger.id}" onchange="changeAutomationAdditionalTriggerValue(${trigger.id},this.value)"></select></label></div></div></article>`).join('');
+  for(const trigger of automationAdditionalTriggers){
+    const deviceSelect=document.getElementById(`automationExtraDevice-${trigger.id}`);if(!deviceSelect)continue;
+    const count=document.getElementById(`automationExtraCount-${trigger.id}`);
+    fillAutomationSelect(deviceSelect,automationTriggerDevices(),trigger.deviceId,'Triggergerät wählen',trigger.query,count);
+    const selectedDevice=deviceSelect.value||trigger.deviceId;if(selectedDevice!==trigger.deviceId)trigger.deviceId=selectedDevice;
+    const stateSelect=document.getElementById(`automationExtraState-${trigger.id}`);const valueSelect=document.getElementById(`automationExtraValue-${trigger.id}`);
+    fillAutomationStateSelect(stateSelect,trigger.deviceId,trigger.stateKey,true);trigger.stateKey=stateSelect.value;
+    fillAutomationValueSelect(valueSelect,trigger.stateKey,trigger.value,trigger.deviceId);trigger.value=trigger.stateKey===automationButtonEventMarker?Number(valueSelect.value):valueSelect.value==='true';
+  }
+  if(automationElements.addTrigger){automationElements.addTrigger.hidden=automationAdditionalTriggers.length>=7;automationElements.addTrigger.disabled=automationAdditionalTriggers.length>=7}
+}
+function addAutomationAdditionalTrigger(){
+  if(automationAdditionalTriggers.length>=7){notify('Maximal acht ODER-Auslöser pro Automation.',true);return}
+  const excluded=new Set([automationElements.triggerDevice?.value,automationElements.actionDevice?.value].filter(Boolean));const candidates=automationTriggerDevices();const first=candidates.find(device=>!excluded.has(device.id))||candidates[0];const state=first?(automationBooleanStateKeys(first)[0]||(automationEventStateKeys(first).length?automationButtonEventMarker:'')):'';
+  const value=state===automationButtonEventMarker?(automationButtonEventValues(first)[0]??1000):true;
+  automationAdditionalTriggers.push({id:++automationAdditionalTriggerSequence,deviceId:first?.id||'',stateKey:state,value,query:'',expanded:true});
+  updateAutomationFormOptions();
+}
+function removeAutomationAdditionalTrigger(id){automationAdditionalTriggers=automationAdditionalTriggers.filter(trigger=>trigger.id!==id);updateAutomationFormOptions()}
+function toggleAutomationAdditionalTrigger(id){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.expanded=!trigger.expanded;renderAutomationAdditionalTriggers()}
+function searchAutomationAdditionalTrigger(id,query){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.query=query;const select=document.getElementById(`automationExtraDevice-${id}`);const count=document.getElementById(`automationExtraCount-${id}`);if(select)fillAutomationSelect(select,automationTriggerDevices(),trigger.deviceId,'Triggergerät wählen',query,count)}
+function changeAutomationAdditionalTriggerDevice(id,deviceId){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.deviceId=deviceId;trigger.query='';const device=automationDeviceById(deviceId);trigger.stateKey=automationBooleanStateKeys(device)[0]||(automationEventStateKeys(device).length?automationButtonEventMarker:'');trigger.value=trigger.stateKey===automationButtonEventMarker?(automationButtonEventValues(device)[0]??1000):true;updateAutomationFormOptions()}
+function changeAutomationAdditionalTriggerState(id,stateKey){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.stateKey=stateKey;const device=automationDeviceById(trigger.deviceId);trigger.value=stateKey===automationButtonEventMarker?(automationButtonEventValues(device)[0]??1000):true;renderAutomationAdditionalTriggers()}
+function changeAutomationAdditionalTriggerValue(id,value){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.value=trigger.stateKey===automationButtonEventMarker?Number(value):value==='true';renderAutomationAdditionalTriggers()}
+function automationAdditionalTriggerPayload(){return automationAdditionalTriggers.map(trigger=>({deviceId:trigger.deviceId,stateKey:trigger.stateKey===automationButtonEventMarker?`event:buttonEvent:${Number(trigger.value)}`:trigger.stateKey,value:trigger.stateKey===automationButtonEventMarker?true:trigger.value===true||trigger.value==='true'}))}
 function automationRoomById(id){return rooms.find(room=>room.id===id)}
 function fillAutomationRoomSelect(selected=''){
   const current=selected||automationElements.room?.value||'';
@@ -150,7 +235,8 @@ function automationLastEventLabel(value,now=new Date()){
 }
 function automationSummary(rule){
   const trigger=automationDeviceById(rule.triggerDeviceId);const condition=rule.conditionDeviceId?automationDeviceById(rule.conditionDeviceId):null;const target=automationDeviceById(rule.actionDeviceId);const event=automationParseStoredEventTrigger(rule.triggerStateKey);
-  const triggerText=event?`Wenn ${trigger?.name||'Unbekannt'} · ${automationButtonEventLabel(event.value)}`:`Wenn ${trigger?.name||'Unbekannt'} · ${automationStateLabel(rule.triggerStateKey)} = ${automationValueLabel(rule.triggerStateKey,rule.triggerValue)}`;
+  const primary=event?`Wenn ${trigger?.name||'Unbekannt'} · ${automationButtonEventLabel(event.value)}`:`Wenn ${trigger?.name||'Unbekannt'} · ${automationStateLabel(rule.triggerStateKey)} = ${automationValueLabel(rule.triggerStateKey,rule.triggerValue)}`;
+  const triggerCount=1+(rule.additionalTriggers?.length||0);const triggerText=triggerCount>1?`${primary} · ${triggerCount} Auslöser (ODER)`:primary;
   const conditionText=condition?`Nur wenn ${condition.name} · ${automationStateLabel(rule.conditionStateKey)} = ${automationValueLabel(rule.conditionStateKey,rule.conditionValue)}`:'Ohne zusätzliche Bedingung';
   const actionText=`Dann ${target?.name||'Unbekannt'} → ${automationActionLabels[rule.action]||rule.action}`;
   return {triggerText,conditionText,actionText};
@@ -161,16 +247,18 @@ function renderAutomations(){
   automationElements.list.innerHTML=automationRules.map(rule=>{const summary=automationSummary(rule);const room=automationRoomById(rule.roomId);return `<article class="automation-card ${rule.enabled?'':'disabled'}"><div class="automation-card-head"><div class="automation-card-title"><h3>${escapeHtml(rule.name)}</h3><div class="automation-card-meta"><span>${rule.enabled?'Aktiv':'Deaktiviert'}</span>${room?`<span class="automation-room-badge">${iconMarkup(room.icon||'home-outline')} ${escapeHtml(room.name)}</span>`:''}</div><small class="automation-last-event">${escapeHtml(automationLastEventLabel(rule.lastTriggeredAt))}</small></div><label class="automation-switch" title="Automation ${rule.enabled?'deaktivieren':'aktivieren'}"><input type="checkbox" ${rule.enabled?'checked':''} onchange="toggleAutomation('${rule.id}',this.checked)"><span aria-hidden="true"></span></label></div><div class="automation-flow"><div><span class="automation-step-icon">${iconMarkup('flash-outline')}</span><p>${escapeHtml(summary.triggerText)}</p></div><div><span class="automation-step-icon">${iconMarkup('filter-outline')}</span><p>${escapeHtml(summary.conditionText)}</p></div><div><span class="automation-step-icon">${iconMarkup('arrow-right-bold-outline')}</span><p>${escapeHtml(summary.actionText)}</p></div></div><div class="automation-card-actions"><button class="secondary" type="button" onclick="editAutomation('${rule.id}')">${iconMarkup('pencil-outline')}<span>Bearbeiten</span></button><button class="danger" type="button" onclick="deleteAutomation('${rule.id}')">${iconMarkup('delete-outline')}<span>Löschen</span></button></div></article>`}).join('');
 }
 async function loadAutomations(){const payload=await api('/api/automations');automationRules=payload?.automations||[];fillAutomationRoomSelect();renderAutomations();updateAutomationFormOptions()}
-function resetAutomationForm(){editingAutomationId=null;automationElements.form.reset();clearAutomationDeviceSearches();fillAutomationRoomSelect('');automationElements.enabled.checked=true;automationElements.conditionEnabled.checked=false;automationElements.conditionFields.hidden=true;automationElements.title.textContent='Automation hinzufügen';automationElements.save.textContent='Automation speichern';automationElements.cancel.hidden=true;updateAutomationFormOptions()}
+function resetAutomationForm(){editingAutomationId=null;automationAdditionalTriggers=[];automationPrimaryEventValues=[];automationElements.form.reset();clearAutomationDeviceSearches();fillAutomationRoomSelect('');automationElements.enabled.checked=true;automationElements.conditionEnabled.checked=false;automationElements.conditionFields.hidden=true;automationElements.title.textContent='Automation hinzufügen';automationElements.save.textContent='Automation speichern';automationElements.cancel.hidden=true;updateAutomationFormOptions()}
 function cancelAutomationEdit(){resetAutomationForm()}
 function editAutomation(id){
-  clearAutomationDeviceSearches();const rule=automationRules.find(item=>item.id===id);if(!rule)return;editingAutomationId=id;automationElements.title.textContent='Automation bearbeiten';automationElements.save.textContent='Änderungen speichern';automationElements.cancel.hidden=false;automationElements.name.value=rule.name;fillAutomationRoomSelect(rule.roomId||'');automationElements.enabled.checked=rule.enabled;automationElements.conditionEnabled.checked=Boolean(rule.conditionDeviceId);automationElements.conditionFields.hidden=!rule.conditionDeviceId;updateAutomationFormOptions(rule);automationElements.name.focus();window.scrollTo({top:0,behavior:'smooth'});
+  clearAutomationDeviceSearches();const rule=automationRules.find(item=>item.id===id);if(!rule)return;editingAutomationId=id;const primaryEvent=automationParseStoredEventTrigger(rule.triggerStateKey);automationPrimaryEventValues=primaryEvent?[primaryEvent.value]:[];const visibleAdditional=[];for(const trigger of (rule.additionalTriggers||[])){const event=automationParseStoredEventTrigger(trigger.stateKey);if(primaryEvent&&trigger.deviceId===rule.triggerDeviceId&&event){automationPrimaryEventValues.push(event.value)}else visibleAdditional.push(trigger)}automationSetPrimaryEventValues(automationPrimaryEventValues);automationAdditionalTriggers=visibleAdditional.map(automationStoredAdditionalTrigger);automationElements.title.textContent='Automation bearbeiten';automationElements.save.textContent='Änderungen speichern';automationElements.cancel.hidden=false;automationElements.name.value=rule.name;fillAutomationRoomSelect(rule.roomId||'');automationElements.enabled.checked=rule.enabled;automationElements.conditionEnabled.checked=Boolean(rule.conditionDeviceId);automationElements.conditionFields.hidden=!rule.conditionDeviceId;updateAutomationFormOptions(rule);automationElements.name.focus();window.scrollTo({top:0,behavior:'smooth'});
 }
 function automationPayload(){
-  const useCondition=automationElements.conditionEnabled.checked;const eventTrigger=automationElements.triggerState.value===automationButtonEventMarker;const eventValue=Number(automationElements.triggerValue.value);
-  return {name:automationElements.name.value.trim(),enabled:automationElements.enabled.checked,roomId:automationElements.room?.value||null,triggerDeviceId:automationElements.triggerDevice.value,triggerStateKey:eventTrigger?`event:buttonEvent:${eventValue}`:automationElements.triggerState.value,triggerValue:eventTrigger?true:automationElements.triggerValue.value==='true',conditionDeviceId:useCondition?automationElements.conditionDevice.value:null,conditionStateKey:useCondition?automationElements.conditionState.value:null,conditionValue:useCondition?automationElements.conditionValue.value==='true':null,actionDeviceId:automationElements.actionDevice.value,action:automationElements.action.value};
+  const useCondition=automationElements.conditionEnabled.checked;const eventTrigger=automationElements.triggerState.value===automationButtonEventMarker;
+  const eventValues=eventTrigger?(automationPrimaryEventValues.length?automationPrimaryEventValues:[Number(automationElements.triggerValue.value)]):[];
+  const eventValue=eventValues[0];const sameDeviceEventTriggers=eventValues.slice(1).map(value=>({deviceId:automationElements.triggerDevice.value,stateKey:`event:buttonEvent:${value}`,value:true}));
+  return {name:automationElements.name.value.trim(),enabled:automationElements.enabled.checked,roomId:automationElements.room?.value||null,triggerDeviceId:automationElements.triggerDevice.value,triggerStateKey:eventTrigger?`event:buttonEvent:${eventValue}`:automationElements.triggerState.value,triggerValue:eventTrigger?true:automationElements.triggerValue.value==='true',additionalTriggers:[...sameDeviceEventTriggers,...automationAdditionalTriggerPayload()],conditionDeviceId:useCondition?automationElements.conditionDevice.value:null,conditionStateKey:useCondition?automationElements.conditionState.value:null,conditionValue:useCondition?automationElements.conditionValue.value==='true':null,actionDeviceId:automationElements.actionDevice.value,action:automationElements.action.value};
 }
-function friendlyAutomationError(error){const messages={AUTOMATION_ROOM_NOT_FOUND:'Der ausgewählte Raum existiert nicht mehr.',AUTOMATION_CYCLE_NOT_ALLOWED:'Diese Regel würde einen Schaltkreis zwischen Automationen erzeugen. Zyklische Regeln sind nicht erlaubt.',AUTOMATION_TRIGGER_ACTION_SAME_DEVICE:'Trigger- und Zielgerät müssen unterschiedlich sein.',AUTOMATION_CONDITION_TRIGGER_SAME_DEVICE:'Das Bedingungsgerät muss sich vom Triggergerät unterscheiden.',AUTOMATION_TRIGGER_STATE_UNSUPPORTED:'Der ausgewählte Triggerzustand ist für dieses Gerät nicht verfügbar.',AUTOMATION_TRIGGER_EVENT_UNSUPPORTED:'Das ausgewählte Tasterereignis ist für dieses Gerät nicht verfügbar.',AUTOMATION_CONDITION_STATE_UNSUPPORTED:'Der ausgewählte Bedingungszustand ist für dieses Gerät nicht verfügbar.',AUTOMATION_ACTION_UNSUPPORTED:'Das Zielgerät unterstützt diese Aktion nicht.'};return messages[error?.code]||error?.message||'Automation konnte nicht gespeichert werden.'}
+function friendlyAutomationError(error){const messages={AUTOMATION_ROOM_NOT_FOUND:'Der ausgewählte Raum existiert nicht mehr.',AUTOMATION_CYCLE_NOT_ALLOWED:'Diese Regel würde einen Schaltkreis zwischen Automationen erzeugen. Zyklische Regeln sind nicht erlaubt.',AUTOMATION_TRIGGER_ACTION_SAME_DEVICE:'Trigger- und Zielgerät müssen unterschiedlich sein.',AUTOMATION_CONDITION_TRIGGER_SAME_DEVICE:'Das Bedingungsgerät muss sich vom Triggergerät unterscheiden.',AUTOMATION_TRIGGER_STATE_UNSUPPORTED:'Der ausgewählte Triggerzustand ist für dieses Gerät nicht verfügbar.',AUTOMATION_TRIGGER_EVENT_UNSUPPORTED:'Das ausgewählte Tasterereignis ist für dieses Gerät nicht verfügbar.',AUTOMATION_TRIGGER_LIMIT:'Maximal acht ODER-Auslöser sind pro Automation möglich.',AUTOMATION_TRIGGER_DUPLICATE:'Derselbe Auslöser ist mehrfach eingetragen.',AUTOMATION_CONDITION_STATE_UNSUPPORTED:'Der ausgewählte Bedingungszustand ist für dieses Gerät nicht verfügbar.',AUTOMATION_ACTION_UNSUPPORTED:'Das Zielgerät unterstützt diese Aktion nicht.'};return messages[error?.code]||error?.message||'Automation konnte nicht gespeichert werden.'}
 async function saveAutomation(){const payload=automationPayload();const wasEditing=Boolean(editingAutomationId);const method=wasEditing?'PUT':'POST';const url=wasEditing?`/api/automations/${editingAutomationId}`:'/api/automations';const original=automationElements.save.textContent;automationElements.save.disabled=true;automationElements.save.textContent='Wird gespeichert …';try{await api(url,{method,headers:{'content-type':'application/json'},body:JSON.stringify(payload)});await loadAutomations();resetAutomationForm();notify(wasEditing?'Automation wurde aktualisiert.':'Automation wurde angelegt.')}catch(error){notify(friendlyAutomationError(error),true)}finally{automationElements.save.disabled=false;automationElements.save.textContent=original}}
 async function toggleAutomation(id,enabled){try{await api(`/api/automations/${id}/enabled`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({enabled})});await loadAutomations();notify(enabled?'Automation aktiviert.':'Automation deaktiviert.')}catch(error){notify(friendlyAutomationError(error),true);await loadAutomations().catch(()=>undefined)}}
 async function deleteAutomation(id){const rule=automationRules.find(item=>item.id===id);if(!rule)return;if(!confirm(`Automation „${rule.name}“ wirklich löschen?`))return;try{await api(`/api/automations/${id}`,{method:'DELETE'});if(editingAutomationId===id)resetAutomationForm();await loadAutomations();notify('Automation wurde gelöscht.')}catch(error){notify(friendlyAutomationError(error),true)}}
@@ -180,8 +268,8 @@ function automationDevicesChanged(){fillAutomationRoomSelect();updateAutomationF
 automationElements.triggerSearch?.addEventListener('input',()=>refreshAutomationDeviceSearch('trigger'));
 automationElements.conditionSearch?.addEventListener('input',()=>refreshAutomationDeviceSearch('condition'));
 automationElements.actionSearch?.addEventListener('input',()=>refreshAutomationDeviceSearch('action'));
-automationElements.triggerDevice?.addEventListener('change',()=>{if(automationElements.triggerSearch)automationElements.triggerSearch.value='';fillAutomationStateSelect(automationElements.triggerState,automationElements.triggerDevice.value,undefined,true);fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value);updateAutomationFormOptions()});
-automationElements.triggerState?.addEventListener('change',()=>fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value));
+automationElements.triggerDevice?.addEventListener('change',()=>{automationPrimaryEventValues=[];if(automationElements.triggerSearch)automationElements.triggerSearch.value='';fillAutomationStateSelect(automationElements.triggerState,automationElements.triggerDevice.value,undefined,true);fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value,undefined,automationElements.triggerDevice.value);updateAutomationFormOptions()});
+automationElements.triggerState?.addEventListener('change',()=>{automationPrimaryEventValues=[];fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value);renderAutomationPrimaryEventPicker()});
 automationElements.conditionEnabled?.addEventListener('change',()=>{automationElements.conditionFields.hidden=!automationElements.conditionEnabled.checked;if(automationElements.conditionEnabled.checked)updateAutomationFormOptions()});
 automationElements.conditionDevice?.addEventListener('change',()=>{if(automationElements.conditionSearch)automationElements.conditionSearch.value='';fillAutomationStateSelect(automationElements.conditionState,automationElements.conditionDevice.value,undefined,false);fillAutomationValueSelect(automationElements.conditionValue,automationElements.conditionState.value)});
 automationElements.conditionState?.addEventListener('change',()=>fillAutomationValueSelect(automationElements.conditionValue,automationElements.conditionState.value));

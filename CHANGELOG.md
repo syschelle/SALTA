@@ -2,6 +2,25 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.9
+
+- Fixed Aqara/deCONZ button events not reaching automations when the deCONZ WebSocket port is unavailable from the SALTA container.
+- Added button-only REST fallback polling while the WebSocket is disconnected; the fallback uses deCONZ `lastupdated` so repeated identical `buttonevent` values are recognized as new events.
+- Added de-duplication between WebSocket and fallback delivery to prevent one physical press from executing twice.
+- Added realtime Phoscon diagnostics showing WebSocket connectivity, fallback mode and the last received button event.
+- Added compact multi-event selection for one button trigger, so e.g. single click OR double click can trigger the same automation without adding visible trigger rows.
+- Kept the canonical database schema and npm dependency tree unchanged apart from the SALTA root version.
+
+## 0.8.8
+
+- Added up to eight OR-linked triggers per automation while keeping the first trigger editor unchanged for simple rules.
+- Added compact, collapsed additional-trigger rows opened only when the user needs to edit them.
+- Added searchable device, state and event selection to every additional trigger.
+- Added the additive `automation_triggers` table without `ALTER TABLE`, preserving SALTA's canonical schema policy and existing v0.8.x automations.
+- Extended cycle protection, target/condition validation and realtime button-event handling across every OR trigger.
+- Kept automation cards compact by showing the first trigger plus a concise `N Auslöser (ODER)` indicator.
+- Kept the npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.7
 
 - Fixed the GitHub CI failure caused by the v0.8.6 automation-room implementation adding an incremental `ALTER TABLE` statement to SALTA's clean canonical schema.

@@ -1,5 +1,5 @@
 import { hostname } from "node:os";
-import { clearPhosconSettings, getPhosconConnection, updatePhosconSettings } from "./db.js";
+import { clearPhosconSettings, getPhosconConnection, updatePhosconSettings, writeSystemLog } from "./db.js";
 import {
   gatewayStatus,
   normalizePhosconBaseUrl,
@@ -14,6 +14,7 @@ import type { DeviceRegistry } from "./registry.js";
 
 const pollIntervalMs = 15_000;
 const reconnectMaxMs = 30_000;
+const buttonFallbackIntervalMs = 2_000;
 const now = (): string => new Date().toISOString();
 
 type JsonRecord = Record<string, unknown>;
@@ -24,6 +25,15 @@ function record(value: unknown): JsonRecord {
 
 function stringValue(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function numberValue(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 async function webSocketPayloadText(value: unknown): Promise<string | undefined> {
@@ -46,6 +56,8 @@ function sensorResourceIds(device: Device): string[] {
 export class PhosconAdapter {
   private timer?: NodeJS.Timeout;
   private reconnectTimer?: NodeJS.Timeout;
+  private buttonFallbackTimer?: NodeJS.Timeout;
+  private buttonFallbackTask?: Promise<void>;
   private reconcileTask?: Promise<void>;
   private configurationGeneration = 0;
   private status: PhosconGatewayStatus = { connected: false };
@@ -53,6 +65,7 @@ export class PhosconAdapter {
   private socketUrl?: string;
   private reconnectAttempt = 0;
   private stopped = true;
+  private readonly lastButtonEventSignature = new Map<string, string>();
 
   constructor(private readonly registry: DeviceRegistry) {}
 
@@ -116,13 +129,117 @@ export class PhosconAdapter {
   private closeWebSocket(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = undefined;
+    this.stopButtonFallbackPolling();
     const socket = this.socket;
     this.socket = undefined;
     this.socketUrl = undefined;
     if (socket) {
       try { socket.close(); }
-      catch { /* The REST poll will reconnect if the socket was already invalid. */ }
+      catch { /* The REST reconciliation can recover if the socket was already invalid. */ }
     }
+    this.status = { ...this.status, realtimeConnected: false, realtimeFallbackPolling: false };
+  }
+
+  private stopButtonFallbackPolling(): void {
+    if (this.buttonFallbackTimer) clearInterval(this.buttonFallbackTimer);
+    this.buttonFallbackTimer = undefined;
+    this.status = { ...this.status, realtimeFallbackPolling: false };
+  }
+
+  private startButtonFallbackPolling(generation: number): void {
+    if (this.stopped || generation !== this.configurationGeneration || this.buttonFallbackTimer) return;
+    this.status = { ...this.status, realtimeFallbackPolling: true };
+    const run = () => {
+      if (this.stopped || generation !== this.configurationGeneration) return;
+      if (this.socket?.readyState === WebSocket.OPEN) {
+        this.stopButtonFallbackPolling();
+        return;
+      }
+      void this.pollButtonSensors(generation).catch(() => undefined);
+    };
+    run();
+    this.buttonFallbackTimer = setInterval(run, buttonFallbackIntervalMs);
+    this.buttonFallbackTimer.unref();
+  }
+
+  private async pollButtonSensors(generation: number): Promise<void> {
+    if (this.buttonFallbackTask || this.stopped || generation !== this.configurationGeneration) return this.buttonFallbackTask;
+    this.buttonFallbackTask = (async () => {
+      const connection = await getPhosconConnection();
+      if (!connection.baseUrl || !connection.apiKey) return;
+      const baseUrl = normalizePhosconBaseUrl(connection.baseUrl);
+      const payload = record(await requestJson(`${baseUrl}/api/${encodeURIComponent(connection.apiKey)}/sensors`));
+      if (generation !== this.configurationGeneration) return;
+      for (const device of this.registry.all().filter(candidate => candidate.source === "phoscon" && candidate.type === "button")) {
+        for (const resourceId of sensorResourceIds(device)) {
+          const sensor = record(payload[resourceId]);
+          const state = record(sensor.state);
+          if (numberValue(state.buttonevent) === undefined) continue;
+          await this.applyButtonResource(resourceId, state, record(sensor.config), stringValue(sensor.name), "poll");
+        }
+      }
+    })().finally(() => { this.buttonFallbackTask = undefined; });
+    return this.buttonFallbackTask;
+  }
+
+  private async applyButtonResource(
+    resourceId: string,
+    rawState: Record<string, unknown>,
+    rawConfig: Record<string, unknown>,
+    name: string | undefined,
+    transport: "websocket" | "poll"
+  ): Promise<void> {
+    let current = this.findSensorDevice(resourceId);
+    if (!current) {
+      await this.reconcile().catch(() => undefined);
+      current = this.findSensorDevice(resourceId);
+    }
+    if (!current) return;
+
+    const statePatch = phosconSensorState(rawState, rawConfig);
+    const eventValue = numberValue(statePatch.buttonEvent);
+    const lastUpdated = stringValue(rawState.lastupdated);
+    const receivedAt = now();
+    const priorLastUpdated = stringValue(current.adapterData?.buttonEventLastUpdated);
+    const signature = eventValue === undefined ? undefined : `${eventValue}:${lastUpdated ?? receivedAt}`;
+    const previousSignature = this.lastButtonEventSignature.get(resourceId);
+    const shouldEmit = eventValue !== undefined && signature !== previousSignature && (
+      transport === "websocket" || (Boolean(lastUpdated) && lastUpdated !== priorLastUpdated)
+    );
+
+    const reachable = typeof rawConfig.reachable === "boolean" ? rawConfig.reachable : current.reachable;
+    const updated: Device = {
+      ...current,
+      name: name ?? current.name,
+      reachable,
+      state: { ...current.state, ...statePatch },
+      adapterData: {
+        ...(current.adapterData ?? {}),
+        buttonEventProtocol: "deconz",
+        buttonEventResourceId: resourceId,
+        ...(lastUpdated ? { buttonEventLastUpdated: lastUpdated } : {}),
+        buttonEventTransport: transport
+      },
+      lastSeen: receivedAt,
+      lastEvent: eventValue !== undefined ? receivedAt : current.lastEvent
+    };
+    await this.registry.set(updated);
+
+    if (signature) this.lastButtonEventSignature.set(resourceId, signature);
+    if (!shouldEmit || eventValue === undefined) return;
+
+    this.status = {
+      ...this.status,
+      realtimeLastEvent: receivedAt,
+      realtimeLastError: undefined
+    };
+    this.registry.emitDeviceEvent({
+      deviceId: updated.id,
+      source: "phoscon",
+      key: "buttonEvent",
+      value: eventValue,
+      receivedAt
+    });
   }
 
   private scheduleReconnect(generation: number): void {
@@ -140,7 +257,8 @@ export class PhosconAdapter {
     if (this.stopped || generation !== this.configurationGeneration) return;
     const target = phosconWebSocketUrl(baseUrl, payload);
     if (!target) {
-      this.closeWebSocket();
+      this.status = { ...this.status, realtimeConnected: false, realtimeLastError: "PHOSCON_WEBSOCKET_PORT_UNAVAILABLE" };
+      this.startButtonFallbackPolling(generation);
       return;
     }
     if (this.socket && this.socketUrl === target && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) return;
@@ -148,6 +266,8 @@ export class PhosconAdapter {
     const previous = this.socket;
     this.socket = undefined;
     this.socketUrl = target;
+    this.status = { ...this.status, realtimeUrl: target, realtimeConnected: false, realtimeLastError: undefined };
+    this.startButtonFallbackPolling(generation);
     if (previous) {
       try { previous.close(); }
       catch { /* Ignore stale socket shutdown failures. */ }
@@ -156,7 +276,10 @@ export class PhosconAdapter {
     let socket: WebSocket;
     try {
       socket = new WebSocket(target);
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "PHOSCON_WEBSOCKET_CONNECT_FAILED";
+      this.status = { ...this.status, realtimeConnected: false, realtimeLastError: message };
+      this.startButtonFallbackPolling(generation);
       this.scheduleReconnect(generation);
       return;
     }
@@ -165,6 +288,9 @@ export class PhosconAdapter {
     socket.addEventListener("open", () => {
       if (this.socket !== socket || generation !== this.configurationGeneration) return;
       this.reconnectAttempt = 0;
+      this.stopButtonFallbackPolling();
+      this.status = { ...this.status, realtimeConnected: true, realtimeUrl: target, realtimeLastError: undefined };
+      void writeSystemLog("info", "phoscon", "PHOSCON_WEBSOCKET_CONNECTED", "Phoscon realtime WebSocket connected", { target }).catch(() => undefined);
     });
     socket.addEventListener("message", event => {
       if (this.socket !== socket || generation !== this.configurationGeneration) return;
@@ -172,12 +298,16 @@ export class PhosconAdapter {
     });
     socket.addEventListener("error", () => {
       if (this.socket !== socket) return;
+      this.status = { ...this.status, realtimeConnected: false, realtimeLastError: "PHOSCON_WEBSOCKET_ERROR" };
+      this.startButtonFallbackPolling(generation);
       try { socket.close(); }
       catch { this.scheduleReconnect(generation); }
     });
     socket.addEventListener("close", () => {
       if (this.socket !== socket) return;
       this.socket = undefined;
+      this.status = { ...this.status, realtimeConnected: false, realtimeLastError: "PHOSCON_WEBSOCKET_CLOSED" };
+      this.startButtonFallbackPolling(generation);
       this.scheduleReconnect(generation);
     });
   }
@@ -198,13 +328,20 @@ export class PhosconAdapter {
     }
     if (event.event !== "changed" || event.resource !== "sensors" || !event.id) return;
 
-    const current = this.findSensorDevice(event.id);
-    if (!current) {
-      void this.reconcile().catch(() => undefined);
+    const state = event.state ?? {};
+    if (numberValue(state.buttonevent) !== undefined) {
+      await this.applyButtonResource(event.id, state, event.config ?? {}, event.name, "websocket");
       return;
     }
 
-    const statePatch = phosconSensorState(event.state ?? {}, event.config ?? {});
+    let current = this.findSensorDevice(event.id);
+    if (!current) {
+      await this.reconcile().catch(() => undefined);
+      current = this.findSensorDevice(event.id);
+    }
+    if (!current) return;
+
+    const statePatch = phosconSensorState(state, event.config ?? {});
     const reachable = typeof event.config?.reachable === "boolean" ? event.config.reachable : current.reachable;
     const receivedAt = now();
     const updated: Device = {
@@ -216,16 +353,6 @@ export class PhosconAdapter {
       lastEvent: Object.keys(statePatch).length ? receivedAt : current.lastEvent
     };
     await this.registry.set(updated);
-
-    if (typeof statePatch.buttonEvent === "number") {
-      this.registry.emitDeviceEvent({
-        deviceId: updated.id,
-        source: "phoscon",
-        key: "buttonEvent",
-        value: statePatch.buttonEvent,
-        receivedAt
-      });
-    }
   }
 
   private async performReconcile(): Promise<void> {
@@ -246,6 +373,9 @@ export class PhosconAdapter {
         if (generation !== this.configurationGeneration) return;
         this.registry.restore(discovered.id);
         const existing = this.registry.get(discovered.id);
+        const discoveredButtonUpdated = stringValue(discovered.adapterData?.buttonEventLastUpdated);
+        const existingButtonUpdated = stringValue(existing?.adapterData?.buttonEventLastUpdated);
+        const buttonEventChanged = discovered.type === "button" && Boolean(existingButtonUpdated) && Boolean(discoveredButtonUpdated) && discoveredButtonUpdated !== existingButtonUpdated;
         await this.registry.set({
           ...discovered,
           name: existing?.name ?? discovered.name,
@@ -254,15 +384,29 @@ export class PhosconAdapter {
           presentationType: existing?.presentationType ?? discovered.presentationType,
           homekitEnabled: existing?.homekitEnabled ?? false,
           hidden: existing?.hidden ?? false,
-          lastEvent: existing && JSON.stringify(existing.state) === JSON.stringify(discovered.state) ? existing.lastEvent : discovered.lastEvent
+          lastEvent: buttonEventChanged ? discovered.lastEvent : existing && JSON.stringify(existing.state) === JSON.stringify(discovered.state) ? existing.lastEvent : discovered.lastEvent
         });
+        if (discovered.type === "button") {
+          const resourceId = stringValue(discovered.adapterData?.buttonEventResourceId);
+          const eventValue = numberValue(discovered.state.buttonEvent);
+          if (resourceId && eventValue !== undefined && discoveredButtonUpdated) {
+            this.lastButtonEventSignature.set(resourceId, `${eventValue}:${discoveredButtonUpdated}`);
+          }
+        }
       }
       for (const existing of this.registry.all().filter(device => device.source === "phoscon" && !seen.has(device.id))) {
         if (generation !== this.configurationGeneration) return;
         await this.registry.set({ ...existing, reachable: false, lastSeen: now() });
       }
       if (generation === this.configurationGeneration) {
-        this.status = gatewayStatus(payload);
+        this.status = {
+          ...gatewayStatus(payload),
+          realtimeConnected: this.status.realtimeConnected ?? false,
+          realtimeUrl: this.status.realtimeUrl,
+          realtimeLastEvent: this.status.realtimeLastEvent,
+          realtimeLastError: this.status.realtimeLastError,
+          realtimeFallbackPolling: this.status.realtimeFallbackPolling ?? false
+        };
         this.ensureWebSocket(baseUrl, payload, generation);
       }
     } catch (error) {

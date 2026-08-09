@@ -50,6 +50,27 @@ describe("automation frontend", () => {
     expect(cssRuleContains(styles, ".automation-field-row", "grid-template-columns:minmax(0,1fr) minmax(0,1fr)")).toBe(true);
   });
 
+  it("allows multiple button event values without adding visible trigger rows", () => {
+    expect(html).toContain('id="automationTriggerEventPicker"');
+    expect(html).toContain('id="automationTriggerEventOptions"');
+    expect(ui).toContain("automationPrimaryEventValues");
+    expect(ui).toContain("automationTogglePrimaryEvent");
+    expect(ui).toContain("sameDeviceEventTriggers");
+    expect(ui).toContain("Mehrere Ereignisse werden ODER-verknüpft");
+    expect(cssRuleContains(styles, ".automation-event-picker", "border:1px solid var(--line)")).toBe(true);
+  });
+
+  it("keeps multiple OR triggers compact and collapsed until they are needed", () => {
+    expect(html).toContain('id="automationAdditionalTriggers"');
+    expect(html).toContain('id="automationAddTriggerButton"');
+    expect(ui).toContain("additionalTriggers:automationAdditionalTriggerPayload()");
+    expect(hasFunction(uiAst, "addAutomationAdditionalTrigger")).toBe(true);
+    expect(hasFunction(uiAst, "renderAutomationAdditionalTriggers")).toBe(true);
+    expect(ui).toContain("Auslöser (ODER)");
+    expect(cssRuleContains(styles, ".automation-add-trigger", "border:1px dashed var(--line)")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-or-trigger-body[hidden]", "display:none")).toBe(true);
+  });
+
   it("keeps automation cards responsive on mobile", () => {
     expect(cssRuleContains(styles, ".automation-list", "display:grid")).toBe(true);
     expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card", "padding:11px")).toBe(true);
