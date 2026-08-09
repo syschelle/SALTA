@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.17
+
+- Fixed the virtual-device server test by importing the mocked `listRooms` database helper before use.
+- Added a dedicated TypeScript test-symbol preflight that scans all test sources for unresolved identifiers before Vitest starts.
+- Added `tsconfig.tests.json` so test files are included in the preflight even though production compilation intentionally excludes `*.test.ts`.
+- Added release validation that requires the test-symbol preflight to remain part of `npm run check`.
+- Retained all virtual-switch, HomeKit, compact-card, room-overview, security and dependency fixes from v0.7.16.
+
+
 ## 0.7.16
 
 - Added a new **Virtual Devices** navigation section directly after HomeMatic.

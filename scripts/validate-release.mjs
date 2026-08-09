@@ -29,6 +29,12 @@ if (!homeKitSource.includes("this.commander.command({deviceId:d.id")) fail("Home
 
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");
+if (packageJson.scripts?.["test:preflight"] !== "node scripts/check-test-symbols.mjs") fail("test:preflight script is missing or changed");
+if (!String(packageJson.scripts?.check ?? "").includes("npm run test:preflight")) fail("npm run check must execute the test symbol preflight before Vitest");
+const testTypeConfig = json("tsconfig.tests.json");
+if (!Array.isArray(testTypeConfig.exclude) || testTypeConfig.exclude.length !== 0) fail("tsconfig.tests.json must include test files instead of inheriting the production test exclusion");
+const testSymbolPreflight = read("scripts/check-test-symbols.mjs");
+if (!testSymbolPreflight.includes("diagnostic.code === 2304 || diagnostic.code === 2552")) fail("test symbol preflight must reject unresolved TypeScript identifiers");
 const version = String(packageJson.version ?? "");
 
 if (!/^\d+\.\d+\.\d+$/.test(version)) fail(`invalid package version ${version}`);
