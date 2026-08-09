@@ -36,15 +36,21 @@ describe("clean database schema", () => {
   });
 
 
-  it("stores automations as an additive canonical table with device references", () => {
-    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automations");
-    expect(databaseSource).toContain("trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
-    expect(databaseSource).toContain("condition_device_id text REFERENCES devices(id) ON DELETE CASCADE");
-    expect(databaseSource).toContain("action_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
+  it("stores automations and room preferences as additive canonical tables", () => {
+    const automationsTable = databaseSource.match(/CREATE TABLE IF NOT EXISTS automations \(([\s\S]*?)\n    \);/i)?.[1] ?? "";
+    expect(automationsTable).toContain("trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
+    expect(automationsTable).toContain("condition_device_id text REFERENCES devices(id) ON DELETE CASCADE");
+    expect(automationsTable).toContain("action_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
+    expect(automationsTable).not.toContain("room_id");
+    expect(automationsTable).toContain("CHECK(action IN ('turnOn','turnOff','toggle'))");
+
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_preferences");
+    expect(databaseSource).toContain("automation_id uuid PRIMARY KEY REFERENCES automations(id) ON DELETE CASCADE");
     expect(databaseSource).toContain("room_id uuid REFERENCES rooms(id) ON DELETE SET NULL");
-    expect(databaseSource).toContain("ALTER TABLE automations ADD COLUMN IF NOT EXISTS room_id uuid REFERENCES rooms(id) ON DELETE SET NULL");
-    expect(databaseSource).toContain('room_id as "roomId"');
-    expect(databaseSource).toContain("CHECK(action IN ('turnOn','turnOff','toggle'))");
+    expect(databaseSource).toContain("LEFT JOIN automation_preferences p ON p.automation_id=a.id");
+    expect(databaseSource).toContain("INSERT INTO automation_preferences(automation_id,room_id)");
+    expect(databaseSource).toContain("ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()");
+    expect(databaseSource).toContain('p.room_id as "roomId"');
   });
 
   it("stores a bounded persistent system log", () => {

@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.7
+
+- Fixed the GitHub CI failure caused by the v0.8.6 automation-room implementation adding an incremental `ALTER TABLE` statement to SALTA's clean canonical schema.
+- Moved automation room assignments into a new additive `automation_preferences` table instead of altering the existing `automations` table.
+- Preserved room assignment, room badges, relative last-event labels and the aligned automation editor introduced in v0.8.6.
+- Kept existing v0.8.x automation records upgrade-compatible: the new preference table is created automatically and existing rules remain unassigned until a room is selected.
+- Strengthened schema and release validation so incremental `ALTER TABLE` migrations cannot be reintroduced.
+- Kept the npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.6
 
 - Realigned the Automations editor so search inputs, device selectors, trigger/value fields and action fields use consistent widths and spacing.

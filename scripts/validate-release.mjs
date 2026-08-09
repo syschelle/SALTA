@@ -56,7 +56,13 @@ if (!automationFrontend.includes("automationDeviceMatchesSearch") || !automation
 if (!publicIndex.includes('id="automationRoom"')) fail("Automation room selector is missing");
 if (!automationFrontend.includes("roomId:automationElements.room?.value||null")) fail("Automation room assignment is not included in the frontend payload");
 if (!automationFrontend.includes("automationLastEventLabel") || !automationFrontend.includes("days===0?'Heute':days===1?'Gestern'")) fail("Automation relative last-event display is missing");
-if (!read("src/db.ts").includes('ALTER TABLE automations ADD COLUMN IF NOT EXISTS room_id uuid REFERENCES rooms(id) ON DELETE SET NULL')) fail("Automation room persistence migration is missing");
+const databaseSource = read("src/db.ts");
+if (/ALTER\s+TABLE/i.test(databaseSource)) fail("canonical database schema must not contain incremental ALTER TABLE migrations");
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS automation_preferences")) fail("Automation room preference table is missing");
+if (!databaseSource.includes("automation_id uuid PRIMARY KEY REFERENCES automations(id) ON DELETE CASCADE")) fail("Automation room preference ownership is missing");
+if (!databaseSource.includes("room_id uuid REFERENCES rooms(id) ON DELETE SET NULL")) fail("Automation room preference foreign key is missing");
+if (!databaseSource.includes("LEFT JOIN automation_preferences p ON p.automation_id=a.id")) fail("Automation room preferences are not joined when reading rules");
+if (!databaseSource.includes("INSERT INTO automation_preferences(automation_id,room_id)")) fail("Automation room preference upsert is missing");
 
 if (!automationFrontend.includes("automationButtonEventMarker='event:buttonEvent'")) fail("Automation button-event trigger UI is missing");
 if (!automationFrontend.includes("event:buttonEvent:${eventValue}")) fail("Automation button events are not persisted through the existing trigger key");
