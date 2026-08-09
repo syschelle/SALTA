@@ -35,6 +35,10 @@ describe("presence page", () => {
     expect(app).toContain("Verbindung noch nicht geprüft");
     expect(app).toContain("lastTestSuccess");
     expect(app).toContain("loadPresence({applySettings:false})");
+    expect(app).toContain("presenceSettingsDirty=false");
+    expect(app).toContain("if(applySettings&&!presenceSettingsDirty)applyPresenceSettingsToForm()");
+    expect(app).toContain("presenceSettingsForm.addEventListener('input',()=>{presenceSettingsDirty=true})");
+    expect(app).toContain("presenceSettingsForm.addEventListener('change',()=>{presenceSettingsDirty=true})");
   });
   it("exposes individual and house presence booleans to the generic automation editor", () => {
     expect(automationUi).toContain("'present'");

@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.16
+
+- Fixed unsaved FRITZ!Box Presence credentials being overwritten by the five-second live refresh while the user was editing the form.
+- Added a form-level dirty state so protocol, host, port, TLS option, username, password, polling interval and absence delay remain untouched until the user explicitly saves them.
+- Kept live connection status, household presence and presence-device cards updating while unsaved connection settings are protected.
+- Reset the dirty state only after a successful settings save, so the password field is cleared only after SALTA has actually stored the new password.
+- Extended frontend and release-validation coverage to prevent periodic refreshes from reintroducing the credential-loss regression.
+- Kept the database schema and npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.15
 
 - Reworked the FRITZ!Box Presence connection card so TR-064 reachability is visible independently of whether automatic presence polling is enabled.
