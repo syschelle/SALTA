@@ -13,6 +13,8 @@ const requiredReleaseFiles = [
   "tsconfig.tests.json",
   "src/automations.ts",
   "src/automation-persistence.ts",
+  "src/phoscon-adapter.ts",
+  "src/phoscon-core.ts",
   "public/automation-ui.js",
 ];
 for (const file of requiredReleaseFiles) {
@@ -51,11 +53,22 @@ if (!automationFrontend.includes("turnOn:'An',turnOff:'Aus',toggle:'Toggle'")) f
 if (!automationFrontend.includes("conditionDeviceId")) fail("Automation condition UI is missing");
 if (!publicIndex.includes('id="automationTriggerDeviceSearch"') || !publicIndex.includes('id="automationConditionDeviceSearch"') || !publicIndex.includes('id="automationActionDeviceSearch"')) fail("Automation searchable device selectors are incomplete");
 if (!automationFrontend.includes("automationDeviceMatchesSearch") || !automationFrontend.includes("automationDeviceSearchText")) fail("Automation device search implementation is missing");
+if (!automationFrontend.includes("automationButtonEventMarker='event:buttonEvent'")) fail("Automation button-event trigger UI is missing");
+if (!automationFrontend.includes("event:buttonEvent:${eventValue}")) fail("Automation button events are not persisted through the existing trigger key");
 if (!serverSource.includes('"/api/automations"')) fail("Automation API routes are missing");
 if (!automationEngineSource.includes('source: "automation"')) fail("Automation commands do not use the shared automation source");
 if (!automationEngineSource.includes('AUTOMATION_CYCLE_NOT_ALLOWED')) fail("Automation loop protection is missing");
+if (!automationEngineSource.includes('this.registry.on("deviceEvent", this.onDeviceEvent)')) fail("Automation engine does not subscribe to device events");
+if (!automationEngineSource.includes("parseAutomationEventTrigger")) fail("Automation event trigger parser is missing");
 if (!mainSource.includes("await automations.start()")) fail("Automation engine is not started during SALTA startup");
 if (!mainSource.includes("automations.stop()")) fail("Automation engine is not stopped during SALTA shutdown");
+const phosconAdapterSource = read("src/phoscon-adapter.ts");
+const phosconCoreSource = read("src/phoscon-core.ts");
+if (!phosconAdapterSource.includes("new WebSocket(target)")) fail("Phoscon realtime websocket client is missing");
+if (!phosconAdapterSource.includes("emitDeviceEvent")) fail("Phoscon button events are not forwarded to the SALTA event bus");
+if (!phosconAdapterSource.includes("scheduleReconnect")) fail("Phoscon websocket reconnect handling is missing");
+if (!phosconCoreSource.includes("websocketport")) fail("Phoscon websocket port discovery is missing");
+if (!phosconCoreSource.includes('sensor.type === "button"')) fail("Phoscon button resources may be merged into actuator devices");
 const automationPersistenceSource = read("src/automation-persistence.ts");
 if (automationEngineSource.includes('from "./db.js"')) fail("automation core must not import the database/configuration layer directly");
 if (!automationPersistenceSource.includes('from "./db.js"')) fail("automation persistence adapter is not wired to the database layer");

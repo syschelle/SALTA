@@ -17,10 +17,12 @@ describe("automation frontend", () => {
     expect(html).toContain('id="automationAction"');
   });
 
-  it("offers on, off and toggle actions and only boolean device states", () => {
+  it("offers boolean state transitions and deCONZ button-event triggers", () => {
     expect(ui).toContain("const automationActionLabels={turnOn:'An',turnOff:'Aus',toggle:'Toggle'}");
     expect(ui).toContain("typeof value==='boolean'");
-    expect(ui).toContain("triggerValue:automationElements.triggerValue.value==='true'");
+    expect(ui).toContain("automationButtonEventMarker='event:buttonEvent'");
+    expect(ui).toContain("triggerStateKey:eventTrigger?`event:buttonEvent:${eventValue}`");
+    expect(ui).toContain("'lumi.remote.b1acn01':[1002,1004,1001,1003]");
   });
 
 

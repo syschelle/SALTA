@@ -204,7 +204,7 @@ Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt a
 
 ## Phoscon and Zigbee support
 
-SALTA can connect to one local Phoscon/deCONZ instance through its REST API. Configure the connection under **Settings → Phoscon / Zigbee** using the gateway base address and either an existing API key or the guided app-pairing workflow.
+SALTA can connect to one local Phoscon/deCONZ instance through its REST API and the deCONZ WebSocket event stream. Configure the connection under **Settings → Phoscon / Zigbee** using the gateway base address and either an existing API key or the guided app-pairing workflow.
 
 For automatic pairing, temporarily enable third-party app authentication in the Phoscon gateway settings and request the API key from SALTA within the displayed authorization window. The key is encrypted in PostgreSQL with `SALTA_ENCRYPTION_KEY` and is never returned to the browser after it has been stored.
 
@@ -216,9 +216,11 @@ The Zigbee page is separate from the Shelly page and imports supported resources
 - motion, contact, temperature, humidity, light, water, smoke and button sensors; and
 - power and energy measurements exposed by deCONZ.
 
-Multiple deCONZ sensor resources belonging to the same physical Zigbee device are combined into one SALTA card. Metering or battery resources that belong to one unambiguous actuator are merged into that actuator instead of being shown as duplicate devices.
+Multiple deCONZ sensor resources belonging to the same physical Zigbee device are combined into one SALTA card. Metering or battery resources that belong to one unambiguous actuator are merged into that actuator instead of being shown as duplicate devices. `ZHASwitch` button resources are kept as dedicated SALTA button devices so remotes such as Aqara `lumi.remote...` devices remain visible and usable as automation triggers.
 
-SALTA can switch supported lights and plugs, set brightness and control compatible window coverings. Sensor resources are read-only. Names and room assignments are managed locally in SALTA.
+SALTA can switch supported lights and plugs, set brightness and control compatible window coverings. Sensor resources are read-only. deCONZ button events are received in real time over the gateway WebSocket and are published to SALTA as discrete events; repeated identical `buttonevent` values are therefore treated as separate button presses. The adapter discovers the WebSocket port from the gateway configuration and reconnects automatically after a gateway or network interruption. Names and room assignments are managed locally in SALTA.
+
+SALTA automation triggers use the **deCONZ REST/WebSocket `state.buttonevent` code**, not a raw Zigbee `attribute_id`/attribute value pair. For example, the deCONZ button map for the Aqara WXKG11LM 2018 model (`lumi.remote.b1acn01`) uses `1002` for short release/single click, `1004` for double press, `1001` for hold and `1003` for long release. SALTA always keeps the raw deCONZ event code visible in the automation editor so device-specific mappings remain transparent.
 
 Zigbee devices can be marked as hidden in their SALTA device settings. Hidden devices remain visible as grey cards on the Zigbee page so they can be restored later, but they are excluded from HomeKit synchronization. The visibility choice is stored locally and survives Phoscon synchronization and gateway reconnects.
 
@@ -240,7 +242,7 @@ SALTA v0.8.x introduces a local event-driven automation engine. Open **Automatio
 
 The first automation rule format contains exactly three stages:
 
-1. **When** — choose a trigger device, one of its boolean states and the state value that should trigger the rule. The rule fires only when the selected value is entered, not on every periodic adapter refresh.
+1. **When** — choose a trigger device. Boolean device states fire only when the selected value is entered, while Zigbee button devices can trigger on every received deCONZ `buttonevent`, including repeated identical event codes.
 2. **Only if** — optionally require a second device to have a selected boolean state. Conditions are evaluated from the current reachable device state at execution time.
 3. **Then** — choose a different target device and execute **On**, **Off** or **Toggle**, depending on the capabilities exposed by that device.
 
@@ -250,7 +252,7 @@ The engine works across supported SALTA device sources because actions use the s
 
 Automation rules are stored in PostgreSQL and restored after restart. References to deleted trigger, condition or target devices are removed automatically by the database. SALTA also rejects automation graphs that would create a device-to-device cycle, preventing simple toggle loops.
 
-The initial v0.8.0 implementation intentionally focuses on boolean device-state triggers and one optional condition plus one action. Button-event payloads, numeric threshold triggers, time schedules, delays, multiple conditions and multiple actions are planned as later automation-engine extensions.
+The v0.8.x engine currently supports boolean device-state transitions and deCONZ/Zigbee button events, together with one optional boolean condition and one On/Off/Toggle action. Numeric threshold triggers, time schedules, delays, multiple conditions and multiple actions remain planned extensions.
 
 ## OpenCCU and HomeMatic support
 

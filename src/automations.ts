@@ -1,4 +1,4 @@
-import type { Device, DeviceCommand, DeviceState } from "./types.js";
+import type { Device, DeviceCommand, DeviceEvent, DeviceState } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 
 export type AutomationAction = "turnOn" | "turnOff" | "toggle";
@@ -51,6 +51,12 @@ export interface AutomationLogger {
   ): Promise<void>;
 }
 
+export interface AutomationEventTrigger {
+  key: string;
+  value: number;
+}
+
+const eventTriggerPrefix = "event:";
 const noOpLogger: AutomationLogger = {
   async write(): Promise<void> {
     // Core automation logic is infrastructure-independent by default.
@@ -73,6 +79,30 @@ export function booleanStateKeys(device: Device): string[] {
     }
     return left.localeCompare(right);
   });
+}
+
+export function eventStateKeys(device: Device): string[] {
+  const keys: string[] = [];
+  if (device.type === "button" || typeof device.state.buttonEvent === "number" || device.adapterData?.buttonEventProtocol === "deconz") {
+    keys.push("buttonEvent");
+  }
+  return keys;
+}
+
+export function encodeAutomationEventTrigger(key: string, value: number): string {
+  const normalizedKey = key.trim();
+  if (!/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(normalizedKey) || !Number.isSafeInteger(value)) {
+    throw new Error("AUTOMATION_EVENT_TRIGGER_INVALID");
+  }
+  return `${eventTriggerPrefix}${normalizedKey}:${value}`;
+}
+
+export function parseAutomationEventTrigger(value: string): AutomationEventTrigger | undefined {
+  const match = /^event:([a-zA-Z][a-zA-Z0-9_-]{0,63}):(-?\d+)$/.exec(value.trim());
+  if (!match?.[1] || match[2] === undefined) return undefined;
+  const eventValue = Number(match[2]);
+  if (!Number.isSafeInteger(eventValue)) return undefined;
+  return { key: match[1], value: eventValue };
 }
 
 function booleanState(state: DeviceState, key: string): boolean | undefined {
@@ -124,7 +154,7 @@ function assertAcyclic(rules: AutomationRule[], candidate: AutomationRule): void
 export class AutomationEngine {
   private rules: AutomationRule[] = [];
   private readonly snapshots = new Map<string, DeviceState>();
-  private readonly activeRules = new Set<string>();
+  private readonly executionQueues = new Map<string, Promise<void>>();
   private started = false;
   private readonly onDevice = (device: Device): void => {
     void this.handleDevice(device).catch(error => {
@@ -133,6 +163,10 @@ export class AutomationEngine {
         error: error instanceof Error ? error.message : String(error)
       }).catch(() => undefined);
     });
+  };
+
+  private readonly onDeviceEvent = (event: DeviceEvent): void => {
+    this.handleDeviceEvent(event);
   };
 
   private readonly onDeviceRemoved = (device: Device): void => {
@@ -157,6 +191,7 @@ export class AutomationEngine {
     this.snapshots.clear();
     for (const device of this.registry.all()) this.snapshots.set(device.id, { ...device.state });
     this.registry.on("device", this.onDevice);
+    this.registry.on("deviceEvent", this.onDeviceEvent);
     this.registry.on("deviceRemoved", this.onDeviceRemoved);
     this.started = true;
   }
@@ -164,7 +199,9 @@ export class AutomationEngine {
   stop(): void {
     if (!this.started) return;
     this.registry.off("device", this.onDevice);
+    this.registry.off("deviceEvent", this.onDeviceEvent);
     this.registry.off("deviceRemoved", this.onDeviceRemoved);
+    this.executionQueues.clear();
     this.started = false;
   }
 
@@ -176,7 +213,12 @@ export class AutomationEngine {
     if (!input.name.trim()) throw new Error("AUTOMATION_NAME_REQUIRED");
     const trigger = this.registry.get(input.triggerDeviceId);
     if (!trigger) throw new Error("AUTOMATION_TRIGGER_DEVICE_NOT_FOUND");
-    if (!booleanStateKeys(trigger).includes(input.triggerStateKey)) throw new Error("AUTOMATION_TRIGGER_STATE_UNSUPPORTED");
+    const eventTrigger = parseAutomationEventTrigger(input.triggerStateKey);
+    if (eventTrigger) {
+      if (!eventStateKeys(trigger).includes(eventTrigger.key)) throw new Error("AUTOMATION_TRIGGER_EVENT_UNSUPPORTED");
+    } else if (!booleanStateKeys(trigger).includes(input.triggerStateKey)) {
+      throw new Error("AUTOMATION_TRIGGER_STATE_UNSUPPORTED");
+    }
 
     const target = this.registry.get(input.actionDeviceId);
     if (!target) throw new Error("AUTOMATION_ACTION_DEVICE_NOT_FOUND");
@@ -194,12 +236,12 @@ export class AutomationEngine {
       throw new Error("AUTOMATION_CONDITION_INVALID");
     }
 
-    const now = new Date().toISOString();
+    const createdAt = new Date().toISOString();
     const candidate: AutomationRule = {
       id: currentId ?? "candidate",
       ...cloneInput(input),
-      createdAt: now,
-      updatedAt: now
+      createdAt,
+      updatedAt: createdAt
     };
     assertAcyclic(this.rules, candidate);
   }
@@ -242,7 +284,60 @@ export class AutomationEngine {
   async remove(id: string): Promise<void> {
     if (!await this.store.remove(id)) throw new Error("AUTOMATION_NOT_FOUND");
     this.rules = this.rules.filter(rule => rule.id !== id);
-    this.activeRules.delete(id);
+    this.executionQueues.delete(id);
+  }
+
+  private conditionAllows(rule: AutomationRule): boolean {
+    if (!rule.conditionDeviceId) return true;
+    const conditionDevice = this.registry.get(rule.conditionDeviceId);
+    if (!conditionDevice || !conditionDevice.reachable) return false;
+    return booleanState(conditionDevice.state, rule.conditionStateKey!) === rule.conditionValue;
+  }
+
+  private queueRule(rule: AutomationRule, trigger: Record<string, unknown>): void {
+    const previous = this.executionQueues.get(rule.id) ?? Promise.resolve();
+    const next = previous
+      .catch(() => undefined)
+      .then(() => this.executeRule(rule.id, trigger));
+    this.executionQueues.set(rule.id, next);
+    void next.finally(() => {
+      if (this.executionQueues.get(rule.id) === next) this.executionQueues.delete(rule.id);
+    });
+  }
+
+  private async executeRule(ruleId: string, trigger: Record<string, unknown>): Promise<void> {
+    const rule = this.rules.find(item => item.id === ruleId);
+    if (!rule?.enabled || !this.conditionAllows(rule)) return;
+    const target = this.registry.get(rule.actionDeviceId);
+    if (!target || !target.reachable || !actionCapabilitySupported(target, rule.action)) return;
+
+    try {
+      await this.commander.command({
+        deviceId: rule.actionDeviceId,
+        capability: rule.action,
+        source: "automation"
+      });
+      const triggeredAt = new Date().toISOString();
+      await this.store.markTriggered(rule.id, triggeredAt);
+      this.rules = this.rules.map(item => item.id === rule.id ? { ...item, lastTriggeredAt: triggeredAt } : item);
+      await this.logger.write("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", {
+        automationId: rule.id,
+        automationName: rule.name,
+        triggerDeviceId: rule.triggerDeviceId,
+        actionDeviceId: rule.actionDeviceId,
+        action: rule.action,
+        ...trigger
+      }).catch(() => undefined);
+    } catch (error) {
+      await this.logger.write("error", "automation", "AUTOMATION_ACTION_FAILED", "Automation action failed", {
+        automationId: rule.id,
+        automationName: rule.name,
+        actionDeviceId: rule.actionDeviceId,
+        action: rule.action,
+        error: error instanceof Error ? error.message : String(error),
+        ...trigger
+      }).catch(() => undefined);
+    }
   }
 
   private async handleDevice(device: Device): Promise<void> {
@@ -251,48 +346,25 @@ export class AutomationEngine {
     if (!previous) return;
 
     for (const rule of this.rules) {
-      if (!rule.enabled || rule.triggerDeviceId !== device.id || this.activeRules.has(rule.id)) continue;
+      if (!rule.enabled || rule.triggerDeviceId !== device.id || parseAutomationEventTrigger(rule.triggerStateKey)) continue;
       const before = booleanState(previous, rule.triggerStateKey);
       const current = booleanState(device.state, rule.triggerStateKey);
       if (current === undefined || current !== rule.triggerValue || before === current) continue;
+      this.queueRule(rule, { triggerType: "state", triggerStateKey: rule.triggerStateKey, triggerValue: current });
+    }
+  }
 
-      if (rule.conditionDeviceId) {
-        const conditionDevice = this.registry.get(rule.conditionDeviceId);
-        if (!conditionDevice || !conditionDevice.reachable) continue;
-        if (booleanState(conditionDevice.state, rule.conditionStateKey!) !== rule.conditionValue) continue;
-      }
-
-      const target = this.registry.get(rule.actionDeviceId);
-      if (!target || !target.reachable || !actionCapabilitySupported(target, rule.action)) continue;
-
-      this.activeRules.add(rule.id);
-      try {
-        await this.commander.command({
-          deviceId: rule.actionDeviceId,
-          capability: rule.action,
-          source: "automation"
-        });
-        const triggeredAt = new Date().toISOString();
-        await this.store.markTriggered(rule.id, triggeredAt);
-        this.rules = this.rules.map(item => item.id === rule.id ? { ...item, lastTriggeredAt: triggeredAt } : item);
-        await this.logger.write("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", {
-          automationId: rule.id,
-          automationName: rule.name,
-          triggerDeviceId: rule.triggerDeviceId,
-          actionDeviceId: rule.actionDeviceId,
-          action: rule.action
-        }).catch(() => undefined);
-      } catch (error) {
-        await this.logger.write("error", "automation", "AUTOMATION_ACTION_FAILED", "Automation action failed", {
-          automationId: rule.id,
-          automationName: rule.name,
-          actionDeviceId: rule.actionDeviceId,
-          action: rule.action,
-          error: error instanceof Error ? error.message : String(error)
-        }).catch(() => undefined);
-      } finally {
-        this.activeRules.delete(rule.id);
-      }
+  private handleDeviceEvent(event: DeviceEvent): void {
+    for (const rule of this.rules) {
+      if (!rule.enabled || rule.triggerDeviceId !== event.deviceId) continue;
+      const eventTrigger = parseAutomationEventTrigger(rule.triggerStateKey);
+      if (!eventTrigger || eventTrigger.key !== event.key || eventTrigger.value !== event.value) continue;
+      this.queueRule(rule, {
+        triggerType: "event",
+        triggerEventKey: event.key,
+        triggerEventValue: event.value,
+        triggerReceivedAt: event.receivedAt
+      });
     }
   }
 }

@@ -218,6 +218,7 @@ function automationError(error: unknown): { status: number; code: string; messag
     AUTOMATION_NAME_REQUIRED: "Enter a name for the automation.",
     AUTOMATION_TRIGGER_DEVICE_NOT_FOUND: "The trigger device no longer exists.",
     AUTOMATION_TRIGGER_STATE_UNSUPPORTED: "The selected trigger state is not available on this device.",
+    AUTOMATION_TRIGGER_EVENT_UNSUPPORTED: "The selected trigger event is not available on this device.",
     AUTOMATION_ACTION_DEVICE_NOT_FOUND: "The action device no longer exists.",
     AUTOMATION_TRIGGER_ACTION_SAME_DEVICE: "Trigger and action must use different devices.",
     AUTOMATION_ACTION_UNSUPPORTED: "The selected action is not supported by the target device.",
@@ -453,9 +454,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.4" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.5" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.4", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.5", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {

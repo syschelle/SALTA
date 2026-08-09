@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePhosconBaseUrl, phosconDevicesFromState } from "./phoscon-core.js";
+import { normalizePhosconBaseUrl, parsePhosconWebSocketEvent, phosconDevicesFromState, phosconWebSocketUrl } from "./phoscon-core.js";
 
 describe("normalizePhosconBaseUrl", () => {
   it("adds HTTP and removes trailing slashes", () => {
@@ -154,4 +154,44 @@ describe("phosconDevicesFromState", () => {
     expect(second.map(device => device.id)).toEqual(first.map(device => device.id));
     expect(second.every(device => device.host === "http://phoscon.local:8080")).toBe(true);
   });
+
+  it("imports deCONZ ZHASwitch resources as button devices", () => {
+    const payload = {
+      config: { bridgeid: "00212EFFFF012345", websocketport: 8088 },
+      lights: {},
+      sensors: {
+        "30": {
+          name: "Aqara Mini Switch",
+          type: "ZHASwitch",
+          modelid: "lumi.remote.b1acn01",
+          uniqueid: "00:15:8d:00:01:02:03:04-01-0012",
+          state: { buttonevent: 1002, lastupdated: "2026-08-09T16:00:00" },
+          config: { battery: 91, reachable: true }
+        }
+      }
+    };
+    const devices = phosconDevicesFromState("http://192.168.178.20:8080", payload);
+    expect(devices).toHaveLength(1);
+    expect(devices[0]).toMatchObject({
+      source: "phoscon",
+      sourceId: "sensor:30",
+      type: "button",
+      model: "lumi.remote.b1acn01",
+      reachable: true,
+      state: { buttonEvent: 1002, battery: 91 },
+      adapterData: { sensorResourceIds: "30", buttonEventProtocol: "deconz" }
+    });
+  });
+
+  it("builds the deCONZ websocket URL and parses repeated button events", () => {
+    expect(phosconWebSocketUrl("http://192.168.178.20:8080", { config: { websocketport: 8088 } }))
+      .toBe("ws://192.168.178.20:8088/");
+    expect(parsePhosconWebSocketEvent(JSON.stringify({
+      t: "event", e: "changed", r: "sensors", id: "30",
+      state: { buttonevent: 1002, lastupdated: "2026-08-09T16:00:00" }
+    }))).toMatchObject({
+      event: "changed", resource: "sensors", id: "30", state: { buttonevent: 1002 }
+    });
+  });
+
 });

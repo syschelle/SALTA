@@ -129,7 +129,7 @@ function copyScalar(target: DeviceState, key: string, value: unknown): void {
   }
 }
 
-function sensorState(rawState: JsonRecord, rawConfig: JsonRecord): DeviceState {
+export function phosconSensorState(rawState: Record<string, unknown>, rawConfig: Record<string, unknown> = {}): DeviceState {
   const state: DeviceState = {};
   const temperature = numberValue(rawState.temperature);
   const humidity = numberValue(rawState.humidity);
@@ -241,7 +241,7 @@ function mappedSensorGroup(baseUrl: string, gatewayIdentity: string, groupKey: s
   for (const resource of sorted) {
     const rawState = record(resource.raw.state);
     const rawConfig = record(resource.raw.config);
-    Object.assign(state, sensorState(rawState, rawConfig));
+    Object.assign(state, phosconSensorState(rawState, rawConfig));
     const resourceReachable = booleanValue(rawConfig.reachable);
     if (resourceReachable !== undefined) reachability.push(resourceReachable);
     seenTimes.push(timestamp(resource.raw.lastseen));
@@ -274,7 +274,55 @@ function mappedSensorGroup(baseUrl: string, gatewayIdentity: string, groupKey: s
     credentialMode: "none",
     passwordConfigured: false,
     lastSeen,
-    lastEvent
+    lastEvent,
+    adapterData: {
+      sensorResourceIds: sorted.map(resource => resource.resourceId).join(","),
+      ...(sensorDeviceType(primary.profile) === "button" ? { buttonEventProtocol: "deconz" } : {})
+    }
+  };
+}
+
+export interface PhosconWebSocketEvent {
+  event: "added" | "changed" | "deleted";
+  resource: "sensors" | "lights" | "groups" | "scenes";
+  id?: string;
+  uniqueId?: string;
+  state?: Record<string, unknown>;
+  config?: Record<string, unknown>;
+  name?: string;
+}
+
+export function phosconWebSocketUrl(baseUrl: string, payload: unknown): string | undefined {
+  const config = record(record(payload).config ?? payload);
+  const port = numberValue(config.websocketport);
+  if (!port || !Number.isInteger(port) || port < 1 || port > 65535) return undefined;
+  const url = new URL(normalizePhosconBaseUrl(baseUrl));
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.port = String(port);
+  url.pathname = "/";
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
+
+export function parsePhosconWebSocketEvent(payload: unknown): PhosconWebSocketEvent | undefined {
+  let parsed = payload;
+  if (typeof payload === "string") {
+    try { parsed = JSON.parse(payload) as unknown; }
+    catch { return undefined; }
+  }
+  const raw = record(parsed);
+  if (raw.t !== "event") return undefined;
+  if (!(raw.e === "added" || raw.e === "changed" || raw.e === "deleted")) return undefined;
+  if (!(raw.r === "sensors" || raw.r === "lights" || raw.r === "groups" || raw.r === "scenes")) return undefined;
+  return {
+    event: raw.e,
+    resource: raw.r,
+    id: stringValue(raw.id),
+    uniqueId: stringValue(raw.uniqueid),
+    state: raw.state && typeof raw.state === "object" && !Array.isArray(raw.state) ? record(raw.state) : undefined,
+    config: raw.config && typeof raw.config === "object" && !Array.isArray(raw.config) ? record(raw.config) : undefined,
+    name: stringValue(raw.name)
   };
 }
 
@@ -292,8 +340,8 @@ export function phosconDevicesFromState(baseUrl: string, payload: unknown): Devi
   for (const [resourceId, value] of Object.entries(sensors)) {
     const raw = record(value);
     const profile = stringValue(raw.type) ?? "Sensor";
-    const uniqueId = stringValue(raw.uniqueid);
-    if (!uniqueId || !/^(ZHA|ZGP)/.test(profile)) continue;
+    if (!/^(ZHA|ZGP)/.test(profile)) continue;
+    const uniqueId = stringValue(raw.uniqueid) ?? `resource-${resourceId}`;
     const groupKey = resourceMac(uniqueId) ?? uniqueId.split("-", 1)[0] ?? uniqueId;
     const group = sensorGroups.get(groupKey) ?? [];
     group.push({ resourceId, raw, profile, uniqueId });
@@ -311,7 +359,7 @@ export function phosconDevicesFromState(baseUrl: string, payload: unknown): Devi
     const sensor = mappedSensorGroup(baseUrl, gatewayIdentity, groupKey, resources);
     if (!sensor) continue;
     const matchingLights = sensor.macAddress ? lightDevicesByMac.get(sensor.macAddress) ?? [] : [];
-    if (matchingLights.length !== 1) {
+    if (sensor.type === "button" || matchingLights.length !== 1) {
       devices.push(sensor);
       continue;
     }

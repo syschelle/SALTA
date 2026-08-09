@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.5
+
+- Added a persistent deCONZ/Phoscon WebSocket client with automatic reconnect and WebSocket-port discovery from gateway configuration.
+- Imported `ZHASwitch` and `lumi.remote...` resources as dedicated Zigbee button devices instead of merging them into actuator cards.
+- Added a dedicated SALTA device-event channel so repeated identical `buttonevent` values are delivered as separate events.
+- Added button-event automation triggers while preserving the existing PostgreSQL automation schema and all v0.8.x rules.
+- Added Aqara/deCONZ button-event choices and raw event-code labels in the automation editor.
+- Kept the existing searchable trigger, condition and target device selectors.
+
 ## 0.8.4
 
 - Fixed the automation frontend CI regression caused by a brittle exact CSS substring assertion for the mobile media query.

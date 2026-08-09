@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { AutomationEngine, type AutomationInput, type AutomationRule, type AutomationStore } from "./automations.js";
+import { AutomationEngine, encodeAutomationEventTrigger, type AutomationInput, type AutomationRule, type AutomationStore } from "./automations.js";
 import type { Device, DeviceState } from "./types.js";
 
 function device(id: string, state: DeviceState, capabilities: string[] = []): Device {
@@ -130,4 +130,34 @@ describe("AutomationEngine", () => {
     await expect(engine.create({ name: "B to A", enabled: true, triggerDeviceId: "b", triggerStateKey: "on", triggerValue: true, actionDeviceId: "a", action: "toggle" })).rejects.toThrow("AUTOMATION_CYCLE_NOT_ALLOWED");
     engine.stop();
   });
+  it("fires every received button event even when the raw value is repeated", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("button", { ...device("button", { buttonEvent: 1002 }), source: "phoscon", type: "button", adapterData: { buttonEventProtocol: "deconz" } });
+    registry.devices.set("condition", device("condition", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const command = vi.fn(async () => registry.get("target")!);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+    await engine.start();
+    await engine.create({
+      name: "Aqara click",
+      enabled: true,
+      triggerDeviceId: "button",
+      triggerStateKey: encodeAutomationEventTrigger("buttonEvent", 1002),
+      triggerValue: true,
+      conditionDeviceId: "condition",
+      conditionStateKey: "on",
+      conditionValue: true,
+      actionDeviceId: "target",
+      action: "toggle"
+    });
+
+    const event = { deviceId: "button", source: "phoscon", key: "buttonEvent", value: 1002, receivedAt: new Date().toISOString() };
+    registry.emit("deviceEvent", event);
+    registry.emit("deviceEvent", { ...event, receivedAt: new Date(Date.now() + 1).toISOString() });
+    await tick();
+    await tick();
+    expect(command).toHaveBeenCalledTimes(2);
+    engine.stop();
+  });
+
 });

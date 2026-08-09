@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import type { CredentialMode, Device } from "./types.js";
+import type { CredentialMode, Device, DeviceEvent } from "./types.js";
 import { deleteDevice, setDeviceCredentials, upsertDevice } from "./db.js";
 
 export class DeviceRegistry extends EventEmitter {
@@ -13,6 +13,16 @@ export class DeviceRegistry extends EventEmitter {
         listener.call(this, device);
       } catch (error) {
         super.emit("listenerError", { event, deviceId: device.id, error });
+      }
+    }
+  }
+
+  emitDeviceEvent(event: DeviceEvent): void {
+    for (const listener of this.listeners("deviceEvent")) {
+      try {
+        listener.call(this, event);
+      } catch (error) {
+        super.emit("listenerError", { event: "deviceEvent", deviceId: event.deviceId, error });
       }
     }
   }

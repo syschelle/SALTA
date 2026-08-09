@@ -57,6 +57,14 @@ export interface DeviceCommand {
   source: "api" | "homekit" | "automation";
 }
 
+export interface DeviceEvent {
+  deviceId: string;
+  source: string;
+  key: string;
+  value: string | number | boolean;
+  receivedAt: string;
+}
+
 export interface ShellySettings {
   username: string;
   passwordConfigured: boolean;
