@@ -1,6 +1,6 @@
 {
   "name": "salta",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "SALTA local-first smart-home control plane",
   "private": true,
   "type": "module",
@@ -11,9 +11,9 @@
     "dev": "tsx watch src/main.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/main.js",
-    "test": "vitest run --passWithNoTests",
+    "test": "node scripts/check-test-symbols.mjs --vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "npm run validate:release && npm run typecheck && npm run test:preflight && npm test && npm run build && node --check public/room-grouping.js && node --check public/automation-ui.js && node --check public/app.js",
+    "check": "npm run validate:release && npm run typecheck && npm test && npm run build && node --check public/room-grouping.js && node --check public/automation-ui.js && node --check public/app.js",
     "validate:release": "node scripts/validate-release.mjs",
     "version:set": "node scripts/set-version.mjs",
     "test:preflight": "node scripts/check-test-symbols.mjs"

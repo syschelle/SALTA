@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -7,6 +7,17 @@ const json = (file) => JSON.parse(read(file));
 const fail = (message) => {
   throw new Error(`Release validation failed: ${message}`);
 };
+
+const requiredReleaseFiles = [
+  "scripts/check-test-symbols.mjs",
+  "tsconfig.tests.json",
+  "src/automations.ts",
+  "src/automation-persistence.ts",
+  "public/automation-ui.js",
+];
+for (const file of requiredReleaseFiles) {
+  if (!existsSync(resolve(root, file))) fail(`required release file is missing: ${file}`);
+}
 
 const publicIndex = read("public/index.html");
 const roomGroupingScript = '<script src="/room-grouping.js"></script>';
@@ -47,12 +58,13 @@ const automationPersistenceSource = read("src/automation-persistence.ts");
 if (automationEngineSource.includes('from "./db.js"')) fail("automation core must not import the database/configuration layer directly");
 if (!automationPersistenceSource.includes('from "./db.js"')) fail("automation persistence adapter is not wired to the database layer");
 if (!mainSource.includes("databaseAutomationStore, databaseAutomationLogger")) fail("main does not inject automation persistence and logging adapters");
-const vitestConfig = read("vitest.config.ts");
-const testSetup = read("src/test-setup.ts");
-if (!vitestConfig.includes('setupFiles: ["./src/test-setup.ts"]')) fail("Vitest does not load the centralized SALTA test environment");
+const testRunnerSource = read("scripts/check-test-symbols.mjs");
+if (!testRunnerSource.includes('resolve(root, "node_modules", "vitest", "vitest.mjs")')) fail("npm test does not launch the locked local Vitest executable");
+if (!testRunnerSource.includes('NODE_ENV: "test"')) fail("test runner does not force NODE_ENV=test");
 for (const variable of ["DATABASE_URL", "ADMIN_PASSWORD", "SALTA_HEALTH_TOKEN", "SALTA_ENCRYPTION_KEY"]) {
-  if (!testSetup.includes(`process.env.${variable} ??=`)) fail(`central test environment does not initialize ${variable}`);
+  if (!testRunnerSource.includes(`${variable}: process.env.${variable} ??`)) fail(`test runner does not initialize ${variable}`);
 }
+if (testRunnerSource.includes("vitest.config.ts") || testRunnerSource.includes("test-setup.ts")) fail("test runner must not depend on optional standalone Vitest bootstrap files");
 const homeKitSource = read("src/homekit.ts");
 if (!homeKitSource.includes("this.commander.command({deviceId:d.id")) fail("HomeKit does not use the shared device command dispatcher");
 
@@ -60,11 +72,11 @@ const packageJson = json("package.json");
 const packageLock = json("package-lock.json");
 if (!String(packageJson.scripts?.check ?? "").includes("node --check public/automation-ui.js")) fail("npm run check must syntax-check automation-ui.js");
 if (packageJson.scripts?.["test:preflight"] !== "node scripts/check-test-symbols.mjs") fail("test:preflight script is missing or changed");
-if (!String(packageJson.scripts?.check ?? "").includes("npm run test:preflight")) fail("npm run check must execute the test symbol preflight before Vitest");
+if (packageJson.scripts?.test !== "node scripts/check-test-symbols.mjs --vitest") fail("npm test must use the preflight-backed Vitest runner");
+if (!String(packageJson.scripts?.check ?? "").includes("npm test")) fail("npm run check must execute the preflight-backed test runner");
 const testTypeConfig = json("tsconfig.tests.json");
 if (!Array.isArray(testTypeConfig.exclude) || testTypeConfig.exclude.length !== 0) fail("tsconfig.tests.json must include test files instead of inheriting the production test exclusion");
 const productionTypeConfig = json("tsconfig.json");
-if (!Array.isArray(productionTypeConfig.exclude) || !productionTypeConfig.exclude.includes("src/test-setup.ts")) fail("production TypeScript build must exclude the Vitest-only environment setup");
 const testSymbolPreflight = read("scripts/check-test-symbols.mjs");
 if (!testSymbolPreflight.includes("diagnostic.code === 2304 || diagnostic.code === 2552")) fail("test symbol preflight must reject unresolved TypeScript identifiers");
 const version = String(packageJson.version ?? "");

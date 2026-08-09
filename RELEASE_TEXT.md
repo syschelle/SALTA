@@ -1,49 +1,39 @@
-# SALTA v0.8.1
+# SALTA v0.8.2
 
-SALTA v0.8.1 fixes the GitHub CI collection failure introduced with the first automation release and hardens the boundary between automation logic, persistence and test configuration. The complete automation functionality introduced in v0.8.0 is retained unchanged.
+SALTA v0.8.2 fixes the GitHub CI failure caused by a missing standalone `vitest.config.ts` file and makes the Vitest bootstrap self-contained inside SALTA's existing test preflight script. The automation engine introduced in v0.8.0 and the database/test isolation introduced in v0.8.1 remain unchanged.
 
 ## Build fix
 
-- Fixed the Vitest collection failure caused by the automation core importing `db.ts` during module initialization.
-- The failing import chain was `automations.test.ts` → `automations.ts` → `db.ts` → `config.ts`.
-- Because `config.ts` validates the production environment immediately, GitHub CI failed before the automation tests could run when `DATABASE_URL`, `ADMIN_PASSWORD`, `SALTA_HEALTH_TOKEN` and `SALTA_ENCRYPTION_KEY` were intentionally absent from the test process.
-- Automation unit tests no longer load the production database or configuration layer as a side effect.
-
-## Automation architecture hardening
-
-- Separated the pure automation engine from PostgreSQL persistence and system logging.
-- `src/automations.ts` now depends only on injected interfaces:
-  - `AutomationStore` for rule persistence; and
-  - `AutomationLogger` for automation log events.
-- Added `src/automation-persistence.ts` as the production adapter between the automation engine and the existing PostgreSQL/database functions.
-- `main.ts` now explicitly injects the database-backed automation store and logger when SALTA starts.
-- The automation engine therefore remains unit-testable without importing `db.ts`, creating a PostgreSQL pool or parsing production secrets.
-- The no-op logger remains available to isolated tests unless a logger is explicitly injected.
-
-## Centralized Vitest environment
-
-- Added a central `vitest.config.ts` setup file configuration.
-- Added `src/test-setup.ts` with deterministic test-only values for the mandatory application configuration fields:
+- Removed the CI dependency on a standalone `vitest.config.ts` file.
+- Removed the separate `src/test-setup.ts` bootstrap file.
+- `npm test` now runs through the existing `scripts/check-test-symbols.mjs` script.
+- The runner executes the unresolved-symbol preflight and then starts the locked local Vitest executable directly with Node.
+- The Vitest child process receives deterministic test-only values for:
   - `DATABASE_URL`
   - `ADMIN_PASSWORD`
   - `SALTA_HEALTH_TOKEN`
   - `SALTA_ENCRYPTION_KEY`
-- Test values use `??=` so explicitly provided CI or test-specific values are never overwritten.
-- The test setup also disables HomeKit and uses silent logging by default.
-- The production TypeScript build explicitly excludes `src/test-setup.ts`, so test-only configuration is not emitted into the production application.
+- `NODE_ENV` is forced to `test` for the test process.
+- HomeKit is disabled and test logging is silenced.
+- Explicitly provided database/secrets values are preserved where appropriate.
+- The test command no longer relies on a shell-specific environment-variable syntax and remains cross-platform.
 
-## Regression protection
+## Release validation hardening
 
-- Added regression coverage that verifies the automation core does not import `db.ts` directly.
-- Added regression coverage that verifies production persistence is injected from `main.ts`.
-- Added regression coverage for the central Vitest setup and all four required configuration variables.
-- Extended `npm run validate:release` so a release fails if:
-  - the automation core regains a direct database dependency;
-  - the production automation persistence adapter is missing;
-  - `main.ts` stops injecting the persistence/logger adapters;
-  - Vitest stops loading the centralized test environment; or
-  - the Vitest-only setup is accidentally included in the production TypeScript build.
-- The existing unresolved-test-symbol preflight from v0.7.17 remains active before Vitest.
+- `npm run validate:release` no longer opens or requires `vitest.config.ts`.
+- Release validation now checks the actual preflight-backed Vitest runner.
+- A release fails if required test configuration is no longer initialized.
+- A release fails if the test runner starts depending on `vitest.config.ts` or `test-setup.ts` again.
+- `npm test` always performs the unresolved-symbol preflight before Vitest, even when run directly.
+- `npm run test:preflight` remains available as a standalone diagnostic command.
+
+## Automation architecture retained from v0.8.1
+
+- The pure automation engine remains independent from PostgreSQL and production configuration side effects.
+- `src/automations.ts` uses injected `AutomationStore` and `AutomationLogger` interfaces.
+- `src/automation-persistence.ts` remains the production PostgreSQL adapter.
+- `main.ts` injects the database-backed automation store and logger during normal SALTA startup.
+- Pure automation tests therefore do not need to initialize the production database/configuration layer.
 
 ## Automation engine retained from v0.8.0
 
@@ -56,29 +46,22 @@ SALTA continues to provide the first persistent local automation engine with the
 - Select a trigger device.
 - Select one of the boolean states exposed by that device.
 - Select the boolean value that should fire the automation.
-- Automations fire only when the selected state changes into the configured value.
+- Rules fire only when the selected state changes into the configured value.
 - Repeated polling with an unchanged value does not retrigger the rule.
 
-Typical triggers include:
-
-- switch on/off;
-- motion detected/not detected;
-- contact open/closed;
-- alarm states;
-- water states; and
-- other boolean device states exposed through SALTA.
+Typical trigger states include switch on/off, motion detected/not detected, contact open/closed, water/alarm states and other boolean device states exposed through SALTA.
 
 ### Optional condition
 
 - One optional condition device can be selected.
 - The condition device must be different from the trigger device.
-- Select one boolean state and the required on/off value.
-- The condition is evaluated at the moment the trigger fires.
+- Select one boolean state and the required On/Off value.
+- The condition is evaluated when the trigger fires.
 - Physical condition devices must be reachable before the action is allowed to execute.
 
 ### Action
 
-A target device can perform one of the actions it supports:
+A compatible target device can execute:
 
 - **On**
 - **Off**
@@ -88,62 +71,75 @@ The target device must be different from the trigger device.
 
 ## Cross-system automations
 
-- Trigger devices can originate from Shelly, Zigbee, HomeMatic or SALTA-native virtual devices.
+- Triggers can originate from Shelly, Zigbee, HomeMatic or SALTA-native virtual devices.
 - Conditions can use devices from another supported integration.
-- Actions are dispatched through the shared `DeviceCommandRouter`.
-- This allows cross-system rules such as Zigbee motion → HomeMatic condition → Shelly switch action.
-- Virtual SALTA/HomeKit switches can also be used as automation targets where their capabilities match the configured action.
+- Actions use the shared `DeviceCommandRouter`.
+- Rules such as Zigbee motion → HomeMatic condition → Shelly switch are supported.
+- SALTA/HomeKit virtual switches can be used as automation targets where their capabilities match the selected action.
 
 ## Automation management
 
-- Create automation rules from the web interface.
-- Edit existing rules.
-- Enable or disable rules without deleting them.
-- Delete rules permanently.
+- Create, edit, enable, disable and delete automation rules in the web interface.
 - Display the configured trigger, optional condition and target action.
 - Display the last successful execution time.
-- Automation events remain available through the SALTA system log.
+- Automation activity remains visible in the SALTA system log.
 
 ## Loop protection
 
 - SALTA validates the device-action graph before saving or enabling rules.
 - Cyclic action graphs are rejected.
-- Direct loops such as A toggles B while B toggles A are therefore prevented.
+- Direct loops such as A toggles B while B toggles A are prevented.
 - Active-rule re-entry protection remains in place while an automation action is executing.
 
 ## Persistence and API
 
-- Automation rules remain persisted in the PostgreSQL `automations` table.
+- Automation rules remain persisted in PostgreSQL.
+- Existing v0.8.0/v0.8.1 automation records remain compatible.
 - No destructive database migration is required.
-- Existing v0.8.0 automation records remain compatible.
-- Device references continue to use database foreign keys.
 - Automation create, read, update, enable/disable and delete endpoints remain authenticated and rate limited.
 
-## Existing SALTA functionality retained
+## Existing device functionality retained
 
-- Shelly cards retain the direct shortcut to each Shelly device web interface.
+- Shelly device cards retain the direct shortcut to the Shelly web interface.
 - Virtual switches remain available in SALTA and HomeKit.
-- HomeMatic thermostat Off, Manual and Automatic controls remain available.
+- HomeMatic thermostat **Off**, **Manual** and **Automatic** controls remain available.
 - Room-assigned devices remain grouped on the overview page.
-- Unassigned devices remain excluded from the room overview.
-- Compact responsive device cards remain optimized for desktop, tablet and mobile layouts.
-- Stale frontend asset protection remains active after upgrades.
+- Devices without a valid room assignment remain excluded from the overview.
+
+## Compact device cards retained from v0.7.14
+
+- Device cards retain reduced padding, compact headers and smaller control spacing.
+- Device names and metadata use a compact single-line layout with safe ellipsis.
+- Live values remain displayed as responsive measurement chips.
+- Dimmer, thermostat and window-covering controls remain grouped in a compact control area.
+- The configuration button remains in the card header.
+- Read-only sensors do not receive an unnecessary empty action row.
+- Device grids remain adaptive across desktop and tablet layouts.
+- Smartphone views retain the single-column device layout and compact two-by-two overview statistics.
+
+## Build reliability retained
+
+- CSS tests continue to understand base rules and responsive media-query overrides.
+- OpenCCU frontend tests continue to follow composed renderer call graphs instead of fragile exact string matching.
+- The unresolved-test-symbol preflight remains active.
+- The Docker build and GitHub workflows continue to use the complete `npm run check` quality gate.
+- Safe versioning continues to update only SALTA root version fields and known release surfaces.
 
 ## Security and dependency status
 
-- No new production npm dependency was added in v0.8.1.
-- The transitive npm dependency tree remains unchanged from v0.8.0 apart from the SALTA root version.
+- No production npm dependency was added or changed in v0.8.2.
+- The transitive dependency tree remains unchanged from v0.8.1 apart from the SALTA root version.
 - Retains `find-my-way` 9.7.0.
-- Retains `@homebridge/dbus-native` 0.7.7 with its matching integrity checksum.
-- Retains the patched `fast-uri` dependency lines from the existing lockfile.
-- Retains PostCSS 8.5.20 from the existing lockfile.
+- Retains `@homebridge/dbus-native` 0.7.7 with the matching integrity checksum.
+- Retains the patched `fast-uri` dependency lines already present in the lockfile.
+- Retains PostCSS 8.5.20.
 - Retains TypeScript 5.9.3 from `package-lock.json`.
 
 ## Compatibility
 
 - No destructive database migration is required.
 - No new production environment variables are required.
-- Existing v0.8.0 automation rules remain compatible.
+- Existing v0.8.x automation rules remain compatible.
 - Existing Shelly, Zigbee, OpenCCU/HomeMatic, virtual-device, room and HomeKit configuration remains compatible.
 
 ## Verification
@@ -162,7 +158,7 @@ sh -n install.sh update.sh backup.sh restore.sh
 ## Container tags
 
 ```text
-0.8.1
+0.8.2
 0.8
 latest
 ```
@@ -170,5 +166,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.1
+v0.8.2
 ```

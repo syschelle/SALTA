@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.2
+
+- Removed the CI dependency on a standalone `vitest.config.ts` bootstrap file.
+- `npm test` now runs through the existing test-symbol preflight runner, which supplies deterministic test-only configuration before launching the locked local Vitest executable.
+- Preserved the database-independent automation core and injected PostgreSQL persistence introduced in v0.8.1.
+- Added release checks that prevent the test runner from depending on optional Vitest root configuration files.
+- Retained the v0.8.0 automation engine, optional device condition, and On/Off/Toggle target actions unchanged.
+
+
 ## 0.8.1
 
 - Fixed the GitHub CI collection failure where the automation unit test imported `db.ts` and triggered production environment validation before Vitest could run.
