@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.18
+
+- Added a compact Shelly web-interface shortcut next to the configuration button on Shelly device cards.
+- The shortcut opens the stored Shelly host in a separate browser tab and is available on both the Shelly page and room overview.
+- Restricted generated device links to HTTP/HTTPS, rejected embedded URL credentials, and isolated the new tab with `noopener,noreferrer`.
+- Added dedicated frontend regression tests and release validation for the Shelly-only shortcut and compact button layout.
+- No database migration, environment-variable change or production dependency update is required.
+
+
 ## 0.7.17
 
 - Fixed the virtual-device server test by importing the mocked `listRooms` database helper before use.

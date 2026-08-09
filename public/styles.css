@@ -221,6 +221,8 @@ main{max-width:1680px}
 .dot{width:7px;height:7px;margin-top:0}
 .device-config-button{width:28px;height:28px;padding:0;flex:0 0 28px;border-radius:8px}
 .device-config-button>.mdi{font-size:15px}
+.device-web-button{width:28px;height:28px;padding:0;flex:0 0 28px;border-radius:8px}
+.device-web-button>.mdi{font-size:15px}
 .hidden-device-badge{padding:2px 6px;font-size:9px}
 .values{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:5px;margin-top:8px;padding-top:8px}
 .value{min-width:0;padding:5px 6px;border:1px solid var(--line);border-radius:8px;background:var(--subtle-bg)}
@@ -257,6 +259,7 @@ main{max-width:1680px}
   .values{grid-template-columns:repeat(auto-fit,minmax(70px,1fr));margin-top:7px;padding-top:7px}
   .actions button{flex:1}
   .device-config-button{flex:0 0 28px}
+  .device-web-button{flex:0 0 28px}
 }
 
 @media(max-width:380px){

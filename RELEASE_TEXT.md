@@ -1,115 +1,91 @@
-# SALTA v0.7.17
+# SALTA v0.7.18
 
-SALTA v0.7.17 fixes the GitHub build failure in the virtual-device server tests and closes the underlying quality-gate gap that allowed unresolved identifiers in `*.test.ts` files to reach Vitest at runtime.
+SALTA v0.7.18 adds a direct shortcut from every Shelly device card to the Shelly device's own local web interface while retaining the virtual-device, compact-card and hardened build functionality from the previous releases.
 
-## Build fix
+## Shelly device web shortcut
 
-- Fixed `src/server.test.ts` by importing the mocked `listRooms` database helper before it is used by the virtual-switch creation test.
-- Fixed the failing test `virtual devices > creates a virtual switch with an optional SALTA room assignment`.
-- The virtual-switch runtime implementation itself was not changed by this fix.
+- Added a compact **Open device web interface** icon directly next to the configuration icon on Shelly device cards.
+- The shortcut is available wherever the common Shelly device card is rendered, including:
+  - the Shelly page; and
+  - the room-based overview for room-assigned Shelly devices.
+- Clicking the icon opens the Shelly device's local web interface in a new browser tab.
+- SALTA derives the destination from the stored Shelly host address, so no additional configuration is required.
+- The shortcut is shown only for devices whose source is `shelly` and which have a valid device address.
+- Zigbee, HomeMatic and SALTA-native virtual devices do not receive the shortcut.
+- Device URLs are restricted to HTTP or HTTPS and URLs containing embedded credentials are rejected.
+- New tabs are opened with `noopener,noreferrer` so the Shelly page cannot access the SALTA window through `window.opener`.
+- If a Shelly has no usable address, SALTA does not render the shortcut.
 
-## Test-symbol preflight
+## User interface
 
-- Added a dedicated `tsconfig.tests.json` that includes the test sources intentionally excluded from the production TypeScript build.
-- Added `npm run test:preflight` before Vitest in the complete SALTA quality gate.
-- The preflight asks TypeScript to inspect all source and test files and fails specifically on unresolved identifiers such as:
-  - `TS2304: Cannot find name ...`
-  - `TS2552: Cannot find name ... Did you mean ...`
-- This catches missing test imports before the affected test reaches runtime.
-- Release validation now verifies that the test-symbol preflight remains present in `npm run check` and that test files cannot silently be excluded from this check.
+- The new Shelly web shortcut uses the locally bundled Material Design Icons asset and requires no external icon service.
+- The shortcut uses the compact `open-in-new` icon and matches the size of the configuration button.
+- The existing configuration button remains unchanged and continues to open the SALTA device configuration dialog.
+- The additional shortcut does not add a separate action row, preserving the compact device-card layout on desktop and mobile devices.
+
+## Build and regression protection
+
+- Added dedicated frontend regression tests for the Shelly web shortcut.
+- Tests verify that the shortcut is rendered through the shared device-card component.
+- Tests verify that the shortcut is limited to Shelly devices.
+- Tests verify HTTP/HTTPS URL validation and rejection of embedded URL credentials.
+- Tests verify isolated new-tab behavior using `noopener,noreferrer`.
+- Tests verify that the shortcut keeps the same compact dimensions as the configuration button.
+- Release validation now checks that the Shelly web shortcut and its safe new-tab behavior remain present.
+
+## Test-symbol preflight retained from v0.7.17
+
+- `npm run test:preflight` continues to inspect all test sources before Vitest starts.
+- Test files remain covered by the dedicated `tsconfig.tests.json` configuration even though production compilation excludes `*.test.ts`.
+- Unresolved identifiers such as `TS2304` and `TS2552` fail the quality gate before runtime tests execute.
+- The complete `npm run check` quality gate remains part of CI and the Docker build.
 
 ## Virtual devices retained from v0.7.16
 
-- Added a new **Virtual Devices** section directly after **HomeMatic** in the main navigation.
-- Added the same entry to the responsive mobile navigation.
-- Virtual devices are SALTA-native and do not require a physical host, credentials or an external adapter.
-- The initial supported type is **Switch**.
-- Virtual switches can be:
-  - created from the SALTA web interface;
-  - assigned to an existing SALTA room;
-  - left unassigned when required;
-  - switched on and off from SALTA;
-  - renamed later;
-  - moved to another room; and
-  - deleted again from SALTA.
-- Virtual switches use the same compact device cards as physical devices.
-- A room-assigned virtual switch automatically appears in the room-based overview together with Shelly, Zigbee and HomeMatic devices.
-- An unassigned virtual switch remains available on the **Virtual Devices** page but is intentionally excluded from the room-based overview.
-
-## HomeKit synchronization retained from v0.7.16
-
-- Virtual switches are automatically marked for HomeKit export.
-- When the SALTA HomeKit bridge is enabled, each virtual switch is published as a HomeKit switch accessory.
-- SALTA and HomeKit use a shared source-aware device command router.
-- Switching a virtual device from SALTA updates the persisted state and the running HomeKit accessory.
-- Switching it from HomeKit uses the same command path and updates the SALTA device state.
-- Deleting a virtual switch removes it from the SALTA registry and from the running HomeKit bridge.
-- Existing persisted virtual switches are restored automatically after a SALTA restart and are republished to HomeKit.
-
-## Persistence and API retained from v0.7.16
-
-- Virtual switches are persisted through the existing PostgreSQL-backed SALTA device registry.
-- No additional database table or schema migration is required.
-- The virtual-device creation endpoint remains rate limited.
-- Existing device configuration and command endpoints are reused for rename, room assignment and switching.
-- The common delete endpoint supports SALTA-native virtual devices in addition to removable Shelly devices.
-- System-log entries identify virtual-device creation through the `virtual` source.
-
-## Command routing retained from v0.7.16
-
-- The shared `DeviceCommandRouter` dispatches commands according to the persisted device source.
-- The HomeKit bridge does not depend directly on the Shelly adapter for writes.
-- Virtual devices therefore have a first-class HomeKit command path while adapter routing remains centralized.
+- The **Virtual Devices** section remains directly after **HomeMatic** in the navigation.
+- SALTA-native virtual switches can be created, renamed, assigned to rooms, switched and deleted.
+- Room-assigned virtual switches appear in the room-based overview.
+- Unassigned virtual switches remain on the Virtual Devices page and are intentionally excluded from the overview.
+- Virtual switches remain automatically available through the SALTA HomeKit bridge when HomeKit is enabled.
+- SALTA and HomeKit continue to use the shared source-aware device command router.
+- Virtual-device persistence continues to use the existing PostgreSQL-backed device registry without a database migration.
 
 ## Compact device cards retained from v0.7.14
 
-- Reduced card padding, header spacing, icon sizes and control spacing.
-- Device names and metadata use a compact single-line layout with safe ellipsis for long model or channel names.
-- Live measurements are displayed as small, responsive value chips.
-- Dimmer, thermostat and window-covering controls remain grouped into a compact control area.
+- Device cards retain reduced padding, smaller headers and compact measurement chips.
+- The configuration button remains in the card header.
+- Read-only sensors do not receive an unnecessary empty action row.
+- Dimmer, thermostat and window-covering controls remain grouped in the compact control area.
 - Thermostat operating modes remain directly available:
   - Off
   - Manual
   - Automatic
-- Switch, light, outlet and roller-shutter actions remain directly available.
-- The configuration button remains in the device-card header.
-- Read-only sensors do not receive an empty action row.
-- Device grids adapt automatically to the available width.
-- Smartphone views use a clear single-column device layout.
-- The four overview statistics use a compact two-by-two grid on smartphones.
+- Device grids remain adaptive on desktop and tablet layouts.
+- Smartphone views retain the single-column device layout and compact two-by-two overview statistics.
 
 ## Room overview behavior retained
 
 - Devices continue to be grouped by their assigned room.
-- Shelly, Zigbee, HomeMatic and room-assigned virtual devices can appear together in the same room.
+- Shelly, Zigbee, HomeMatic and virtual devices can appear together in the same room.
 - Room ordering follows the Rooms configuration page.
 - Devices without a valid room assignment remain excluded from the overview.
 - Unassigned devices remain available on their respective adapter or Virtual Devices page.
-- SALTA application-owned HTML, JavaScript and CSS continue to use no-store caching to prevent stale frontend assets after upgrades.
-
-## Build reliability retained from v0.7.15
-
-- CSS tests understand base rules and responsive media-query overrides instead of inspecting only the final matching rule.
-- OpenCCU frontend tests follow composed renderer call graphs instead of requiring obsolete direct function calls.
-- Release validation rejects the previously fragile frontend test patterns.
-- The Docker build and GitHub workflows continue to use the complete SALTA quality gate.
-- Safe versioning continues to update only SALTA root version fields and known release surfaces.
+- SALTA-owned HTML, JavaScript and CSS continue to use no-store caching to prevent stale frontend assets after upgrades.
 
 ## Security and dependency status
 
 - Retains `find-my-way` 9.7.0 with the HTTP/2 denial-of-service fix.
 - Retains the corrected `@homebridge/dbus-native` 0.7.7 lock entry and integrity checksum.
-- No production npm dependency was changed in v0.7.17.
-- The transitive dependency lock remains unchanged from v0.7.16 apart from the SALTA root version.
+- No production npm dependency was added or changed in v0.7.18.
+- The transitive dependency lock remains unchanged from v0.7.17 apart from the SALTA root version.
 
 ## Compatibility
 
 - No database migration is required.
 - No new environment variables are required.
-- No API or runtime behavior changes are required for existing devices.
-- Existing Shelly, Zigbee, OpenCCU, room and device configurations remain compatible.
-- Existing HomeKit configuration remains compatible.
-- Existing virtual switches remain compatible and are restored after restart as before.
+- No API changes are required.
+- Existing device, room, adapter and HomeKit configurations remain compatible.
+- Existing Shelly credentials and device addresses remain unchanged.
 
 ## Verification
 
@@ -127,7 +103,7 @@ sh -n install.sh update.sh backup.sh restore.sh
 ## Container tags
 
 ```text
-0.7.17
+0.7.18
 0.7
 latest
 ```
@@ -135,5 +111,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.17
+v0.7.18
 ```
