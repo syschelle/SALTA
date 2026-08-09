@@ -1,4 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
+import { request as httpRequest, type IncomingHttpHeaders, type IncomingMessage } from "node:http";
+import { request as httpsRequest } from "node:https";
 import { getFritzBoxPresenceConnection, listPresenceTargets, writeSystemLog } from "./db.js";
 import type { Device, FritzBoxPresenceStatus, PresenceTarget } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
@@ -91,40 +93,71 @@ function soapEnvelope(action: string, args: Record<string,string>): string {
   return `<?xml version="1.0" encoding="utf-8"?><s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><u:${action} xmlns:u="${serviceType}">${argumentsXml}</u:${action}></s:Body></s:Envelope>`;
 }
 
-async function requestSoap(baseUrl: string, username: string, password: string, action: string, args: Record<string,string> = {}): Promise<string> {
-  const url = `${normalizeFritzBoxBaseUrl(baseUrl)}/upnp/control/hosts`; const body = soapEnvelope(action,args); const controller = new AbortController(); const timer = setTimeout(()=>controller.abort(),requestTimeoutMs);
-  const execute = (authorization?: string) => fetch(url,{method:"POST",headers:{"content-type":"text/xml; charset=utf-8",soapaction:`"${serviceType}#${action}"`,...(authorization?{authorization}:{})},body,signal:controller.signal});
-  try {
-    let response = await execute();
-    if ((response.status===401||response.status===403) && (username||password)) {
-      const challenge = parseDigestChallenge(response.headers.get("www-authenticate"));
-      if (challenge) response = await execute(digestAuthHeader(challenge,username||"admin",password,"POST",url));
-    }
-    const text = await response.text();
-    const faultCode = xmlValue(text,"errorCode");
-    if (!response.ok) {
-      if (faultCode === "714") return text;
-      if (response.status===401||response.status===403) throw new Error("FRITZBOX_AUTHENTICATION_FAILED");
-      throw new Error(faultCode ? `FRITZBOX_SOAP_${faultCode}` : `FRITZBOX_HTTP_${response.status}`);
-    }
-    if (!text.includes("Envelope")) throw new Error("FRITZBOX_INVALID_RESPONSE");
-    return text;
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw new Error("FRITZBOX_TIMEOUT");
-    if (error instanceof TypeError) throw new Error("FRITZBOX_UNREACHABLE");
-    throw error;
-  } finally { clearTimeout(timer); }
+type SoapHttpResponse = { status: number; headers: IncomingHttpHeaders; text: string };
+
+function headerValue(headers: IncomingHttpHeaders, name: string): string | null {
+  const value = headers[name.toLowerCase()];
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }
 
-export async function fritzBoxHostCount(baseUrl: string, username = "", password = ""): Promise<number> {
-  const xml = await requestSoap(baseUrl,username,password,"GetHostNumberOfEntries");
+function transportError(error: unknown): Error {
+  if (error instanceof Error && error.message === "FRITZBOX_TIMEOUT") return error;
+  const code = typeof error === "object" && error !== null && "code" in error ? String((error as {code?:unknown}).code ?? "") : "";
+  if (["DEPTH_ZERO_SELF_SIGNED_CERT","SELF_SIGNED_CERT_IN_CHAIN","UNABLE_TO_VERIFY_LEAF_SIGNATURE","CERT_HAS_EXPIRED","ERR_TLS_CERT_ALTNAME_INVALID"].includes(code)) return new Error("FRITZBOX_TLS_CERTIFICATE");
+  if (["ECONNREFUSED","ECONNRESET","EHOSTUNREACH","ENETUNREACH","ENOTFOUND","EAI_AGAIN","ETIMEDOUT"].includes(code)) return new Error("FRITZBOX_UNREACHABLE");
+  return error instanceof Error ? error : new Error("FRITZBOX_UNREACHABLE");
+}
+
+async function executeSoapRequest(url: string, headers: Record<string,string>, body: string, tlsInsecure: boolean): Promise<SoapHttpResponse> {
+  const target = new URL(url);
+  return new Promise((resolve,reject)=>{
+    let settled=false;
+    const onResponse=(response: IncomingMessage)=>{
+      const chunks: Buffer[]=[];
+      response.on("data",chunk=>chunks.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk)));
+      response.on("end",()=>{
+        if(settled)return; settled=true; clearTimeout(timer);
+        resolve({status:response.statusCode??0,headers:response.headers,text:Buffer.concat(chunks).toString("utf8")});
+      });
+    };
+    const request=target.protocol === "https:"
+      ? httpsRequest(target,{method:"POST",headers,rejectUnauthorized:!tlsInsecure},onResponse)
+      : httpRequest(target,{method:"POST",headers},onResponse);
+    const timer=setTimeout(()=>{if(settled)return;settled=true;request.destroy(new Error("FRITZBOX_TIMEOUT"));reject(new Error("FRITZBOX_TIMEOUT"));},requestTimeoutMs);
+    request.on("error",error=>{if(settled)return;settled=true;clearTimeout(timer);reject(transportError(error));});
+    request.write(body); request.end();
+  });
+}
+
+async function requestSoap(baseUrl: string, username: string, password: string, action: string, args: Record<string,string> = {}, tlsInsecure = false): Promise<string> {
+  const url = `${normalizeFritzBoxBaseUrl(baseUrl)}/upnp/control/hosts`;
+  const body = soapEnvelope(action,args);
+  const execute = (authorization?: string) => executeSoapRequest(url,{"content-type":"text/xml; charset=utf-8",soapaction:`"${serviceType}#${action}"`,...(authorization?{authorization}:{})},body,tlsInsecure);
+  let response = await execute();
+  if ((response.status===401||response.status===403) && (username||password)) {
+    const challenge = parseDigestChallenge(headerValue(response.headers,"www-authenticate"));
+    if (challenge) response = await execute(digestAuthHeader(challenge,username||"admin",password,"POST",url));
+  }
+  const text = response.text;
+  const faultCode = xmlValue(text,"errorCode");
+  if (response.status < 200 || response.status >= 300) {
+    if (faultCode === "714") return text;
+    if (response.status===401||response.status===403) throw new Error("FRITZBOX_AUTHENTICATION_FAILED");
+    throw new Error(faultCode ? `FRITZBOX_SOAP_${faultCode}` : `FRITZBOX_HTTP_${response.status}`);
+  }
+  if (!text.includes("Envelope")) throw new Error("FRITZBOX_INVALID_RESPONSE");
+  return text;
+}
+
+export async function fritzBoxHostCount(baseUrl: string, username = "", password = "", tlsInsecure = false): Promise<number> {
+  const xml = await requestSoap(baseUrl,username,password,"GetHostNumberOfEntries",{},tlsInsecure);
   const value = Number(xmlValue(xml,"NewHostNumberOfEntries") ?? xmlValue(xml,"HostNumberOfEntries"));
   if (!Number.isFinite(value)) throw new Error("FRITZBOX_INVALID_RESPONSE");
   return value;
 }
 
-export async function fritzBoxHostByMac(baseUrl: string, username: string, password: string, macAddress: string): Promise<HostEntry> {
-  const xml = await requestSoap(baseUrl,username,password,"GetSpecificHostEntry",{NewMACAddress:normalizePresenceMac(macAddress)});
+export async function fritzBoxHostByMac(baseUrl: string, username: string, password: string, macAddress: string, tlsInsecure = false): Promise<HostEntry> {
+  const xml = await requestSoap(baseUrl,username,password,"GetSpecificHostEntry",{NewMACAddress:normalizePresenceMac(macAddress)},tlsInsecure);
   if (xmlValue(xml,"errorCode") === "714") return {active:false};
   const activeRaw = xmlValue(xml,"NewActive");
   if (activeRaw === undefined) throw new Error("FRITZBOX_INVALID_RESPONSE");
@@ -152,8 +185,8 @@ export class FritzBoxPresenceAdapter {
     this.timer=setInterval(()=>void this.reconcile().catch(()=>undefined),Math.max(10,settings.pollIntervalSeconds)*1000); this.timer.unref();
   }
 
-  async testConnection(input?: {baseUrl:string;username:string;password:string}): Promise<{hostCount:number}> {
-    const connection=input??await getFritzBoxPresenceConnection(); const hostCount=await fritzBoxHostCount(connection.baseUrl,connection.username,connection.password); return {hostCount};
+  async testConnection(input?: {baseUrl:string;username:string;password:string;tlsInsecure:boolean}): Promise<{hostCount:number}> {
+    const connection=input??await getFritzBoxPresenceConnection(); const hostCount=await fritzBoxHostCount(connection.baseUrl,connection.username,connection.password,connection.tlsInsecure); return {hostCount};
   }
 
   async reconcile(): Promise<void> {
@@ -165,9 +198,9 @@ export class FritzBoxPresenceAdapter {
     const connection=await getFritzBoxPresenceConnection(); this.status.enabled=connection.enabled; if(!connection.enabled) return;
     const targets=await listPresenceTargets(); await this.ensureTargetDevices(targets);
     try {
-      const hostCount=await fritzBoxHostCount(connection.baseUrl,connection.username,connection.password);
+      const hostCount=await fritzBoxHostCount(connection.baseUrl,connection.username,connection.password,connection.tlsInsecure);
       for(const target of targets) {
-        try { const host=await fritzBoxHostByMac(connection.baseUrl,connection.username,connection.password,target.macAddress); await this.applyTarget(target,host,connection.absenceDelaySeconds); }
+        try { const host=await fritzBoxHostByMac(connection.baseUrl,connection.username,connection.password,target.macAddress,connection.tlsInsecure); await this.applyTarget(target,host,connection.absenceDelaySeconds); }
         catch(error){ await this.markTargetUnavailable(target,error); }
       }
       await this.updateHousePresence(); this.status={connected:true,enabled:true,hostCount,lastSync:now()};

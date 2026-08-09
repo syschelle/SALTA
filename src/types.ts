@@ -113,6 +113,7 @@ export interface FritzBoxPresenceSettings {
   enabled: boolean;
   pollIntervalSeconds: number;
   absenceDelaySeconds: number;
+  tlsInsecure: boolean;
 }
 
 export interface PresenceTarget {

@@ -100,6 +100,11 @@ export async function initializeDatabaseSchema(): Promise<void> {
       absence_delay_seconds integer NOT NULL DEFAULT 300 CHECK (absence_delay_seconds BETWEEN 0 AND 86400),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS fritzbox_presence_transport_settings (
+      adapter_id text PRIMARY KEY DEFAULT 'fritzbox_presence',
+      tls_insecure boolean NOT NULL DEFAULT false,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS presence_targets (
       id uuid PRIMARY KEY,
       name text NOT NULL,
@@ -571,6 +576,7 @@ export async function getFritzBoxPresenceSettings(): Promise<FritzBoxPresenceSet
   const result = await pool.query<{ base_url: string; username: string; encrypted_password: string; enabled: boolean; poll_interval_seconds: number; absence_delay_seconds: number }>(
     "SELECT base_url,username,encrypted_password,enabled,poll_interval_seconds,absence_delay_seconds FROM fritzbox_presence_settings WHERE adapter_id='fritzbox_presence'"
   );
+  const transport = await pool.query<{ tls_insecure: boolean }>("SELECT tls_insecure FROM fritzbox_presence_transport_settings WHERE adapter_id='fritzbox_presence'");
   const row = result.rows[0];
   const secret = row?.encrypted_password ?? "";
   return {
@@ -580,14 +586,16 @@ export async function getFritzBoxPresenceSettings(): Promise<FritzBoxPresenceSet
     encryptionStatus: secret && !secretIsReadable(secret) ? "invalid" : "ok",
     enabled: row?.enabled ?? false,
     pollIntervalSeconds: row?.poll_interval_seconds ?? 30,
-    absenceDelaySeconds: row?.absence_delay_seconds ?? 300
+    absenceDelaySeconds: row?.absence_delay_seconds ?? 300,
+    tlsInsecure: transport.rows[0]?.tls_insecure ?? false
   };
 }
 
-export async function getFritzBoxPresenceConnection(): Promise<{ baseUrl: string; username: string; password: string; enabled: boolean; pollIntervalSeconds: number; absenceDelaySeconds: number }> {
+export async function getFritzBoxPresenceConnection(): Promise<{ baseUrl: string; username: string; password: string; enabled: boolean; pollIntervalSeconds: number; absenceDelaySeconds: number; tlsInsecure: boolean }> {
   const result = await pool.query<{ base_url: string; username: string; encrypted_password: string; enabled: boolean; poll_interval_seconds: number; absence_delay_seconds: number }>(
     "SELECT base_url,username,encrypted_password,enabled,poll_interval_seconds,absence_delay_seconds FROM fritzbox_presence_settings WHERE adapter_id='fritzbox_presence'"
   );
+  const transport = await pool.query<{ tls_insecure: boolean }>("SELECT tls_insecure FROM fritzbox_presence_transport_settings WHERE adapter_id='fritzbox_presence'");
   const row = result.rows[0];
   return {
     baseUrl: row?.base_url ?? "http://fritz.box:49000",
@@ -595,19 +603,27 @@ export async function getFritzBoxPresenceConnection(): Promise<{ baseUrl: string
     password: decryptStoredSecret(row?.encrypted_password),
     enabled: row?.enabled ?? false,
     pollIntervalSeconds: row?.poll_interval_seconds ?? 30,
-    absenceDelaySeconds: row?.absence_delay_seconds ?? 300
+    absenceDelaySeconds: row?.absence_delay_seconds ?? 300,
+    tlsInsecure: transport.rows[0]?.tls_insecure ?? false
   };
 }
 
-export async function updateFritzBoxPresenceSettings(input: { baseUrl: string; username: string; password?: string; enabled: boolean; pollIntervalSeconds: number; absenceDelaySeconds: number }): Promise<FritzBoxPresenceSettings> {
+export async function updateFritzBoxPresenceSettings(input: { baseUrl: string; username: string; password?: string; enabled: boolean; pollIntervalSeconds: number; absenceDelaySeconds: number; tlsInsecure: boolean }): Promise<FritzBoxPresenceSettings> {
   const current = await pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM fritzbox_presence_settings WHERE adapter_id='fritzbox_presence'");
   const currentSecret = current.rows[0]?.encrypted_password ?? "";
   if (input.password === undefined && currentSecret && !secretIsReadable(currentSecret)) throw new Error("ENCRYPTION_KEY_MISMATCH");
   const encrypted = input.password === undefined ? currentSecret : (input.password ? encryptSecret(input.password) : "");
-  await pool.query(`INSERT INTO fritzbox_presence_settings(adapter_id,base_url,username,encrypted_password,enabled,poll_interval_seconds,absence_delay_seconds)
-    VALUES('fritzbox_presence',$1,$2,$3,$4,$5,$6)
-    ON CONFLICT(adapter_id) DO UPDATE SET base_url=EXCLUDED.base_url,username=EXCLUDED.username,encrypted_password=EXCLUDED.encrypted_password,enabled=EXCLUDED.enabled,poll_interval_seconds=EXCLUDED.poll_interval_seconds,absence_delay_seconds=EXCLUDED.absence_delay_seconds,updated_at=now()`,
-    [input.baseUrl,input.username,encrypted,input.enabled,input.pollIntervalSeconds,input.absenceDelaySeconds]);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(`INSERT INTO fritzbox_presence_settings(adapter_id,base_url,username,encrypted_password,enabled,poll_interval_seconds,absence_delay_seconds)
+      VALUES('fritzbox_presence',$1,$2,$3,$4,$5,$6)
+      ON CONFLICT(adapter_id) DO UPDATE SET base_url=EXCLUDED.base_url,username=EXCLUDED.username,encrypted_password=EXCLUDED.encrypted_password,enabled=EXCLUDED.enabled,poll_interval_seconds=EXCLUDED.poll_interval_seconds,absence_delay_seconds=EXCLUDED.absence_delay_seconds,updated_at=now()`,
+      [input.baseUrl,input.username,encrypted,input.enabled,input.pollIntervalSeconds,input.absenceDelaySeconds]);
+    await client.query(`INSERT INTO fritzbox_presence_transport_settings(adapter_id,tls_insecure) VALUES('fritzbox_presence',$1)
+      ON CONFLICT(adapter_id) DO UPDATE SET tls_insecure=EXCLUDED.tls_insecure,updated_at=now()`,[input.tlsInsecure]);
+    await client.query("COMMIT");
+  } catch(error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
   return getFritzBoxPresenceSettings();
 }
 

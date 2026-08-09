@@ -1,4 +1,4 @@
-# SALTA v0.8.13 – Git and Release Commands
+# SALTA v0.8.14 – Git and Release Commands
 
 ## Commit and push main
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(presence): add FRITZ!Box Wi-Fi presence detection"
+git commit -m "fix(presence): support FRITZ!Box HTTPS and self-signed certificates"
 git push origin main
 ```
 
@@ -17,8 +17,8 @@ Wait for the GitHub CI workflow on `main` to be green.
 ## Tag
 
 ```bash
-git tag -a v0.8.13 -m "SALTA v0.8.13"
-git push origin v0.8.13
+git tag -a v0.8.14 -m "SALTA v0.8.14"
+git push origin v0.8.14
 ```
 
 ## Production update
@@ -26,7 +26,7 @@ git push origin v0.8.13
 If `.env` pins a versioned image, set:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.13
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.14
 ```
 
 Then update the deployment:

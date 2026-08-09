@@ -33,7 +33,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.13</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.14</strong></div>
   </div>
 </aside>
 
@@ -83,7 +83,12 @@
         <div id="presenceCredentialWarning" class="settings-warning" role="alert" hidden></div>
         <form id="presenceSettingsForm" class="page-form">
           <label class="presence-enabled-row"><span><strong>Präsenzerkennung aktiv</strong><small>FRITZ!Box regelmäßig nach den bekannten Geräten fragen</small></span><input id="presenceEnabled" type="checkbox"></label>
-          <label>FRITZ!Box TR-064-Adresse<input id="presenceBaseUrl" placeholder="http://fritz.box:49000" autocomplete="url" required><small>Standardmäßig verwendet die FRITZ!Box TR-064 über Port 49000 im lokalen Netz.</small></label>
+          <div class="presence-transport-row">
+            <label>Protokoll<select id="presenceProtocol" required><option value="http">HTTP</option><option value="https">HTTPS</option></select></label>
+            <label>FRITZ!Box / Host<input id="presenceHost" placeholder="fritz.box" autocomplete="url" required><small>Hostname oder IP-Adresse ohne Protokoll und Port.</small></label>
+            <label>Port<select id="presencePort" required><option value="49000">49000</option><option value="49443">49443</option></select></label>
+          </div>
+          <label class="presence-enabled-row presence-tls-row"><span><strong>Zertifikatsprüfung deaktivieren</strong><small>Nur für HTTPS. Erlaubt selbstsignierte FRITZ!Box-Zertifikate. Nur aktivieren, wenn du deiner lokalen FRITZ!Box vertraust.</small></span><input id="presenceTlsInsecure" type="checkbox"></label>
           <div class="presence-form-row"><label>Benutzername<input id="presenceUsername" autocomplete="username" placeholder="FRITZ!Box-Benutzer"></label><label>Passwort<input id="presencePassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label></div>
           <p id="presencePasswordState" class="setting-note"></p>
           <div class="presence-form-row"><label>Prüfintervall<select id="presencePollInterval"><option value="15">15 Sekunden</option><option value="30">30 Sekunden</option><option value="60">60 Sekunden</option><option value="120">2 Minuten</option></select></label><label>Standard: abwesend nach<select id="presenceAbsenceDelay"><option value="0">sofort</option><option value="60">1 Minute</option><option value="180">3 Minuten</option><option value="300">5 Minuten</option><option value="600">10 Minuten</option><option value="900">15 Minuten</option></select></label></div>

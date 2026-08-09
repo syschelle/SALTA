@@ -14,6 +14,10 @@ describe("presence page", () => {
     expect(html).toContain('id="presenceHouseSummary"');
     expect(html).toContain('id="presenceTargetList"');
     expect(html).toContain('id="presenceTargetForm"');
+    expect(html).toContain('id="presenceProtocol"');
+    expect(html).toContain('id="presenceHost"');
+    expect(html).toContain('id="presencePort"');
+    expect(html).toContain('id="presenceTlsInsecure"');
   });
   it("loads, tests, refreshes and edits presence targets through the presence API", () => {
     expect(app).toContain("async function loadPresence()");
@@ -21,6 +25,9 @@ describe("presence page", () => {
     expect(app).toContain("'/api/presence/refresh'");
     expect(app).toContain("'/api/presence/devices'");
     expect(app).toContain("presenceTargetDelay");
+    expect(app).toContain("presenceBaseUrlFromForm()");
+    expect(app).toContain("tlsInsecure:presenceProtocol.value==='https'&&presenceTlsInsecure.checked");
+    expect(app).toContain("FRITZBOX_TLS_CERTIFICATE");
   });
   it("exposes individual and house presence booleans to the generic automation editor", () => {
     expect(automationUi).toContain("'present'");

@@ -62,6 +62,8 @@ describe("clean database schema", () => {
   it("stores FRITZ!Box presence settings and monitored MAC addresses additively", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings");
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS presence_targets");
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS fritzbox_presence_transport_settings");
+    expect(databaseSource).toContain("tls_insecure boolean NOT NULL DEFAULT false");
     expect(databaseSource).toContain("poll_interval_seconds integer NOT NULL DEFAULT 30");
     expect(databaseSource).toContain("absence_delay_seconds integer NOT NULL DEFAULT 300");
     expect(databaseSource).toContain("mac_address text NOT NULL UNIQUE");

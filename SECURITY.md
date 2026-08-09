@@ -26,7 +26,7 @@ SALTA_BIND_ADDRESS=127.0.0.1
 
 For direct LAN access without a reverse proxy, `SALTA_BIND_ADDRESS=0.0.0.0` publishes SALTA on all host interfaces. Restrict access with the host firewall and use only trusted networks.
 
-SALTA may connect to local Phoscon/deCONZ and OpenCCU services over HTTP. Their API credentials are protected at rest but are not encrypted while crossing the network over HTTP. Keep adapter traffic inside a trusted LAN or IoT VLAN, or use endpoints with certificates trusted by the SALTA container. SALTA does not disable TLS certificate validation.
+SALTA may connect to local Phoscon/deCONZ and OpenCCU services over HTTP. Their API credentials are protected at rest but are not encrypted while crossing the network over HTTP. Keep adapter traffic inside a trusted LAN or IoT VLAN, or use endpoints with certificates trusted by the SALTA container. TLS certificate validation remains enabled by default. The FRITZ!Box Presence adapter has one explicit per-adapter exception: for HTTPS connections, an administrator may disable certificate verification to allow a trusted local self-signed FRITZ!Box certificate. This setting is request-scoped to FRITZ!Box Presence traffic and never changes Node.js global TLS verification or the behavior of other SALTA integrations.
 
 ## Authentication and browser sessions
 

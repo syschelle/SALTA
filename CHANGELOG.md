@@ -2,6 +2,18 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.14
+
+- Added separate FRITZ!Box TR-064 protocol, host and port controls on the Presence page.
+- Added explicit HTTP/HTTPS selection and both common TR-064 ports, 49000 and 49443, while preserving manually selected protocol/port combinations.
+- Added an HTTPS-only **Disable certificate verification** option for local self-signed FRITZ!Box certificates.
+- Scoped the certificate-verification bypass to FRITZ!Box HTTPS requests only; SALTA never changes `NODE_TLS_REJECT_UNAUTHORIZED` or global TLS behavior.
+- Added a dedicated additive transport-settings table for the TLS option, keeping the canonical schema free of incremental `ALTER TABLE` migrations.
+- Added a clear certificate-validation error and Presence-page guidance when HTTPS verification fails.
+- Replaced the FRITZ!Box SOAP transport with Node.js request-scoped HTTP/HTTPS requests while retaining Digest authentication, timeouts and MAC-targeted `GetSpecificHostEntry`.
+- Extended frontend, schema, transport and release-validation coverage for protocol/port selection and TLS behavior.
+- Kept the npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.13
 
 - Added a dedicated **Presence** page to the main desktop and mobile navigation.

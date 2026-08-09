@@ -105,12 +105,16 @@ if (!virtualFrontend.includes("split(' + ').includes('Daylight')?5:4")) fail("Ph
 const presenceSource = read("src/fritzbox-presence.ts");
 const presenceFrontendTest = read("src/frontend-presence.test.ts");
 if (!publicIndex.includes('data-nav="presence"') || !publicIndex.includes('data-page="presence"')) fail("Dedicated Presence navigation/page is missing");
-for (const id of ["presenceSettingsForm", "presenceHouseSummary", "presenceTargetList", "presenceTargetForm"]) {
+for (const id of ["presenceSettingsForm", "presenceHouseSummary", "presenceTargetList", "presenceTargetForm", "presenceProtocol", "presenceHost", "presencePort", "presenceTlsInsecure"]) {
   if (!publicIndex.includes(`id="${id}"`)) fail(`Presence page section is missing: ${id}`);
 }
-if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_targets")) fail("Presence persistence tables are missing");
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_targets") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_transport_settings")) fail("Presence persistence tables are missing");
+if (!databaseSource.includes("tls_insecure boolean NOT NULL DEFAULT false")) fail("FRITZ!Box TLS verification setting persistence is missing");
 if (!presenceSource.includes('urn:dslforum-org:service:Hosts:1') || !presenceSource.includes('GetSpecificHostEntry') || !presenceSource.includes('/upnp/control/hosts')) fail("FRITZ!Box TR-064 Hosts integration is incomplete");
 if (!presenceSource.includes("missingSince") || !presenceSource.includes("absenceDelaySeconds")) fail("Presence absence hysteresis is missing");
+if (!presenceSource.includes("rejectUnauthorized:!tlsInsecure") || presenceSource.includes("NODE_TLS_REJECT_UNAUTHORIZED")) fail("FRITZ!Box TLS certificate bypass must be request-scoped");
+if (!serverSource.includes("FRITZBOX_TLS_CERTIFICATE") || !serverSource.includes("tlsInsecure")) fail("FRITZ!Box TLS certificate handling is incomplete");
+if (!publicIndex.includes('<option value="http">HTTP</option>') || !publicIndex.includes('<option value="https">HTTPS</option>') || !publicIndex.includes('<option value="49000">49000</option>') || !publicIndex.includes('<option value="49443">49443</option>')) fail("FRITZ!Box protocol/port selectors are incomplete");
 if (!presenceSource.includes('name:"Hauspräsenz"') || !presenceSource.includes("nobodyHome") || !presenceSource.includes("presentCount")) fail("House presence aggregation is missing");
 for (const route of ['/api/presence', '/api/presence/settings', '/api/presence/test', '/api/presence/devices', '/api/presence/refresh']) {
   if (!serverSource.includes(route)) fail(`Presence API route is missing: ${route}`);

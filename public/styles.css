@@ -373,6 +373,10 @@ html[data-theme="dark"] .automation-or-trigger-remove:hover{background:#321a20;c
 .presence-enabled-row input{width:19px;height:19px;accent-color:var(--accent);flex:0 0 auto}
 .presence-form-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
 .presence-form-row>label{margin:0}
+.presence-transport-row{display:grid;grid-template-columns:120px minmax(0,1fr) 120px;gap:12px}
+.presence-transport-row>label{margin:0}
+.presence-tls-row.disabled{opacity:.58}
+.presence-tls-row.disabled input{cursor:not-allowed}
 .presence-house-panel{display:grid;align-content:start}
 .presence-house-icon{font-size:28px;color:var(--accent);background:var(--accent-bg);width:48px;height:48px;border-radius:13px;display:grid;place-items:center}
 .presence-house-summary{display:grid;gap:16px}
@@ -413,4 +417,4 @@ html[data-theme="dark"] .automation-or-trigger-remove:hover{background:#321a20;c
 .presence-target-form-panel .setting-note{font-size:11px;line-height:1.45}
 .presence-target-form-panel .split-actions{justify-content:flex-end}
 @media(max-width:1100px){.presence-top-grid,.presence-devices-layout{grid-template-columns:1fr}.presence-target-form-panel.sticky-panel{position:static}}
-@media(max-width:620px){.presence-top-grid{margin-top:22px}.presence-form-row{grid-template-columns:1fr}.presence-house-values{grid-template-columns:1fr}.presence-target-card{align-items:flex-start;flex-direction:column}.presence-target-side{width:100%;justify-items:start;padding-left:52px}.presence-target-actions{width:100%}.presence-target-actions button{flex:1}.presence-devices-layout{margin-top:14px}.presence-enabled-row{align-items:flex-start}}
+@media(max-width:620px){.presence-top-grid{margin-top:22px}.presence-form-row,.presence-transport-row{grid-template-columns:1fr}.presence-house-values{grid-template-columns:1fr}.presence-target-card{align-items:flex-start;flex-direction:column}.presence-target-side{width:100%;justify-items:start;padding-left:52px}.presence-target-actions{width:100%}.presence-target-actions button{flex:1}.presence-devices-layout{margin-top:14px}.presence-enabled-row{align-items:flex-start}}

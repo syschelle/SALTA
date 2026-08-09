@@ -44,9 +44,10 @@ const fritzBoxPresenceSettingsSchema = z.object({
   password: z.string().max(512).optional(),
   enabled: z.boolean().default(false),
   pollIntervalSeconds: z.number().int().min(10).max(3600).default(30),
-  absenceDelaySeconds: z.number().int().min(0).max(86400).default(300)
+  absenceDelaySeconds: z.number().int().min(0).max(86400).default(300),
+  tlsInsecure: z.boolean().default(false)
 }).strict();
-const fritzBoxPresenceTestSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), username: z.string().trim().max(120).default(""), password: z.string().max(512).optional() }).strict();
+const fritzBoxPresenceTestSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), username: z.string().trim().max(120).default(""), password: z.string().max(512).optional(), tlsInsecure: z.boolean().default(false) }).strict();
 const presenceTargetSchema = z.object({ name: z.string().trim().min(1).max(120), macAddress: z.string().trim().min(12).max(32), absenceDelaySeconds: z.number().int().min(0).max(86400).nullable().optional() }).strict();
 const openCcuDiagnosticSchema = z.object({ baseUrl: z.string().trim().min(1).max(512).optional(), username: z.string().trim().min(1).max(120).optional(), password: z.string().max(512).optional() }).strict();
 const virtualDeviceSchema = z.object({ name: z.string().trim().min(1).max(120), type: z.literal("switch").default("switch"), roomId: z.string().uuid().nullable().optional() }).strict();
@@ -270,7 +271,8 @@ function normalizeAutomationInput(data: z.infer<typeof automationSchema>) {
 
 function fritzBoxRequestError(error: unknown): { status: number; code: string; message: string } {
   const code=error instanceof Error?error.message:"FRITZBOX_REQUEST_FAILED";
-  if(code==="FRITZBOX_URL_INVALID") return {status:400,code,message:"Enter a valid FRITZ!Box TR-064 address, for example http://fritz.box:49000."};
+  if(code==="FRITZBOX_URL_INVALID") return {status:400,code,message:"Enter a valid FRITZ!Box TR-064 address using HTTP or HTTPS and port 49000 or 49443."};
+  if(code==="FRITZBOX_TLS_CERTIFICATE") return {status:422,code,message:"The FRITZ!Box HTTPS certificate could not be verified. Enable the explicit certificate-check bypass only if you trust this local FRITZ!Box."};
   if(code==="PRESENCE_MAC_INVALID") return {status:400,code,message:"Enter a valid MAC address in the format AA:BB:CC:DD:EE:FF."};
   if(code==="FRITZBOX_AUTHENTICATION_FAILED") return {status:422,code,message:"The FRITZ!Box rejected the configured credentials."};
   if(code==="FRITZBOX_UNREACHABLE") return {status:502,code,message:"The FRITZ!Box TR-064 interface is unreachable."};
@@ -494,9 +496,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.13" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.14" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.13", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.14", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -573,7 +575,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed=fritzBoxPresenceTestSchema.safeParse(request.body); if(!parsed.success) return securityError(reply,request,400,"INVALID_REQUEST","Invalid FRITZ!Box connection data.");
     try {
       const stored=await getFritzBoxPresenceConnection(); const password=parsed.data.password===undefined?stored.password:parsed.data.password;
-      const result=await presenceAdapter.testConnection({baseUrl:normalizeFritzBoxBaseUrl(parsed.data.baseUrl),username:parsed.data.username,password});
+      const result=await presenceAdapter.testConnection({baseUrl:normalizeFritzBoxBaseUrl(parsed.data.baseUrl),username:parsed.data.username,password,tlsInsecure:parsed.data.tlsInsecure});
       return {status:"ok",...result};
     } catch(error){const response=fritzBoxRequestError(error);return securityError(reply,request,response.status,response.code,response.message);}
   });

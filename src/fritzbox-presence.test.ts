@@ -1,3 +1,5 @@
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./db.js", () => ({
@@ -9,13 +11,36 @@ vi.mock("./db.js", () => ({
 import { fritzBoxHostByMac, fritzBoxHostCount, normalizeFritzBoxBaseUrl, normalizePresenceMac } from "./fritzbox-presence.js";
 
 const soap = (body: string) => `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>${body}</s:Body></s:Envelope>`;
+const servers: Array<ReturnType<typeof createServer>> = [];
 
-afterEach(() => { vi.unstubAllGlobals(); });
+async function localServer(handler: (request: IncomingMessage, response: ServerResponse) => void): Promise<string> {
+  const server = createServer(handler);
+  servers.push(server);
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => resolve());
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("TEST_SERVER_ADDRESS_MISSING");
+  return `http://127.0.0.1:${address.port}`;
+}
+
+async function requestBody(request: IncomingMessage): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+afterEach(async () => {
+  await Promise.all(servers.splice(0).map(server => new Promise<void>(resolve => server.close(() => resolve()))));
+});
 
 describe("FRITZ!Box presence transport", () => {
-  it("normalizes local TR-064 addresses and common MAC formats", () => {
+  it("normalizes both TR-064 protocols, both common ports and common MAC formats", () => {
     expect(normalizeFritzBoxBaseUrl("fritz.box")).toBe("http://fritz.box:49000");
     expect(normalizeFritzBoxBaseUrl("https://fritz.box")).toBe("https://fritz.box:49443");
+    expect(normalizeFritzBoxBaseUrl("http://fritz.box:49443")).toBe("http://fritz.box:49443");
+    expect(normalizeFritzBoxBaseUrl("https://fritz.box:49000")).toBe("https://fritz.box:49000");
     expect(normalizePresenceMac("aa-bb-cc-dd-ee-ff")).toBe("AA:BB:CC:DD:EE:FF");
     expect(normalizePresenceMac("AABB.CCDD.EEFF")).toBe("AA:BB:CC:DD:EE:FF");
     expect(normalizePresenceMac("aabbccddeeff")).toBe("AA:BB:CC:DD:EE:FF");
@@ -23,30 +48,50 @@ describe("FRITZ!Box presence transport", () => {
   });
 
   it("reads the FRITZ!Box host count from the Hosts service", async () => {
-    const fetchMock = vi.fn(async () => new Response(soap("<u:GetHostNumberOfEntriesResponse><NewHostNumberOfEntries>17</NewHostNumberOfEntries></u:GetHostNumberOfEntriesResponse>"), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(fritzBoxHostCount("http://fritz.box:49000")).resolves.toBe(17);
-    expect(fetchMock).toHaveBeenCalledOnce();
-    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("http://fritz.box:49000/upnp/control/hosts");
-    expect(fetchMock.mock.calls[0]?.[1]?.headers).toMatchObject({ soapaction: '"urn:dslforum-org:service:Hosts:1#GetHostNumberOfEntries"' });
+    let soapAction = "";
+    const baseUrl = await localServer((request, response) => {
+      soapAction = String(request.headers.soapaction ?? "");
+      response.writeHead(200, { "content-type": "text/xml" });
+      response.end(soap("<u:GetHostNumberOfEntriesResponse><NewHostNumberOfEntries>17</NewHostNumberOfEntries></u:GetHostNumberOfEntriesResponse>"));
+    });
+    await expect(fritzBoxHostCount(baseUrl)).resolves.toBe(17);
+    expect(soapAction).toBe('"urn:dslforum-org:service:Hosts:1#GetHostNumberOfEntries"');
   });
 
   it("queries a known MAC with GetSpecificHostEntry", async () => {
-    const fetchMock = vi.fn(async () => new Response(soap("<u:GetSpecificHostEntryResponse><NewIPAddress>192.168.178.42</NewIPAddress><NewInterfaceType>802.11</NewInterfaceType><NewActive>1</NewActive><NewHostName>phone</NewHostName></u:GetSpecificHostEntryResponse>"), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(fritzBoxHostByMac("http://fritz.box:49000", "", "", "AA:BB:CC:DD:EE:FF")).resolves.toEqual({active:true,ipAddress:"192.168.178.42",interfaceType:"802.11",hostName:"phone"});
-    expect(String(fetchMock.mock.calls[0]?.[1]?.body)).toContain("<NewMACAddress>AA:BB:CC:DD:EE:FF</NewMACAddress>");
+    let body = "";
+    const baseUrl = await localServer(async (request, response) => {
+      body = await requestBody(request);
+      response.writeHead(200, { "content-type": "text/xml" });
+      response.end(soap("<u:GetSpecificHostEntryResponse><NewIPAddress>192.168.178.42</NewIPAddress><NewInterfaceType>802.11</NewInterfaceType><NewActive>1</NewActive><NewHostName>phone</NewHostName></u:GetSpecificHostEntryResponse>"));
+    });
+    await expect(fritzBoxHostByMac(baseUrl, "", "", "AA:BB:CC:DD:EE:FF")).resolves.toEqual({active:true,ipAddress:"192.168.178.42",interfaceType:"802.11",hostName:"phone"});
+    expect(body).toContain("<NewMACAddress>AA:BB:CC:DD:EE:FF</NewMACAddress>");
   });
 
   it("retries a protected Hosts request with HTTP Digest authentication", async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response("", { status: 401, headers: { "www-authenticate": 'Digest realm="fritz", nonce="abc123", algorithm=MD5, qop="auth"' } }))
-      .mockResolvedValueOnce(new Response(soap("<u:GetHostNumberOfEntriesResponse><NewHostNumberOfEntries>3</NewHostNumberOfEntries></u:GetHostNumberOfEntriesResponse>"), { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(fritzBoxHostCount("http://fritz.box:49000", "salta", "secret")).resolves.toBe(3);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const secondHeaders = fetchMock.mock.calls[1]?.[1]?.headers as Record<string, string>;
-    expect(secondHeaders.authorization).toMatch(/^Digest /);
-    expect(secondHeaders.authorization).toContain('username="salta"');
+    let requests = 0;
+    let authorization = "";
+    const baseUrl = await localServer((request, response) => {
+      requests += 1;
+      authorization = String(request.headers.authorization ?? authorization);
+      if (requests === 1) {
+        response.writeHead(401, { "www-authenticate": 'Digest realm="fritz", nonce="abc123", algorithm=MD5, qop="auth"' });
+        response.end();
+        return;
+      }
+      response.writeHead(200, { "content-type": "text/xml" });
+      response.end(soap("<u:GetHostNumberOfEntriesResponse><NewHostNumberOfEntries>3</NewHostNumberOfEntries></u:GetHostNumberOfEntriesResponse>"));
+    });
+    await expect(fritzBoxHostCount(baseUrl, "salta", "secret")).resolves.toBe(3);
+    expect(requests).toBe(2);
+    expect(authorization).toMatch(/^Digest /);
+    expect(authorization).toContain('username="salta"');
+  });
+
+  it("keeps TLS certificate bypass request-scoped", () => {
+    const source = readFileSync(new URL("./fritzbox-presence.ts", import.meta.url), "utf8");
+    expect(source).toContain("rejectUnauthorized:!tlsInsecure");
+    expect(source).not.toContain("NODE_TLS_REJECT_UNAUTHORIZED");
   });
 });
