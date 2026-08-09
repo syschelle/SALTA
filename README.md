@@ -2,7 +2,7 @@
 
 > **Smart-home Abstraction & Local Transport Architecture**
 
-SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API and an optional HomeKit bridge. It integrates Shelly, Phoscon/deCONZ Zigbee and OpenCCU/HomeMatic devices.
+SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API and an optional HomeKit bridge. It integrates Shelly, Phoscon/deCONZ Zigbee, OpenCCU/HomeMatic and SALTA-native virtual devices.
 
 > Your home. Your hardware. Your rules.
 
@@ -126,7 +126,7 @@ The quality gate validates release-version consistency, npm registry URLs, secur
 Use the safe version command for future releases:
 
 ```bash
-npm run version:set -- 0.7.13
+npm run version:set -- <next-version>
 ```
 
 This command updates only the SALTA root version and known release surfaces. It deliberately does not replace matching version strings inside transitive package-lock entries, which prevents dependency tarball and integrity metadata from being corrupted during a release bump.
@@ -213,6 +213,16 @@ Zigbee devices can be marked as hidden in their SALTA device settings. Hidden de
 
 Disconnecting Phoscon removes the synchronized SALTA records but does not delete or reset devices in Phoscon.
 
+## Virtual devices
+
+SALTA can create native virtual devices that exist entirely inside SALTA and are persisted in PostgreSQL. Open **Virtual Devices** in the main navigation to create them.
+
+The initial virtual-device implementation supports **switches**. A virtual switch can be assigned to a SALTA room, controlled from its dedicated page or the room overview, renamed later and deleted again. Its on/off state is persisted through the normal SALTA device registry.
+
+When HomeKit is enabled, virtual switches are exported automatically as HomeKit switch accessories. Commands from the SALTA web interface and HomeKit use the same device command router, so the state remains synchronized in both systems. Deleting a virtual device removes it from the SALTA registry and from the running HomeKit bridge.
+
+Virtual devices do not require credentials, a physical host or an external adapter. Devices without a room assignment remain visible on the Virtual Devices page but are intentionally excluded from the room-based overview until a room is assigned.
+
 ## OpenCCU and HomeMatic support
 
 SALTA can connect to one local OpenCCU instance through the CCU-compatible JSON-RPC endpoint at `/api/homematic.cgi`. Configure the connection under **Settings → OpenCCU / HomeMatic** with the OpenCCU base address and a dedicated username and password.
@@ -245,7 +255,7 @@ Entries are kept for at most 30 days and the newest 2,000 records. Cleanup runs 
 
 Rooms are first-class database entities linked to devices by `room_id`. The obsolete duplicate room-name column and its synchronization logic have been removed.
 
-The overview page groups every room-assigned Shelly, Zigbee and HomeMatic device by the configured room order. The same live controls used on the adapter pages are available on the overview, while unassigned devices remain on their dedicated adapter page until a room is selected.
+The overview page groups every room-assigned Shelly, Zigbee, HomeMatic and virtual device by the configured room order. The same live controls used on the adapter pages are available on the overview, while unassigned devices remain on their dedicated adapter page until a room is selected.
 
 ## Icons
 

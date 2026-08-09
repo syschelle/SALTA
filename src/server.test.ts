@@ -4,6 +4,7 @@ import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
 import type { PhosconAdapter } from "./phoscon-adapter.js";
 import type { OpenCcuAdapter } from "./openccu-adapter.js";
+import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
 
 vi.mock("./config.js", () => ({
   config: {
@@ -61,7 +62,8 @@ function createServer(
   add: ShellyAdapter["add"] = vi.fn(),
   registryOverrides: Partial<DeviceRegistry> = {},
   phosconOverrides: Partial<PhosconAdapter> = {},
-  openCcuOverrides: Partial<OpenCcuAdapter> = {}
+  openCcuOverrides: Partial<OpenCcuAdapter> = {},
+  virtualOverrides: Partial<VirtualDeviceAdapter> = {}
 ) {
   const registry = {
     all: () => [],
@@ -92,7 +94,13 @@ function createServer(
     command: vi.fn(),
     ...openCcuOverrides
   } as unknown as OpenCcuAdapter;
-  const server = buildServer(registry, adapter, phoscon, openCcu);
+  const virtual = {
+    createSwitch: vi.fn(),
+    remove: vi.fn(),
+    command: vi.fn(),
+    ...virtualOverrides
+  } as unknown as VirtualDeviceAdapter;
+  const server = buildServer(registry, adapter, phoscon, openCcu, virtual);
   openServers.push(server);
   return server;
 }
@@ -655,7 +663,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.7.15" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.7.16" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -681,5 +689,38 @@ describe("web security", () => {
     vi.mocked(reorderRooms).mockResolvedValueOnce([]);
     const allowed = await server.inject({ method: "PUT", url: "/api/rooms/order", headers: { cookie, "x-salta-csrf": csrfToken }, payload: { roomIds: [] } });
     expect(allowed.statusCode).toBe(200);
+  });
+});
+
+
+describe("virtual devices", () => {
+  it("creates a virtual switch with an optional SALTA room assignment", async () => {
+    const room = { id: "11111111-1111-4111-8111-111111111111", name: "Living room", icon: "sofa-outline", sortOrder: 0, createdAt: "2026-08-09T00:00:00.000Z", updatedAt: "2026-08-09T00:00:00.000Z" };
+    vi.mocked(listRooms).mockResolvedValueOnce([room]);
+    const created = { id: "virtual:test", source: "virtual", sourceId: "test", type: "switch", name: "Guest mode", roomId: room.id, room: room.name, reachable: true, state: { on: false }, capabilities: ["toggle", "turnOn", "turnOff"], homekitEnabled: true, hidden: false, credentialMode: "none", passwordConfigured: false, lastSeen: room.createdAt, lastEvent: room.createdAt };
+    const createSwitch = vi.fn(async () => created as never);
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, { createSwitch });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/adapters/virtual/devices", payload: { name: "Guest mode", type: "switch", roomId: room.id } });
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({ source: "virtual", type: "switch", name: "Guest mode", homekitEnabled: true });
+    expect(createSwitch).toHaveBeenCalledWith("Guest mode", room.id, room.name);
+  });
+
+  it("routes API commands to the virtual adapter", async () => {
+    const current = { id: "virtual:test", source: "virtual", capabilities: ["toggle", "turnOn", "turnOff"] };
+    const command = vi.fn(async () => ({ ...current, state: { on: true } } as never));
+    const server = createServer(vi.fn(), vi.fn(), { get: () => current as never }, {}, {}, { command });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/devices/virtual%3Atest/command", payload: { capability: "turnOn" } });
+    expect(response.statusCode).toBe(200);
+    expect(command).toHaveBeenCalledWith(expect.objectContaining({ deviceId: "virtual:test", capability: "turnOn", source: "api" }));
+  });
+
+  it("removes virtual devices through the common device endpoint", async () => {
+    const current = { id: "virtual:test", source: "virtual" };
+    const remove = vi.fn(async () => undefined);
+    const server = createServer(vi.fn(), vi.fn(), { get: () => current as never }, {}, {}, { remove });
+    const response = await authenticatedInject(server, { method: "DELETE", url: "/api/devices/virtual%3Atest" });
+    expect(response.statusCode).toBe(204);
+    expect(remove).toHaveBeenCalledWith("virtual:test");
   });
 });

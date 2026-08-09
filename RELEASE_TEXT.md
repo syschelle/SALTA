@@ -1,74 +1,88 @@
-# SALTA v0.7.15
+# SALTA v0.7.16
 
-SALTA v0.7.15 fixes the build regressions in the compact device-card release while retaining the complete responsive layout introduced in v0.7.14.
+SALTA v0.7.16 adds native virtual devices that can be created directly in SALTA and automatically exposed through the SALTA HomeKit bridge. The first supported virtual device type is a switch.
 
-## Build and test reliability fixes
+## Virtual devices
 
-- Fixed the device-density tests so they no longer inspect only the final CSS rule for a selector.
-- CSS assertions now inspect all matching rules, allowing the desktop base rule and later mobile media-query overrides to coexist correctly.
-- Fixed the OpenCCU control tests after device controls were moved into the shared `deviceControls` renderer.
-- Added transitive TypeScript-AST call-graph inspection so tests verify that `deviceCard` reaches thermostat controls through composed helper functions.
-- Added dedicated regression tests for:
-  - CSS selectors that have both base and mobile declarations;
-  - whitespace-independent CSS declaration matching;
-  - composed renderer call chains; and
-  - cyclic helper call graphs.
-- Extended release validation to reject the obsolete last-rule-only CSS test pattern and direct-only OpenCCU renderer assertions.
-- No runtime functionality was removed or changed by these test corrections.
+- Added a new **Virtual Devices** section directly after **HomeMatic** in the main navigation.
+- Added the same entry to the responsive mobile navigation.
+- Virtual devices are SALTA-native and do not require a physical host, credentials or an external adapter.
+- The initial supported type is **Switch**.
+- Virtual switches can be:
+  - created from the SALTA web interface;
+  - assigned to an existing SALTA room;
+  - left unassigned when required;
+  - switched on and off from SALTA;
+  - renamed later;
+  - moved to another room; and
+  - deleted again from SALTA.
+- Virtual switches use the same compact device cards as physical devices.
+- A room-assigned virtual switch automatically appears in the room-based overview together with Shelly, Zigbee and HomeMatic devices.
+- An unassigned virtual switch remains available on the **Virtual Devices** page but is intentionally excluded from the room-based overview.
 
-## Compact device cards
+## HomeKit synchronization
+
+- Virtual switches are automatically marked for HomeKit export.
+- When the SALTA HomeKit bridge is enabled, each virtual switch is published as a HomeKit switch accessory.
+- SALTA and HomeKit now use a shared source-aware device command router.
+- Switching a virtual device from SALTA updates the persisted state and the running HomeKit accessory.
+- Switching it from HomeKit uses the same command path and updates the SALTA device state.
+- Deleting a virtual switch removes it from the SALTA registry and from the running HomeKit bridge.
+- Existing persisted virtual switches are restored automatically after a SALTA restart and are republished to HomeKit.
+
+## Persistence and API
+
+- Virtual switches are persisted through the existing PostgreSQL-backed SALTA device registry.
+- No additional database table or schema migration is required.
+- Added a rate-limited API endpoint for creating virtual devices.
+- Existing device configuration and command endpoints are reused for rename, room assignment and switching.
+- The common delete endpoint now supports SALTA-native virtual devices in addition to removable Shelly devices.
+- System-log entries identify virtual-device creation through the `virtual` source.
+
+## Command routing
+
+- Added a shared `DeviceCommandRouter` that dispatches commands according to the persisted device source.
+- The HomeKit bridge no longer depends directly on the Shelly adapter for writes.
+- This gives virtual devices a first-class HomeKit command path and keeps adapter routing in one reusable component.
+
+## Compact device cards retained from v0.7.14
 
 - Reduced card padding, header spacing, icon sizes and control spacing.
-- Device names and metadata now use a compact single-line layout with safe ellipsis for long model or channel names.
-- Live measurements are displayed as small, responsive value chips instead of widely spaced text blocks.
-- Dimmer, thermostat and window-covering controls are grouped into one compact control area.
+- Device names and metadata use a compact single-line layout with safe ellipsis for long model or channel names.
+- Live measurements are displayed as small, responsive value chips.
+- Dimmer, thermostat and window-covering controls remain grouped into a compact control area.
 - Thermostat operating modes remain directly available:
   - Off
   - Manual
   - Automatic
 - Switch, light, outlet and roller-shutter actions remain directly available.
-
-## Cleaner card actions
-
-- Moved the configuration button into the device-card header.
-- Read-only sensors no longer receive an otherwise empty action row containing only the configuration button.
-- Action rows are rendered only when the device provides an actual operating action.
-- The configuration button remains available on every device card with an accessible label and tooltip.
-
-## Responsive layout
-
-- Device grids adapt automatically to the available width instead of using a fixed three-column desktop layout.
-- Wider desktop views can display more compact cards per row.
-- Tablet layouts use the available width without stretching cards to match taller neighboring controls.
+- The configuration button remains in the device-card header.
+- Read-only sensors do not receive an empty action row.
+- Device grids adapt automatically to the available width.
 - Smartphone views use a clear single-column device layout.
 - The four overview statistics use a compact two-by-two grid on smartphones.
-- Mobile padding, room headings, value chips, buttons and sliders are reduced without removing controls.
 
-## Overview behavior
+## Build reliability retained from v0.7.15
 
-- Devices continue to be grouped by their assigned room.
-- Shelly, Zigbee and HomeMatic devices can appear together in the same room.
-- Room ordering continues to follow the Rooms configuration page.
-- Devices without a valid room assignment remain excluded from the overview.
-- Unassigned devices remain available on their respective adapter pages.
+- CSS tests understand base rules and responsive media-query overrides instead of inspecting only the final matching rule.
+- OpenCCU frontend tests follow composed renderer call graphs instead of requiring obsolete direct function calls.
+- Release validation rejects the previously fragile frontend test patterns.
+- The Docker build and GitHub workflows continue to use the complete SALTA quality gate.
+- Safe versioning continues to update only SALTA root version fields and known release surfaces.
 
-## Reliability
+## Security and dependency status
 
-- Source-structure tests cover compact control composition and configuration-button placement.
-- Regression coverage prevents empty action rows from returning on sensor-only cards.
-- Responsive-layout checks cover the adaptive desktop grid and mobile single-column layout.
-- Test helpers now understand CSS media-query overrides and composed frontend renderer call graphs.
-- Retains the stale-asset cache protection introduced in v0.7.13.
-- Retains the `find-my-way` 9.7.0 security update.
-- Retains the corrected `@homebridge/dbus-native` 0.7.7 dependency lock.
+- Retains `find-my-way` 9.7.0 with the HTTP/2 denial-of-service fix.
+- Retains the corrected `@homebridge/dbus-native` 0.7.7 lock entry and integrity checksum.
+- No new production npm dependency was added for virtual devices.
 
 ## Compatibility
 
 - No database migration is required.
 - No new environment variables are required.
-- No API or device-integration changes are required.
-- Existing room assignments and device configurations remain compatible.
-- Existing Shelly, Zigbee, OpenCCU, HomeKit and PostgreSQL configurations remain compatible.
+- Existing Shelly, Zigbee, OpenCCU, room and device configurations remain compatible.
+- Existing HomeKit configuration remains compatible.
+- Virtual devices require HomeKit to be enabled only if they should also appear in Apple Home; they remain fully usable in SALTA without HomeKit.
 
 ## Verification
 
@@ -81,7 +95,7 @@ sh -n install.sh update.sh backup.sh restore.sh
 ## Container tags
 
 ```text
-0.7.15
+0.7.16
 0.7
 latest
 ```
@@ -89,5 +103,5 @@ latest
 ## Git tag
 
 ```text
-v0.7.15
+v0.7.16
 ```

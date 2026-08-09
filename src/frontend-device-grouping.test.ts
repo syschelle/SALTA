@@ -17,7 +17,7 @@ describe("room-grouped device overview", () => {
 
   it("shows only room-assigned devices on the overview and removes the old status panel", () => {
     expect(htmlSource).toContain('id="overviewDeviceGrid" class="device-groups overview-device-groups"');
-    expect(htmlSource).toContain("Alle einem Raum zugeordneten Shelly-, Zigbee- und HomeMatic-Geräte.");
+    expect(htmlSource).toContain("Alle einem Raum zugeordneten Shelly-, Zigbee-, HomeMatic- und virtuellen Geräte.");
     expect(htmlSource).not.toContain("Alles an einem Ort");
     expect(htmlSource).not.toContain('<p class="eyebrow">STATUS</p>');
     expect(hasFunction(appAst, "renderOverviewDevices")).toBe(true);
@@ -33,7 +33,7 @@ describe("room-grouped device overview", () => {
     expect(appSource).toContain("const controlId=`brightness-${d.id}${instance?`-${instance}`:''}`");
     expect(appSource).toContain("const controlId=`target-temperature-${d.id}${instance?`-${instance}`:''}`");
     expect(appSource).toContain("const controlId=`cover-position-${d.id}${instance?`-${instance}`:''}`");
-    expect(appSource).toContain("const sourceLabels={shelly:'Shelly',phoscon:'Zigbee',openccu:'HomeMatic'}");
+    expect(appSource).toContain("virtual:'Virtuell'");
   });
 
   it("uses a compact icon-only configure button in every device header", () => {

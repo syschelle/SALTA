@@ -6,6 +6,8 @@ import { buildServer } from "./server.js";
 import { ShellyAdapter } from "./shelly-adapter.js";
 import { PhosconAdapter } from "./phoscon-adapter.js";
 import { OpenCcuAdapter } from "./openccu-adapter.js";
+import { VirtualDeviceAdapter } from "./virtual-adapter.js";
+import { DeviceCommandRouter } from "./device-command-router.js";
 
 async function main(): Promise<void> {
   await initializeDatabaseSchema();
@@ -21,10 +23,13 @@ async function main(): Promise<void> {
   const openCcu = new OpenCcuAdapter(registry);
   openCcu.start();
 
-  const homekit = new HomeKitBridge(registry, shelly);
+  const virtual = new VirtualDeviceAdapter(registry);
+  const commands = new DeviceCommandRouter(registry, { shelly, phoscon, openccu: openCcu, virtual });
+
+  const homekit = new HomeKitBridge(registry, commands);
   homekit.start();
 
-  const server = buildServer(registry, shelly, phoscon, openCcu);
+  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   server.log.info({ port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED, trustedProxiesConfigured: Boolean(config.TRUSTED_PROXIES.trim()) }, "SALTA started with mandatory authentication");
   await writeSystemLog("info", "system", "SALTA_STARTED", "SALTA started", { port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED }).catch(() => undefined);

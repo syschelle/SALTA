@@ -1,7 +1,6 @@
 import { Accessory, Bridge, Categories, Characteristic, Service, uuid } from "@homebridge/hap-nodejs";
-import type { Device } from "./types.js";
+import type { Device, DeviceCommand } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
-import type { ShellyAdapter } from "./shelly-adapter.js";
 import { config } from "./config.js";
 import { resolvePresentationType, type ResolvedPresentationType } from "./device-presentation.js";
 
@@ -10,7 +9,7 @@ export class HomeKitBridge {
   private accessories = new Map<string, Accessory>();
   private accessoryTypes = new Map<string, ResolvedPresentationType>();
   private accessoryNames = new Map<string, string>();
-  constructor(private registry:DeviceRegistry, private adapter:ShellyAdapter){}
+  constructor(private registry:DeviceRegistry, private commander:{ command(command: DeviceCommand): Promise<Device> }){}
   start():void{
     if(!config.HOMEKIT_ENABLED) return;
     this.bridge=new Bridge(config.HOMEKIT_NAME, uuid.generate("salta:bridge"));
@@ -67,7 +66,7 @@ export class HomeKitBridge {
       case "windowCovering": s=a.addService(Service.WindowCovering,d.name); break;
       default: s=a.addService(Service.Switch,d.name); break;
     }
-    const cmd=(capability:string,value?:unknown)=>void this.adapter.command({deviceId:d.id,capability,value:value as never,source:"homekit"}).catch(()=>undefined);
+    const cmd=(capability:string,value?:unknown)=>void this.commander.command({deviceId:d.id,capability,value:value as never,source:"homekit"}).catch(()=>undefined);
     if(d.capabilities.includes("turnOn")){
       if(serviceType==="fan") s.getCharacteristic(Characteristic.Active).onSet(v=>cmd(Number(v)===Characteristic.Active.ACTIVE?"turnOn":"turnOff"));
       else s.getCharacteristic(Characteristic.On).onSet(v=>cmd(v?"turnOn":"turnOff"));

@@ -20,6 +20,7 @@ describe("explicit Fastify route rate limiting", () => {
     'app.post<{ Body: unknown }>("/api/settings/openccu/diagnose", {',
     'app.delete("/api/settings/openccu", {',
     'app.post("/api/adapters/openccu/reconcile", {',
+    'app.post<{ Body: unknown }>("/api/adapters/virtual/devices", {',
     'app.post<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/command", {',
     'app.get("/api/commands", {',
     'app.get<{ Querystring: unknown }>("/api/logs", {',

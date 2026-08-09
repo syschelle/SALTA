@@ -8,6 +8,8 @@ import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
 import type { PhosconAdapter } from "./phoscon-adapter.js";
 import { openCcuErrorInfo, type OpenCcuAdapter } from "./openccu-adapter.js";
+import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
+import type { DeviceCommandRouter } from "./device-command-router.js";
 import { clearSystemLogs, createRoom, deleteRoom, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getShellySettings, inspectCredentialEncryption, listRooms, listSystemLogs, pool, reorderRooms, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
 import { supportsPresentationOverride } from "./device-presentation.js";
@@ -35,6 +37,7 @@ const phosconSettingsSchema = z.object({ baseUrl: z.string().trim().min(1).max(5
 const phosconPairSchema = z.object({ baseUrl: z.string().trim().min(1).max(512) }).strict();
 const openCcuSettingsSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), username: z.string().trim().min(1).max(120), password: z.string().max(512).optional() }).strict();
 const openCcuDiagnosticSchema = z.object({ baseUrl: z.string().trim().min(1).max(512).optional(), username: z.string().trim().min(1).max(120).optional(), password: z.string().max(512).optional() }).strict();
+const virtualDeviceSchema = z.object({ name: z.string().trim().min(1).max(120), type: z.literal("switch").default("switch"), roomId: z.string().uuid().nullable().optional() }).strict();
 const systemLogQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(200),
   source: z.string().trim().min(1).max(80).optional(),
@@ -194,7 +197,7 @@ function securityError(reply: FastifyReply, request: FastifyRequest, status: num
   return reply.code(status).send({ error: { code, message, requestId: request.id } });
 }
 
-export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter) {
+export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter) {
   const trustedProxyEntries = config.TRUSTED_PROXIES.split(",").map(value => value.trim()).filter(Boolean);
   const trustedProxies = trustedProxyEntries.length ? trustedProxyEntries : false;
   const localNetworks = config.LOCAL_NETWORKS.split(",").map(value => value.trim()).filter(Boolean);
@@ -296,7 +299,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       ? security.consumeRateLimit(`discover:${ip}`, 2, rateWindowMs)
       : path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile" || path === "/api/adapters/openccu/reconcile" || path === "/api/settings/openccu/diagnose"
         ? security.consumeRateLimit(`reconcile:${ip}`, 12, rateWindowMs)
-        : path === "/api/adapters/shelly/devices" && request.method === "POST"
+        : (path === "/api/adapters/shelly/devices" || path === "/api/adapters/virtual/devices") && request.method === "POST"
           ? security.consumeRateLimit(`onboarding:${ip}`, 10, rateWindowMs)
           : path === "/api/settings/phoscon/pair" && request.method === "POST"
             ? security.consumeRateLimit(`phoscon-pairing:${ip}`, 5, rateWindowMs)
@@ -402,9 +405,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.15" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.16" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.15", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.16", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -539,6 +542,20 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
+  app.post<{ Body: unknown }>("/api/adapters/virtual/devices", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "virtual-device-create" } }
+  }, async (request, reply) => {
+    if (!virtualAdapter) return reply.code(503).send({ error: { code: "VIRTUAL_ADAPTER_UNAVAILABLE", message: "Virtual devices are not available.", requestId: request.id } });
+    const parsed = virtualDeviceSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
+    const rooms = await listRooms();
+    const room = parsed.data.roomId ? rooms.find(item => item.id === parsed.data.roomId) : undefined;
+    if (parsed.data.roomId && !room) return reply.code(404).send({ error: { code: "ROOM_NOT_FOUND", message: "Room not found", requestId: request.id } });
+    const device = await virtualAdapter.createSwitch(parsed.data.name, room?.id, room?.name);
+    await writeSystemLog("info", "virtual", "VIRTUAL_DEVICE_CREATED", "Virtual switch created", { deviceId: device.id, name: device.name, roomId: device.roomId ?? null }).catch(() => undefined);
+    return reply.code(201).send(device);
+  });
+
   app.get("/api/devices", async () => registry.all());
   app.get<{ Params: { id: string } }>("/api/devices/:id", async (request, reply) => registry.get(request.params.id) ?? reply.code(404).send({ error: { code: "DEVICE_NOT_FOUND", message: "Device not found", requestId: request.id } }));
   app.patch<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/config", async (request, reply) => {
@@ -551,6 +568,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       if (parsed.data.presentationType && parsed.data.presentationType !== "auto" && current && !supportsPresentationOverride(current)) {
         return reply.code(409).send({ error: { code: "PRESENTATION_TYPE_NOT_SUPPORTED", message: "This device cannot be assigned a switch, outlet, light or fan function.", requestId: request.id } });
       }
+      if (current?.source === "virtual" && parsed.data.presentationType && !["auto", "switch"].includes(parsed.data.presentationType)) {
+        return reply.code(409).send({ error: { code: "VIRTUAL_PRESENTATION_TYPE_NOT_SUPPORTED", message: "Virtual devices currently support the switch type only.", requestId: request.id } });
+      }
       if (parsed.data.hidden !== undefined && current?.source !== "phoscon") {
         return reply.code(409).send({ error: { code: "VISIBILITY_NOT_SUPPORTED", message: "Only Zigbee devices can be hidden from the Zigbee overview.", requestId: request.id } });
       }
@@ -561,12 +581,16 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   });
   app.delete<{ Params: { id: string } }>("/api/devices/:id", async (request, reply) => {
     try {
-      await shellyAdapter.remove(request.params.id);
+      const current = registry.get(request.params.id);
+      if (!current) await shellyAdapter.remove(request.params.id);
+      else if (current.source === "shelly") await shellyAdapter.remove(request.params.id);
+      else if (current.source === "virtual" && virtualAdapter) await virtualAdapter.remove(request.params.id);
+      else throw new Error("ADAPTER_NOT_SUPPORTED");
       return reply.code(204).send();
     } catch (error) {
       const code = error instanceof Error ? error.message : "DEVICE_DELETE_FAILED";
       const status = code === "DEVICE_NOT_FOUND" ? 404 : code === "ADAPTER_NOT_SUPPORTED" ? 400 : 500;
-      const message = code === "DEVICE_NOT_FOUND" ? "Device not found" : code === "ADAPTER_NOT_SUPPORTED" ? "This device cannot be removed by the Shelly adapter" : "Device could not be removed";
+      const message = code === "DEVICE_NOT_FOUND" ? "Device not found" : code === "ADAPTER_NOT_SUPPORTED" ? "This device cannot be removed from this SALTA page" : "Device could not be removed";
       return reply.code(status).send({ error: { code, message, requestId: request.id } });
     }
   });
@@ -588,9 +612,11 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       const current=registry.get(request.params.id); if(!current) throw new Error("DEVICE_NOT_FOUND");
       const command = { deviceId: request.params.id, capability: parsed.data.capability, value: parsed.data.value, source: "api" as const };
       let device;
-      if (current.source === "shelly") device = await shellyAdapter.command(command);
+      if (commandRouter) device = await commandRouter.command(command);
+      else if (current.source === "shelly") device = await shellyAdapter.command(command);
       else if (current.source === "phoscon") device = await phosconAdapter.command(command);
       else if (current.source === "openccu") device = await openCcuAdapter.command(command);
+      else if (current.source === "virtual" && virtualAdapter) device = await virtualAdapter.command(command);
       else throw new Error("ADAPTER_NOT_SUPPORTED");
       await pool.query("update commands set status='confirmed',updated_at=now() where id=$1", [id]); return { commandId: id, status: "confirmed", device };
     } catch (error) {

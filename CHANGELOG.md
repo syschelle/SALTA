@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.7.16
+
+- Added a new **Virtual Devices** navigation section directly after HomeMatic.
+- Added persistent SALTA-native virtual switches with create, rename, room assignment, control and delete workflows.
+- Virtual switch state is stored through the existing PostgreSQL-backed device registry.
+- Virtual switches are automatically exposed through the SALTA HomeKit bridge when HomeKit is enabled.
+- Added a shared device command router so SALTA and HomeKit use the same source-aware command path.
+- Added virtual-device API, UI and HomeKit regression coverage without changing the database schema.
+- Retained the compact responsive device-card layout and hardened build tests from v0.7.14 and v0.7.15.
+
 ## 0.7.15
 
 - Fixed five false-negative build tests introduced with the compact device-card layout.

@@ -17,6 +17,16 @@ const serverSource = read("src/server.ts");
 if (!serverSource.includes('["/room-grouping.js", "room-grouping.js"]')) fail("server does not serve room-grouping.js");
 if (!serverSource.includes('immutableVendorAsset ? "public, max-age=31536000, immutable" : "no-store"')) fail("application assets are not protected from stale browser caching");
 
+
+const virtualFrontend = read("public/app.js");
+if (!publicIndex.includes('data-nav="virtual"')) fail("Virtual Devices navigation is missing");
+if (!publicIndex.includes('data-page="virtual"')) fail("Virtual Devices page is missing");
+if (!virtualFrontend.includes("renderDeviceGrid('virtual',virtualGrid,virtualFilter,virtualRoomFilter)")) fail("Virtual Devices page is not wired to the common renderer");
+if (!virtualFrontend.includes("api('/api/adapters/virtual/devices'")) fail("Virtual device creation API is not wired in the frontend");
+if (!serverSource.includes('"/api/adapters/virtual/devices"')) fail("Virtual device creation API route is missing");
+const homeKitSource = read("src/homekit.ts");
+if (!homeKitSource.includes("this.commander.command({deviceId:d.id")) fail("HomeKit does not use the shared device command dispatcher");
+
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");
 const version = String(packageJson.version ?? "");
