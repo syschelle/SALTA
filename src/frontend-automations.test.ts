@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { functionCalls, hasFunction, parseJavaScriptSource } from "./test-utils/source-inspection.js";
+import { cssMediaRuleContains, cssRuleContains } from "./test-utils/style-inspection.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const ui = readFileSync(new URL("../public/automation-ui.js", import.meta.url), "utf8");
@@ -35,7 +36,8 @@ describe("automation frontend", () => {
   });
 
   it("keeps automation cards responsive on mobile", () => {
-    expect(styles).toContain('.automation-list{display:grid');
-    expect(styles).toContain('@media(max-width:620px){.automation-card');
+    expect(cssRuleContains(styles, ".automation-list", "display:grid")).toBe(true);
+    expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card", "padding:11px")).toBe(true);
+    expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card-actions", "justify-content:stretch")).toBe(true);
   });
 });

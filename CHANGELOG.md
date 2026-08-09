@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.4
+
+- Fixed the automation frontend CI regression caused by a brittle exact CSS substring assertion for the mobile media query.
+- Added media-query-aware CSS inspection helpers that locate selectors anywhere inside the requested media block instead of requiring them to be the first rule.
+- Added regression coverage for shared mobile media queries containing multiple selectors before the automation card rules.
+- Extended release validation so the fragile selector-adjacency assertion cannot be reintroduced.
+- Retained the searchable trigger, condition and target device selectors from v0.8.3 without runtime or dependency changes.
+
 ## 0.8.3
 
 - Added searchable trigger, condition and target device selectors to the Automations editor.

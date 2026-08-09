@@ -1,43 +1,60 @@
-# SALTA v0.8.3
+# SALTA v0.8.4
 
-SALTA v0.8.3 improves the Automations editor for installations with many devices by adding searchable device selectors for triggers, optional conditions and target actions. The automation engine and CI hardening from the previous v0.8.x releases remain unchanged.
+SALTA v0.8.4 fixes the GitHub CI regression in the Automations frontend tests and hardens responsive CSS testing so shared media queries can be refactored without creating false build failures. The searchable automation device selectors introduced in v0.8.3 and the complete v0.8.x automation engine remain unchanged.
 
-## Searchable automation device selectors
+## Build fix
 
-- Added a dedicated search field above the **Trigger device** selector.
-- Added the same search capability for the optional **Condition device** selector.
-- Added the same search capability for the **Target device** selector.
-- Search is performed immediately in the browser without additional API requests.
-- Multiple search terms can be entered and all terms must match the device metadata.
-- Device search covers:
+- Fixed `src/frontend-automations.test.ts`, which incorrectly required `.automation-card` to be the first selector immediately after `@media(max-width:620px){`.
+- The actual mobile CSS was valid and already contained the expected automation-card rules later inside the same shared media query.
+- Replaced the brittle exact CSS substring assertion with media-query-aware structural CSS inspection.
+- The test now verifies the actual behavior:
+  - `.automation-list` is a grid;
+  - `.automation-card` uses `padding: 11px` below 620 px; and
+  - `.automation-card-actions` uses `justify-content: stretch` below 620 px.
+- No runtime CSS or automation behavior had to be changed to fix this CI failure.
+
+## Media-query-aware CSS regression helpers
+
+- Extended the shared `style-inspection` test utility with `cssMediaBlocks()` and `cssMediaRuleContains()`.
+- The helper locates the complete requested media-query block using balanced braces instead of assuming selector order.
+- Quoted strings, escaped characters and CSS comments are handled while locating block boundaries.
+- Added dedicated regression coverage proving that a selector can appear after unrelated rules inside the same media query and is still detected correctly.
+- Added a negative assertion so the helper also proves that an incorrect declaration is not accepted.
+
+## Release validation hardening
+
+- Release validation now rejects test assertions that hard-code media-query/selector adjacency such as `toContain("@media...{.selector")`.
+- The check applies across all `*.test.ts` files rather than only to the Automations test.
+- Release validation requires the Automations frontend test to use the shared media-query-aware CSS helper.
+- Release validation requires the shared CSS inspection helper to continue exposing the media-query inspection functions.
+- Existing protections against fragile exact frontend function-call assertions and last-rule-only CSS checks remain active.
+
+## Searchable automation device selectors retained from v0.8.3
+
+- Trigger, optional condition and target device selectors remain searchable.
+- Search continues to match:
   - device name;
   - assigned room;
   - source / integration such as Shelly, Zigbee, HomeMatic or Virtual;
-  - device model; and
+  - model; and
   - logical SALTA device type.
-- Each selector shows the number of currently available devices or the number of matches for the active search.
-- Device options are sorted consistently by room and then by device name.
-- The currently selected device is retained while refining a search so an existing automation is not accidentally changed merely by typing into the search field.
-- Search fields are cleared when a new device is chosen, the form is reset or an existing automation is opened for editing.
-
-## Automation editor layout
-
-- Increased the minimum width of the automation editor on large desktop screens so long device names, room names and integration labels are easier to read.
-- The editor automatically switches back to a single-column layout on narrower screens.
-- Search controls remain full-width and compact on mobile devices.
-- Existing state, condition-value and action selectors remain unchanged.
+- Multiple search terms can be combined.
+- Match counts remain visible below each device selector.
+- Device options remain sorted by room and then by device name.
+- Existing selections remain preserved while the search text is refined.
+- The wider desktop Automations editor and compact mobile layout remain unchanged.
 
 ## Automation engine retained from v0.8.0
 
-SALTA continues to provide the local persistent rule model:
+SALTA continues to use the persistent local automation model:
 
 **When → Only if (optional) → Then**
 
 ### Trigger
 
-- Choose a trigger device.
-- Choose one boolean state exposed by that device.
-- Choose the value that should fire the rule.
+- Select a trigger device.
+- Select a boolean state exposed by that device.
+- Select the value that should fire the rule.
 - Rules trigger only when the selected state changes into the configured value.
 - Repeated polling with an unchanged value does not retrigger the rule.
 
@@ -45,7 +62,7 @@ SALTA continues to provide the local persistent rule model:
 
 - One optional condition device can be selected.
 - The condition device must be different from the trigger device.
-- Choose one boolean state and the required value.
+- Select a boolean state and the required value.
 - The condition is evaluated when the trigger fires.
 - Physical condition devices must be reachable before the action is allowed to execute.
 
@@ -61,44 +78,36 @@ The target device must be different from the trigger device.
 
 ## Cross-system automations
 
-- Trigger devices can originate from Shelly, Zigbee, HomeMatic or SALTA-native virtual devices.
-- Conditions can reference another supported device integration.
+- Triggers can originate from Shelly, Zigbee, HomeMatic or SALTA-native virtual devices.
+- Conditions can reference another supported integration.
 - Actions continue to use the shared `DeviceCommandRouter`.
 - Cross-system rules such as Zigbee motion → HomeMatic condition → Shelly switch remain supported.
-- SALTA/HomeKit virtual switches remain usable as automation targets where their capabilities match the configured action.
+- SALTA/HomeKit virtual switches remain usable as automation targets where their capabilities match the selected action.
 
-## Automation management and persistence
+## Automation persistence and protection
 
-- Create, edit, enable, disable and delete automation rules in the web interface.
 - Automation rules remain persisted in PostgreSQL and restored after restart.
-- The last successful execution time remains visible in the rule list.
+- Create, edit, enable, disable and delete workflows remain available in the web interface.
+- Last successful execution time remains visible.
 - Automation activity remains available in the SALTA system log.
 - Cyclic device-action graphs remain rejected.
 - Active-rule re-entry protection remains enabled.
-- No database migration is required for v0.8.3.
-
-## CI and test reliability retained from v0.8.2
-
-- `npm test` continues to run through SALTA's self-contained test-symbol preflight runner.
-- Required test-only configuration is initialized before Vitest starts.
-- The test runner does not depend on a standalone `vitest.config.ts` or `test-setup.ts` file.
-- The automation core remains isolated from the production PostgreSQL/configuration layer.
-- `npm run check` continues to run release validation, TypeScript checking, the test-symbol preflight, Vitest, the production build and browser JavaScript syntax checks.
-- Added frontend regression coverage for all three automation device search fields and the shared search/filter implementation.
+- The automation core remains separated from PostgreSQL/configuration side effects through injected persistence and logging interfaces.
 
 ## Existing SALTA functionality retained
 
-- Shelly cards retain the direct shortcut to the Shelly device web interface.
+- Shelly cards retain the direct shortcut to each Shelly device web interface.
 - Virtual switches remain available in SALTA and HomeKit.
 - HomeMatic thermostat **Off**, **Manual** and **Automatic** controls remain available.
 - Room-assigned devices remain grouped on the overview page.
-- Unassigned devices remain excluded from the room overview.
+- Devices without a valid room assignment remain excluded from the overview.
 - Compact responsive device cards remain optimized for desktop, tablet and mobile layouts.
+- SALTA-owned frontend assets continue to use no-store caching across upgrades.
 
 ## Security and dependency status
 
-- No production npm dependency was added or changed in v0.8.3.
-- The transitive dependency tree remains unchanged from v0.8.2 apart from the SALTA root version.
+- No production npm dependency was added or changed in v0.8.4.
+- The transitive dependency tree remains unchanged from v0.8.3 apart from the SALTA root version.
 - Retains `find-my-way` 9.7.0.
 - Retains `@homebridge/dbus-native` 0.7.7 with its matching integrity checksum.
 - Retains the patched `fast-uri` dependency lines already present in the lockfile.
@@ -128,7 +137,7 @@ sh -n install.sh update.sh backup.sh restore.sh
 ## Container tags
 
 ```text
-0.8.3
+0.8.4
 0.8
 latest
 ```
@@ -136,5 +145,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.3
+v0.8.4
 ```

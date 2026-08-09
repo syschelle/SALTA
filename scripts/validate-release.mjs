@@ -165,6 +165,9 @@ for (const file of testFiles) {
       fail(`${file} contains the fragile exact-call assertion ${exactCall}; use the AST source-inspection helper instead`);
     }
   }
+  if (/toContain\(\s*[\"'`]@media[^\"'`]*\{\./.test(source)) {
+    fail(`${file} contains a fragile media-query selector-adjacency assertion; use cssMediaRuleContains instead`);
+  }
 }
 
 const densityTest = read("src/frontend-device-density.test.ts");
@@ -173,6 +176,18 @@ if (densityTest.includes("latestRule(")) {
 }
 if (!densityTest.includes("cssRuleContains")) {
   fail("frontend-device-density.test.ts must use the shared CSS rule inspection helper");
+}
+
+const automationFrontendTest = read("src/frontend-automations.test.ts");
+if (automationFrontendTest.includes("@media(max-width:620px){.automation-card")) {
+  fail("frontend-automations.test.ts must not require selector adjacency inside a media query");
+}
+if (!automationFrontendTest.includes("cssMediaRuleContains")) {
+  fail("frontend-automations.test.ts must use the shared media-query CSS inspection helper");
+}
+const styleInspectionHelper = read("src/test-utils/style-inspection.ts");
+if (!styleInspectionHelper.includes("cssMediaRuleContains") || !styleInspectionHelper.includes("cssMediaBlocks")) {
+  fail("style-inspection.ts must provide media-query-aware CSS inspection helpers");
 }
 
 const openCcuControlTest = read("src/openccu-control.test.ts");
