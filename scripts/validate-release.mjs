@@ -43,6 +43,16 @@ if (!automationEngineSource.includes('source: "automation"')) fail("Automation c
 if (!automationEngineSource.includes('AUTOMATION_CYCLE_NOT_ALLOWED')) fail("Automation loop protection is missing");
 if (!mainSource.includes("await automations.start()")) fail("Automation engine is not started during SALTA startup");
 if (!mainSource.includes("automations.stop()")) fail("Automation engine is not stopped during SALTA shutdown");
+const automationPersistenceSource = read("src/automation-persistence.ts");
+if (automationEngineSource.includes('from "./db.js"')) fail("automation core must not import the database/configuration layer directly");
+if (!automationPersistenceSource.includes('from "./db.js"')) fail("automation persistence adapter is not wired to the database layer");
+if (!mainSource.includes("databaseAutomationStore, databaseAutomationLogger")) fail("main does not inject automation persistence and logging adapters");
+const vitestConfig = read("vitest.config.ts");
+const testSetup = read("src/test-setup.ts");
+if (!vitestConfig.includes('setupFiles: ["./src/test-setup.ts"]')) fail("Vitest does not load the centralized SALTA test environment");
+for (const variable of ["DATABASE_URL", "ADMIN_PASSWORD", "SALTA_HEALTH_TOKEN", "SALTA_ENCRYPTION_KEY"]) {
+  if (!testSetup.includes(`process.env.${variable} ??=`)) fail(`central test environment does not initialize ${variable}`);
+}
 const homeKitSource = read("src/homekit.ts");
 if (!homeKitSource.includes("this.commander.command({deviceId:d.id")) fail("HomeKit does not use the shared device command dispatcher");
 
@@ -53,6 +63,8 @@ if (packageJson.scripts?.["test:preflight"] !== "node scripts/check-test-symbols
 if (!String(packageJson.scripts?.check ?? "").includes("npm run test:preflight")) fail("npm run check must execute the test symbol preflight before Vitest");
 const testTypeConfig = json("tsconfig.tests.json");
 if (!Array.isArray(testTypeConfig.exclude) || testTypeConfig.exclude.length !== 0) fail("tsconfig.tests.json must include test files instead of inheriting the production test exclusion");
+const productionTypeConfig = json("tsconfig.json");
+if (!Array.isArray(productionTypeConfig.exclude) || !productionTypeConfig.exclude.includes("src/test-setup.ts")) fail("production TypeScript build must exclude the Vitest-only environment setup");
 const testSymbolPreflight = read("scripts/check-test-symbols.mjs");
 if (!testSymbolPreflight.includes("diagnostic.code === 2304 || diagnostic.code === 2552")) fail("test symbol preflight must reject unresolved TypeScript identifiers");
 const version = String(packageJson.version ?? "");

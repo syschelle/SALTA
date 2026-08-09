@@ -1,4 +1,4 @@
-# SALTA v0.8.0 – Git and Release Commands
+# SALTA v0.8.1 – Git and Release Commands
 
 ## Verify before committing
 
@@ -16,7 +16,7 @@ git checkout main
 git pull --ff-only origin main
 
 git add -A
-git commit -m "feat(automations): add local device rule engine"
+git commit -m "fix(automations): isolate tests from production config"
 git push origin main
 ```
 
@@ -25,18 +25,18 @@ Wait until the normal GitHub CI workflow on `main` is green.
 ## Create and push the release tag
 
 ```bash
-git tag -a v0.8.0 -m "SALTA v0.8.0"
-git push origin v0.8.0
+git tag -a v0.8.1 -m "SALTA v0.8.1"
+git push origin v0.8.1
 ```
 
 ## Create the GitHub release
 
 ```bash
-gh release create v0.8.0 \
-  --title "SALTA v0.8.0" \
+gh release create v0.8.1 \
+  --title "SALTA v0.8.1" \
   --notes-file RELEASE_TEXT.md \
-  ./SALTA-v0.8.0.zip \
-  ./SALTA-v0.8.0.zip.sha256
+  ./SALTA-v0.8.1.zip \
+  ./SALTA-v0.8.1.zip.sha256
 ```
 
 ## Production deployment
@@ -44,7 +44,7 @@ gh release create v0.8.0 \
 Use the fixed release image in `.env`:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.0
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.1
 ```
 
 Then update the production system:

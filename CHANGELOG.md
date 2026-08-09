@@ -2,6 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.1
+
+- Fixed the GitHub CI collection failure where the automation unit test imported `db.ts` and triggered production environment validation before Vitest could run.
+- Separated the automation core from PostgreSQL persistence and system logging through injected `AutomationStore` and `AutomationLogger` interfaces.
+- Added a production `automation-persistence.ts` adapter and explicit dependency injection from `main.ts`.
+- Added a centralized Vitest setup for mandatory test-only application configuration values.
+- Explicitly excluded the Vitest-only setup from the production TypeScript build.
+- Added regression and release validation so the automation core cannot silently regain a direct database/configuration dependency.
+- Retained the complete automation trigger, optional condition, On/Off/Toggle action, persistence and loop-protection functionality from v0.8.0.
+- Kept the npm dependency tree unchanged from v0.8.0 apart from the SALTA root version.
+
 ## 0.8.0
 
 - Introduced the first persistent local automation engine and re-baselined the roadmap so v0.8.x represents the automation milestone.

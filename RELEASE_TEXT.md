@@ -1,64 +1,84 @@
-# SALTA v0.8.0
+# SALTA v0.8.1
 
-SALTA v0.8.0 introduces the first persistent local automation engine. Automations can react to device state changes, optionally check the current state of another device, and then switch a target device On, Off or Toggle through the shared SALTA command router.
+SALTA v0.8.1 fixes the GitHub CI collection failure introduced with the first automation release and hardens the boundary between automation logic, persistence and test configuration. The complete automation functionality introduced in v0.8.0 is retained unchanged.
 
-## Version milestone
+## Build fix
 
-The project roadmap has been re-baselined for the current implementation state.
+- Fixed the Vitest collection failure caused by the automation core importing `db.ts` during module initialization.
+- The failing import chain was `automations.test.ts` → `automations.ts` → `db.ts` → `config.ts`.
+- Because `config.ts` validates the production environment immediately, GitHub CI failed before the automation tests could run when `DATABASE_URL`, `ADMIN_PASSWORD`, `SALTA_HEALTH_TOKEN` and `SALTA_ENCRYPTION_KEY` were intentionally absent from the test process.
+- Automation unit tests no longer load the production database or configuration layer as a side effect.
 
-The original roadmap placed the automation engine in v0.7.x and the dashboard in v0.8.x. During development, the room-based dashboard, compact device controls, virtual devices and HomeKit command routing were completed in the v0.7.x line. The automation engine is therefore introduced as the next architectural milestone in **v0.8.0**.
+## Automation architecture hardening
 
-The current roadmap is:
+- Separated the pure automation engine from PostgreSQL persistence and system logging.
+- `src/automations.ts` now depends only on injected interfaces:
+  - `AutomationStore` for rule persistence; and
+  - `AutomationLogger` for automation log events.
+- Added `src/automation-persistence.ts` as the production adapter between the automation engine and the existing PostgreSQL/database functions.
+- `main.ts` now explicitly injects the database-backed automation store and logger when SALTA starts.
+- The automation engine therefore remains unit-testable without importing `db.ts`, creating a PostgreSQL pool or parsing production secrets.
+- The no-op logger remains available to isolated tests unless a logger is explicitly injected.
 
-- **v0.7.x:** device integrations, room dashboard, responsive controls, virtual switches and shared HomeKit routing
-- **v0.8.x:** automation engine and rule extensions
-- **v0.9.x:** planned assistant and advanced orchestration
-- **v1.0.0:** first stable production release
+## Centralized Vitest environment
 
-## Local automation engine
+- Added a central `vitest.config.ts` setup file configuration.
+- Added `src/test-setup.ts` with deterministic test-only values for the mandatory application configuration fields:
+  - `DATABASE_URL`
+  - `ADMIN_PASSWORD`
+  - `SALTA_HEALTH_TOKEN`
+  - `SALTA_ENCRYPTION_KEY`
+- Test values use `??=` so explicitly provided CI or test-specific values are never overwritten.
+- The test setup also disables HomeKit and uses silent logging by default.
+- The production TypeScript build explicitly excludes `src/test-setup.ts`, so test-only configuration is not emitted into the production application.
 
-- Added a persistent event-driven automation engine that runs locally inside SALTA.
-- Added a new **Automations** section to the desktop and mobile navigation.
-- Automation rules are persisted in PostgreSQL and restored automatically after a SALTA restart.
-- The engine listens to the common SALTA device registry, so triggers can originate from Shelly, Zigbee, HomeMatic or SALTA-native virtual devices.
-- Actions use the shared `DeviceCommandRouter`, allowing one supported device family to control another.
+## Regression protection
 
-## Rule structure
+- Added regression coverage that verifies the automation core does not import `db.ts` directly.
+- Added regression coverage that verifies production persistence is injected from `main.ts`.
+- Added regression coverage for the central Vitest setup and all four required configuration variables.
+- Extended `npm run validate:release` so a release fails if:
+  - the automation core regains a direct database dependency;
+  - the production automation persistence adapter is missing;
+  - `main.ts` stops injecting the persistence/logger adapters;
+  - Vitest stops loading the centralized test environment; or
+  - the Vitest-only setup is accidentally included in the production TypeScript build.
+- The existing unresolved-test-symbol preflight from v0.7.17 remains active before Vitest.
 
-The initial automation model contains three stages:
+## Automation engine retained from v0.8.0
 
-### 1. When
+SALTA continues to provide the first persistent local automation engine with the rule structure:
 
-Select:
+**When → Only if (optional) → Then**
 
-- a trigger device;
-- one of the boolean states currently exposed by that device; and
-- the state value that should fire the rule.
+### Trigger
 
-The automation fires only when the selected state **changes into** the configured value. Repeated adapter polling with the same state does not retrigger the rule.
+- Select a trigger device.
+- Select one of the boolean states exposed by that device.
+- Select the boolean value that should fire the automation.
+- Automations fire only when the selected state changes into the configured value.
+- Repeated polling with an unchanged value does not retrigger the rule.
 
-Examples include:
+Typical triggers include:
 
-- motion becomes detected;
-- a contact becomes open or closed;
-- a switch becomes on or off;
-- a water or alarm state becomes active or inactive.
+- switch on/off;
+- motion detected/not detected;
+- contact open/closed;
+- alarm states;
+- water states; and
+- other boolean device states exposed through SALTA.
 
-### 2. Only if
+### Optional condition
 
-An optional device condition can be enabled.
+- One optional condition device can be selected.
+- The condition device must be different from the trigger device.
+- Select one boolean state and the required on/off value.
+- The condition is evaluated at the moment the trigger fires.
+- Physical condition devices must be reachable before the action is allowed to execute.
 
-Select:
+### Action
 
-- another device;
-- one of its boolean states; and
-- the required current value.
-
-The condition is evaluated when the trigger fires. A physical condition device must currently be reachable; stale offline state is not used to authorize an automation action.
-
-### 3. Then
-
-Select a target device and one of the actions supported by that device:
+A target device can perform one of the actions it supports:
 
 - **On**
 - **Off**
@@ -66,77 +86,65 @@ Select a target device and one of the actions supported by that device:
 
 The target device must be different from the trigger device.
 
+## Cross-system automations
+
+- Trigger devices can originate from Shelly, Zigbee, HomeMatic or SALTA-native virtual devices.
+- Conditions can use devices from another supported integration.
+- Actions are dispatched through the shared `DeviceCommandRouter`.
+- This allows cross-system rules such as Zigbee motion → HomeMatic condition → Shelly switch action.
+- Virtual SALTA/HomeKit switches can also be used as automation targets where their capabilities match the configured action.
+
 ## Automation management
 
 - Create automation rules from the web interface.
 - Edit existing rules.
 - Enable or disable rules without deleting them.
 - Delete rules permanently.
+- Display the configured trigger, optional condition and target action.
 - Display the last successful execution time.
-- Display the configured trigger, condition and action as a compact rule flow.
-- Automation system-log entries can be filtered using the new **Automations** source.
+- Automation events remain available through the SALTA system log.
 
 ## Loop protection
 
-- SALTA validates the device-action graph before saving or enabling a rule.
-- Automation configurations that would create a cyclic device-action graph are rejected.
-- This prevents simple toggle loops such as device A toggling device B while device B toggles device A.
-- The engine also tracks rules currently being executed to prevent immediate re-entrant execution.
+- SALTA validates the device-action graph before saving or enabling rules.
+- Cyclic action graphs are rejected.
+- Direct loops such as A toggles B while B toggles A are therefore prevented.
+- Active-rule re-entry protection remains in place while an automation action is executing.
 
-## Persistence
+## Persistence and API
 
-- Added an additive `automations` table to the canonical PostgreSQL schema.
+- Automation rules remain persisted in the PostgreSQL `automations` table.
 - No destructive database migration is required.
-- Existing installations keep the current schema generation and receive the new table automatically during normal startup.
-- Trigger, condition and target device references use database foreign keys.
-- Removing a referenced device automatically removes dependent automation rules from PostgreSQL, while the running engine also removes them from its in-memory rule set.
+- Existing v0.8.0 automation records remain compatible.
+- Device references continue to use database foreign keys.
+- Automation create, read, update, enable/disable and delete endpoints remain authenticated and rate limited.
 
-## API
+## Existing SALTA functionality retained
 
-Added authenticated and rate-limited endpoints for:
-
-- listing automations;
-- creating automations;
-- updating automations;
-- enabling or disabling automations; and
-- deleting automations.
-
-Automation input is validated on both the API boundary and inside the automation engine.
-
-## Current v0.8.0 scope
-
-The first automation release intentionally supports:
-
-- boolean device-state transition triggers;
-- one optional boolean device condition; and
-- one On, Off or Toggle action.
-
-Later v0.8.x releases can extend the same engine with additional trigger and rule types such as button events, numeric thresholds, timers, schedules, delays, multiple conditions and multiple actions.
-
-## Existing functionality retained
-
-- Shelly device cards retain the direct shortcut to the local Shelly web interface introduced in v0.7.18.
+- Shelly cards retain the direct shortcut to each Shelly device web interface.
 - Virtual switches remain available in SALTA and HomeKit.
 - HomeMatic thermostat Off, Manual and Automatic controls remain available.
-- The room-based overview continues to show only devices with a valid room assignment.
+- Room-assigned devices remain grouped on the overview page.
+- Unassigned devices remain excluded from the room overview.
 - Compact responsive device cards remain optimized for desktop, tablet and mobile layouts.
-- The hardened test-symbol preflight and release validation remain part of the complete quality gate.
+- Stale frontend asset protection remains active after upgrades.
 
 ## Security and dependency status
 
-- No new production npm dependency was added for the automation engine.
-- The transitive dependency tree remains unchanged from v0.7.18 apart from the SALTA root version.
+- No new production npm dependency was added in v0.8.1.
+- The transitive npm dependency tree remains unchanged from v0.8.0 apart from the SALTA root version.
 - Retains `find-my-way` 9.7.0.
 - Retains `@homebridge/dbus-native` 0.7.7 with its matching integrity checksum.
-- Retains TypeScript 5.9.3 from the lockfile.
-- All automation mutation routes use explicit application and Fastify rate limiting.
+- Retains the patched `fast-uri` dependency lines from the existing lockfile.
+- Retains PostCSS 8.5.20 from the existing lockfile.
+- Retains TypeScript 5.9.3 from `package-lock.json`.
 
 ## Compatibility
 
-- No new environment variables are required.
 - No destructive database migration is required.
-- Existing Shelly, Zigbee, OpenCCU/HomeMatic, room, virtual-device and HomeKit configuration remains compatible.
-- Existing device IDs and room assignments remain unchanged.
+- No new production environment variables are required.
+- Existing v0.8.0 automation rules remain compatible.
+- Existing Shelly, Zigbee, OpenCCU/HomeMatic, virtual-device, room and HomeKit configuration remains compatible.
 
 ## Verification
 
@@ -154,7 +162,7 @@ sh -n install.sh update.sh backup.sh restore.sh
 ## Container tags
 
 ```text
-0.8.0
+0.8.1
 0.8
 latest
 ```
@@ -162,5 +170,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.0
+v0.8.1
 ```

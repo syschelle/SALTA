@@ -9,6 +9,7 @@ import { OpenCcuAdapter } from "./openccu-adapter.js";
 import { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import { DeviceCommandRouter } from "./device-command-router.js";
 import { AutomationEngine } from "./automations.js";
+import { databaseAutomationLogger, databaseAutomationStore } from "./automation-persistence.js";
 
 async function main(): Promise<void> {
   await initializeDatabaseSchema();
@@ -20,7 +21,7 @@ async function main(): Promise<void> {
   const openCcu = new OpenCcuAdapter(registry);
   const virtual = new VirtualDeviceAdapter(registry);
   const commands = new DeviceCommandRouter(registry, { shelly, phoscon, openccu: openCcu, virtual });
-  const automations = new AutomationEngine(registry, commands);
+  const automations = new AutomationEngine(registry, commands, databaseAutomationStore, databaseAutomationLogger);
   await automations.start();
 
   shelly.start();

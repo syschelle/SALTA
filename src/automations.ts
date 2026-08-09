@@ -1,13 +1,5 @@
 import type { Device, DeviceCommand, DeviceState } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
-import {
-  createAutomation as createAutomationRecord,
-  deleteAutomation as deleteAutomationRecord,
-  listAutomations as listAutomationRecords,
-  markAutomationTriggered,
-  updateAutomation as updateAutomationRecord,
-  writeSystemLog
-} from "./db.js";
 
 export type AutomationAction = "turnOn" | "turnOff" | "toggle";
 
@@ -49,12 +41,20 @@ export interface AutomationStore {
   markTriggered(id: string, at: string): Promise<void>;
 }
 
-const databaseStore: AutomationStore = {
-  list: listAutomationRecords,
-  create: createAutomationRecord,
-  update: updateAutomationRecord,
-  remove: deleteAutomationRecord,
-  markTriggered: markAutomationTriggered
+export interface AutomationLogger {
+  write(
+    level: "info" | "warning" | "error",
+    source: string,
+    code: string | undefined,
+    message: string,
+    details?: Record<string, unknown>
+  ): Promise<void>;
+}
+
+const noOpLogger: AutomationLogger = {
+  async write(): Promise<void> {
+    // Core automation logic is infrastructure-independent by default.
+  }
 };
 
 const preferredBooleanKeys = ["on", "motion", "open", "water", "fire", "alarm", "vibration", "dark", "daylight", "tampered", "lowBattery"];
@@ -128,7 +128,7 @@ export class AutomationEngine {
   private started = false;
   private readonly onDevice = (device: Device): void => {
     void this.handleDevice(device).catch(error => {
-      void writeSystemLog("error", "automation", "AUTOMATION_ENGINE_ERROR", "Automation engine failed while processing a device update", {
+      void this.logger.write("error", "automation", "AUTOMATION_ENGINE_ERROR", "Automation engine failed while processing a device update", {
         deviceId: device.id,
         error: error instanceof Error ? error.message : String(error)
       }).catch(() => undefined);
@@ -147,7 +147,8 @@ export class AutomationEngine {
   constructor(
     private readonly registry: DeviceRegistry,
     private readonly commander: { command(command: DeviceCommand): Promise<Device> },
-    private readonly store: AutomationStore = databaseStore
+    private readonly store: AutomationStore,
+    private readonly logger: AutomationLogger = noOpLogger
   ) {}
 
   async start(): Promise<void> {
@@ -274,7 +275,7 @@ export class AutomationEngine {
         const triggeredAt = new Date().toISOString();
         await this.store.markTriggered(rule.id, triggeredAt);
         this.rules = this.rules.map(item => item.id === rule.id ? { ...item, lastTriggeredAt: triggeredAt } : item);
-        await writeSystemLog("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", {
+        await this.logger.write("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", {
           automationId: rule.id,
           automationName: rule.name,
           triggerDeviceId: rule.triggerDeviceId,
@@ -282,7 +283,7 @@ export class AutomationEngine {
           action: rule.action
         }).catch(() => undefined);
       } catch (error) {
-        await writeSystemLog("error", "automation", "AUTOMATION_ACTION_FAILED", "Automation action failed", {
+        await this.logger.write("error", "automation", "AUTOMATION_ACTION_FAILED", "Automation action failed", {
           automationId: rule.id,
           automationName: rule.name,
           actionDeviceId: rule.actionDeviceId,
