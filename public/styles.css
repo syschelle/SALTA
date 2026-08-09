@@ -312,16 +312,17 @@ main{max-width:1680px}
 .automation-condition-toggle input,.automation-enabled-row input{width:18px;height:18px;accent-color:var(--accent)}
 .automation-condition-fields{display:grid;gap:12px}
 .automation-field-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
-.automation-field-row>label{display:grid;gap:6px}
+.automation-field-row>label{display:grid;gap:6px;font-size:11.5px;font-weight:650;line-height:1.25}
 .automation-condition-fields[hidden]{display:none}
 .automation-form-actions{gap:8px}
 
 .automation-device-field{display:grid;gap:7px;min-width:0}
-.automation-device-field>label{margin:0;font-weight:700}
+.automation-device-field>label{margin:0;font-size:11.5px;font-weight:650;line-height:1.25}
 .automation-device-picker{display:grid;gap:6px;min-width:0}
 .page-form .automation-device-search{display:flex;align-items:center;gap:7px;width:100%;min-width:0;padding:0 10px;height:38px;margin:0;font-weight:400}
 .page-form .automation-device-search input{display:block;width:100%;min-width:0;height:100%;padding:0;border:0;background:transparent;color:var(--text);font-size:13px;font-weight:400}
 .automation-device-picker select,.automation-step select,.automation-form-basics select,.automation-form-basics input:not([type=checkbox]){width:100%;min-width:0;height:40px;text-overflow:ellipsis}
+.automation-form select{font-size:13px;font-weight:400;line-height:1.25}
 .automation-device-picker{gap:7px}
 .automation-device-match-count{display:block;color:var(--muted);font-size:10.5px;line-height:1.25;min-height:13px}
 @media(max-width:1200px){.automation-layout{grid-template-columns:1fr}}

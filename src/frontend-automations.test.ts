@@ -48,14 +48,21 @@ describe("automation frontend", () => {
     expect(ui).toContain("days===0?'Heute':days===1?'Gestern':`vor ${days} Tagen`");
     expect(cssRuleContains(styles, ".page-form .automation-device-search", "display:flex")).toBe(true);
     expect(cssRuleContains(styles, ".automation-field-row", "grid-template-columns:minmax(0,1fr) minmax(0,1fr)")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-form select", "font-size:13px")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-device-field>label", "font-size:11.5px")).toBe(true);
   });
 
-  it("allows multiple button event values without adding visible trigger rows", () => {
+  it("allows multiple button event values on primary and additional OR triggers", () => {
     expect(html).toContain('id="automationTriggerEventPicker"');
     expect(html).toContain('id="automationTriggerEventOptions"');
     expect(ui).toContain("automationPrimaryEventValues");
     expect(ui).toContain("automationTogglePrimaryEvent");
     expect(ui).toContain("sameDeviceEventTriggers");
+    expect(hasFunction(uiAst, "automationToggleAdditionalEvent")).toBe(true);
+    expect(hasFunction(uiAst, "renderAutomationAdditionalEventPicker")).toBe(true);
+    expect(functionCalls(uiAst, "automationAdditionalTriggerPayload", "automationAdditionalEventValues", 1)).toBe(true);
+    expect(ui).toContain('id="automationExtraEventPicker-${trigger.id}"');
+    expect(ui).toContain("automationAdditionalTriggers.flatMap");
     expect(html).toContain("Mehrere Ereignisse werden ODER-verknüpft");
     expect(cssRuleContains(styles, ".automation-event-picker", "border:1px solid var(--line)")).toBe(true);
   });
@@ -68,7 +75,9 @@ describe("automation frontend", () => {
     expect(ui).toContain("additionalTriggers:");
     expect(hasFunction(uiAst, "addAutomationAdditionalTrigger")).toBe(true);
     expect(hasFunction(uiAst, "renderAutomationAdditionalTriggers")).toBe(true);
+    expect(hasFunction(uiAst, "automationStoredAdditionalTriggers")).toBe(true);
     expect(ui).toContain("Auslöser (ODER)");
+    expect(ui).toContain("Ereignisse");
     expect(cssRuleContains(styles, ".automation-add-trigger", "border:1px dashed var(--line)")).toBe(true);
     expect(cssRuleContains(styles, ".automation-or-trigger-body[hidden]", "display:none")).toBe(true);
   });

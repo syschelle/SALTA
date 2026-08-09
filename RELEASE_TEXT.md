@@ -1,69 +1,46 @@
-# SALTA v0.8.10
+# SALTA v0.8.11
 
-SALTA v0.8.10 fixes the GitHub CI test regressions found after v0.8.9. The Aqara/deCONZ realtime fixes and compact multi-event automation functionality from v0.8.9 remain unchanged.
+SALTA v0.8.11 extends the compact automation editor so every additional OR-linked button trigger can select multiple deCONZ/Aqara button events, while also making the automation form typography more consistent.
 
-## CI test fixes
+## Multi-event OR triggers
 
-- Fixed `frontend-automations.test.ts` incorrectly looking for the text **Mehrere Ereignisse werden ODER-verknüpft** in `automation-ui.js`.
-- The explanatory text is static UI markup and is now correctly verified in `public/index.html`.
-- Removed the obsolete assertion that required the exact pre-v0.8.9 payload string `additionalTriggers:automationAdditionalTriggerPayload()`.
-- The automation payload test now verifies that `automationPayload()` actually calls `automationAdditionalTriggerPayload()` and contains the merged `additionalTriggers` / `sameDeviceEventTriggers` path used for multi-event button triggers.
-- Updated the Phoscon realtime test after v0.8.9 normalized button values through `numberValue(...)`.
-- The test now verifies the normalized `eventValue` path and its emission guard instead of expecting the removed direct `typeof statePatch.buttonEvent === "number"` check.
+- Added the same multi-event checkbox picker used by the primary button trigger to every additional OR trigger.
+- A second or later button device can now match several `buttonEvent` values, for example single click OR double click, without creating multiple visible device rows.
+- Selected events are still persisted as normal OR-trigger definitions, so the existing automation database schema and engine remain unchanged.
+- Existing stored button-event triggers from the same additional device are grouped back into one compact editor block when an automation is opened for editing.
+- The collapsed OR-trigger summary now shows the device together with either the selected event or the number of selected events.
+- The existing global maximum of eight trigger definitions per automation is enforced across primary and additional multi-event selections.
+- The add-trigger control is disabled automatically once the eight-trigger limit has been reached.
 
-## Regression hardening
+## Automation editor consistency
 
-- Release validation now rejects the stale HTML-vs-JavaScript multi-event hint assertion.
-- Release validation rejects the obsolete pre-multi-event exact payload assertion.
-- Release validation rejects the obsolete direct `typeof statePatch.buttonEvent` assertion.
-- The runtime implementation was not weakened to satisfy tests; the tests were brought back in line with the current architecture.
+- Standardized automation select typography to a consistent 13 px regular-weight presentation.
+- Standardized device and trigger/value field labels to a quieter 11.5 px semi-bold presentation.
+- Kept additional OR-trigger blocks compact and collapsed until they are opened for editing.
+- Retained the same searchable device picker, matching-device counter, field heights and spacing for primary and additional trigger devices.
 
-## Aqara / deCONZ reliability retained from v0.8.9
+## Regression coverage
 
-- The deCONZ WebSocket remains the preferred realtime path.
-- Numeric and string deCONZ sensor resource IDs remain normalized.
-- Aqara button resources retain their `buttonevent` and `lastupdated` revision metadata.
-- When the WebSocket is unavailable, SALTA keeps the button-only two-second fallback active.
-- The fallback compares `lastupdated`, allowing repeated identical `buttonevent` values to be recognized as separate presses.
-- WebSocket and fallback events remain de-duplicated.
-- Realtime Phoscon status continues to show WebSocket connection, fallback mode and the latest button event.
+- Extended the automation frontend tests to require multi-event selection on additional OR triggers.
+- Added coverage for grouping stored additional button events and expanding them through the existing OR-trigger payload.
+- Added checks for the standardized automation field typography.
+- Extended release validation so the additional-trigger multi-event UI and payload path cannot be removed accidentally.
 
-## Multi-event automations retained from v0.8.9
-
-- One Aqara/button trigger can match several selected deCONZ events.
-- The selected event values are OR-linked.
-- Multi-event selections share the existing v0.8.8 OR-trigger persistence model.
-- Additional trigger devices remain supported.
-- The total trigger limit remains eight definitions per automation.
-- Existing single-event and single-trigger automations remain compatible.
-
-## Existing automation functionality retained
-
-- Multiple trigger devices remain OR-linked.
-- Optional **Only if** conditions remain available.
-- Target actions remain **On**, **Off** and **Toggle**.
-- Searchable device selectors remain available.
-- Automation room assignment remains available.
-- Last successful execution remains displayed as **Heute**, **Gestern** or **vor X Tagen** with local time.
-- Cross-system automation remains supported across Shelly, Zigbee, HomeMatic and SALTA virtual devices.
-
-## Database and compatibility
+## Compatibility
 
 - No database migration is required.
 - No `ALTER TABLE` migration is introduced.
 - No fresh PostgreSQL volume is required.
 - No new environment variables are required.
-- Existing v0.8.x configuration and automations remain compatible.
+- Existing v0.8.x automations remain compatible.
+- Existing single-event, multi-event primary-trigger and multiple-device OR automations remain compatible.
 
-## Security and dependency status
+## Security and dependencies
 
-- No production npm dependency was added or changed in v0.8.10.
-- The transitive dependency tree remains unchanged from v0.8.9 apart from the SALTA root version.
+- No production npm dependency was added or intentionally changed in v0.8.11.
+- The locked dependency tree remains unchanged apart from the SALTA root version.
 - Retains `find-my-way` 9.7.0.
 - Retains `@homebridge/dbus-native` 0.7.7.
-- Retains the patched `fast-uri` dependency versions.
-- Retains PostCSS 8.5.20.
-- Retains TypeScript 5.9.3 from the lockfile.
 
 ## Verification
 
@@ -81,7 +58,7 @@ sh -n install.sh update.sh backup.sh restore.sh
 ## Container tags
 
 ```text
-0.8.10
+0.8.11
 0.8
 latest
 ```
@@ -89,5 +66,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.10
+v0.8.11
 ```

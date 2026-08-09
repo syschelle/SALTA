@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.11
+
+- Added multi-event selection to every additional OR-linked button trigger, matching the primary trigger workflow.
+- Grouped stored button-event definitions from the same additional device back into one compact editor block when editing an automation.
+- Expanded grouped selections through the existing `automation_triggers` payload, requiring no database migration.
+- Enforced the eight-trigger limit across both primary and additional multi-event selections and automatically hides the add-trigger control when the limit is reached.
+- Standardized automation select and field-label typography for a more consistent device editor.
+- Extended frontend and release-validation coverage for additional-trigger multi-event selection, grouping and payload expansion.
+- Kept the npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.10
 
 - Fixed the GitHub CI regressions in the v0.8.9 automation and Phoscon frontend tests.

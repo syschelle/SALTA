@@ -75,6 +75,9 @@ if (!automationFrontend.includes("automationAdditionalTriggerPayload") || !autom
 if (!phosconAdapterSource.includes("buttonFallbackIntervalMs = 2_000") || !phosconAdapterSource.includes("pollButtonSensors")) fail("Phoscon button fallback polling is missing");
 if (!phosconAdapterSource.includes("buttonEventLastUpdated") || !phosconAdapterSource.includes('transport: "websocket" | "poll"')) fail("Phoscon button-event revision tracking is missing");
 if (!automationFrontend.includes("automationPrimaryEventValues") || !automationFrontend.includes("sameDeviceEventTriggers")) fail("Automation multi-event selection is missing");
+if (!automationFrontend.includes("automationToggleAdditionalEvent") || !automationFrontend.includes("renderAutomationAdditionalEventPicker")) fail("Additional OR-trigger multi-event selection is missing");
+if (!automationFrontend.includes("automationStoredAdditionalTriggers") || !automationFrontend.includes("automationAdditionalTriggers.flatMap")) fail("Additional button-event groups are not merged and expanded through the existing OR-trigger payload");
+if (!automationFrontend.includes('id="automationExtraEventPicker-${trigger.id}"')) fail("Additional OR-trigger event picker markup is missing");
 if (!publicIndex.includes('id="automationTriggerEventPicker"') || !publicIndex.includes('id="automationTriggerEventOptions"')) fail("Automation multi-event picker markup is missing");
 if (!automationEngineSource.includes("automationRuleTriggers") || !automationEngineSource.includes("AUTOMATION_TRIGGER_LIMIT")) fail("Automation engine does not validate multiple OR triggers");
 if (!serverSource.includes("additionalTriggers: z.array(automationAdditionalTriggerSchema).max(7).default([])")) fail("Automation API does not accept bounded additional OR triggers");
