@@ -1,30 +1,30 @@
-# SALTA v0.8.11
+# SALTA v0.8.12
 
-SALTA v0.8.11 extends the compact automation editor so every additional OR-linked button trigger can select multiple deCONZ/Aqara button events, while also making the automation form typography more consistent.
+SALTA v0.8.12 adds first-class support for the virtual deCONZ/Phoscon Daylight sensor and makes its daylight state directly usable by SALTA automations.
 
-## Multi-event OR triggers
+## Phoscon Daylight sensor
 
-- Added the same multi-event checkbox picker used by the primary button trigger to every additional OR trigger.
-- A second or later button device can now match several `buttonEvent` values, for example single click OR double click, without creating multiple visible device rows.
-- Selected events are still persisted as normal OR-trigger definitions, so the existing automation database schema and engine remain unchanged.
-- Existing stored button-event triggers from the same additional device are grouped back into one compact editor block when an automation is opened for editing.
-- The collapsed OR-trigger summary now shows the device together with either the selected event or the number of selected events.
-- The existing global maximum of eight trigger definitions per automation is enforced across primary and additional multi-event selections.
-- The add-trigger control is disabled automatically once the eight-trigger limit has been reached.
+- Added support for the deCONZ `Daylight` sensor (`PHDL00` / `type: Daylight`), which was previously skipped by the ZHA/ZGP-only sensor filter.
+- Imports the Daylight resource as a read-only SALTA light sensor.
+- Exposes the boolean `daylight` and `dark` states.
+- Exposes the calculated `sunrise` and `sunset` values reported by deCONZ.
+- Exposes the deCONZ daylight status as `daylightStatus`.
+- Translates the official deCONZ daylight status codes into readable German solar phases in the web interface.
+- Displays sunrise and sunset as compact local clock times on the device card.
 
-## Automation editor consistency
+## Automations
 
-- Standardized automation select typography to a consistent 13 px regular-weight presentation.
-- Standardized device and trigger/value field labels to a quieter 11.5 px semi-bold presentation.
-- Kept additional OR-trigger blocks compact and collapsed until they are opened for editing.
-- Retained the same searchable device picker, matching-device counter, field heights and spacing for primary and additional trigger devices.
+- `daylight` and `dark` are available automatically as boolean automation triggers.
+- `daylight` and `dark` can also be used as the optional automation condition.
+- Example: motion detected AND Daylight `dark = true` -> turn on a light.
+- Example: Daylight changes to `daylight = false` -> switch on outdoor lighting.
+- No new automation trigger type or database migration is required; the existing boolean-state automation engine is reused.
 
-## Regression coverage
+## Realtime updates
 
-- Extended the automation frontend tests to require multi-event selection on additional OR triggers.
-- Added coverage for grouping stored additional button events and expanding them through the existing OR-trigger payload.
-- Added checks for the standardized automation field typography.
-- Extended release validation so the additional-trigger multi-event UI and payload path cannot be removed accidentally.
+- Daylight changes are processed through the existing deCONZ WebSocket sensor-update path.
+- Added handling for Daylight solar-phase status updates even when a WebSocket event contains only the numeric `status` field.
+- The normal 15-second Phoscon reconciliation remains as the state recovery path after reconnects.
 
 ## Compatibility
 
@@ -33,32 +33,23 @@ SALTA v0.8.11 extends the compact automation editor so every additional OR-linke
 - No fresh PostgreSQL volume is required.
 - No new environment variables are required.
 - Existing v0.8.x automations remain compatible.
-- Existing single-event, multi-event primary-trigger and multiple-device OR automations remain compatible.
+- Existing Phoscon/Zigbee devices and button-event automations remain unchanged.
 
 ## Security and dependencies
 
-- No production npm dependency was added or intentionally changed in v0.8.11.
+- No production npm dependency was added or intentionally changed in v0.8.12.
 - The locked dependency tree remains unchanged apart from the SALTA root version.
 - Retains `find-my-way` 9.7.0.
 - Retains `@homebridge/dbus-native` 0.7.7.
 
 ## Verification
 
-```bash
-npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
-npm run validate:release
-npm run typecheck
-npm run test:preflight
-npm test
-npm run build
-npm run check
-sh -n install.sh update.sh backup.sh restore.sh
-```
+The release validation and browser JavaScript/shell syntax checks pass locally. The complete Vitest/TypeScript dependency-backed suite requires `npm ci`; the package mirror available in the build environment returned HTTP 404 for the locked `zod` tarball, so that full suite could not be executed here.
 
 ## Container tags
 
 ```text
-0.8.11
+0.8.12
 0.8
 latest
 ```
@@ -66,5 +57,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.11
+v0.8.12
 ```

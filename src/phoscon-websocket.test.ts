@@ -19,6 +19,13 @@ describe("Phoscon realtime button events", () => {
     expect(adapter).toContain('transport: "websocket" | "poll"');
   });
 
+  it("updates regular and daylight sensor state through the deCONZ websocket", () => {
+    expect(adapter).toContain("const statePatch = phosconSensorState(state, event.config ?? {})");
+    expect(adapter).toContain("state: { ...current.state, ...statePatch }");
+    expect(adapter).toContain('current.profile?.split(" + ").includes("Daylight")');
+    expect(adapter).toContain("statePatch.daylightStatus = daylightStatus");
+  });
+
   it("provides a dedicated registry event channel separate from state updates", () => {
     expect(registry).toContain('this.listeners("deviceEvent")');
     expect(registry).toContain('event: "deviceEvent"');

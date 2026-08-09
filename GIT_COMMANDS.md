@@ -1,4 +1,4 @@
-# SALTA v0.8.11 – Git and Release Commands
+# SALTA v0.8.12 – Git and Release Commands
 
 ## Commit and push main
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(automations): add multi-event OR triggers"
+git commit -m "feat(phoscon): add Daylight sensor support"
 git push origin main
 ```
 
@@ -17,15 +17,19 @@ Wait for the GitHub CI workflow on `main` to be green.
 ## Tag
 
 ```bash
-git tag -a v0.8.11 -m "SALTA v0.8.11"
-git push origin v0.8.11
+git tag -a v0.8.12 -m "SALTA v0.8.12"
+git push origin v0.8.12
 ```
 
 ## Production update
 
+If `.env` pins a versioned image, set:
+
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.11
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.12
 ```
+
+Then update the deployment:
 
 ```bash
 docker compose --env-file .env -f docker-compose.image.yml pull

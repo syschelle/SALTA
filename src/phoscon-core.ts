@@ -113,7 +113,7 @@ function sensorDeviceType(type: string): DeviceType {
   if (normalized.includes("openclose")) return "contactSensor";
   if (normalized.includes("temperature")) return "temperatureSensor";
   if (normalized.includes("humidity")) return "humiditySensor";
-  if (normalized.includes("lightlevel")) return "lightSensor";
+  if (normalized.includes("lightlevel") || normalized === "daylight") return "lightSensor";
   if (normalized.includes("water")) return "waterLeakSensor";
   if (normalized.includes("fire") || normalized.includes("carbonmonoxide") || normalized.includes("alarm")) return "smokeSensor";
   if (normalized.includes("switch")) return "button";
@@ -146,8 +146,11 @@ export function phosconSensorState(rawState: Record<string, unknown>, rawConfig:
   if (open !== undefined) state.open = open;
   if (temperature !== undefined) state.temperature = Math.round(temperature) / 100;
   if (humidity !== undefined) state.humidity = Math.round(humidity) / 100;
-  for (const key of ["lux", "lightlevel", "pressure", "power", "current", "voltage", "consumption", "airquality", "airqualityppb", "water", "fire", "carbonmonoxide", "alarm", "vibration", "buttonevent", "gesture", "dark", "daylight", "lowbattery", "tampered", "charging"] as const) {
+  for (const key of ["lux", "lightlevel", "pressure", "power", "current", "voltage", "consumption", "airquality", "airqualityppb", "water", "fire", "carbonmonoxide", "alarm", "vibration", "buttonevent", "gesture", "dark", "daylight", "sunrise", "sunset", "lowbattery", "tampered", "charging"] as const) {
     copyScalar(state, key === "buttonevent" ? "buttonEvent" : key === "carbonmonoxide" ? "carbonMonoxide" : key === "lowbattery" ? "lowBattery" : key, rawState[key]);
+  }
+  if (rawState.status !== undefined && (rawState.daylight !== undefined || rawState.dark !== undefined || rawState.sunrise !== undefined || rawState.sunset !== undefined)) {
+    copyScalar(state, "daylightStatus", rawState.status);
   }
   copyScalar(state, "battery", rawConfig.battery);
   return state;
@@ -355,7 +358,7 @@ export function phosconDevicesFromState(baseUrl: string, payload: unknown): Devi
   for (const [resourceId, value] of Object.entries(sensors)) {
     const raw = record(value);
     const profile = stringValue(raw.type) ?? "Sensor";
-    if (!/^(ZHA|ZGP)/.test(profile)) continue;
+    if (!/^(ZHA|ZGP)/.test(profile) && profile !== "Daylight") continue;
     const uniqueId = stringValue(raw.uniqueid) ?? `resource-${resourceId}`;
     const groupKey = resourceMac(uniqueId) ?? uniqueId.split("-", 1)[0] ?? uniqueId;
     const group = sensorGroups.get(groupKey) ?? [];

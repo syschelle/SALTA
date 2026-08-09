@@ -94,6 +94,12 @@ if (!mainSource.includes("automations.stop()")) fail("Automation engine is not s
 if (!phosconAdapterSource.includes("new WebSocket(target)")) fail("Phoscon realtime websocket client is missing");
 if (!phosconAdapterSource.includes("emitDeviceEvent")) fail("Phoscon button events are not forwarded to the SALTA event bus");
 if (!phosconAdapterSource.includes("scheduleReconnect")) fail("Phoscon websocket reconnect handling is missing");
+if (!phosconCoreSource.includes('profile !== "Daylight"')) fail("Phoscon Daylight sensor import is missing");
+if (!phosconCoreSource.includes('normalized === "daylight"')) fail("Phoscon Daylight sensor is not classified as a light sensor");
+if (!phosconCoreSource.includes('"sunrise", "sunset"') || !phosconCoreSource.includes('"daylightStatus"')) fail("Phoscon Daylight state mapping is incomplete");
+if (!phosconAdapterSource.includes('current.profile?.split(" + ").includes("Daylight")') || !phosconAdapterSource.includes("statePatch.daylightStatus = daylightStatus")) fail("Phoscon Daylight realtime status updates are missing");
+if (!virtualFrontend.includes("sunrise:'Sonnenaufgang'") || !virtualFrontend.includes("sunset:'Sonnenuntergang'") || !virtualFrontend.includes("daylightStatus:'Sonnenphase'")) fail("Phoscon Daylight frontend labels are missing");
+if (!virtualFrontend.includes("split(' + ').includes('Daylight')?5:4")) fail("Phoscon Daylight card does not expose all five Daylight values");
 if (!phosconCoreSource.includes("websocketport")) fail("Phoscon websocket port discovery is missing");
 if (!phosconCoreSource.includes('sensor.type === "button"')) fail("Phoscon button resources may be merged into actuator devices");
 const automationPersistenceSource = read("src/automation-persistence.ts");

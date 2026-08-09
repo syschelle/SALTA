@@ -103,8 +103,17 @@ describe("phosconDevicesFromState", () => {
       "1": {
         name: "Daylight",
         type: "Daylight",
+        modelid: "PHDL00",
         uniqueid: "daylight",
-        state: { daylight: true }
+        state: {
+          dark: false,
+          daylight: true,
+          status: 170,
+          sunrise: "2026-07-23T03:31:00",
+          sunset: "2026-07-23T19:14:00",
+          lastupdated: "2026-07-23T08:05:00"
+        },
+        config: { configured: true, on: true, sunriseoffset: 30, sunsetoffset: -30 }
       },
       "20": {
         name: "Virtual sensor",
@@ -115,10 +124,10 @@ describe("phosconDevicesFromState", () => {
     }
   };
 
-  it("maps lights, covers and one grouped physical sensor", () => {
+  it("maps lights, covers, the virtual daylight sensor and one grouped physical sensor", () => {
     const devices = phosconDevicesFromState("http://192.168.178.20:8080", fullState);
 
-    expect(devices).toHaveLength(3);
+    expect(devices).toHaveLength(4);
     expect(devices.find(device => device.name === "Desk lamp")).toMatchObject({
       source: "phoscon",
       sourceId: "light:1",
@@ -142,6 +151,22 @@ describe("phosconDevicesFromState", () => {
         temperature: 21.87,
         lux: 42,
         battery: 87
+      },
+      capabilities: []
+    });
+    expect(devices.find(device => device.name === "Daylight")).toMatchObject({
+      source: "phoscon",
+      sourceId: "sensor:1",
+      type: "lightSensor",
+      model: "PHDL00",
+      profile: "Daylight",
+      reachable: true,
+      state: {
+        dark: false,
+        daylight: true,
+        sunrise: "2026-07-23T03:31:00",
+        sunset: "2026-07-23T19:14:00",
+        daylightStatus: 170
       },
       capabilities: []
     });

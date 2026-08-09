@@ -25,4 +25,13 @@ describe("Phoscon and Zigbee frontend", () => {
     expect(script).toContain("api('/api/settings/phoscon/pair'");
     expect(script).toContain("api('/api/adapters/phoscon/reconcile'");
   });
+  it("formats the deCONZ daylight sensor for the Zigbee device view", () => {
+    expect(script).toContain("sunrise:'Sonnenaufgang'");
+    expect(script).toContain("sunset:'Sonnenuntergang'");
+    expect(script).toContain("daylightStatus:'Sonnenphase'");
+    expect(script).toContain("170:'Sonnenhöchststand'");
+    expect(script).toContain("daylightTimeLabel");
+    expect(script).toContain("split(' + ').includes('Daylight')?5:4");
+  });
+
 });

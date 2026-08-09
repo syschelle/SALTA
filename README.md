@@ -213,12 +213,15 @@ The Zigbee page is separate from the Shelly page and imports supported resources
 - lights and dimmable lights;
 - smart plugs and other on/off actuators;
 - window coverings;
-- motion, contact, temperature, humidity, light, water, smoke and button sensors; and
+- motion, contact, temperature, humidity, light, water, smoke and button sensors;
+- the deCONZ virtual `Daylight` sensor (`PHDL00`) with daylight/dark state plus sunrise and sunset times; and
 - power and energy measurements exposed by deCONZ.
 
 Multiple deCONZ sensor resources belonging to the same physical Zigbee device are combined into one SALTA card. Metering or battery resources that belong to one unambiguous actuator are merged into that actuator instead of being shown as duplicate devices. `ZHASwitch` button resources are kept as dedicated SALTA button devices so remotes such as Aqara `lumi.remote...` devices remain visible and usable as automation triggers.
 
 SALTA can switch supported lights and plugs, set brightness and control compatible window coverings. Sensor resources are read-only. deCONZ button events are received in real time over the gateway WebSocket and are published to SALTA as discrete events; repeated identical `buttonevent` values are therefore treated as separate button presses. The adapter discovers the WebSocket port from the gateway configuration and reconnects automatically after a gateway or network interruption. Names and room assignments are managed locally in SALTA.
+
+The deCONZ `Daylight` resource is shown as a read-only light sensor. SALTA exposes `daylight` and `dark` as boolean states, displays the calculated sunrise and sunset times and translates the deCONZ daylight status into a readable solar phase. Because `daylight` and `dark` are normal boolean device states, they can be selected directly as automation triggers or as the optional automation condition.
 
 SALTA automation triggers use the **deCONZ REST/WebSocket `state.buttonevent` code**, not a raw Zigbee `attribute_id`/attribute value pair. For example, the deCONZ button map for the Aqara WXKG11LM 2018 model (`lumi.remote.b1acn01`) uses `1002` for short release/single click, `1004` for double press, `1001` for hold and `1003` for long release. SALTA always keeps the raw deCONZ event code visible in the automation editor so device-specific mappings remain transparent.
 

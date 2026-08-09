@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.12
+
+- Added support for the deCONZ/Phoscon virtual `Daylight` sensor (`PHDL00`) instead of filtering it out with non-ZHA virtual resources.
+- Imported the Daylight resource as a SALTA light sensor with `daylight`, `dark`, sunrise, sunset and deCONZ solar-phase status.
+- Added German device-card labels and readable solar-phase names for deCONZ daylight status codes.
+- Added realtime WebSocket updates for Daylight state and status changes, including status-only Daylight events.
+- Enabled `daylight` and `dark` automatically as boolean automation triggers and conditions without changing the automation database schema.
+- Added adapter, frontend, automation and release-validation coverage for the Daylight integration.
+- Kept the npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.11
 
 - Added multi-event selection to every additional OR-linked button trigger, matching the primary trigger workflow.

@@ -342,6 +342,10 @@ export class PhosconAdapter {
     if (!current) return;
 
     const statePatch = phosconSensorState(state, event.config ?? {});
+    if (current.profile?.split(" + ").includes("Daylight")) {
+      const daylightStatus = numberValue(state.status);
+      if (daylightStatus !== undefined) statePatch.daylightStatus = daylightStatus;
+    }
     const reachable = typeof event.config?.reachable === "boolean" ? event.config.reachable : current.reachable;
     const receivedAt = now();
     const updated: Device = {

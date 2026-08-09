@@ -89,6 +89,36 @@ describe("AutomationEngine", () => {
     engine.stop();
   });
 
+  it("uses Phoscon daylight and dark states as automation triggers and conditions", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("daylight", { ...device("daylight", { daylight: true, dark: false }), source: "phoscon", type: "lightSensor", model: "PHDL00" });
+    registry.devices.set("motion", device("motion", { motion: false }));
+    registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const command = vi.fn(async () => registry.get("target")!);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+    await engine.start();
+    await engine.create({
+      name: "Night motion", enabled: true,
+      triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true,
+      conditionDeviceId: "daylight", conditionStateKey: "dark", conditionValue: true,
+      actionDeviceId: "target", action: "turnOn"
+    });
+    await engine.create({
+      name: "Daylight ended", enabled: true,
+      triggerDeviceId: "daylight", triggerStateKey: "daylight", triggerValue: false,
+      actionDeviceId: "target", action: "toggle"
+    });
+
+    registry.publish({ ...device("daylight", { daylight: false, dark: true }), source: "phoscon", type: "lightSensor", model: "PHDL00" });
+    await tick();
+    expect(command).toHaveBeenCalledWith({ deviceId: "target", capability: "toggle", source: "automation" });
+
+    registry.publish(device("motion", { motion: true }));
+    await tick();
+    expect(command).toHaveBeenCalledWith({ deviceId: "target", capability: "turnOn", source: "automation" });
+    engine.stop();
+  });
+
   it("supports explicit on, off and toggle actions", async () => {
     for (const action of ["turnOn", "turnOff", "toggle"] as const) {
       const registry = new TestRegistry();
