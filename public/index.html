@@ -20,6 +20,7 @@
     <a href="#zigbee" data-nav="zigbee"><span class="nav-icon mdi mdi-zigbee" aria-hidden="true"></span><span>Zigbee</span></a>
     <a href="#openccu" data-nav="openccu"><span class="nav-icon mdi mdi-access-point-network" aria-hidden="true"></span><span>HomeMatic</span></a>
     <a href="#virtual" data-nav="virtual"><span class="nav-icon mdi mdi-toggle-switch-outline" aria-hidden="true"></span><span>Virtuelle Geräte</span></a>
+    <a href="#presence" data-nav="presence"><span class="nav-icon mdi mdi-account-check-outline" aria-hidden="true"></span><span>Präsenz</span></a>
     <a href="#rooms" data-nav="rooms"><span class="nav-icon mdi mdi-floor-plan" aria-hidden="true"></span><span>Räume</span></a>
     <a href="#automations" data-nav="automations"><span class="nav-icon mdi mdi-robot-outline" aria-hidden="true"></span><span>Automationen</span></a>
     <a href="#logs" data-nav="logs"><span class="nav-icon mdi mdi-text-box-search-outline" aria-hidden="true"></span><span>Systemprotokoll</span></a>
@@ -32,7 +33,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.12</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.13</strong></div>
   </div>
 </aside>
 
@@ -73,6 +74,42 @@
     <section id="virtualGrid" class="device-groups"></section>
   </section>
 
+  <section class="page" data-page="presence" aria-labelledby="presence-title" hidden>
+    <header class="page-header"><div><p class="eyebrow">FRITZ!BOX / WLAN-PRÄSENZ</p><h1 id="presence-title">Präsenz</h1><p class="muted">Erkenne Personen lokal anhand bekannter WLAN-MAC-Adressen und verwende die Anwesenheit direkt in SALTA-Automationen.</p></div><div class="header-actions"><button class="secondary" type="button" onclick="refreshPresence()"><span class="mdi mdi-refresh" aria-hidden="true"></span>Jetzt prüfen</button></div></header>
+    <section class="presence-top-grid">
+      <article class="panel presence-connection-panel">
+        <div class="panel-head"><div><h2>FRITZ!Box-Verbindung</h2><p class="muted">SALTA fragt die lokale TR-064-Hosts-Schnittstelle gezielt nach den hinterlegten MAC-Adressen ab.</p></div><span class="adapter-badge">TR-064</span></div>
+        <div id="presenceGatewayStatus" class="gateway-status"></div>
+        <div id="presenceCredentialWarning" class="settings-warning" role="alert" hidden></div>
+        <form id="presenceSettingsForm" class="page-form">
+          <label class="presence-enabled-row"><span><strong>Präsenzerkennung aktiv</strong><small>FRITZ!Box regelmäßig nach den bekannten Geräten fragen</small></span><input id="presenceEnabled" type="checkbox"></label>
+          <label>FRITZ!Box TR-064-Adresse<input id="presenceBaseUrl" placeholder="http://fritz.box:49000" autocomplete="url" required><small>Standardmäßig verwendet die FRITZ!Box TR-064 über Port 49000 im lokalen Netz.</small></label>
+          <div class="presence-form-row"><label>Benutzername<input id="presenceUsername" autocomplete="username" placeholder="FRITZ!Box-Benutzer"></label><label>Passwort<input id="presencePassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label></div>
+          <p id="presencePasswordState" class="setting-note"></p>
+          <div class="presence-form-row"><label>Prüfintervall<select id="presencePollInterval"><option value="15">15 Sekunden</option><option value="30">30 Sekunden</option><option value="60">60 Sekunden</option><option value="120">2 Minuten</option></select></label><label>Standard: abwesend nach<select id="presenceAbsenceDelay"><option value="0">sofort</option><option value="60">1 Minute</option><option value="180">3 Minuten</option><option value="300">5 Minuten</option><option value="600">10 Minuten</option><option value="900">15 Minuten</option></select></label></div>
+          <div class="form-actions split-actions"><button id="presenceTestButton" type="button" class="secondary" onclick="testPresenceConnection()">Verbindung testen</button><button type="submit">Einstellungen speichern</button></div>
+        </form>
+      </article>
+      <article class="panel presence-house-panel">
+        <div class="panel-head"><div><h2>Hausstatus</h2><p class="muted">Aus allen überwachten Personen erzeugt SALTA zusätzlich eine gemeinsame Hauspräsenz.</p></div><span class="mdi mdi-home-account presence-house-icon" aria-hidden="true"></span></div>
+        <div id="presenceHouseSummary" class="presence-house-summary"></div>
+        <div class="presence-automation-hint"><span class="mdi mdi-robot-outline" aria-hidden="true"></span><span><strong>Direkt für Automationen nutzbar:</strong> „Anwesend“, „Jemand zuhause“ und „Niemand zuhause“ stehen als Auslöser oder Bedingung zur Verfügung.</span></div>
+      </article>
+    </section>
+    <section class="presence-devices-layout">
+      <article class="panel presence-target-list-panel"><div class="panel-head"><div><h2>Überwachte Personen</h2><p class="muted">Verwende die MAC-Adresse, die deine FRITZ!Box für das Handy im Heim-WLAN anzeigt.</p></div><span id="presenceTargetCount" class="count-badge">0</span></div><div id="presenceTargetList" class="presence-target-list"></div></article>
+      <article class="panel sticky-panel presence-target-form-panel"><h2 id="presenceTargetFormTitle">Person hinzufügen</h2><p class="muted">Eine bekannte WLAN-MAC-Adresse wird als eigener schreibgeschützter Präsenzsensor angelegt.</p>
+        <form id="presenceTargetForm" class="page-form">
+          <label>Name<input id="presenceTargetName" maxlength="120" placeholder="z. B. Schellies iPhone" required></label>
+          <label>MAC-Adresse<input id="presenceTargetMac" maxlength="32" placeholder="AA:BB:CC:DD:EE:FF" autocapitalize="characters" spellcheck="false" required><small>Auch Bindestriche, Cisco-Notation oder eine MAC ohne Trennzeichen werden akzeptiert.</small></label>
+          <label>Individuell abwesend nach<select id="presenceTargetDelay"><option value="">Standard verwenden</option><option value="0">sofort</option><option value="60">1 Minute</option><option value="180">3 Minuten</option><option value="300">5 Minuten</option><option value="600">10 Minuten</option><option value="900">15 Minuten</option></select></label>
+          <p class="setting-note">Bei Smartphones sollte die für dieses Heim-WLAN verwendete private MAC-Adresse stabil bleiben. Eine kurze Abwesenheitsverzögerung verhindert Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.</p>
+          <div class="form-actions split-actions"><button id="presenceTargetCancelButton" type="button" class="secondary" onclick="cancelPresenceTargetEdit()" hidden>Abbrechen</button><button id="presenceTargetSaveButton" type="submit">Person hinzufügen</button></div>
+        </form>
+      </article>
+    </section>
+  </section>
+
   <section class="page" data-page="automations" aria-labelledby="automations-title" hidden>
     <header class="page-header"><div><p class="eyebrow">REGELN &amp; AUTOMATISIERUNG</p><h1 id="automations-title">Automationen</h1><p class="muted">Reagiere lokal auf Geräteereignisse und schalte andere Geräte abhängig von ihrem aktuellen Zustand.</p></div></header>
     <section class="two-column-page automation-layout">
@@ -104,7 +141,7 @@
 
   <section class="page" data-page="logs" aria-labelledby="logs-title" hidden>
     <header class="page-header"><div><p class="eyebrow">DIAGNOSE &amp; FEHLERSUCHE</p><h1 id="logs-title">Systemprotokoll</h1><p class="muted">Technische Ereignisse und Adapterfehler. Passwörter, API-Schlüssel und Sitzungstoken werden nicht protokolliert.</p></div><div class="header-actions"><button class="secondary" type="button" onclick="loadSystemLogs()"><span class="mdi mdi-refresh" aria-hidden="true"></span>Aktualisieren</button><button class="danger" type="button" onclick="clearSystemLog()"><span class="mdi mdi-delete-outline" aria-hidden="true"></span>Protokoll leeren</button></div></header>
-    <section class="section-head"><div><h2>Letzte Ereignisse</h2><p class="muted">Das Protokoll wird maximal 30 Tage beziehungsweise 2.000 Einträge aufbewahrt.</p></div><div class="filters"><select id="logSourceFilter"><option value="">Alle Quellen</option><option value="system">System</option><option value="openccu">OpenCCU</option><option value="virtual">Virtuelle Geräte</option><option value="automation">Automationen</option></select><select id="logLevelFilter"><option value="">Alle Stufen</option><option value="error">Fehler</option><option value="warning">Warnungen</option><option value="info">Informationen</option></select></div></section>
+    <section class="section-head"><div><h2>Letzte Ereignisse</h2><p class="muted">Das Protokoll wird maximal 30 Tage beziehungsweise 2.000 Einträge aufbewahrt.</p></div><div class="filters"><select id="logSourceFilter"><option value="">Alle Quellen</option><option value="system">System</option><option value="openccu">OpenCCU</option><option value="virtual">Virtuelle Geräte</option><option value="presence">Präsenz</option><option value="automation">Automationen</option></select><select id="logLevelFilter"><option value="">Alle Stufen</option><option value="error">Fehler</option><option value="warning">Warnungen</option><option value="info">Informationen</option></select></div></section>
     <section id="systemLogList" class="system-log-list" aria-live="polite"></section>
   </section>
 
@@ -125,6 +162,7 @@
   <a href="#zigbee" data-nav="zigbee"><span class="nav-icon mdi mdi-zigbee" aria-hidden="true"></span><small>Zigbee</small></a>
   <a href="#openccu" data-nav="openccu"><span class="nav-icon mdi mdi-access-point-network" aria-hidden="true"></span><small>HomeMatic</small></a>
   <a href="#virtual" data-nav="virtual"><span class="nav-icon mdi mdi-toggle-switch-outline" aria-hidden="true"></span><small>Virtuell</small></a>
+  <a href="#presence" data-nav="presence"><span class="nav-icon mdi mdi-account-check-outline" aria-hidden="true"></span><small>Präsenz</small></a>
   <a href="#automations" data-nav="automations"><span class="nav-icon mdi mdi-robot-outline" aria-hidden="true"></span><small>Regeln</small></a>
   <a href="#rooms" data-nav="rooms"><span class="nav-icon mdi mdi-floor-plan" aria-hidden="true"></span><small>Räume</small></a>
   <a href="#settings" data-nav="settings"><span class="nav-icon mdi mdi-cog-outline" aria-hidden="true"></span><small>Einstellungen</small></a>

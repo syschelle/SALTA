@@ -59,6 +59,15 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain('as "additionalTriggers"');
   });
 
+  it("stores FRITZ!Box presence settings and monitored MAC addresses additively", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings");
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS presence_targets");
+    expect(databaseSource).toContain("poll_interval_seconds integer NOT NULL DEFAULT 30");
+    expect(databaseSource).toContain("absence_delay_seconds integer NOT NULL DEFAULT 300");
+    expect(databaseSource).toContain("mac_address text NOT NULL UNIQUE");
+    expect(databaseSource).toContain("encrypted_password text NOT NULL DEFAULT ''");
+  });
+
   it("stores a bounded persistent system log", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS system_logs");
     expect(databaseSource).toContain("CHECK(level IN ('info','warning','error'))");

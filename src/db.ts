@@ -2,7 +2,7 @@ import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { CredentialMode, Device, OpenCcuSettings, PhosconSettings, Room, ShellySettings, SystemLogEntry, SystemLogLevel } from "./types.js";
+import type { CredentialMode, Device, FritzBoxPresenceSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, Room, ShellySettings, SystemLogEntry, SystemLogLevel } from "./types.js";
 import type { AutomationInput, AutomationRule } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
@@ -88,6 +88,24 @@ export async function initializeDatabaseSchema(): Promise<void> {
       base_url text NOT NULL DEFAULT '',
       username text NOT NULL DEFAULT '',
       encrypted_password text NOT NULL DEFAULT '',
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS fritzbox_presence_settings (
+      adapter_id text PRIMARY KEY DEFAULT 'fritzbox_presence',
+      base_url text NOT NULL DEFAULT 'http://fritz.box:49000',
+      username text NOT NULL DEFAULT '',
+      encrypted_password text NOT NULL DEFAULT '',
+      enabled boolean NOT NULL DEFAULT false,
+      poll_interval_seconds integer NOT NULL DEFAULT 30 CHECK (poll_interval_seconds BETWEEN 10 AND 3600),
+      absence_delay_seconds integer NOT NULL DEFAULT 300 CHECK (absence_delay_seconds BETWEEN 0 AND 86400),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE TABLE IF NOT EXISTS presence_targets (
+      id uuid PRIMARY KEY,
+      name text NOT NULL,
+      mac_address text NOT NULL UNIQUE,
+      absence_delay_seconds integer CHECK (absence_delay_seconds IS NULL OR absence_delay_seconds BETWEEN 0 AND 86400),
+      created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE TABLE IF NOT EXISTS device_adapter_data (
@@ -547,6 +565,70 @@ export async function updateOpenCcuSettings(baseUrl: string, username: string, p
 
 export async function clearOpenCcuSettings(): Promise<void> {
   await pool.query("DELETE FROM openccu_settings WHERE adapter_id='openccu'");
+}
+
+export async function getFritzBoxPresenceSettings(): Promise<FritzBoxPresenceSettings> {
+  const result = await pool.query<{ base_url: string; username: string; encrypted_password: string; enabled: boolean; poll_interval_seconds: number; absence_delay_seconds: number }>(
+    "SELECT base_url,username,encrypted_password,enabled,poll_interval_seconds,absence_delay_seconds FROM fritzbox_presence_settings WHERE adapter_id='fritzbox_presence'"
+  );
+  const row = result.rows[0];
+  const secret = row?.encrypted_password ?? "";
+  return {
+    baseUrl: row?.base_url ?? "http://fritz.box:49000",
+    username: row?.username ?? "",
+    passwordConfigured: Boolean(secret),
+    encryptionStatus: secret && !secretIsReadable(secret) ? "invalid" : "ok",
+    enabled: row?.enabled ?? false,
+    pollIntervalSeconds: row?.poll_interval_seconds ?? 30,
+    absenceDelaySeconds: row?.absence_delay_seconds ?? 300
+  };
+}
+
+export async function getFritzBoxPresenceConnection(): Promise<{ baseUrl: string; username: string; password: string; enabled: boolean; pollIntervalSeconds: number; absenceDelaySeconds: number }> {
+  const result = await pool.query<{ base_url: string; username: string; encrypted_password: string; enabled: boolean; poll_interval_seconds: number; absence_delay_seconds: number }>(
+    "SELECT base_url,username,encrypted_password,enabled,poll_interval_seconds,absence_delay_seconds FROM fritzbox_presence_settings WHERE adapter_id='fritzbox_presence'"
+  );
+  const row = result.rows[0];
+  return {
+    baseUrl: row?.base_url ?? "http://fritz.box:49000",
+    username: row?.username ?? "",
+    password: decryptStoredSecret(row?.encrypted_password),
+    enabled: row?.enabled ?? false,
+    pollIntervalSeconds: row?.poll_interval_seconds ?? 30,
+    absenceDelaySeconds: row?.absence_delay_seconds ?? 300
+  };
+}
+
+export async function updateFritzBoxPresenceSettings(input: { baseUrl: string; username: string; password?: string; enabled: boolean; pollIntervalSeconds: number; absenceDelaySeconds: number }): Promise<FritzBoxPresenceSettings> {
+  const current = await pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM fritzbox_presence_settings WHERE adapter_id='fritzbox_presence'");
+  const currentSecret = current.rows[0]?.encrypted_password ?? "";
+  if (input.password === undefined && currentSecret && !secretIsReadable(currentSecret)) throw new Error("ENCRYPTION_KEY_MISMATCH");
+  const encrypted = input.password === undefined ? currentSecret : (input.password ? encryptSecret(input.password) : "");
+  await pool.query(`INSERT INTO fritzbox_presence_settings(adapter_id,base_url,username,encrypted_password,enabled,poll_interval_seconds,absence_delay_seconds)
+    VALUES('fritzbox_presence',$1,$2,$3,$4,$5,$6)
+    ON CONFLICT(adapter_id) DO UPDATE SET base_url=EXCLUDED.base_url,username=EXCLUDED.username,encrypted_password=EXCLUDED.encrypted_password,enabled=EXCLUDED.enabled,poll_interval_seconds=EXCLUDED.poll_interval_seconds,absence_delay_seconds=EXCLUDED.absence_delay_seconds,updated_at=now()`,
+    [input.baseUrl,input.username,encrypted,input.enabled,input.pollIntervalSeconds,input.absenceDelaySeconds]);
+  return getFritzBoxPresenceSettings();
+}
+
+export async function listPresenceTargets(): Promise<PresenceTarget[]> {
+  const result = await pool.query(`SELECT id,name,mac_address as "macAddress",absence_delay_seconds as "absenceDelaySeconds",created_at as "createdAt",updated_at as "updatedAt" FROM presence_targets ORDER BY name,id`);
+  return result.rows;
+}
+
+export async function createPresenceTarget(name: string, macAddress: string, absenceDelaySeconds?: number): Promise<PresenceTarget> {
+  const result = await pool.query(`INSERT INTO presence_targets(id,name,mac_address,absence_delay_seconds) VALUES($1,$2,$3,$4) RETURNING id,name,mac_address as "macAddress",absence_delay_seconds as "absenceDelaySeconds",created_at as "createdAt",updated_at as "updatedAt"`, [randomUUID(),name,macAddress,absenceDelaySeconds??null]);
+  return result.rows[0];
+}
+
+export async function updatePresenceTarget(id: string, name: string, macAddress: string, absenceDelaySeconds?: number): Promise<PresenceTarget | undefined> {
+  const result = await pool.query(`UPDATE presence_targets SET name=$2,mac_address=$3,absence_delay_seconds=$4,updated_at=now() WHERE id=$1 RETURNING id,name,mac_address as "macAddress",absence_delay_seconds as "absenceDelaySeconds",created_at as "createdAt",updated_at as "updatedAt"`, [id,name,macAddress,absenceDelaySeconds??null]);
+  return result.rows[0];
+}
+
+export async function deletePresenceTarget(id: string): Promise<boolean> {
+  const result = await pool.query("DELETE FROM presence_targets WHERE id=$1", [id]);
+  return result.rowCount === 1;
 }
 
 

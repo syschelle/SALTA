@@ -2,7 +2,7 @@
 
 > **Smart-home Abstraction & Local Transport Architecture**
 
-SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API, a local automation engine and an optional HomeKit bridge. It integrates Shelly, Phoscon/deCONZ Zigbee, OpenCCU/HomeMatic and SALTA-native virtual devices.
+SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API, a local automation engine and an optional HomeKit bridge. It integrates Shelly, Phoscon/deCONZ Zigbee, OpenCCU/HomeMatic, FRITZ!Box Wi-Fi presence and SALTA-native virtual devices.
 
 > Your home. Your hardware. Your rules.
 
@@ -239,6 +239,18 @@ When HomeKit is enabled, virtual switches are exported automatically as HomeKit 
 
 Virtual devices do not require credentials, a physical host or an external adapter. Devices without a room assignment remain visible on the Virtual Devices page but are intentionally excluded from the room-based overview until a room is assigned.
 
+## FRITZ!Box Wi-Fi presence
+
+SALTA can use a local FRITZ!Box as a Wi-Fi presence source. Open **Presence** in the main navigation; the dedicated page contains the complete integration instead of splitting connection and device management across Settings.
+
+The page stores the local TR-064 address, optional FRITZ!Box username/password, polling interval and a default absence delay. Known phones or other Wi-Fi clients are added by name and MAC address. The password is encrypted with `SALTA_ENCRYPTION_KEY` and is never returned to the browser after storage. SALTA queries the FRITZ!Box `Hosts:1` service at `/upnp/control/hosts` and uses `GetSpecificHostEntry` for each configured MAC address instead of scanning the Docker network itself.
+
+Each monitored entry becomes a read-only virtual presence device with the boolean `present` state. A detected client becomes present immediately; an inactive client remains present until its configurable absence delay expires. Temporary FRITZ!Box request failures mark the presence device unreachable while retaining the previous presence value, preventing gateway outages from being interpreted as everybody leaving home.
+
+SALTA also maintains a virtual **House Presence** device with `anyHome`, `nobodyHome`, `present` and `presentCount`. The boolean states are available automatically as automation triggers and conditions, so rules can react to one person arriving, one person leaving, somebody being home or nobody being home. Presence devices are intentionally read-only and are not exported to HomeKit.
+
+The default polling interval is 30 seconds and the default absence delay is five minutes. Both are configurable on the same Presence page, and an individual person can override the global absence delay. For phones that use private/randomized Wi-Fi addresses, configure the same stable MAC address that the FRITZ!Box displays for the home network.
+
 ## Automations
 
 SALTA v0.8.x introduces a local event-driven automation engine. Open **Automations** in the main navigation to create rules that react to device state transitions without using a cloud service.
@@ -249,9 +261,9 @@ The first automation rule format contains exactly three stages:
 2. **Only if** — optionally require a second device to have a selected boolean state. Conditions are evaluated from the current reachable device state at execution time.
 3. **Then** — choose a different target device and execute **On**, **Off** or **Toggle**, depending on the capabilities exposed by that device.
 
-The device selectors for trigger, condition and target are searchable. Type any part of the device name, room, source (for example Shelly, Zigbee, HomeMatic or Virtual), model or logical device type to narrow the list. The editor also shows how many matching devices are currently available.
+The device selectors for trigger, condition and target are searchable. Type any part of the device name, room, source (for example Shelly, Zigbee, HomeMatic, Presence or Virtual), model or logical device type to narrow the list. The editor also shows how many matching devices are currently available.
 
-The engine works across supported SALTA device sources because actions use the shared device command router. For example, a Zigbee motion sensor can switch a Shelly relay, or a HomeMatic contact can toggle a SALTA virtual switch. Rules can be enabled, disabled, edited and deleted from the web interface.
+The engine works across supported SALTA device sources because actions use the shared device command router. For example, a Zigbee motion sensor can switch a Shelly relay, a HomeMatic contact can toggle a SALTA virtual switch, or a phone-presence state can be combined with the Phoscon Daylight sensor. Rules can be enabled, disabled, edited and deleted from the web interface.
 
 Automation rules are stored in PostgreSQL and restored after restart. References to deleted trigger, condition or target devices are removed automatically by the database. SALTA also rejects automation graphs that would create a device-to-device cycle, preventing simple toggle loops.
 

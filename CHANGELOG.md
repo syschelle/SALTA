@@ -2,6 +2,19 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.13
+
+- Added a dedicated **Presence** page to the main desktop and mobile navigation.
+- Added local FRITZ!Box TR-064 `Hosts:1` integration for MAC-based Wi-Fi presence without container-side ping or ARP scanning.
+- Added encrypted optional FRITZ!Box credentials, connection testing, configurable polling and a global absence delay on the same page.
+- Added persistent named presence targets with normalized MAC addresses and optional per-person absence-delay overrides.
+- Added read-only SALTA presence devices with immediate arrival detection, delayed departure detection, last-seen metadata and gateway reachability.
+- Added the virtual **Hauspräsenz** device with `anyHome`, `nobodyHome`, `present` and `presentCount`.
+- Exposed individual and house-presence boolean states automatically as automation triggers and conditions.
+- Preserved the last known presence state during FRITZ!Box communication failures to avoid false away events.
+- Added schema, frontend, transport and release-validation coverage for the presence integration.
+- Kept the npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.12
 
 - Added support for the deCONZ/Phoscon virtual `Daylight` sensor (`PHDL00`) instead of filtering it out with non-ZHA virtual resources.

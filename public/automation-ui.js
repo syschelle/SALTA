@@ -38,7 +38,7 @@ const automationElements={
   save:document.getElementById('automationSaveButton')
 };
 
-const automationStatePriority=['on','motion','open','water','fire','alarm','vibration','dark','daylight','tampered','lowBattery'];
+const automationStatePriority=['on','present','anyHome','nobodyHome','motion','open','water','fire','alarm','vibration','dark','daylight','tampered','lowBattery'];
 const automationActionLabels={turnOn:'An',turnOff:'Aus',toggle:'Toggle'};
 const automationButtonEventMarker='event:buttonEvent';
 const automationCommonButtonEvents=[1000,1001,1002,1003,1004,1005,1006,1007,1010];
@@ -55,7 +55,7 @@ function automationBooleanStateKeys(device){
 function automationEventStateKeys(device){return device&&(device.type==='button'||typeof device.state?.buttonEvent==='number'||device.adapterData?.buttonEventProtocol==='deconz')?['buttonEvent']:[]}
 function automationStateLabel(key){return key===automationButtonEventMarker?'Tasterereignis':labels?.[key]||key}
 function automationValueLabel(key,value){
-  const states={on:['An','Aus'],motion:['Bewegung erkannt','Keine Bewegung'],open:['Offen','Geschlossen'],water:['Wasser erkannt','Trocken'],fire:['Alarm','Normal'],alarm:['Alarm','Normal'],vibration:['Erkannt','Ruhe'],lowBattery:['Niedrig','OK'],tampered:['Erkannt','OK'],dark:['Dunkel','Hell'],daylight:['Tageslicht','Kein Tageslicht']};
+  const states={on:['An','Aus'],motion:['Bewegung erkannt','Keine Bewegung'],open:['Offen','Geschlossen'],water:['Wasser erkannt','Trocken'],fire:['Alarm','Normal'],alarm:['Alarm','Normal'],vibration:['Erkannt','Ruhe'],lowBattery:['Niedrig','OK'],tampered:['Erkannt','OK'],dark:['Dunkel','Hell'],daylight:['Tageslicht','Kein Tageslicht'],present:['Anwesend','Abwesend'],anyHome:['Jemand zuhause','Niemand zuhause'],nobodyHome:['Niemand zuhause','Jemand zuhause']};
   const pair=states[key]||['Aktiv','Inaktiv'];
   return value?pair[0]:pair[1];
 }

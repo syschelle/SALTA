@@ -105,6 +105,33 @@ export interface OpenCcuSettings {
   encryptionStatus: "ok" | "invalid";
 }
 
+export interface FritzBoxPresenceSettings {
+  baseUrl: string;
+  username: string;
+  passwordConfigured: boolean;
+  encryptionStatus: "ok" | "invalid";
+  enabled: boolean;
+  pollIntervalSeconds: number;
+  absenceDelaySeconds: number;
+}
+
+export interface PresenceTarget {
+  id: string;
+  name: string;
+  macAddress: string;
+  absenceDelaySeconds?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FritzBoxPresenceStatus {
+  connected: boolean;
+  enabled: boolean;
+  hostCount?: number;
+  lastSync?: string;
+  lastError?: string;
+}
+
 export type OpenCcuDiagnosticStepStatus = "ok" | "warning" | "error";
 
 export interface OpenCcuDiagnosticStep {

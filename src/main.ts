@@ -7,6 +7,7 @@ import { ShellyAdapter } from "./shelly-adapter.js";
 import { PhosconAdapter } from "./phoscon-adapter.js";
 import { OpenCcuAdapter } from "./openccu-adapter.js";
 import { VirtualDeviceAdapter } from "./virtual-adapter.js";
+import { FritzBoxPresenceAdapter } from "./fritzbox-presence.js";
 import { DeviceCommandRouter } from "./device-command-router.js";
 import { AutomationEngine } from "./automations.js";
 import { databaseAutomationLogger, databaseAutomationStore } from "./automation-persistence.js";
@@ -20,6 +21,7 @@ async function main(): Promise<void> {
   const phoscon = new PhosconAdapter(registry);
   const openCcu = new OpenCcuAdapter(registry);
   const virtual = new VirtualDeviceAdapter(registry);
+  const presence = new FritzBoxPresenceAdapter(registry);
   const commands = new DeviceCommandRouter(registry, { shelly, phoscon, openccu: openCcu, virtual });
   const automations = new AutomationEngine(registry, commands, databaseAutomationStore, databaseAutomationLogger);
   await automations.start();
@@ -27,11 +29,12 @@ async function main(): Promise<void> {
   shelly.start();
   phoscon.start();
   openCcu.start();
+  presence.start();
 
   const homekit = new HomeKitBridge(registry, commands);
   homekit.start();
 
-  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations);
+  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   server.log.info({ port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED, trustedProxiesConfigured: Boolean(config.TRUSTED_PROXIES.trim()) }, "SALTA started with mandatory authentication");
   await writeSystemLog("info", "system", "SALTA_STARTED", "SALTA started", { port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED }).catch(() => undefined);
@@ -54,6 +57,7 @@ async function main(): Promise<void> {
     await server.close();
     homekit.stop();
     automations.stop();
+    presence.stop();
     await openCcu.stop();
     phoscon.stop();
     shelly.stop();

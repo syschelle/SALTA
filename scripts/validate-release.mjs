@@ -15,6 +15,8 @@ const requiredReleaseFiles = [
   "src/automation-persistence.ts",
   "src/phoscon-adapter.ts",
   "src/phoscon-core.ts",
+  "src/fritzbox-presence.ts",
+  "src/frontend-presence.test.ts",
   "public/automation-ui.js",
 ];
 for (const file of requiredReleaseFiles) {
@@ -100,6 +102,22 @@ if (!phosconCoreSource.includes('"sunrise", "sunset"') || !phosconCoreSource.inc
 if (!phosconAdapterSource.includes('current.profile?.split(" + ").includes("Daylight")') || !phosconAdapterSource.includes("statePatch.daylightStatus = daylightStatus")) fail("Phoscon Daylight realtime status updates are missing");
 if (!virtualFrontend.includes("sunrise:'Sonnenaufgang'") || !virtualFrontend.includes("sunset:'Sonnenuntergang'") || !virtualFrontend.includes("daylightStatus:'Sonnenphase'")) fail("Phoscon Daylight frontend labels are missing");
 if (!virtualFrontend.includes("split(' + ').includes('Daylight')?5:4")) fail("Phoscon Daylight card does not expose all five Daylight values");
+const presenceSource = read("src/fritzbox-presence.ts");
+const presenceFrontendTest = read("src/frontend-presence.test.ts");
+if (!publicIndex.includes('data-nav="presence"') || !publicIndex.includes('data-page="presence"')) fail("Dedicated Presence navigation/page is missing");
+for (const id of ["presenceSettingsForm", "presenceHouseSummary", "presenceTargetList", "presenceTargetForm"]) {
+  if (!publicIndex.includes(`id="${id}"`)) fail(`Presence page section is missing: ${id}`);
+}
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_targets")) fail("Presence persistence tables are missing");
+if (!presenceSource.includes('urn:dslforum-org:service:Hosts:1') || !presenceSource.includes('GetSpecificHostEntry') || !presenceSource.includes('/upnp/control/hosts')) fail("FRITZ!Box TR-064 Hosts integration is incomplete");
+if (!presenceSource.includes("missingSince") || !presenceSource.includes("absenceDelaySeconds")) fail("Presence absence hysteresis is missing");
+if (!presenceSource.includes('name:"Hauspräsenz"') || !presenceSource.includes("nobodyHome") || !presenceSource.includes("presentCount")) fail("House presence aggregation is missing");
+for (const route of ['/api/presence', '/api/presence/settings', '/api/presence/test', '/api/presence/devices', '/api/presence/refresh']) {
+  if (!serverSource.includes(route)) fail(`Presence API route is missing: ${route}`);
+}
+if (!mainSource.includes("new FritzBoxPresenceAdapter(registry)") || !mainSource.includes("presence.start()") || !mainSource.includes("presence.stop()")) fail("Presence adapter lifecycle is incomplete");
+if (!automationFrontend.includes("'present','anyHome','nobodyHome'") || !automationFrontend.includes("present:['Anwesend','Abwesend']") || !automationFrontend.includes("anyHome:['Jemand zuhause','Niemand zuhause']")) fail("Presence automation states are missing");
+if (!presenceFrontendTest.includes('data-nav="presence"') || !presenceFrontendTest.includes('id="presenceSettingsForm"') || !presenceFrontendTest.includes("'nobodyHome'")) fail("Presence frontend regression coverage is incomplete");
 if (!phosconCoreSource.includes("websocketport")) fail("Phoscon websocket port discovery is missing");
 if (!phosconCoreSource.includes('sensor.type === "button"')) fail("Phoscon button resources may be merged into actuator devices");
 const automationPersistenceSource = read("src/automation-persistence.ts");

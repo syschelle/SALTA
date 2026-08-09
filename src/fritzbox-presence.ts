@@ -1,0 +1,211 @@
+import { createHash, randomBytes } from "node:crypto";
+import { getFritzBoxPresenceConnection, listPresenceTargets, writeSystemLog } from "./db.js";
+import type { Device, FritzBoxPresenceStatus, PresenceTarget } from "./types.js";
+import type { DeviceRegistry } from "./registry.js";
+
+const serviceType = "urn:dslforum-org:service:Hosts:1";
+const requestTimeoutMs = 10_000;
+const defaultBaseUrl = "http://fritz.box:49000";
+const houseDeviceId = "presence:house";
+
+type DigestChallenge = { realm: string; nonce: string; algorithm: string; qop?: string; opaque?: string };
+type HostEntry = { active: boolean; ipAddress?: string; interfaceType?: string; hostName?: string };
+
+function now(): string { return new Date().toISOString(); }
+function xmlEscape(value: string): string { return value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;"); }
+function xmlUnescape(value: string): string { return value.replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&"); }
+function xmlValue(xml: string, name: string): string | undefined {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+  const match = new RegExp(`<(?:(?:[A-Za-z0-9_-]+):)?${escaped}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/(?:(?:[A-Za-z0-9_-]+):)?${escaped}>`,"i").exec(xml);
+  return match ? xmlUnescape(match[1]!.trim()) : undefined;
+}
+
+export function normalizeFritzBoxBaseUrl(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return defaultBaseUrl;
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+  let parsed: URL;
+  try { parsed = new URL(candidate); } catch { throw new Error("FRITZBOX_URL_INVALID"); }
+  if (!["http:","https:"].includes(parsed.protocol) || !parsed.hostname || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error("FRITZBOX_URL_INVALID");
+  if (parsed.pathname !== "/" && parsed.pathname !== "") throw new Error("FRITZBOX_URL_INVALID");
+  if (!parsed.port) parsed.port = parsed.protocol === "https:" ? "49443" : "49000";
+  parsed.pathname = "";
+  return parsed.toString().replace(/\/$/,"");
+}
+
+export function normalizePresenceMac(value: string): string {
+  const compact = value.trim().replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
+  if (!/^[0-9A-F]{12}$/.test(compact)) throw new Error("PRESENCE_MAC_INVALID");
+  return compact.match(/.{2}/g)!.join(":");
+}
+
+function digestAttributes(input: string): Record<string,string> {
+  const result: Record<string,string> = {};
+  let index = 0;
+  while (index < input.length) {
+    while (index < input.length && (input[index] === "," || /\s/.test(input[index]!))) index += 1;
+    const start = index;
+    while (index < input.length && /[A-Za-z0-9_-]/.test(input[index]!)) index += 1;
+    const key = input.slice(start,index).toLowerCase();
+    while (index < input.length && /\s/.test(input[index]!)) index += 1;
+    if (!key || input[index] !== "=") { while (index < input.length && input[index] !== ",") index += 1; continue; }
+    index += 1; while (index < input.length && /\s/.test(input[index]!)) index += 1;
+    let value = "";
+    if (input[index] === '"') {
+      index += 1;
+      while (index < input.length && input[index] !== '"') { if (input[index] === "\\" && index + 1 < input.length) index += 1; value += input[index] ?? ""; index += 1; }
+      if (input[index] === '"') index += 1;
+    } else {
+      const valueStart = index; while (index < input.length && input[index] !== "," && !/\s/.test(input[index]!)) index += 1; value = input.slice(valueStart,index);
+    }
+    result[key] = value;
+  }
+  return result;
+}
+function parseDigestChallenge(value: string | null): DigestChallenge | undefined {
+  if (!value?.toLowerCase().startsWith("digest ")) return undefined;
+  const attributes = digestAttributes(value.slice(7));
+  if (!attributes.realm || !attributes.nonce) return undefined;
+  return { realm: attributes.realm, nonce: attributes.nonce, algorithm: attributes.algorithm ?? "MD5", qop: attributes.qop, opaque: attributes.opaque };
+}
+function digestHash(algorithm: string, value: string): string {
+  const normalized = algorithm.toUpperCase().replace(/-SESS$/,"");
+  const nodeAlgorithm = normalized === "SHA-256" ? "sha256" : normalized === "MD5" ? "md5" : undefined;
+  if (!nodeAlgorithm) throw new Error("FRITZBOX_AUTHENTICATION_FAILED");
+  return createHash(nodeAlgorithm).update(value).digest("hex");
+}
+function quoteDigest(value: string): string { return value.replace(/\\/g,"\\\\").replace(/"/g,'\\"'); }
+function digestAuthHeader(challenge: DigestChallenge, username: string, password: string, method: string, url: string): string {
+  const parsed = new URL(url); const uri = `${parsed.pathname}${parsed.search}`; const cnonce = randomBytes(16).toString("hex"); const nc = "00000001";
+  const offered = challenge.qop?.split(",").map(value=>value.trim().toLowerCase()); const qop = offered?.includes("auth") ? "auth" : undefined;
+  let ha1 = digestHash(challenge.algorithm,`${username}:${challenge.realm}:${password}`);
+  if (challenge.algorithm.toUpperCase().endsWith("-SESS")) ha1 = digestHash(challenge.algorithm,`${ha1}:${challenge.nonce}:${cnonce}`);
+  const ha2 = digestHash(challenge.algorithm,`${method}:${uri}`);
+  const response = qop ? digestHash(challenge.algorithm,`${ha1}:${challenge.nonce}:${nc}:${cnonce}:${qop}:${ha2}`) : digestHash(challenge.algorithm,`${ha1}:${challenge.nonce}:${ha2}`);
+  const fields = [`username="${quoteDigest(username)}"`,`realm="${quoteDigest(challenge.realm)}"`,`nonce="${quoteDigest(challenge.nonce)}"`,`uri="${quoteDigest(uri)}"`,`response="${response}"`,`algorithm=${challenge.algorithm}`];
+  if (challenge.opaque) fields.push(`opaque="${quoteDigest(challenge.opaque)}"`); if (qop) fields.push(`qop=${qop}`,`nc=${nc}`,`cnonce="${cnonce}"`); return `Digest ${fields.join(", ")}`;
+}
+
+function soapEnvelope(action: string, args: Record<string,string>): string {
+  const argumentsXml = Object.entries(args).map(([key,value])=>`<${key}>${xmlEscape(value)}</${key}>`).join("");
+  return `<?xml version="1.0" encoding="utf-8"?><s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><u:${action} xmlns:u="${serviceType}">${argumentsXml}</u:${action}></s:Body></s:Envelope>`;
+}
+
+async function requestSoap(baseUrl: string, username: string, password: string, action: string, args: Record<string,string> = {}): Promise<string> {
+  const url = `${normalizeFritzBoxBaseUrl(baseUrl)}/upnp/control/hosts`; const body = soapEnvelope(action,args); const controller = new AbortController(); const timer = setTimeout(()=>controller.abort(),requestTimeoutMs);
+  const execute = (authorization?: string) => fetch(url,{method:"POST",headers:{"content-type":"text/xml; charset=utf-8",soapaction:`"${serviceType}#${action}"`,...(authorization?{authorization}:{})},body,signal:controller.signal});
+  try {
+    let response = await execute();
+    if ((response.status===401||response.status===403) && (username||password)) {
+      const challenge = parseDigestChallenge(response.headers.get("www-authenticate"));
+      if (challenge) response = await execute(digestAuthHeader(challenge,username||"admin",password,"POST",url));
+    }
+    const text = await response.text();
+    const faultCode = xmlValue(text,"errorCode");
+    if (!response.ok) {
+      if (faultCode === "714") return text;
+      if (response.status===401||response.status===403) throw new Error("FRITZBOX_AUTHENTICATION_FAILED");
+      throw new Error(faultCode ? `FRITZBOX_SOAP_${faultCode}` : `FRITZBOX_HTTP_${response.status}`);
+    }
+    if (!text.includes("Envelope")) throw new Error("FRITZBOX_INVALID_RESPONSE");
+    return text;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new Error("FRITZBOX_TIMEOUT");
+    if (error instanceof TypeError) throw new Error("FRITZBOX_UNREACHABLE");
+    throw error;
+  } finally { clearTimeout(timer); }
+}
+
+export async function fritzBoxHostCount(baseUrl: string, username = "", password = ""): Promise<number> {
+  const xml = await requestSoap(baseUrl,username,password,"GetHostNumberOfEntries");
+  const value = Number(xmlValue(xml,"NewHostNumberOfEntries") ?? xmlValue(xml,"HostNumberOfEntries"));
+  if (!Number.isFinite(value)) throw new Error("FRITZBOX_INVALID_RESPONSE");
+  return value;
+}
+
+export async function fritzBoxHostByMac(baseUrl: string, username: string, password: string, macAddress: string): Promise<HostEntry> {
+  const xml = await requestSoap(baseUrl,username,password,"GetSpecificHostEntry",{NewMACAddress:normalizePresenceMac(macAddress)});
+  if (xmlValue(xml,"errorCode") === "714") return {active:false};
+  const activeRaw = xmlValue(xml,"NewActive");
+  if (activeRaw === undefined) throw new Error("FRITZBOX_INVALID_RESPONSE");
+  return { active: activeRaw === "1" || activeRaw.toLowerCase() === "true", ipAddress: xmlValue(xml,"NewIPAddress"), interfaceType: xmlValue(xml,"NewInterfaceType"), hostName: xmlValue(xml,"NewHostName") };
+}
+
+export class FritzBoxPresenceAdapter {
+  private timer?: NodeJS.Timeout;
+  private reconcileTask?: Promise<void>;
+  private status: FritzBoxPresenceStatus = {connected:false,enabled:false};
+  private stopped = true;
+  constructor(private readonly registry: DeviceRegistry) {}
+
+  start(): void { this.stopped=false; void this.reload().catch(()=>undefined); }
+  stop(): void { this.stopped=true; if(this.timer) clearInterval(this.timer); this.timer=undefined; }
+  getStatus(): FritzBoxPresenceStatus { return {...this.status}; }
+
+  async reload(): Promise<void> {
+    if(this.timer) clearInterval(this.timer); this.timer=undefined;
+    const settings = await getFritzBoxPresenceConnection(); this.status.enabled=settings.enabled;
+    await this.ensureTargetDevices(await listPresenceTargets()); await this.updateHousePresence();
+    if(!settings.enabled || this.stopped) { this.status={connected:false,enabled:settings.enabled}; return; }
+    await this.reconcile().catch(()=>undefined);
+    if(this.stopped) return;
+    this.timer=setInterval(()=>void this.reconcile().catch(()=>undefined),Math.max(10,settings.pollIntervalSeconds)*1000); this.timer.unref();
+  }
+
+  async testConnection(input?: {baseUrl:string;username:string;password:string}): Promise<{hostCount:number}> {
+    const connection=input??await getFritzBoxPresenceConnection(); const hostCount=await fritzBoxHostCount(connection.baseUrl,connection.username,connection.password); return {hostCount};
+  }
+
+  async reconcile(): Promise<void> {
+    if(this.reconcileTask) return this.reconcileTask;
+    this.reconcileTask=this.performReconcile().finally(()=>{this.reconcileTask=undefined}); return this.reconcileTask;
+  }
+
+  private async performReconcile(): Promise<void> {
+    const connection=await getFritzBoxPresenceConnection(); this.status.enabled=connection.enabled; if(!connection.enabled) return;
+    const targets=await listPresenceTargets(); await this.ensureTargetDevices(targets);
+    try {
+      const hostCount=await fritzBoxHostCount(connection.baseUrl,connection.username,connection.password);
+      for(const target of targets) {
+        try { const host=await fritzBoxHostByMac(connection.baseUrl,connection.username,connection.password,target.macAddress); await this.applyTarget(target,host,connection.absenceDelaySeconds); }
+        catch(error){ await this.markTargetUnavailable(target,error); }
+      }
+      await this.updateHousePresence(); this.status={connected:true,enabled:true,hostCount,lastSync:now()};
+    } catch(error) {
+      const code=error instanceof Error?error.message:"FRITZBOX_REQUEST_FAILED"; this.status={...this.status,connected:false,enabled:true,lastError:code};
+      await writeSystemLog("warning","presence",code,"FRITZ!Box presence refresh failed",{}).catch(()=>undefined);
+      for(const target of targets) await this.markTargetUnavailable(target,error);
+      await this.updateHousePresence(); throw error;
+    }
+  }
+
+  private async ensureTargetDevices(targets: PresenceTarget[]): Promise<void> {
+    const targetIds=new Set(targets.map(target=>`presence:${target.id}`));
+    for(const existing of this.registry.all().filter(device=>device.source==="presence"&&device.id!==houseDeviceId&&!targetIds.has(device.id))) await this.registry.remove(existing.id);
+    for(const target of targets) {
+      const id=`presence:${target.id}`; const existing=this.registry.get(id); if(existing&&existing.name===target.name&&existing.macAddress===target.macAddress) continue;
+      const stamp=now(); await this.registry.set({id,source:"presence",sourceId:target.id,type:"genericSensor",presentationType:"auto",name:target.name,model:"FRITZ!Box Wi-Fi Presence",macAddress:target.macAddress,profile:"presence",reachable:existing?.reachable??false,state:existing?.state??{present:false},capabilities:[],homekitEnabled:false,hidden:false,credentialMode:"none",passwordConfigured:false,lastSeen:existing?.lastSeen??stamp,lastEvent:existing?.lastEvent??stamp,adapterData:{...(existing?.adapterData??{}),targetId:target.id}});
+    }
+  }
+
+  private async applyTarget(target: PresenceTarget, host: HostEntry, defaultDelaySeconds: number): Promise<void> {
+    const id=`presence:${target.id}`; const existing=this.registry.get(id); if(!existing) return; const stamp=now(); const previous=Boolean(existing.state.present); const delay=target.absenceDelaySeconds??defaultDelaySeconds;
+    let present=host.active; let missingSince=typeof existing.adapterData?.missingSince==="string"?existing.adapterData.missingSince:undefined;
+    if(host.active) missingSince=undefined;
+    else if(previous) { missingSince=missingSince??stamp; present=(Date.now()-Date.parse(missingSince))<delay*1000; }
+    const changed=present!==previous;
+    await this.registry.set({...existing,reachable:true,hostname:host.hostName||existing.hostname,state:{...existing.state,present,...(host.ipAddress?{ipAddress:host.ipAddress}:{}),...(host.interfaceType?{interfaceType:host.interfaceType}:{}),...(host.hostName?{hostName:host.hostName}:{})},lastSeen:host.active?stamp:existing.lastSeen,lastEvent:changed?stamp:existing.lastEvent,adapterData:{...(existing.adapterData??{}),targetId:target.id,absenceDelaySeconds:delay,...(missingSince?{missingSince}:{})}});
+  }
+
+  private async markTargetUnavailable(target: PresenceTarget, error: unknown): Promise<void> {
+    const id=`presence:${target.id}`; const existing=this.registry.get(id); if(!existing) return; const code=error instanceof Error?error.message:"FRITZBOX_REQUEST_FAILED";
+    await this.registry.set({...existing,reachable:false,adapterData:{...(existing.adapterData??{}),lastError:code}});
+  }
+
+  private async updateHousePresence(): Promise<void> {
+    const people=this.registry.all().filter(device=>device.source==="presence"&&device.id!==houseDeviceId); const count=people.filter(device=>Boolean(device.state.present)).length; const anyHome=count>0; const nobodyHome=!anyHome; const existing=this.registry.get(houseDeviceId); const stamp=now(); const previousAny=Boolean(existing?.state.anyHome); const previousNobody=existing?.state.nobodyHome===undefined?nobodyHome:Boolean(existing.state.nobodyHome);
+    const changed=Boolean(existing)&&(previousAny!==anyHome||previousNobody!==nobodyHome);
+    const device: Device={id:houseDeviceId,source:"presence",sourceId:"house",type:"genericSensor",presentationType:"auto",name:"Hauspräsenz",model:"SALTA Presence Group",profile:"presence-group",reachable:this.status.enabled?people.every(device=>device.reachable):true,state:{anyHome,nobodyHome,present:anyHome,presentCount:count},capabilities:[],homekitEnabled:false,hidden:false,credentialMode:"none",passwordConfigured:false,lastSeen:stamp,lastEvent:changed?stamp:(existing?.lastEvent??stamp),adapterData:{memberCount:people.length}};
+    await this.registry.set(device);
+  }
+}
