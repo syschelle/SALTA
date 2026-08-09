@@ -13,7 +13,7 @@ function updateThemeToggle(theme){const dark=theme==='dark';if(!themeToggleEleme
 function applyTheme(value,{persist=false,announce=false}={}){const theme=normalizeTheme(value);document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',theme==='dark'?'#0d1117':'#f4f6f8');if(persist)writeThemeCookie(theme);updateThemeToggle(theme);if(announce)notify(theme==='dark'?'Dunkles Theme aktiviert.':'Helles Theme aktiviert.')}
 function toggleTheme(){applyTheme(document.documentElement.dataset.theme==='dark'?'light':'dark',{persist:true,announce:true})}
 function initializeTheme(){applyTheme(readThemeCookie())}
-const pages=['overview','shelly','zigbee','openccu','virtual','rooms','logs','settings'];
+const pages=['overview','shelly','zigbee','openccu','virtual','automations','rooms','logs','settings'];
 const defaultPage='overview';
 const icons={outlet:'mdi-power-socket-eu',switch:'mdi-toggle-switch-outline',energyMeter:'mdi-flash-outline',windowCovering:'mdi-window-shutter',light:'mdi-lightbulb-outline',fan:'mdi-fan',motionSensor:'mdi-motion-sensor',contactSensor:'mdi-door-closed-lock',temperatureSensor:'mdi-thermometer',humiditySensor:'mdi-water-percent',lightSensor:'mdi-brightness-6',waterLeakSensor:'mdi-water-alert-outline',smokeSensor:'mdi-smoke-detector-variant-alert',button:'mdi-gesture-tap-button',thermostat:'mdi-thermostat',genericSensor:'mdi-access-point'};
 const mdiIcon=(name,fallback='help-circle-outline')=>{const normalized=String(name||'').trim().toLowerCase().replace(/^mdi-/,'');return /^[a-z0-9-]+$/.test(normalized)?`mdi-${normalized}`:`mdi-${fallback}`};
@@ -96,6 +96,7 @@ async function load(){
     updateDashboardSummary();
     renderPhosconConnectionNotice();
     renderOpenCcuConnectionNotice();
+    await loadAutomations();
   }catch(error){notify(error.message,true)}
 }
 async function refreshLiveData(){
@@ -105,6 +106,8 @@ async function refreshLiveData(){
     all=await api('/api/devices');
     if(!activeCoverSliderId&&!activeBrightnessSliderId&&!activeTemperatureSliderId)renderDevices();
     updateDashboardSummary();
+    automationDevicesChanged();
+    if(routeFromHash()==='automations')await loadAutomations();
   }catch(error){
     console.warn('Live device refresh failed',error);
   }finally{

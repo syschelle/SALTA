@@ -2,9 +2,20 @@
 
 > **Smart-home Abstraction & Local Transport Architecture**
 
-SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API and an optional HomeKit bridge. It integrates Shelly, Phoscon/deCONZ Zigbee, OpenCCU/HomeMatic and SALTA-native virtual devices.
+SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API, a local automation engine and an optional HomeKit bridge. It integrates Shelly, Phoscon/deCONZ Zigbee, OpenCCU/HomeMatic and SALTA-native virtual devices.
 
 > Your home. Your hardware. Your rules.
+
+## Version roadmap
+
+SALTA uses pre-1.0 semantic versioning while the architecture is still evolving. The original roadmap assigned the automation engine to the v0.7.x line and the dashboard to v0.8.x. During implementation, the room-based dashboard, compact device controls, virtual devices and HomeKit integration were completed within v0.7.x. The roadmap is therefore re-baselined from v0.8.0 onward:
+
+- **v0.7.x — device and dashboard foundation:** Shelly, Zigbee, OpenCCU/HomeMatic, room overview, compact responsive cards, virtual switches and shared HomeKit command routing.
+- **v0.8.x — automation engine:** persistent event rules, conditions and actions; later v0.8.x releases can extend this with additional trigger types, multiple conditions/actions and scheduling.
+- **v0.9.x — assistant and advanced orchestration:** planned higher-level assistance and rule composition.
+- **v1.0.0 — first stable release:** production-ready documentation, upgrade discipline, tests, backups and stable public behavior.
+
+The v0.8.0 milestone introduces the first persistent automation rules and is intentionally a minor-version step rather than another v0.7.x patch release.
 
 ## Supported architectures
 
@@ -222,6 +233,22 @@ The initial virtual-device implementation supports **switches**. A virtual switc
 When HomeKit is enabled, virtual switches are exported automatically as HomeKit switch accessories. Commands from the SALTA web interface and HomeKit use the same device command router, so the state remains synchronized in both systems. Deleting a virtual device removes it from the SALTA registry and from the running HomeKit bridge.
 
 Virtual devices do not require credentials, a physical host or an external adapter. Devices without a room assignment remain visible on the Virtual Devices page but are intentionally excluded from the room-based overview until a room is assigned.
+
+## Automations
+
+SALTA v0.8.x introduces a local event-driven automation engine. Open **Automations** in the main navigation to create rules that react to device state transitions without using a cloud service.
+
+The first automation rule format contains exactly three stages:
+
+1. **When** — choose a trigger device, one of its boolean states and the state value that should trigger the rule. The rule fires only when the selected value is entered, not on every periodic adapter refresh.
+2. **Only if** — optionally require a second device to have a selected boolean state. Conditions are evaluated from the current reachable device state at execution time.
+3. **Then** — choose a different target device and execute **On**, **Off** or **Toggle**, depending on the capabilities exposed by that device.
+
+The engine works across supported SALTA device sources because actions use the shared device command router. For example, a Zigbee motion sensor can switch a Shelly relay, or a HomeMatic contact can toggle a SALTA virtual switch. Rules can be enabled, disabled, edited and deleted from the web interface.
+
+Automation rules are stored in PostgreSQL and restored after restart. References to deleted trigger, condition or target devices are removed automatically by the database. SALTA also rejects automation graphs that would create a device-to-device cycle, preventing simple toggle loops.
+
+The initial v0.8.0 implementation intentionally focuses on boolean device-state triggers and one optional condition plus one action. Button-event payloads, numeric threshold triggers, time schedules, delays, multiple conditions and multiple actions are planned as later automation-engine extensions.
 
 ## OpenCCU and HomeMatic support
 

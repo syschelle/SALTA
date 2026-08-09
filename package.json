@@ -1,6 +1,6 @@
 {
   "name": "salta",
-  "version": "0.7.18",
+  "version": "0.8.0",
   "description": "SALTA local-first smart-home control plane",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "start": "node dist/main.js",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "check": "npm run validate:release && npm run typecheck && npm run test:preflight && npm test && npm run build && node --check public/room-grouping.js && node --check public/app.js",
+    "check": "npm run validate:release && npm run typecheck && npm run test:preflight && npm test && npm run build && node --check public/room-grouping.js && node --check public/automation-ui.js && node --check public/app.js",
     "validate:release": "node scripts/validate-release.mjs",
     "version:set": "node scripts/set-version.mjs",
     "test:preflight": "node scripts/check-test-symbols.mjs"
@@ -46,7 +46,9 @@
     "homematic",
     "homematic-ip",
     "virtual-device",
-    "virtual-switch"
+    "virtual-switch",
+    "automation",
+    "rules-engine"
   ],
   "overrides": {
     "find-my-way": "9.7.0",

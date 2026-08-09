@@ -10,6 +10,7 @@ import type { PhosconAdapter } from "./phoscon-adapter.js";
 import { openCcuErrorInfo, type OpenCcuAdapter } from "./openccu-adapter.js";
 import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import type { DeviceCommandRouter } from "./device-command-router.js";
+import type { AutomationEngine } from "./automations.js";
 import { clearSystemLogs, createRoom, deleteRoom, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getShellySettings, inspectCredentialEncryption, listRooms, listSystemLogs, pool, reorderRooms, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
 import { supportsPresentationOverride } from "./device-presentation.js";
@@ -38,6 +39,19 @@ const phosconPairSchema = z.object({ baseUrl: z.string().trim().min(1).max(512) 
 const openCcuSettingsSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), username: z.string().trim().min(1).max(120), password: z.string().max(512).optional() }).strict();
 const openCcuDiagnosticSchema = z.object({ baseUrl: z.string().trim().min(1).max(512).optional(), username: z.string().trim().min(1).max(120).optional(), password: z.string().max(512).optional() }).strict();
 const virtualDeviceSchema = z.object({ name: z.string().trim().min(1).max(120), type: z.literal("switch").default("switch"), roomId: z.string().uuid().nullable().optional() }).strict();
+const automationSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  enabled: z.boolean().default(true),
+  triggerDeviceId: z.string().min(1).max(255),
+  triggerStateKey: z.string().trim().min(1).max(80),
+  triggerValue: z.boolean(),
+  conditionDeviceId: z.string().min(1).max(255).nullable().optional(),
+  conditionStateKey: z.string().trim().min(1).max(80).nullable().optional(),
+  conditionValue: z.boolean().nullable().optional(),
+  actionDeviceId: z.string().min(1).max(255),
+  action: z.enum(["turnOn", "turnOff", "toggle"])
+}).strict();
+const automationEnabledSchema = z.object({ enabled: z.boolean() }).strict();
 const systemLogQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(500).default(200),
   source: z.string().trim().min(1).max(80).optional(),
@@ -197,7 +211,40 @@ function securityError(reply: FastifyReply, request: FastifyRequest, status: num
   return reply.code(status).send({ error: { code, message, requestId: request.id } });
 }
 
-export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter) {
+function automationError(error: unknown): { status: number; code: string; message: string } {
+  const code = error instanceof Error ? error.message : "AUTOMATION_FAILED";
+  const messages: Record<string, string> = {
+    AUTOMATION_NOT_FOUND: "Automation not found.",
+    AUTOMATION_NAME_REQUIRED: "Enter a name for the automation.",
+    AUTOMATION_TRIGGER_DEVICE_NOT_FOUND: "The trigger device no longer exists.",
+    AUTOMATION_TRIGGER_STATE_UNSUPPORTED: "The selected trigger state is not available on this device.",
+    AUTOMATION_ACTION_DEVICE_NOT_FOUND: "The action device no longer exists.",
+    AUTOMATION_TRIGGER_ACTION_SAME_DEVICE: "Trigger and action must use different devices.",
+    AUTOMATION_ACTION_UNSUPPORTED: "The selected action is not supported by the target device.",
+    AUTOMATION_CONDITION_DEVICE_NOT_FOUND: "The condition device no longer exists.",
+    AUTOMATION_CONDITION_INVALID: "The condition is incomplete.",
+    AUTOMATION_CONDITION_STATE_UNSUPPORTED: "The selected condition state is not available on this device.",
+    AUTOMATION_CYCLE_NOT_ALLOWED: "This automation would create a device-action loop. Cyclic automations are not allowed."
+  };
+  return { status: code === "AUTOMATION_NOT_FOUND" ? 404 : code.endsWith("_NOT_FOUND") ? 404 : 400, code, message: messages[code] ?? "The automation could not be saved." };
+}
+
+function normalizeAutomationInput(data: z.infer<typeof automationSchema>) {
+  return {
+    name: data.name,
+    enabled: data.enabled,
+    triggerDeviceId: data.triggerDeviceId,
+    triggerStateKey: data.triggerStateKey,
+    triggerValue: data.triggerValue,
+    conditionDeviceId: data.conditionDeviceId ?? undefined,
+    conditionStateKey: data.conditionStateKey ?? undefined,
+    conditionValue: data.conditionValue ?? undefined,
+    actionDeviceId: data.actionDeviceId,
+    action: data.action
+  };
+}
+
+export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine) {
   const trustedProxyEntries = config.TRUSTED_PROXIES.split(",").map(value => value.trim()).filter(Boolean);
   const trustedProxies = trustedProxyEntries.length ? trustedProxyEntries : false;
   const localNetworks = config.LOCAL_NETWORKS.split(",").map(value => value.trim()).filter(Boolean);
@@ -229,6 +276,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   const publicPaths = new Set(["/login", "/login.html", "/login.js", "/login.css", "/theme-init.js"]);
   const staticFiles = new Map<string, string>([
     ["/app.js", "app.js"],
+    ["/automation-ui.js", "automation-ui.js"],
     ["/room-grouping.js", "room-grouping.js"],
     ["/styles.css", "styles.css"],
     ["/theme-init.js", "theme-init.js"],
@@ -405,9 +453,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.18" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.0" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.7.18", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.0", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -554,6 +602,53 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const device = await virtualAdapter.createSwitch(parsed.data.name, room?.id, room?.name);
     await writeSystemLog("info", "virtual", "VIRTUAL_DEVICE_CREATED", "Virtual switch created", { deviceId: device.id, name: device.name, roomId: device.roomId ?? null }).catch(() => undefined);
     return reply.code(201).send(device);
+  });
+
+  app.get("/api/automations", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "automations-read" } }
+  }, async (_request, reply) => {
+    if (!automationEngine) return reply.code(503).send({ error: { code: "AUTOMATION_ENGINE_UNAVAILABLE", message: "Automations are not available." } });
+    return { automations: automationEngine.list() };
+  });
+  app.post<{ Body: unknown }>("/api/automations", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "automations-create" } }
+  }, async (request, reply) => {
+    if (!automationEngine) return reply.code(503).send({ error: { code: "AUTOMATION_ENGINE_UNAVAILABLE", message: "Automations are not available.", requestId: request.id } });
+    const parsed = automationSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
+    try {
+      const automation = await automationEngine.create(normalizeAutomationInput(parsed.data));
+      await writeSystemLog("info", "automation", "AUTOMATION_CREATED", "Automation created", { automationId: automation.id, automationName: automation.name }).catch(() => undefined);
+      return reply.code(201).send(automation);
+    } catch (error) {
+      const response = automationError(error);
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+    }
+  });
+  app.put<{ Params: { id: string }; Body: unknown }>("/api/automations/:id", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "automations-update" } }
+  }, async (request, reply) => {
+    if (!automationEngine) return reply.code(503).send({ error: { code: "AUTOMATION_ENGINE_UNAVAILABLE", message: "Automations are not available.", requestId: request.id } });
+    const parsed = automationSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
+    try { return await automationEngine.update(request.params.id, normalizeAutomationInput(parsed.data)); }
+    catch (error) { const response = automationError(error); return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } }); }
+  });
+  app.patch<{ Params: { id: string }; Body: unknown }>("/api/automations/:id/enabled", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "automations-enable" } }
+  }, async (request, reply) => {
+    if (!automationEngine) return reply.code(503).send({ error: { code: "AUTOMATION_ENGINE_UNAVAILABLE", message: "Automations are not available.", requestId: request.id } });
+    const parsed = automationEnabledSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
+    try { return await automationEngine.setEnabled(request.params.id, parsed.data.enabled); }
+    catch (error) { const response = automationError(error); return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } }); }
+  });
+  app.delete<{ Params: { id: string } }>("/api/automations/:id", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "automations-delete" } }
+  }, async (request, reply) => {
+    if (!automationEngine) return reply.code(503).send({ error: { code: "AUTOMATION_ENGINE_UNAVAILABLE", message: "Automations are not available.", requestId: request.id } });
+    try { await automationEngine.remove(request.params.id); return reply.code(204).send(); }
+    catch (error) { const response = automationError(error); return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } }); }
   });
 
   app.get("/api/devices", async () => registry.all());

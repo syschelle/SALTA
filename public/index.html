@@ -21,7 +21,7 @@
     <a href="#openccu" data-nav="openccu"><span class="nav-icon mdi mdi-access-point-network" aria-hidden="true"></span><span>HomeMatic</span></a>
     <a href="#virtual" data-nav="virtual"><span class="nav-icon mdi mdi-toggle-switch-outline" aria-hidden="true"></span><span>Virtuelle Geräte</span></a>
     <a href="#rooms" data-nav="rooms"><span class="nav-icon mdi mdi-floor-plan" aria-hidden="true"></span><span>Räume</span></a>
-    <button type="button" data-nav="automations" onclick="showUnavailable('Automationen')"><span class="nav-icon mdi mdi-robot-outline" aria-hidden="true"></span><span>Automationen</span></button>
+    <a href="#automations" data-nav="automations"><span class="nav-icon mdi mdi-robot-outline" aria-hidden="true"></span><span>Automationen</span></a>
     <a href="#logs" data-nav="logs"><span class="nav-icon mdi mdi-text-box-search-outline" aria-hidden="true"></span><span>Systemprotokoll</span></a>
     <a href="#settings" data-nav="settings"><span class="nav-icon mdi mdi-cog-outline" aria-hidden="true"></span><span>Einstellungen</span></a>
   </nav>
@@ -32,7 +32,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.7.18</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.0</strong></div>
   </div>
 </aside>
 
@@ -73,6 +73,23 @@
     <section id="virtualGrid" class="device-groups"></section>
   </section>
 
+  <section class="page" data-page="automations" aria-labelledby="automations-title" hidden>
+    <header class="page-header"><div><p class="eyebrow">REGELN &amp; AUTOMATISIERUNG</p><h1 id="automations-title">Automationen</h1><p class="muted">Reagiere lokal auf Geräteereignisse und schalte andere Geräte abhängig von ihrem aktuellen Zustand.</p></div></header>
+    <section class="two-column-page automation-layout">
+      <article class="panel"><div class="panel-head"><div><h2>Regeln</h2><p class="muted">Eine Regel wird nur bei einem echten Zustandswechsel des Triggergeräts ausgeführt.</p></div><span class="count-badge" id="automationCount">0</span></div><div id="automationList" class="automation-list"></div></article>
+      <article class="panel sticky-panel"><h2 id="automationFormTitle">Automation hinzufügen</h2><p class="muted">Definiere Trigger, eine optionale Bedingung und die Aktion am Zielgerät.</p>
+        <form id="automationForm" class="page-form">
+          <label>Name<input id="automationName" maxlength="120" placeholder="z. B. Flurlicht bei Bewegung" required></label>
+          <label class="automation-enabled-row"><span>Aktiv</span><input id="automationEnabled" type="checkbox" checked></label>
+          <fieldset class="automation-step"><legend><span>1</span>Wenn</legend><label>Gerät<select id="automationTriggerDevice" required></select></label><label>Zustand<select id="automationTriggerState" required></select></label><label>Wird<select id="automationTriggerValue" required></select></label></fieldset>
+          <fieldset class="automation-step"><legend><span>2</span>Nur wenn <small>optional</small></legend><label class="automation-condition-toggle"><input id="automationConditionEnabled" type="checkbox"><span>Bedingung verwenden</span></label><div id="automationConditionFields" class="automation-condition-fields" hidden><label>Gerät<select id="automationConditionDevice"></select></label><label>Zustand<select id="automationConditionState"></select></label><label>Ist<select id="automationConditionValue"></select></label></div></fieldset>
+          <fieldset class="automation-step"><legend><span>3</span>Dann</legend><label>Zielgerät<select id="automationActionDevice" required></select></label><label>Aktion<select id="automationAction" required></select></label></fieldset>
+          <div class="form-actions automation-form-actions"><button id="automationCancelButton" type="button" class="secondary" onclick="cancelAutomationEdit()" hidden>Abbrechen</button><button id="automationSaveButton" type="submit">Automation speichern</button></div>
+        </form>
+      </article>
+    </section>
+  </section>
+
   <section class="page" data-page="rooms" aria-labelledby="rooms-title" hidden>
     <header class="page-header"><div><p class="eyebrow">ORGANISATION</p><h1 id="rooms-title">Räume</h1><p class="muted">Ordne Geräte früh und eindeutig nach Bereichen deines Zuhauses.</p></div></header>
     <section class="two-column-page">
@@ -84,7 +101,7 @@
 
   <section class="page" data-page="logs" aria-labelledby="logs-title" hidden>
     <header class="page-header"><div><p class="eyebrow">DIAGNOSE &amp; FEHLERSUCHE</p><h1 id="logs-title">Systemprotokoll</h1><p class="muted">Technische Ereignisse und Adapterfehler. Passwörter, API-Schlüssel und Sitzungstoken werden nicht protokolliert.</p></div><div class="header-actions"><button class="secondary" type="button" onclick="loadSystemLogs()"><span class="mdi mdi-refresh" aria-hidden="true"></span>Aktualisieren</button><button class="danger" type="button" onclick="clearSystemLog()"><span class="mdi mdi-delete-outline" aria-hidden="true"></span>Protokoll leeren</button></div></header>
-    <section class="section-head"><div><h2>Letzte Ereignisse</h2><p class="muted">Das Protokoll wird maximal 30 Tage beziehungsweise 2.000 Einträge aufbewahrt.</p></div><div class="filters"><select id="logSourceFilter"><option value="">Alle Quellen</option><option value="system">System</option><option value="openccu">OpenCCU</option><option value="virtual">Virtuelle Geräte</option></select><select id="logLevelFilter"><option value="">Alle Stufen</option><option value="error">Fehler</option><option value="warning">Warnungen</option><option value="info">Informationen</option></select></div></section>
+    <section class="section-head"><div><h2>Letzte Ereignisse</h2><p class="muted">Das Protokoll wird maximal 30 Tage beziehungsweise 2.000 Einträge aufbewahrt.</p></div><div class="filters"><select id="logSourceFilter"><option value="">Alle Quellen</option><option value="system">System</option><option value="openccu">OpenCCU</option><option value="virtual">Virtuelle Geräte</option><option value="automation">Automationen</option></select><select id="logLevelFilter"><option value="">Alle Stufen</option><option value="error">Fehler</option><option value="warning">Warnungen</option><option value="info">Informationen</option></select></div></section>
     <section id="systemLogList" class="system-log-list" aria-live="polite"></section>
   </section>
 
@@ -105,6 +122,7 @@
   <a href="#zigbee" data-nav="zigbee"><span class="nav-icon mdi mdi-zigbee" aria-hidden="true"></span><small>Zigbee</small></a>
   <a href="#openccu" data-nav="openccu"><span class="nav-icon mdi mdi-access-point-network" aria-hidden="true"></span><small>HomeMatic</small></a>
   <a href="#virtual" data-nav="virtual"><span class="nav-icon mdi mdi-toggle-switch-outline" aria-hidden="true"></span><small>Virtuell</small></a>
+  <a href="#automations" data-nav="automations"><span class="nav-icon mdi mdi-robot-outline" aria-hidden="true"></span><small>Regeln</small></a>
   <a href="#rooms" data-nav="rooms"><span class="nav-icon mdi mdi-floor-plan" aria-hidden="true"></span><small>Räume</small></a>
   <a href="#settings" data-nav="settings"><span class="nav-icon mdi mdi-cog-outline" aria-hidden="true"></span><small>Einstellungen</small></a>
 </nav>
@@ -128,6 +146,7 @@
 <dialog id="deviceDialog" class="workflow-dialog compact-dialog"><form method="dialog"><div class="dialog-head"><div><h2 id="deviceDialogTitle">Gerät</h2><p id="deviceDialogDescription" class="muted">Name, Raum und Gerätefunktion konfigurieren.</p></div><button class="icon-button" aria-label="Dialog schließen"><span class="mdi mdi-close" aria-hidden="true"></span></button></div><div class="dialog-content"><section class="form-section"><div class="section-label"><span>1</span><div><h3>Zuordnung</h3><p>Lege fest, wo das Gerät angezeigt wird</p></div></div><div class="field-stack"><label>Anzeigename<input id="deviceName" maxlength="120" required></label><label>Raum<select id="deviceRoom"></select></label></div></section><section id="devicePresentationSection" class="form-section"><div class="section-label"><span>2</span><div><h3>Gerätefunktion</h3><p>Darstellung in SALTA und HomeKit</p></div></div><div class="field-stack"><label>Verwendung<select id="devicePresentationType"><option value="auto">Automatisch</option><option value="light">Licht</option><option value="switch">Schalter</option><option value="outlet">Steckdose</option><option value="fan">Ventilator</option></select><small id="devicePresentationHint">Die Auswahl ändert nur die logische Verwendung, nicht die physische Shelly-Konfiguration.</small></label></div></section><section id="deviceVisibilitySection" class="form-section" hidden><div class="section-label"><span>3</span><div><h3>Sichtbarkeit</h3><p>Zigbee-Gerät in SALTA ausblenden</p></div></div><div class="field-stack"><label class="choice-row"><input id="deviceHidden" type="checkbox"><span><strong>Gerät ausblenden</strong><small>Das Gerät bleibt auf der Zigbee-Seite grau sichtbar und wird nicht an HomeKit weitergereicht.</small></span></label></div></section><section id="deviceCredentialSection" class="form-section"><div class="section-label"><span>3</span><div><h3>Authentifizierung</h3><p>Zugangsdaten für dieses Gerät</p></div></div><div class="field-stack"><label>Zugangsdaten<select id="credentialMode"><option value="inherit">Globale Shelly-Zugangsdaten</option><option value="custom">Eigene Zugangsdaten</option><option value="none">Keine Authentifizierung</option></select></label><div id="deviceCredentialFields" class="credential-fields"><label>Benutzername<input id="deviceUsername" autocomplete="username"></label><label>Passwort<input id="devicePassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label></div></div></section><section id="deviceDeleteSection" class="form-section danger-zone"><div class="section-label"><span>4</span><div><h3>Gerät entfernen</h3><p>Entfernt das Gerät und seine SALTA-Daten dauerhaft</p></div></div><div class="danger-zone-content"><p id="deviceDeleteDescription">Das Shelly-Gerät selbst wird nicht zurückgesetzt oder ausgeschaltet. Es kann später erneut hinzugefügt werden.</p><button type="button" id="deleteDeviceButton" class="danger-button" onclick="removeSelectedDevice()">Gerät aus SALTA löschen</button></div></section><div class="dialog-actions"><button type="submit" class="secondary">Abbrechen</button><button type="button" onclick="saveDeviceConfig()">Änderungen speichern</button></div></div></form></dialog>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="/room-grouping.js"></script>
+<script src="/automation-ui.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

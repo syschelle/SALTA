@@ -8,6 +8,7 @@ import { PhosconAdapter } from "./phoscon-adapter.js";
 import { OpenCcuAdapter } from "./openccu-adapter.js";
 import { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import { DeviceCommandRouter } from "./device-command-router.js";
+import { AutomationEngine } from "./automations.js";
 
 async function main(): Promise<void> {
   await initializeDatabaseSchema();
@@ -15,21 +16,21 @@ async function main(): Promise<void> {
   for (const device of await listDevices()) registry.hydrate(device);
 
   const shelly = new ShellyAdapter(registry);
-  shelly.start();
-
   const phoscon = new PhosconAdapter(registry);
-  phoscon.start();
-
   const openCcu = new OpenCcuAdapter(registry);
-  openCcu.start();
-
   const virtual = new VirtualDeviceAdapter(registry);
   const commands = new DeviceCommandRouter(registry, { shelly, phoscon, openccu: openCcu, virtual });
+  const automations = new AutomationEngine(registry, commands);
+  await automations.start();
+
+  shelly.start();
+  phoscon.start();
+  openCcu.start();
 
   const homekit = new HomeKitBridge(registry, commands);
   homekit.start();
 
-  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands);
+  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   server.log.info({ port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED, trustedProxiesConfigured: Boolean(config.TRUSTED_PROXIES.trim()) }, "SALTA started with mandatory authentication");
   await writeSystemLog("info", "system", "SALTA_STARTED", "SALTA started", { port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED }).catch(() => undefined);
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
     await writeSystemLog("info", "system", "SALTA_STOPPING", "SALTA is shutting down", { signal }).catch(() => undefined);
     await server.close();
     homekit.stop();
+    automations.stop();
     await openCcu.stop();
     phoscon.stop();
     shelly.stop();

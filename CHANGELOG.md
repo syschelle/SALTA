@@ -2,6 +2,18 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.0
+
+- Introduced the first persistent local automation engine and re-baselined the roadmap so v0.8.x represents the automation milestone.
+- Added an Automations page for device-state triggers, one optional device-state condition and On/Off/Toggle actions.
+- Added transition detection so repeated adapter polling does not retrigger unchanged states.
+- Added cross-adapter actions through the shared device command router, including Shelly, Zigbee, HomeMatic and virtual devices.
+- Added rule enable/disable, edit, delete, last-run reporting and automation system-log entries.
+- Added cyclic automation graph rejection and active-rule re-entry protection.
+- Added an additive PostgreSQL `automations` table with foreign-key cleanup for deleted devices.
+- Added authenticated, rate-limited automation CRUD endpoints and regression coverage for engine behavior, UI structure and schema persistence.
+- Kept the npm dependency tree unchanged from v0.7.18 apart from the SALTA root version.
+
 ## 0.7.18
 
 - Added a compact Shelly web-interface shortcut next to the configuration button on Shelly device cards.

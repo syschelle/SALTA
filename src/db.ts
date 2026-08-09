@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
 import type { CredentialMode, Device, OpenCcuSettings, PhosconSettings, Room, ShellySettings, SystemLogEntry, SystemLogLevel } from "./types.js";
+import type { AutomationInput, AutomationRule } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
 
@@ -106,6 +107,26 @@ export async function initializeDatabaseSchema(): Promise<void> {
       updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS commands_device_idx ON commands(device_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS automations (
+      id uuid PRIMARY KEY,
+      name text NOT NULL,
+      enabled boolean NOT NULL DEFAULT true,
+      trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+      trigger_state_key text NOT NULL,
+      trigger_value boolean NOT NULL,
+      condition_device_id text REFERENCES devices(id) ON DELETE CASCADE,
+      condition_state_key text,
+      condition_value boolean,
+      action_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+      action text NOT NULL CHECK(action IN ('turnOn','turnOff','toggle')),
+      last_triggered_at timestamptz,
+      created_at timestamptz NOT NULL DEFAULT now(),
+      updated_at timestamptz NOT NULL DEFAULT now(),
+      CHECK ((condition_device_id IS NULL AND condition_state_key IS NULL AND condition_value IS NULL) OR
+             (condition_device_id IS NOT NULL AND condition_state_key IS NOT NULL AND condition_value IS NOT NULL))
+    );
+    CREATE INDEX IF NOT EXISTS automations_trigger_idx ON automations(trigger_device_id, enabled);
+    CREATE INDEX IF NOT EXISTS automations_action_idx ON automations(action_device_id);
     CREATE TABLE IF NOT EXISTS system_logs (
       id uuid PRIMARY KEY,
       level text NOT NULL CHECK(level IN ('info','warning','error')),
@@ -230,6 +251,66 @@ export async function reorderRooms(roomIds: string[]): Promise<Room[]> {
 export async function deleteRoom(id: string): Promise<boolean> {
   const result=await pool.query("DELETE FROM rooms WHERE id=$1",[id]);
   return result.rowCount === 1;
+}
+
+function automationDate(value: unknown): string {
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
+function automationRow(row: Record<string, unknown>): AutomationRule {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    enabled: Boolean(row.enabled),
+    triggerDeviceId: String(row.triggerDeviceId),
+    triggerStateKey: String(row.triggerStateKey),
+    triggerValue: Boolean(row.triggerValue),
+    conditionDeviceId: row.conditionDeviceId ? String(row.conditionDeviceId) : undefined,
+    conditionStateKey: row.conditionStateKey ? String(row.conditionStateKey) : undefined,
+    conditionValue: typeof row.conditionValue === "boolean" ? row.conditionValue : undefined,
+    actionDeviceId: String(row.actionDeviceId),
+    action: row.action as AutomationRule["action"],
+    lastTriggeredAt: row.lastTriggeredAt ? automationDate(row.lastTriggeredAt) : undefined,
+    createdAt: automationDate(row.createdAt),
+    updatedAt: automationDate(row.updatedAt)
+  };
+}
+
+const automationColumns = `id,name,enabled,trigger_device_id as "triggerDeviceId",trigger_state_key as "triggerStateKey",trigger_value as "triggerValue",
+  condition_device_id as "conditionDeviceId",condition_state_key as "conditionStateKey",condition_value as "conditionValue",
+  action_device_id as "actionDeviceId",action,last_triggered_at as "lastTriggeredAt",created_at as "createdAt",updated_at as "updatedAt"`;
+
+export async function listAutomations(): Promise<AutomationRule[]> {
+  const result = await pool.query(`SELECT ${automationColumns} FROM automations ORDER BY name,id`);
+  return result.rows.map(row => automationRow(row));
+}
+
+export async function createAutomation(input: AutomationInput): Promise<AutomationRule> {
+  const id = randomUUID();
+  const result = await pool.query(`WITH changed AS (
+    INSERT INTO automations(id,name,enabled,trigger_device_id,trigger_state_key,trigger_value,condition_device_id,condition_state_key,condition_value,action_device_id,action)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    RETURNING *
+  ) SELECT ${automationColumns} FROM changed`, [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action]);
+  return automationRow(result.rows[0]);
+}
+
+export async function updateAutomation(id: string, input: AutomationInput): Promise<AutomationRule | undefined> {
+  const result = await pool.query(`WITH changed AS (
+    UPDATE automations SET name=$2,enabled=$3,trigger_device_id=$4,trigger_state_key=$5,trigger_value=$6,
+      condition_device_id=$7,condition_state_key=$8,condition_value=$9,action_device_id=$10,action=$11,updated_at=now()
+    WHERE id=$1 RETURNING *
+  ) SELECT ${automationColumns} FROM changed`, [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action]);
+  return result.rows[0] ? automationRow(result.rows[0]) : undefined;
+}
+
+export async function deleteAutomation(id: string): Promise<boolean> {
+  const result = await pool.query("DELETE FROM automations WHERE id=$1", [id]);
+  return result.rowCount === 1;
+}
+
+export async function markAutomationTriggered(id: string, triggeredAt: string): Promise<void> {
+  await pool.query("UPDATE automations SET last_triggered_at=$2,updated_at=now() WHERE id=$1", [id, triggeredAt]);
 }
 
 interface CredentialEncryptionStatus {

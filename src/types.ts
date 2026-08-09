@@ -54,7 +54,7 @@ export interface DeviceCommand {
   deviceId: string;
   capability: string;
   value?: string | number | boolean;
-  source: "api" | "homekit";
+  source: "api" | "homekit" | "automation";
 }
 
 export interface ShellySettings {

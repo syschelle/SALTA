@@ -36,6 +36,14 @@ describe("clean database schema", () => {
   });
 
 
+  it("stores automations as an additive canonical table with device references", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automations");
+    expect(databaseSource).toContain("trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
+    expect(databaseSource).toContain("condition_device_id text REFERENCES devices(id) ON DELETE CASCADE");
+    expect(databaseSource).toContain("action_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
+    expect(databaseSource).toContain("CHECK(action IN ('turnOn','turnOff','toggle'))");
+  });
+
   it("stores a bounded persistent system log", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS system_logs");
     expect(databaseSource).toContain("CHECK(level IN ('info','warning','error'))");

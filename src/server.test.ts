@@ -5,6 +5,7 @@ import type { ShellyAdapter } from "./shelly-adapter.js";
 import type { PhosconAdapter } from "./phoscon-adapter.js";
 import type { OpenCcuAdapter } from "./openccu-adapter.js";
 import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
+import type { AutomationEngine } from "./automations.js";
 
 vi.mock("./config.js", () => ({
   config: {
@@ -63,7 +64,8 @@ function createServer(
   registryOverrides: Partial<DeviceRegistry> = {},
   phosconOverrides: Partial<PhosconAdapter> = {},
   openCcuOverrides: Partial<OpenCcuAdapter> = {},
-  virtualOverrides: Partial<VirtualDeviceAdapter> = {}
+  virtualOverrides: Partial<VirtualDeviceAdapter> = {},
+  automationOverrides: Partial<AutomationEngine> = {}
 ) {
   const registry = {
     all: () => [],
@@ -100,7 +102,15 @@ function createServer(
     command: vi.fn(),
     ...virtualOverrides
   } as unknown as VirtualDeviceAdapter;
-  const server = buildServer(registry, adapter, phoscon, openCcu, virtual);
+  const automation = {
+    list: vi.fn(() => []),
+    create: vi.fn(),
+    update: vi.fn(),
+    setEnabled: vi.fn(),
+    remove: vi.fn(),
+    ...automationOverrides
+  } as unknown as AutomationEngine;
+  const server = buildServer(registry, adapter, phoscon, openCcu, virtual, undefined, automation);
   openServers.push(server);
   return server;
 }
@@ -663,7 +673,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.7.18" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.0" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -692,6 +702,25 @@ describe("web security", () => {
   });
 });
 
+
+describe("automations", () => {
+  it("creates a device-state automation with an optional condition and toggle action", async () => {
+    const created = { id: "11111111-1111-4111-8111-111111111111", name: "Motion light", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, actionDeviceId: "light", action: "toggle", createdAt: "2026-08-09T00:00:00.000Z", updatedAt: "2026-08-09T00:00:00.000Z" };
+    const create = vi.fn(async () => created as never);
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, { create });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "Motion light", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, actionDeviceId: "light", action: "toggle" } });
+    expect(response.statusCode).toBe(201);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ triggerValue: true, conditionValue: false, action: "toggle" }));
+  });
+
+  it("toggles an automation enabled state through its dedicated endpoint", async () => {
+    const setEnabled = vi.fn(async () => ({ id: "rule", enabled: false } as never));
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, { setEnabled });
+    const response = await authenticatedInject(server, { method: "PATCH", url: "/api/automations/rule/enabled", payload: { enabled: false } });
+    expect(response.statusCode).toBe(200);
+    expect(setEnabled).toHaveBeenCalledWith("rule", false);
+  });
+});
 
 describe("virtual devices", () => {
   it("creates a virtual switch with an optional SALTA room assignment", async () => {

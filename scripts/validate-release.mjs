@@ -10,11 +10,15 @@ const fail = (message) => {
 
 const publicIndex = read("public/index.html");
 const roomGroupingScript = '<script src="/room-grouping.js"></script>';
+const automationUiScript = '<script src="/automation-ui.js"></script>';
 const appScript = '<script src="/app.js"></script>';
 if (!publicIndex.includes(roomGroupingScript)) fail("public/index.html does not load room-grouping.js");
+if (!publicIndex.includes(automationUiScript)) fail("public/index.html does not load automation-ui.js");
 if (publicIndex.indexOf(roomGroupingScript) > publicIndex.indexOf(appScript)) fail("room-grouping.js must load before app.js");
+if (publicIndex.indexOf(automationUiScript) > publicIndex.indexOf(appScript)) fail("automation-ui.js must load before app.js");
 const serverSource = read("src/server.ts");
 if (!serverSource.includes('["/room-grouping.js", "room-grouping.js"]')) fail("server does not serve room-grouping.js");
+if (!serverSource.includes('["/automation-ui.js", "automation-ui.js"]')) fail("server does not serve automation-ui.js");
 if (!serverSource.includes('immutableVendorAsset ? "public, max-age=31536000, immutable" : "no-store"')) fail("application assets are not protected from stale browser caching");
 
 
@@ -27,11 +31,24 @@ if (!virtualFrontend.includes("deviceShellyWebButton")) fail("Shelly device web 
 if (!virtualFrontend.includes("window.open(url,'_blank','noopener,noreferrer')")) fail("Shelly web shortcut must open in an isolated new tab");
 if (!virtualFrontend.includes('title="Shelly-Weboberfläche öffnen"')) fail("Shelly web shortcut title is missing");
 if (!serverSource.includes('"/api/adapters/virtual/devices"')) fail("Virtual device creation API route is missing");
+const automationFrontend = read("public/automation-ui.js");
+const automationEngineSource = read("src/automations.ts");
+const mainSource = read("src/main.ts");
+if (!publicIndex.includes('data-nav="automations"')) fail("Automations navigation is missing");
+if (!publicIndex.includes('data-page="automations"')) fail("Automations page is missing");
+if (!automationFrontend.includes("turnOn:'An',turnOff:'Aus',toggle:'Toggle'")) fail("Automation action choices are incomplete");
+if (!automationFrontend.includes("conditionDeviceId")) fail("Automation condition UI is missing");
+if (!serverSource.includes('"/api/automations"')) fail("Automation API routes are missing");
+if (!automationEngineSource.includes('source: "automation"')) fail("Automation commands do not use the shared automation source");
+if (!automationEngineSource.includes('AUTOMATION_CYCLE_NOT_ALLOWED')) fail("Automation loop protection is missing");
+if (!mainSource.includes("await automations.start()")) fail("Automation engine is not started during SALTA startup");
+if (!mainSource.includes("automations.stop()")) fail("Automation engine is not stopped during SALTA shutdown");
 const homeKitSource = read("src/homekit.ts");
 if (!homeKitSource.includes("this.commander.command({deviceId:d.id")) fail("HomeKit does not use the shared device command dispatcher");
 
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");
+if (!String(packageJson.scripts?.check ?? "").includes("node --check public/automation-ui.js")) fail("npm run check must syntax-check automation-ui.js");
 if (packageJson.scripts?.["test:preflight"] !== "node scripts/check-test-symbols.mjs") fail("test:preflight script is missing or changed");
 if (!String(packageJson.scripts?.check ?? "").includes("npm run test:preflight")) fail("npm run check must execute the test symbol preflight before Vitest");
 const testTypeConfig = json("tsconfig.tests.json");

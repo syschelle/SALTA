@@ -1,91 +1,142 @@
-# SALTA v0.7.18
+# SALTA v0.8.0
 
-SALTA v0.7.18 adds a direct shortcut from every Shelly device card to the Shelly device's own local web interface while retaining the virtual-device, compact-card and hardened build functionality from the previous releases.
+SALTA v0.8.0 introduces the first persistent local automation engine. Automations can react to device state changes, optionally check the current state of another device, and then switch a target device On, Off or Toggle through the shared SALTA command router.
 
-## Shelly device web shortcut
+## Version milestone
 
-- Added a compact **Open device web interface** icon directly next to the configuration icon on Shelly device cards.
-- The shortcut is available wherever the common Shelly device card is rendered, including:
-  - the Shelly page; and
-  - the room-based overview for room-assigned Shelly devices.
-- Clicking the icon opens the Shelly device's local web interface in a new browser tab.
-- SALTA derives the destination from the stored Shelly host address, so no additional configuration is required.
-- The shortcut is shown only for devices whose source is `shelly` and which have a valid device address.
-- Zigbee, HomeMatic and SALTA-native virtual devices do not receive the shortcut.
-- Device URLs are restricted to HTTP or HTTPS and URLs containing embedded credentials are rejected.
-- New tabs are opened with `noopener,noreferrer` so the Shelly page cannot access the SALTA window through `window.opener`.
-- If a Shelly has no usable address, SALTA does not render the shortcut.
+The project roadmap has been re-baselined for the current implementation state.
 
-## User interface
+The original roadmap placed the automation engine in v0.7.x and the dashboard in v0.8.x. During development, the room-based dashboard, compact device controls, virtual devices and HomeKit command routing were completed in the v0.7.x line. The automation engine is therefore introduced as the next architectural milestone in **v0.8.0**.
 
-- The new Shelly web shortcut uses the locally bundled Material Design Icons asset and requires no external icon service.
-- The shortcut uses the compact `open-in-new` icon and matches the size of the configuration button.
-- The existing configuration button remains unchanged and continues to open the SALTA device configuration dialog.
-- The additional shortcut does not add a separate action row, preserving the compact device-card layout on desktop and mobile devices.
+The current roadmap is:
 
-## Build and regression protection
+- **v0.7.x:** device integrations, room dashboard, responsive controls, virtual switches and shared HomeKit routing
+- **v0.8.x:** automation engine and rule extensions
+- **v0.9.x:** planned assistant and advanced orchestration
+- **v1.0.0:** first stable production release
 
-- Added dedicated frontend regression tests for the Shelly web shortcut.
-- Tests verify that the shortcut is rendered through the shared device-card component.
-- Tests verify that the shortcut is limited to Shelly devices.
-- Tests verify HTTP/HTTPS URL validation and rejection of embedded URL credentials.
-- Tests verify isolated new-tab behavior using `noopener,noreferrer`.
-- Tests verify that the shortcut keeps the same compact dimensions as the configuration button.
-- Release validation now checks that the Shelly web shortcut and its safe new-tab behavior remain present.
+## Local automation engine
 
-## Test-symbol preflight retained from v0.7.17
+- Added a persistent event-driven automation engine that runs locally inside SALTA.
+- Added a new **Automations** section to the desktop and mobile navigation.
+- Automation rules are persisted in PostgreSQL and restored automatically after a SALTA restart.
+- The engine listens to the common SALTA device registry, so triggers can originate from Shelly, Zigbee, HomeMatic or SALTA-native virtual devices.
+- Actions use the shared `DeviceCommandRouter`, allowing one supported device family to control another.
 
-- `npm run test:preflight` continues to inspect all test sources before Vitest starts.
-- Test files remain covered by the dedicated `tsconfig.tests.json` configuration even though production compilation excludes `*.test.ts`.
-- Unresolved identifiers such as `TS2304` and `TS2552` fail the quality gate before runtime tests execute.
-- The complete `npm run check` quality gate remains part of CI and the Docker build.
+## Rule structure
 
-## Virtual devices retained from v0.7.16
+The initial automation model contains three stages:
 
-- The **Virtual Devices** section remains directly after **HomeMatic** in the navigation.
-- SALTA-native virtual switches can be created, renamed, assigned to rooms, switched and deleted.
-- Room-assigned virtual switches appear in the room-based overview.
-- Unassigned virtual switches remain on the Virtual Devices page and are intentionally excluded from the overview.
-- Virtual switches remain automatically available through the SALTA HomeKit bridge when HomeKit is enabled.
-- SALTA and HomeKit continue to use the shared source-aware device command router.
-- Virtual-device persistence continues to use the existing PostgreSQL-backed device registry without a database migration.
+### 1. When
 
-## Compact device cards retained from v0.7.14
+Select:
 
-- Device cards retain reduced padding, smaller headers and compact measurement chips.
-- The configuration button remains in the card header.
-- Read-only sensors do not receive an unnecessary empty action row.
-- Dimmer, thermostat and window-covering controls remain grouped in the compact control area.
-- Thermostat operating modes remain directly available:
-  - Off
-  - Manual
-  - Automatic
-- Device grids remain adaptive on desktop and tablet layouts.
-- Smartphone views retain the single-column device layout and compact two-by-two overview statistics.
+- a trigger device;
+- one of the boolean states currently exposed by that device; and
+- the state value that should fire the rule.
 
-## Room overview behavior retained
+The automation fires only when the selected state **changes into** the configured value. Repeated adapter polling with the same state does not retrigger the rule.
 
-- Devices continue to be grouped by their assigned room.
-- Shelly, Zigbee, HomeMatic and virtual devices can appear together in the same room.
-- Room ordering follows the Rooms configuration page.
-- Devices without a valid room assignment remain excluded from the overview.
-- Unassigned devices remain available on their respective adapter or Virtual Devices page.
-- SALTA-owned HTML, JavaScript and CSS continue to use no-store caching to prevent stale frontend assets after upgrades.
+Examples include:
+
+- motion becomes detected;
+- a contact becomes open or closed;
+- a switch becomes on or off;
+- a water or alarm state becomes active or inactive.
+
+### 2. Only if
+
+An optional device condition can be enabled.
+
+Select:
+
+- another device;
+- one of its boolean states; and
+- the required current value.
+
+The condition is evaluated when the trigger fires. A physical condition device must currently be reachable; stale offline state is not used to authorize an automation action.
+
+### 3. Then
+
+Select a target device and one of the actions supported by that device:
+
+- **On**
+- **Off**
+- **Toggle**
+
+The target device must be different from the trigger device.
+
+## Automation management
+
+- Create automation rules from the web interface.
+- Edit existing rules.
+- Enable or disable rules without deleting them.
+- Delete rules permanently.
+- Display the last successful execution time.
+- Display the configured trigger, condition and action as a compact rule flow.
+- Automation system-log entries can be filtered using the new **Automations** source.
+
+## Loop protection
+
+- SALTA validates the device-action graph before saving or enabling a rule.
+- Automation configurations that would create a cyclic device-action graph are rejected.
+- This prevents simple toggle loops such as device A toggling device B while device B toggles device A.
+- The engine also tracks rules currently being executed to prevent immediate re-entrant execution.
+
+## Persistence
+
+- Added an additive `automations` table to the canonical PostgreSQL schema.
+- No destructive database migration is required.
+- Existing installations keep the current schema generation and receive the new table automatically during normal startup.
+- Trigger, condition and target device references use database foreign keys.
+- Removing a referenced device automatically removes dependent automation rules from PostgreSQL, while the running engine also removes them from its in-memory rule set.
+
+## API
+
+Added authenticated and rate-limited endpoints for:
+
+- listing automations;
+- creating automations;
+- updating automations;
+- enabling or disabling automations; and
+- deleting automations.
+
+Automation input is validated on both the API boundary and inside the automation engine.
+
+## Current v0.8.0 scope
+
+The first automation release intentionally supports:
+
+- boolean device-state transition triggers;
+- one optional boolean device condition; and
+- one On, Off or Toggle action.
+
+Later v0.8.x releases can extend the same engine with additional trigger and rule types such as button events, numeric thresholds, timers, schedules, delays, multiple conditions and multiple actions.
+
+## Existing functionality retained
+
+- Shelly device cards retain the direct shortcut to the local Shelly web interface introduced in v0.7.18.
+- Virtual switches remain available in SALTA and HomeKit.
+- HomeMatic thermostat Off, Manual and Automatic controls remain available.
+- The room-based overview continues to show only devices with a valid room assignment.
+- Compact responsive device cards remain optimized for desktop, tablet and mobile layouts.
+- The hardened test-symbol preflight and release validation remain part of the complete quality gate.
 
 ## Security and dependency status
 
-- Retains `find-my-way` 9.7.0 with the HTTP/2 denial-of-service fix.
-- Retains the corrected `@homebridge/dbus-native` 0.7.7 lock entry and integrity checksum.
-- No production npm dependency was added or changed in v0.7.18.
-- The transitive dependency lock remains unchanged from v0.7.17 apart from the SALTA root version.
+- No new production npm dependency was added for the automation engine.
+- The transitive dependency tree remains unchanged from v0.7.18 apart from the SALTA root version.
+- Retains `find-my-way` 9.7.0.
+- Retains `@homebridge/dbus-native` 0.7.7 with its matching integrity checksum.
+- Retains TypeScript 5.9.3 from the lockfile.
+- All automation mutation routes use explicit application and Fastify rate limiting.
 
 ## Compatibility
 
-- No database migration is required.
 - No new environment variables are required.
-- No API changes are required.
-- Existing device, room, adapter and HomeKit configurations remain compatible.
-- Existing Shelly credentials and device addresses remain unchanged.
+- No destructive database migration is required.
+- Existing Shelly, Zigbee, OpenCCU/HomeMatic, room, virtual-device and HomeKit configuration remains compatible.
+- Existing device IDs and room assignments remain unchanged.
 
 ## Verification
 
@@ -103,13 +154,13 @@ sh -n install.sh update.sh backup.sh restore.sh
 ## Container tags
 
 ```text
-0.7.18
-0.7
+0.8.0
+0.8
 latest
 ```
 
 ## Git tag
 
 ```text
-v0.7.18
+v0.8.0
 ```
