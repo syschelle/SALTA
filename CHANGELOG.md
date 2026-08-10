@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.22
+
+- Documented the FRITZ! TR-064 SOAP content-authentication MD5 requirement directly at the two protocol-mandated hash operations.
+- Added three narrow, query-specific CodeQL suppressions for findings #8, #9 and #10 only on those two interoperability hashes; the first expression uses one `codeql[...]` and one supported `lgtm[...]` annotation because both queries report the same line.
+- Kept the AVM-specified `MD5(uid:realm:password)` and `MD5(secret:nonce)` calculation unchanged so FRITZ!Box `ClientAuth` remains compatible.
+- Added a security-policy section clarifying that the MD5 operations are challenge-response protocol calculations, not SALTA password storage or password KDFs.
+- Extended release validation to require exactly two direct FRITZ!Box MD5 calls and the corresponding narrow CodeQL suppressions, preventing the exception from spreading to other SALTA code.
+- No dependency, database, API, UI, or runtime behavior change is included.
+
 ## 0.8.21
 
 - Updated transitive `fast-uri` 3.x from `3.1.4` to `3.1.5` to remediate GHSA-7p8r-x3mc-p8w7 / CVE-2026-18446.

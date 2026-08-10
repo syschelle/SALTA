@@ -1,41 +1,49 @@
-# SALTA v0.8.21
+# SALTA v0.8.22
 
-SALTA v0.8.21 is a dependency-security release that updates vulnerable transitive `fast-uri` and PostCSS packages detected by GitHub Dependabot.
+SALTA v0.8.22 resolves three FRITZ!Box Presence CodeQL findings by documenting and narrowly suppressing the MD5 operations that are explicitly required by the FRITZ! TR-064 SOAP content-level authentication protocol.
 
-## fast-uri security updates
+## FRITZ!Box protocol-mandated MD5
 
-- Updated the Fastify/AJV `fast-uri` 3.x dependency from `3.1.4` to `3.1.5`.
-- Updated the `fast-json-stringify` nested `fast-uri` 4.x dependency from `4.1.1` to `4.1.2`.
-- These versions remediate GHSA-7p8r-x3mc-p8w7 / CVE-2026-18446, a high-severity host-confusion issue involving backslash authority introducers.
-- Both vulnerable copies present in the v0.8.20 `package-lock.json` are replaced by patched releases.
-- No SALTA source-code behavior or Fastify API is changed by this patch-level dependency update.
+- The FRITZ! TR-064 SOAP content-level authentication algorithm requires two MD5 operations:
+  - `secret = MD5(uid:realm:password)`
+  - `response = MD5(secret:nonce)`
+- SALTA must keep these calculations unchanged to remain compatible with FRITZ!OS `InitChallenge` / `ClientAuth`.
+- These MD5 operations are used only for the FRITZ!Box challenge-response protocol.
+- They are not used for SALTA administrator password storage, session protection, encryption-key derivation, or any persistent password hash.
 
-## PostCSS security update
+## CodeQL findings #8, #9 and #10
 
-- Updated development-only PostCSS from `8.5.20` to `8.5.23` through the existing `vitest -> vite -> postcss` dependency path.
-- This remediates GHSA-fxqj-rqcc-2cmp / CVE-2026-69153, the follow-up advisory for incomplete protection against attacker-controlled `sourceMappingURL` file reads when `from` is unset.
-- PostCSS remains a development-only dependency in SALTA and is not added to the production dependency set.
+- Added query-specific inline suppression for `js/insufficient-password-hash` on the first AVM-mandated MD5 expression.
+- The same first expression is also reported by `js/weak-cryptographic-algorithm`; because GitHub's suppression engine associates a `codeql[...]` comment with the immediately following line, both query-specific annotations are kept in one preceding comment using `codeql[...]` plus the still-supported `lgtm[...]` form.
+- Added a query-specific `codeql[js/weak-cryptographic-algorithm]` suppression for the second AVM-mandated MD5 expression.
+- Each suppression is accompanied by an in-source explanation that the operation is mandated for protocol interoperability and must not be replaced by an arbitrary stronger hash.
+- The suppressions apply only to the two lines inside the FRITZ!Box SOAP content-authentication digest implementation.
+- No CodeQL query is disabled globally and no repository-wide security rule is weakened.
 
-## Dependency and release validation
+## Security guardrails
 
-- All direct SALTA dependency ranges remain unchanged.
-- Only transitive lockfile package versions, tarball URLs and integrity hashes required for the security fixes were updated.
-- Added release-validation checks that reject known-vulnerable `fast-uri` 2.x/3.x/4.x versions and PostCSS releases below `8.5.23` if they are reintroduced into the lockfile.
-- Existing `find-my-way` `9.7.0` and `@homebridge/dbus-native` `0.7.7` security/consistency pins remain unchanged.
+- Added a dedicated section to `SECURITY.md` documenting the FRITZ!Box TR-064 MD5 exception and its scope.
+- Release validation now requires exactly two direct `createHash("md5")` calls in the FRITZ!Box Presence source.
+- Release validation also verifies the exact line-adjacent placement and count of the three query-specific suppressions used for CodeQL findings #8, #9 and #10.
+- Introducing another direct MD5 call causes the SALTA release validation to fail.
+- This prevents the FRITZ!Box interoperability exception from being reused for SALTA password hashing or other security-sensitive application logic.
 
 ## Compatibility
 
+- FRITZ!Box Presence authentication behavior remains unchanged.
+- The official AVM content-authentication test vector remains unchanged and continues to produce `b4f67585f22b0af7c4615db5a18faa14`.
 - No database migration is required.
 - No new database table is required.
 - No fresh PostgreSQL volume is required.
 - No new environment variable is required.
-- No API or UI behavior changes are included.
-- Existing FRITZ!Box Presence, Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device, automation and HomeKit functionality remains unchanged.
+- No npm dependency was added or intentionally changed.
+- Existing Presence targets and automations remain unchanged.
+- Existing Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device and HomeKit functionality remains unchanged.
 
 ## Container tags
 
 ```text
-0.8.21
+0.8.22
 0.8
 latest
 ```
@@ -43,5 +51,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.21
+v0.8.22
 ```

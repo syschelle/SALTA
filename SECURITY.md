@@ -28,6 +28,12 @@ For direct LAN access without a reverse proxy, `SALTA_BIND_ADDRESS=0.0.0.0` publ
 
 SALTA may connect to local Phoscon/deCONZ and OpenCCU services over HTTP. Their API credentials are protected at rest but are not encrypted while crossing the network over HTTP. Keep adapter traffic inside a trusted LAN or IoT VLAN, or use endpoints with certificates trusted by the SALTA container. TLS certificate validation remains enabled by default. The FRITZ!Box Presence adapter has one explicit per-adapter exception: for HTTPS connections, an administrator may disable certificate verification to allow a trusted local self-signed FRITZ!Box certificate. This setting is request-scoped to FRITZ!Box Presence traffic and never changes Node.js global TLS verification or the behavior of other SALTA integrations.
 
+### Protocol-mandated MD5 in FRITZ!Box authentication
+
+The FRITZ! TR-064 SOAP content-level authentication protocol mandates two MD5 operations for its challenge-response calculation. SALTA implements those two operations only inside `contentAuthDigest()` in `src/fritzbox-presence.ts` so it can interoperate with FRITZ!OS. They are not used to store SALTA passwords, derive encryption keys, protect sessions, or hash administrator credentials.
+
+Those two protocol-mandated calls carry narrow, query-specific CodeQL suppressions for `js/weak-cryptographic-algorithm` and `js/insufficient-password-hash`. On the first MD5 expression, where both queries report the same source line, the single preceding comment contains a `codeql[...]` annotation and the still-supported query-specific `lgtm[...]` annotation so both findings are scoped to exactly that expression. The second MD5 expression has only the required `codeql[...]` suppression for the weak-cryptography query. Release validation fails if additional direct `createHash("md5")` calls are introduced elsewhere in the FRITZ!Box Presence source or if the expected suppression placement changes. Do not copy this exception to application password hashing or any other security-sensitive SALTA code.
+
 ## Authentication and browser sessions
 
 - `ADMIN_PASSWORD` is mandatory, must contain at least 16 characters and must not use a placeholder value.

@@ -100,7 +100,17 @@ function contentAuthInitHeader(username: string): string {
 }
 
 function contentAuthDigest(username: string, password: string, realm: string, nonce: string): string {
+  // FRITZ! TR-064 SOAP content-level authentication mandates MD5 for this
+  // challenge-response calculation. This is protocol interoperability, not
+  // password storage or a password KDF. Do not replace it with another hash:
+  // doing so would make ClientAuth incompatible with FRITZ!OS.
+  // Two CodeQL queries report this same protocol-mandated expression. Keep
+  // both query-specific suppressions on the immediately preceding comment.
+  // codeql[js/insufficient-password-hash] lgtm[js/weak-cryptographic-algorithm]
   const secret = createHash("md5").update(`${username}:${realm}:${password}`, "utf8").digest("hex");
+
+  // The second MD5 step is likewise fixed by the FRITZ! TR-064 specification.
+  // codeql[js/weak-cryptographic-algorithm]
   return createHash("md5").update(`${secret}:${nonce}`, "utf8").digest("hex");
 }
 

@@ -103,6 +103,7 @@ if (!phosconAdapterSource.includes('current.profile?.split(" + ").includes("Dayl
 if (!virtualFrontend.includes("sunrise:'Sonnenaufgang'") || !virtualFrontend.includes("sunset:'Sonnenuntergang'") || !virtualFrontend.includes("daylightStatus:'Sonnenphase'")) fail("Phoscon Daylight frontend labels are missing");
 if (!virtualFrontend.includes("split(' + ').includes('Daylight')?5:4")) fail("Phoscon Daylight card does not expose all five Daylight values");
 const presenceSource = read("src/fritzbox-presence.ts");
+const securitySource = read("SECURITY.md");
 const presenceFrontendTest = read("src/frontend-presence.test.ts");
 if (!publicIndex.includes('data-nav="presence"') || !publicIndex.includes('data-page="presence"')) fail("Dedicated Presence navigation/page is missing");
 for (const id of ["presenceSettingsForm", "presenceHouseSummary", "presenceTargetList", "presenceTargetForm", "presenceProtocol", "presenceHost", "presencePort", "presenceTlsInsecure"]) {
@@ -117,6 +118,18 @@ if (!presenceSource.includes('errorCode:code')) fail("Presence system-log detail
 if (!presenceSource.includes("missingSince") || !presenceSource.includes("absenceDelaySeconds")) fail("Presence absence hysteresis is missing");
 if (!presenceSource.includes("rejectUnauthorized:!tlsInsecure") || presenceSource.includes("NODE_TLS_REJECT_UNAUTHORIZED")) fail("FRITZ!Box TLS certificate bypass must be request-scoped");
 if (!presenceSource.includes("InitChallenge") || !presenceSource.includes("ClientAuth") || !presenceSource.includes("F!Box SOAP-Auth") && !presenceSource.includes("contentAuthDigest")) fail("FRITZ!Box SOAP content-level authentication is missing");
+const directMd5Calls = presenceSource.match(/createHash\(["']md5["']\)/g) ?? [];
+if (directMd5Calls.length !== 2) fail(`FRITZ!Box Presence must contain exactly two protocol-mandated direct MD5 calls, found ${directMd5Calls.length}`);
+const presenceLines = presenceSource.split(/\r?\n/);
+const md5LineIndexes = presenceLines.map((line,index)=>line.includes('createHash("md5")')?index:-1).filter(index=>index>=0);
+if (md5LineIndexes.length !== 2) fail("FRITZ!Box protocol MD5 line detection is inconsistent");
+const firstMd5Suppression = presenceLines[md5LineIndexes[0]-1] ?? "";
+const secondMd5Suppression = presenceLines[md5LineIndexes[1]-1] ?? "";
+if (!firstMd5Suppression.includes("codeql[js/insufficient-password-hash]") || !firstMd5Suppression.includes("lgtm[js/weak-cryptographic-algorithm]")) fail("FRITZ!Box first protocol MD5 line is missing its two query-specific CodeQL suppressions");
+if (!secondMd5Suppression.includes("codeql[js/weak-cryptographic-algorithm]")) fail("FRITZ!Box second protocol MD5 line is missing its weak-crypto CodeQL suppression");
+if ((presenceSource.match(/codeql\[js\/insufficient-password-hash\]/g) ?? []).length !== 1 || (presenceSource.match(/lgtm\[js\/weak-cryptographic-algorithm\]/g) ?? []).length !== 1 || (presenceSource.match(/codeql\[js\/weak-cryptographic-algorithm\]/g) ?? []).length !== 1) fail("FRITZ!Box protocol MD5 suppression scope is broader than expected");
+if (!presenceSource.includes("protocol interoperability, not") || !presenceSource.includes("ClientAuth incompatible with FRITZ!OS")) fail("FRITZ!Box protocol-mandated MD5 rationale is missing");
+if (!securitySource.includes("Protocol-mandated MD5 in FRITZ!Box authentication") || !securitySource.includes("not used to store SALTA passwords")) fail("SECURITY.md does not document the scoped FRITZ!Box protocol MD5 exception");
 if (!presenceSource.includes("parseDigestChallenge") || !presenceSource.includes("digestAuthHeader")) fail("FRITZ!Box HTTP Digest compatibility fallback is missing");
 if (!serverSource.includes("FRITZBOX_AUTHENTICATION_REQUIRED") || !serverSource.includes("FRITZBOX_AUTHORIZATION_FAILED")) fail("FRITZ!Box authentication/authorization error mapping is incomplete");
 if (!serverSource.includes("FRITZBOX_TLS_CERTIFICATE") || !serverSource.includes("tlsInsecure")) fail("FRITZ!Box TLS certificate handling is incomplete");
