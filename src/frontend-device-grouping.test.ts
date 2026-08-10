@@ -17,7 +17,7 @@ describe("room-grouped device overview", () => {
 
   it("shows only room-assigned devices on the overview and removes the old status panel", () => {
     expect(htmlSource).toContain('id="overviewDeviceGrid" class="device-groups overview-device-groups"');
-    expect(htmlSource).toContain("Alle einem Raum zugeordneten Shelly-, Zigbee-, HomeMatic- und virtuellen Geräte.");
+    expect(htmlSource).toContain("Shelly-, Zigbee-, HomeMatic- und virtuelle Geräte nach Raum.");
     expect(htmlSource).not.toContain("Alles an einem Ort");
     expect(htmlSource).not.toContain('<p class="eyebrow">STATUS</p>');
     expect(hasFunction(appAst, "renderOverviewDevices")).toBe(true);

@@ -2,6 +2,13 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.25
+
+- Fixed the v0.8.24 CI regression caused by `frontend-device-grouping.test.ts` still expecting the previous longer Overview helper text.
+- Aligned the regression test with the intentional compact wording `Shelly-, Zigbee-, HomeMatic- und virtuelle Geräte nach Raum.`.
+- Kept the compact Overview header, Presence summary and room-grouped device behavior unchanged.
+- No runtime behavior, database schema, API or dependency-tree changes are included apart from the SALTA root version.
+
 ## 0.8.24
 
 - Made the upper Overview area more compact with a smaller dashboard-specific title, tighter spacing, smaller summary cards and a smaller synchronization action.
