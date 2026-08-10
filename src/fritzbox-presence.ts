@@ -119,6 +119,8 @@ function contentAuthChallenge(xml: string): ContentAuthChallenge | undefined {
 
 type SoapHttpResponse = { status: number; headers: IncomingHttpHeaders; text: string };
 
+const hostsControlUrlCache = new Map<string,{url:string;expiresAt:number}>();
+
 function headerValue(headers: IncomingHttpHeaders, name: string): string | null {
   const value = headers[name.toLowerCase()];
   return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
@@ -153,31 +155,117 @@ async function executeSoapRequest(url: string, headers: Record<string,string>, b
   });
 }
 
+async function executeDescriptionRequest(url: string, tlsInsecure: boolean): Promise<SoapHttpResponse> {
+  const target = new URL(url);
+  return new Promise((resolve,reject)=>{
+    let settled=false;
+    const onResponse=(response: IncomingMessage)=>{
+      const chunks: Buffer[]=[];
+      response.on("data",chunk=>chunks.push(Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk)));
+      response.on("end",()=>{
+        if(settled)return; settled=true; clearTimeout(timer);
+        resolve({status:response.statusCode??0,headers:response.headers,text:Buffer.concat(chunks).toString("utf8")});
+      });
+    };
+    const options={method:"GET",headers:{accept:"text/xml, application/xml;q=0.9, */*;q=0.1","user-agent":"SALTA TR-064 Client"}};
+    const request=target.protocol === "https:"
+      ? httpsRequest(target,{...options,rejectUnauthorized:!tlsInsecure},onResponse)
+      : httpRequest(target,options,onResponse);
+    const timer=setTimeout(()=>{if(settled)return;settled=true;request.destroy(new Error("FRITZBOX_TIMEOUT"));reject(new Error("FRITZBOX_TIMEOUT"));},requestTimeoutMs);
+    request.on("error",error=>{if(settled)return;settled=true;clearTimeout(timer);reject(transportError(error));});
+    request.end();
+  });
+}
+
+function hostsControlUrlFromDescription(baseUrl: string, xml: string): string | undefined {
+  const normalizedBaseUrl=normalizeFritzBoxBaseUrl(baseUrl);
+  for(const match of xml.matchAll(/<(?:(?:[A-Za-z0-9_-]+):)?service(?:\s[^>]*)?>([\s\S]*?)<\/(?:(?:[A-Za-z0-9_-]+):)?service>/gi)) {
+    const block=match[1]??"";
+    if(xmlValue(block,"serviceType")!==serviceType) continue;
+    const controlUrl=xmlValue(block,"controlURL");
+    if(!controlUrl) continue;
+    try {
+      const resolved=new URL(controlUrl,`${normalizedBaseUrl}/`);
+      const base=new URL(normalizedBaseUrl);
+      if(resolved.origin!==base.origin) return undefined;
+      return resolved.toString();
+    } catch { return undefined; }
+  }
+  return undefined;
+}
+
+async function resolveHostsControlUrl(baseUrl: string, tlsInsecure: boolean): Promise<string> {
+  const normalizedBaseUrl=normalizeFritzBoxBaseUrl(baseUrl);
+  const cacheKey=`${normalizedBaseUrl}\u0000${tlsInsecure?"insecure":"verify"}`;
+  const cached=hostsControlUrlCache.get(cacheKey);
+  if(cached&&cached.expiresAt>Date.now()) return cached.url;
+  const fallback=`${normalizedBaseUrl}/upnp/control/hosts`;
+  try {
+    const description=await executeDescriptionRequest(`${normalizedBaseUrl}/tr64desc.xml`,tlsInsecure);
+    if(description.status>=200&&description.status<300) {
+      const discovered=hostsControlUrlFromDescription(normalizedBaseUrl,description.text);
+      if(discovered) {
+        hostsControlUrlCache.set(cacheKey,{url:discovered,expiresAt:Date.now()+10*60_000});
+        return discovered;
+      }
+    }
+  } catch {
+    // Discovery is a robustness aid. Preserve compatibility with boxes that do
+    // not expose the description on the selected transport by falling back to
+    // the canonical Hosts control path. The SOAP request will report the actual
+    // transport error if the endpoint itself is not reachable.
+  }
+  hostsControlUrlCache.set(cacheKey,{url:fallback,expiresAt:Date.now()+60_000});
+  return fallback;
+}
+
 async function requestSoap(baseUrl: string, username: string, password: string, action: string, args: Record<string,string> = {}, tlsInsecure = false): Promise<string> {
-  const url = `${normalizeFritzBoxBaseUrl(baseUrl)}/upnp/control/hosts`;
+  const url = await resolveHostsControlUrl(baseUrl,tlsInsecure);
   const effectiveUsername = username.trim();
   const execute = (body: string, authorization?: string) => executeSoapRequest(url,{"content-type":"text/xml; charset=utf-8",soapaction:`"${serviceType}#${action}"`,...(authorization?{authorization}:{})},body,tlsInsecure);
-
   const normalBody = soapEnvelope(action,args);
-  let response: SoapHttpResponse;
 
-  if (effectiveUsername) {
-    // Prefer AVM's SOAP content-level authentication. It avoids depending on an
-    // unauthenticated HTTP 401 round trip and also works when FRITZ!OS answers
-    // repeated unauthenticated requests with a SOAP authentication fault.
-    response = await execute(soapEnvelope(action,args,contentAuthInitHeader(effectiveUsername)));
-    const challenge = contentAuthChallenge(response.text);
-    if (challenge) {
-      response = await execute(soapEnvelope(action,args,contentAuthClientHeader(effectiveUsername,password,challenge)));
-    } else if ((response.status===401||response.status===403)) {
-      // FRITZ!OS also supports standard HTTP Digest authentication. Keep this
-      // as a compatibility fallback for boxes that challenge at HTTP level.
-      const digestChallenge = parseDigestChallenge(headerValue(response.headers,"www-authenticate"));
-      if (digestChallenge) response = await execute(normalBody,digestAuthHeader(digestChallenge,effectiveUsername,password,"POST",url));
+  // Hosts:GetHostNumberOfEntries and Hosts:GetSpecificHostEntry require no
+  // FRITZ!Box user rights according to the current AVM/FRITZ! TR-064 Hosts
+  // specification. Always try the plain request first, even when credentials
+  // are configured. Authentication is only negotiated when the box actually
+  // asks for it. This prevents valid no-auth Hosts calls from being broken by
+  // an unnecessary InitChallenge/ClientAuth exchange.
+  let response = await execute(normalBody);
+
+  const retryWithConfiguredAuthentication = async (): Promise<boolean> => {
+    if(!effectiveUsername) return false;
+
+    const digestChallenge=parseDigestChallenge(headerValue(response.headers,"www-authenticate"));
+    if((response.status===401||response.status===403)&&digestChallenge) {
+      response=await execute(normalBody,digestAuthHeader(digestChallenge,effectiveUsername,password,"POST",url));
+      return true;
     }
-  } else {
-    response = await execute(normalBody);
-  }
+
+    let challenge=contentAuthChallenge(response.text);
+    if(!challenge) {
+      const initialFaultCode=xmlValue(response.text,"errorCode");
+      const initialFaultDescription=xmlValue(response.text,"errorDescription")??"";
+      const shouldStartContentAuth=response.status===401||response.status===403||response.status===503||(initialFaultCode==="503"&&/auth/i.test(initialFaultDescription));
+      if(shouldStartContentAuth) {
+        const initResponse=await execute(soapEnvelope(action,args,contentAuthInitHeader(effectiveUsername)));
+        challenge=contentAuthChallenge(initResponse.text);
+        if(!challenge) { response=initResponse; return true; }
+        response=await execute(soapEnvelope(action,args,contentAuthClientHeader(effectiveUsername,password,challenge)));
+        return true;
+      }
+      return false;
+    }
+
+    response=await execute(soapEnvelope(action,args,contentAuthClientHeader(effectiveUsername,password,challenge)));
+    return true;
+  };
+
+  const initialFaultCode=xmlValue(response.text,"errorCode");
+  const initialFaultDescription=xmlValue(response.text,"errorDescription")??"";
+  const initialChallenge=contentAuthChallenge(response.text);
+  const authenticationRequested=response.status===401||response.status===403||Boolean(initialChallenge)||(initialFaultCode==="503"&&/auth/i.test(initialFaultDescription));
+  if(authenticationRequested) await retryWithConfiguredAuthentication();
 
   const text = response.text;
   const faultCode = xmlValue(text,"errorCode");
@@ -246,7 +334,7 @@ export class FritzBoxPresenceAdapter {
     const signature=`${normalizedBaseUrl}\u0000${code}`;
     if(signature===this.lastConnectionErrorSignature) return;
     this.lastConnectionErrorSignature=signature;
-    this.log("error",code,"FRITZ!Box presence synchronization failed",this.connectionLogDetails(normalizedBaseUrl,tlsInsecure,{targetCount}));
+    this.log("error",code,"FRITZ!Box presence synchronization failed",this.connectionLogDetails(normalizedBaseUrl,tlsInsecure,{targetCount,errorCode:code}));
   }
 
   private logConnectionRecovery(baseUrl: string, tlsInsecure: boolean, hostCount: number): void {
@@ -264,7 +352,8 @@ export class FritzBoxPresenceAdapter {
       baseUrl:normalizeFritzBoxBaseUrl(baseUrl),
       targetId:target.id,
       targetName:target.name,
-      macAddress:target.macAddress
+      macAddress:target.macAddress,
+      errorCode:code
     });
   }
 
@@ -306,7 +395,7 @@ export class FritzBoxPresenceAdapter {
     } catch(error) {
       const code=this.errorCode(error);
       this.status={...this.status,lastTestAt:now(),lastTestSuccess:false,lastTestError:code,lastTestBaseUrl:baseUrl,lastTestHostCount:undefined};
-      this.log("error",code,"FRITZ!Box presence connection test failed",this.connectionLogDetails(baseUrl,connection.tlsInsecure,{usernameConfigured:Boolean(connection.username.trim())}));
+      this.log("error",code,"FRITZ!Box presence connection test failed",this.connectionLogDetails(baseUrl,connection.tlsInsecure,{usernameConfigured:Boolean(connection.username.trim()),errorCode:code}));
       throw error;
     }
   }

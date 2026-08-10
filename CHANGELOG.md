@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.19
+
+- Changed FRITZ!Box Hosts calls to try the rights-free SOAP request before negotiating authentication.
+- Kept HTTP Digest and SOAP content-level authentication as fallbacks only when FRITZ!OS actually requests authentication.
+- Added discovery of the Hosts `controlURL` from `/tr64desc.xml` with the canonical `/upnp/control/hosts` path as a compatibility fallback.
+- Cached the discovered Hosts control endpoint to avoid repeated description requests during normal presence polling.
+- Added the safe Presence `errorCode` to structured system-log details for easier diagnostics without exposing credentials.
+- Added regression coverage for no-auth-first Hosts calls, deferred content authentication and discovered control URLs.
+- Kept the database schema and npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.18
 
 - Added persistent System Log entries for failed FRITZ!Box Presence connection tests.

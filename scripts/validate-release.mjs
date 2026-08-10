@@ -111,6 +111,9 @@ for (const id of ["presenceSettingsForm", "presenceHouseSummary", "presenceTarge
 if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_targets") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_transport_settings")) fail("Presence persistence tables are missing");
 if (!databaseSource.includes("tls_insecure boolean NOT NULL DEFAULT false")) fail("FRITZ!Box TLS verification setting persistence is missing");
 if (!presenceSource.includes('urn:dslforum-org:service:Hosts:1') || !presenceSource.includes('GetSpecificHostEntry') || !presenceSource.includes('/upnp/control/hosts')) fail("FRITZ!Box TR-064 Hosts integration is incomplete");
+if (!presenceSource.includes('tr64desc.xml') || !presenceSource.includes('hostsControlUrlFromDescription') || !presenceSource.includes('controlURL')) fail("FRITZ!Box Hosts controlURL discovery from tr64desc.xml is missing");
+if (!presenceSource.includes('Always try the plain request first') || !presenceSource.includes('let response = await execute(normalBody)')) fail("FRITZ!Box rights-free Hosts requests must be attempted before authentication negotiation");
+if (!presenceSource.includes('errorCode:code')) fail("Presence system-log details do not expose the safe FRITZ!Box error code");
 if (!presenceSource.includes("missingSince") || !presenceSource.includes("absenceDelaySeconds")) fail("Presence absence hysteresis is missing");
 if (!presenceSource.includes("rejectUnauthorized:!tlsInsecure") || presenceSource.includes("NODE_TLS_REJECT_UNAUTHORIZED")) fail("FRITZ!Box TLS certificate bypass must be request-scoped");
 if (!presenceSource.includes("InitChallenge") || !presenceSource.includes("ClientAuth") || !presenceSource.includes("F!Box SOAP-Auth") && !presenceSource.includes("contentAuthDigest")) fail("FRITZ!Box SOAP content-level authentication is missing");
