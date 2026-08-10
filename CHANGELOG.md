@@ -2,6 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.26
+
+- Consolidated top-level SALTA widths into shared CSS layout tokens for the main page, common side columns, Settings and dialog sizes.
+- Removed the later hard-coded main-width override so the application width now has one canonical definition.
+- Reworked the device configuration dialog into a wider detail view with a compact source/type/room/status header.
+- Added a read-only device-information grid with common metadata plus Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic and virtual-device details.
+- Added copy actions for technical identifiers and retained the existing Shelly local web-interface shortcut inside the detail view.
+- Added dynamic numbering for visible device-configuration sections so source-specific hidden sections no longer create duplicate/skipped numbers.
+- Added frontend and release-validation coverage for the consolidated layout widths and richer device-detail dialog.
+- Kept database schema, APIs and npm dependencies unchanged apart from the SALTA root version.
+
 ## 0.8.25
 
 - Fixed the v0.8.24 CI regression caused by `frontend-device-grouping.test.ts` still expecting the previous longer Overview helper text.

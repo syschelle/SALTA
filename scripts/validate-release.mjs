@@ -46,9 +46,14 @@ if (!virtualFrontend.includes("api('/api/adapters/virtual/devices'")) fail("Virt
 if (!virtualFrontend.includes("deviceShellyWebButton")) fail("Shelly device web shortcut is missing from the frontend");
 if (!virtualFrontend.includes("window.open(url,'_blank','noopener,noreferrer')")) fail("Shelly web shortcut must open in an isolated new tab");
 if (!virtualFrontend.includes('title="Shelly-Weboberfläche öffnen"')) fail("Shelly web shortcut title is missing");
+if (!publicIndex.includes('id="deviceInfoGrid"') || !publicIndex.includes('id="deviceDialogMeta"') || !publicIndex.includes('class="workflow-dialog device-config-dialog"')) fail("Structured device configuration dialog is incomplete");
+if (!virtualFrontend.includes("function renderDeviceDialogInfo(d)") || !virtualFrontend.includes("function renumberDeviceConfigSections()")) fail("Device information rendering or visible-section numbering is missing");
+if (!virtualFrontend.includes("add('Sensor-Ressourcen',adapter.sensorResourceIds,{copy:true})") || !virtualFrontend.includes("add('OpenCCU-Kanalname',adapter.channelName)")) fail("Source-specific device information is incomplete");
 if (!serverSource.includes('"/api/adapters/virtual/devices"')) fail("Virtual device creation API route is missing");
 const automationFrontend = read("public/automation-ui.js");
 const publicStyles = read("public/styles.css");
+if (!publicStyles.includes("--layout-page-max:1680px") || !publicStyles.includes("--layout-side-md:380px") || !publicStyles.includes("--dialog-device-width:860px")) fail("Shared layout width tokens are missing");
+if (!publicStyles.includes(".device-config-dialog{width:min(var(--dialog-device-width),calc(100vw - 28px))}")) fail("Device configuration dialog does not use the consolidated width token");
 const automationEngineSource = read("src/automations.ts");
 const mainSource = read("src/main.ts");
 if (!publicIndex.includes('data-nav="automations"')) fail("Automations navigation is missing");
