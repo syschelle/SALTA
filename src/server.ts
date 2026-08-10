@@ -499,9 +499,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.23" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.24" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.23", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.24", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {

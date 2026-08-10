@@ -1,34 +1,38 @@
-# SALTA v0.8.23
+# SALTA v0.8.24
 
-SALTA v0.8.23 makes the automation rule overview substantially more compact and fixes the rule summary so all OR-linked trigger devices are visible instead of only the first device being shown.
+SALTA v0.8.24 makes the top of the main Overview page more compact and adds household Presence directly to the dashboard summary.
 
-## Complete OR-trigger summaries
+## More compact Overview header
 
-- Automation cards now include every configured `WHEN` / OR trigger in the rule summary.
-- Additional trigger devices are no longer hidden behind a generic `x triggers (OR)` counter.
-- Button events from the same device are grouped into one compact device entry.
-- Multiple events on the same button device remain visible, for example `Single click / Double click`.
-- Different trigger devices are separated by an explicit `OR` marker.
-- Boolean-state triggers continue to show their state and expected value.
-- The stored automation format and execution semantics are unchanged; this is a presentation fix for the existing trigger data.
+- Reduced the visual height of the Overview header while keeping the existing SALTA title, subtitle and manual synchronization action.
+- Reduced the Overview title, eyebrow and synchronization-button sizing specifically on the dashboard without changing the typography of the other SALTA pages.
+- Tightened the spacing between the Overview header, summary cards and the room/device section.
+- Reduced the summary-card padding, corner radius and number sizing so the most important dashboard information consumes less vertical space.
+- Shortened the room-section helper text while preserving its meaning.
 
-## More compact automation cards
+## Presence in the dashboard summary
 
-- Reduced card padding, vertical gaps and icon sizes in the automation overview.
-- Moved the last-event timestamp into the compact metadata row next to the active state and room badge.
-- Moved Edit and Delete into small icon actions in the card header.
-- Removed the separate `No additional condition` row when a rule has no condition.
-- A condition row is rendered only when the automation actually has an additional condition.
-- Trigger summaries use compact wrapping chips, allowing multiple devices to remain readable without forcing a tall card.
-- Reduced the spacing between automation cards.
-- Added responsive behavior for the compact trigger layout on narrow screens.
+- Added a fifth Overview summary card named **Presence** / `Anwesenheit`.
+- The card reuses SALTA's existing virtual `presence:house` / `presence-group` device; no second presence calculation or polling path is introduced.
+- When at least one configured person is present, the card shows `Zuhause` and highlights the status in green.
+- When nobody is present, the card shows `Niemand`.
+- The detail line shows the current count, for example `1 von 2 anwesend`.
+- If Presence has not been configured yet, the card remains neutral and shows `nicht eingerichtet`.
+- Presence devices remain excluded from the normal device, reachable-device and power counters, so the existing Overview metrics keep their previous meaning.
+
+## Responsive layout
+
+- The desktop dashboard uses five compact summary cards in one row when enough width is available.
+- The summary automatically drops to three columns on narrower desktop/tablet widths.
+- On small screens the summary uses two columns and the Presence card spans the full row for better readability.
+- Existing compact device cards and room grouping remain unchanged.
 
 ## Regression coverage
 
-- Added a runtime frontend regression test proving that trigger events from the same device are grouped while different OR-trigger devices remain visible.
-- Added frontend checks for the compact card controls and trigger list.
-- Extended release validation so a future release cannot silently revert to showing only the primary trigger device.
-- Extended release validation so the redundant empty-condition row and the old large-card layout are not reintroduced accidentally.
+- Added dedicated frontend regression coverage for the compact Overview header and five-card summary.
+- Added checks that the Presence summary is sourced from the existing `presence:house` / `presence-group` device.
+- Added checks that Presence devices stay excluded from the existing device/reachability/power counters.
+- Extended release validation so the compact Overview layout and Presence summary cannot disappear silently in a future release.
 
 ## Compatibility
 
@@ -36,13 +40,13 @@ SALTA v0.8.23 makes the automation rule overview substantially more compact and 
 - No new database table is required.
 - No fresh PostgreSQL volume is required.
 - No new environment variable is required.
-- No automation API or persistence format is changed.
-- Existing automation rules and OR triggers remain compatible.
-- Existing FRITZ!Box Presence, Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device and HomeKit functionality remains unchanged.
+- No API or Presence persistence format is changed.
+- Existing FRITZ!Box Presence targets and automations remain compatible.
+- Existing Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device, automation and HomeKit functionality remains unchanged.
 
 ## Security and dependencies
 
-- No production or development npm dependency was added or intentionally changed in v0.8.23.
+- No production or development npm dependency was added or intentionally changed in v0.8.24.
 - The locked dependency tree remains unchanged apart from the SALTA root version.
 - Retains the patched `fast-uri` dependency versions introduced in v0.8.21.
 - Retains PostCSS `8.5.23` in the development dependency tree.
@@ -52,7 +56,7 @@ SALTA v0.8.23 makes the automation rule overview substantially more compact and 
 ## Container tags
 
 ```text
-0.8.23
+0.8.24
 0.8
 latest
 ```
@@ -60,5 +64,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.23
+v0.8.24
 ```

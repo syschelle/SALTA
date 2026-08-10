@@ -17,6 +17,7 @@ const requiredReleaseFiles = [
   "src/phoscon-core.ts",
   "src/fritzbox-presence.ts",
   "src/frontend-presence.test.ts",
+  "src/frontend-overview-summary.test.ts",
   "public/automation-ui.js",
 ];
 for (const file of requiredReleaseFiles) {
@@ -149,6 +150,9 @@ if (!presenceSource.includes('"FRITZBOX_PRESENCE_RECOVERED"') || !presenceSource
 if (!virtualFrontend.includes("Verbindung noch nicht geprüft") || !virtualFrontend.includes("FRITZ!Box erreichbar") || !virtualFrontend.includes("loadPresence({applySettings:false})")) fail("FRITZ!Box connection test result is not rendered independently of presence activation");
 if (!virtualFrontend.includes("presenceSettingsDirty=false") || !virtualFrontend.includes("if(applySettings&&!presenceSettingsDirty)applyPresenceSettingsToForm()") || !virtualFrontend.includes("presenceSettingsForm.addEventListener('input',()=>{presenceSettingsDirty=true})")) fail("Presence settings refresh can overwrite unsaved credentials");
 if (!presenceSource.includes('name:"Hauspräsenz"') || !presenceSource.includes("nobodyHome") || !presenceSource.includes("presentCount")) fail("House presence aggregation is missing");
+if (!publicIndex.includes('class="overview-header"') || !publicIndex.includes('class="stats overview-stats"') || !publicIndex.includes('id="overviewPresenceCard"')) fail("Compact overview summary with Presence is missing");
+if (!virtualFrontend.includes("device.id==='presence:house'") || !virtualFrontend.includes("device.profile==='presence-group'") || !virtualFrontend.includes("presenceValue.textContent=anyHome?'Zuhause':'Niemand'")) fail("Overview house-presence summary is not wired to the existing presence-group device");
+if (!publicStyles.includes('.overview-stats{grid-template-columns:repeat(5,minmax(0,1fr))') || !publicStyles.includes('.overview-heading h1{font-size:28px') || !publicStyles.includes('.overview-presence-stat.home')) fail("Compact overview header/stat styling is missing");
 for (const route of ['/api/presence', '/api/presence/settings', '/api/presence/test', '/api/presence/devices', '/api/presence/refresh']) {
   if (!serverSource.includes(route)) fail(`Presence API route is missing: ${route}`);
 }

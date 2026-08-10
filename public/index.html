@@ -33,18 +33,24 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.23</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.24</strong></div>
   </div>
 </aside>
 
 <main>
   <section class="page" data-page="overview" aria-labelledby="overview-title">
-    <header>
-      <div><p class="eyebrow">SMART-HOME ABSTRACTION & LOCAL TRANSPORT</p><h1 id="overview-title">Dein Zuhause. Lokal.</h1><p class="muted">Alle Systeme auf einen Blick – ohne Cloud-Zwang.</p></div>
-      <button onclick="reconcile()"><span class="mdi mdi-sync" aria-hidden="true"></span>Synchronisieren</button>
+    <header class="overview-header">
+      <div class="overview-heading"><p class="eyebrow">SMART-HOME ABSTRACTION & LOCAL TRANSPORT</p><h1 id="overview-title">Dein Zuhause. Lokal.</h1><p class="muted">Alle Systeme auf einen Blick – ohne Cloud-Zwang.</p></div>
+      <button class="overview-sync-button" onclick="reconcile()"><span class="mdi mdi-sync" aria-hidden="true"></span>Synchronisieren</button>
     </header>
-    <section class="stats"><article><span>Geräte</span><strong id="deviceCount">–</strong><small>registriert</small></article><article><span>Erreichbar</span><strong id="reachableCount">–</strong><small>online</small></article><article><span>Aktuelle Leistung</span><strong id="power">–</strong><small>Watt</small></article><article><span>Räume</span><strong id="roomCount">–</strong><small>konfiguriert</small></article></section>
-    <section class="section-head overview-section-head"><div><h2>Geräte nach Räumen</h2><p class="muted">Alle einem Raum zugeordneten Shelly-, Zigbee-, HomeMatic- und virtuellen Geräte.</p></div></section>
+    <section class="stats overview-stats">
+      <article><span>Geräte</span><strong id="deviceCount">–</strong><small>registriert</small></article>
+      <article><span>Erreichbar</span><strong id="reachableCount">–</strong><small>online</small></article>
+      <article><span>Aktuelle Leistung</span><strong id="power">–</strong><small>Watt</small></article>
+      <article><span>Räume</span><strong id="roomCount">–</strong><small>konfiguriert</small></article>
+      <article id="overviewPresenceCard" class="overview-presence-stat"><span>Anwesenheit</span><strong id="overviewPresence">–</strong><small id="overviewPresenceDetail">nicht eingerichtet</small></article>
+    </section>
+    <section class="section-head overview-section-head"><div><h2>Geräte nach Räumen</h2><p class="muted">Shelly-, Zigbee-, HomeMatic- und virtuelle Geräte nach Raum.</p></div></section>
     <section id="overviewDeviceGrid" class="device-groups overview-device-groups"></section>
   </section>
 

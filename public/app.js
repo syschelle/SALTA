@@ -89,6 +89,26 @@ function updateDashboardSummary(){
   roomCount.textContent=rooms.length;
   const currentPower=dashboardDevices.filter(device=>device.reachable).reduce((sum,device)=>sum+Number(device.state?.totalPower??device.state?.power??0),0);
   power.textContent=dashboardDevices.some(device=>device.state?.totalPower!==undefined||device.state?.power!==undefined)?String(Math.round(currentPower)):'–';
+
+  const housePresence=all.find(device=>device.id==='presence:house'||(device.source==='presence'&&device.profile==='presence-group'));
+  const presenceCard=document.getElementById('overviewPresenceCard');
+  const presenceValue=document.getElementById('overviewPresence');
+  const presenceDetail=document.getElementById('overviewPresenceDetail');
+  if(!presenceCard||!presenceValue||!presenceDetail)return;
+  presenceCard.classList.remove('home','away','unconfigured');
+  if(!housePresence){
+    presenceCard.classList.add('unconfigured');
+    presenceValue.textContent='–';
+    presenceDetail.textContent='nicht eingerichtet';
+    return;
+  }
+  const count=Math.max(0,Number(housePresence.state?.presentCount)||0);
+  const members=Math.max(0,Number(housePresence.adapterData?.memberCount)||0);
+  const anyHome=Boolean(housePresence.state?.anyHome??housePresence.state?.present);
+  presenceCard.classList.add(anyHome?'home':'away');
+  presenceValue.textContent=anyHome?'Zuhause':'Niemand';
+  presenceDetail.textContent=members?`${count} von ${members} anwesend`:'keine Personen konfiguriert';
+  presenceCard.title=members?`${count} von ${members} ${members===1?'Person':'Personen'} anwesend`:'Noch keine Person für die Präsenzerkennung konfiguriert';
 }
 async function load(){
   try{

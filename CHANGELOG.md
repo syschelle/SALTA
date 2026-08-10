@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.24
+
+- Made the upper Overview area more compact with a smaller dashboard-specific title, tighter spacing, smaller summary cards and a smaller synchronization action.
+- Added a fifth `Anwesenheit` summary card based on the existing virtual `presence:house` / `presence-group` device.
+- Shows `Zuhause` or `Niemand` plus the current `x von y anwesend` count without introducing any second Presence polling path.
+- Keeps Presence devices excluded from the existing device, reachability and power counters so those metrics retain their previous meaning.
+- Added responsive five/three/two-column summary behavior, with the Presence card spanning the mobile row.
+- Added dedicated frontend regression coverage and release-validation guards for the compact Overview and Presence summary.
+- Kept the database schema, APIs and npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.23
 
 - Made automation rule cards substantially more compact by reducing padding/gaps, moving edit/delete into header icon actions and placing the last-event timestamp in the metadata row.
