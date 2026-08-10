@@ -1,40 +1,27 @@
-# SALTA v0.8.20
+# SALTA v0.8.21
 
-SALTA v0.8.20 fixes FRITZ!Box TR-064 SOAP requests being rejected with HTTP 411 `Length Required` on FRITZ!OS versions that require an explicit request body length.
+SALTA v0.8.21 is a dependency-security release that updates vulnerable transitive `fast-uri` and PostCSS packages detected by GitHub Dependabot.
 
-## FRITZ!Box HTTP 411 fix
+## fast-uri security updates
 
-- Added an explicit `Content-Length` header to every FRITZ!Box TR-064 SOAP POST request.
-- The header is calculated with the actual UTF-8 byte length of the XML body using `Buffer.byteLength(...)`.
-- This prevents Node.js from falling back to `Transfer-Encoding: chunked` for the SOAP body.
-- FRITZ!Box models or FRITZ!OS versions that reject chunked TR-064 SOAP requests with HTTP 411 can now process the request normally.
-- The fix applies to all Presence SOAP requests, including:
-  - `GetHostNumberOfEntries`
-  - `GetSpecificHostEntry`
-  - HTTP Digest retries
-  - SOAP `InitChallenge` requests
-  - SOAP `ClientAuth` requests
+- Updated the Fastify/AJV `fast-uri` 3.x dependency from `3.1.4` to `3.1.5`.
+- Updated the `fast-json-stringify` nested `fast-uri` 4.x dependency from `4.1.1` to `4.1.2`.
+- These versions remediate GHSA-7p8r-x3mc-p8w7 / CVE-2026-18446, a high-severity host-confusion issue involving backslash authority introducers.
+- Both vulnerable copies present in the v0.8.20 `package-lock.json` are replaced by patched releases.
+- No SALTA source-code behavior or Fastify API is changed by this patch-level dependency update.
 
-## TR-064 request compatibility
+## PostCSS security update
 
-- Added the `SALTA TR-064 Client` user agent to SOAP POST requests.
-- Added an explicit `Connection: close` header to keep the request framing deterministic and compatible with the FRITZ! TR-064 examples.
-- Existing discovery of the Hosts `controlURL` from `/tr64desc.xml` remains unchanged.
-- Existing HTTP Digest and SOAP content-level authentication fallbacks remain unchanged.
-- Existing HTTPS/self-signed-certificate handling remains request-scoped to the FRITZ!Box adapter.
+- Updated development-only PostCSS from `8.5.20` to `8.5.23` through the existing `vitest -> vite -> postcss` dependency path.
+- This remediates GHSA-fxqj-rqcc-2cmp / CVE-2026-69153, the follow-up advisory for incomplete protection against attacker-controlled `sourceMappingURL` file reads when `from` is unset.
+- PostCSS remains a development-only dependency in SALTA and is not added to the production dependency set.
 
-## Diagnostics
+## Dependency and release validation
 
-- Added a dedicated German UI message for `FRITZBOX_HTTP_411` instead of showing only the generic Presence failure text.
-- The API now also returns a dedicated diagnostic message when a FRITZ!Box responds with HTTP 411.
-- Presence failures continue to be persisted under the `presence` source in the SALTA System Log without exposing credentials.
-
-## Regression coverage
-
-- Added a transport regression test that verifies every SOAP request carries a non-zero `Content-Length` header.
-- The test verifies that the header matches the exact UTF-8 byte length of the transmitted XML body.
-- The test also verifies that the SOAP request is not sent with `Transfer-Encoding: chunked`.
-- Release validation now requires the explicit FRITZ!Box SOAP `Content-Length` implementation so this compatibility fix cannot be removed accidentally.
+- All direct SALTA dependency ranges remain unchanged.
+- Only transitive lockfile package versions, tarball URLs and integrity hashes required for the security fixes were updated.
+- Added release-validation checks that reject known-vulnerable `fast-uri` 2.x/3.x/4.x versions and PostCSS releases below `8.5.23` if they are reintroduced into the lockfile.
+- Existing `find-my-way` `9.7.0` and `@homebridge/dbus-native` `0.7.7` security/consistency pins remain unchanged.
 
 ## Compatibility
 
@@ -42,24 +29,13 @@ SALTA v0.8.20 fixes FRITZ!Box TR-064 SOAP requests being rejected with HTTP 411 
 - No new database table is required.
 - No fresh PostgreSQL volume is required.
 - No new environment variable is required.
-- Existing FRITZ!Box credentials, transport settings, Presence targets and automations remain compatible.
-- Existing Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device and HomeKit functionality remains unchanged.
-
-## Security and dependencies
-
-- FRITZ!Box passwords remain encrypted at rest and are never returned to the browser.
-- HTTPS certificate verification remains enabled by default.
-- The optional certificate-verification bypass remains scoped only to FRITZ!Box HTTPS requests.
-- SALTA does not set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
-- No production npm dependency was added or intentionally changed in v0.8.20.
-- The locked dependency tree remains unchanged apart from the SALTA root version.
-- Retains `find-my-way` 9.7.0.
-- Retains `@homebridge/dbus-native` 0.7.7.
+- No API or UI behavior changes are included.
+- Existing FRITZ!Box Presence, Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device, automation and HomeKit functionality remains unchanged.
 
 ## Container tags
 
 ```text
-0.8.20
+0.8.21
 0.8
 latest
 ```
@@ -67,5 +43,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.20
+v0.8.21
 ```

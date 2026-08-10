@@ -1,4 +1,4 @@
-# SALTA v0.8.20 – Git and Release Commands
+# SALTA v0.8.21 – Git and Release Commands
 
 ## Commit and push main
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(presence): send Content-Length for FRITZ!Box SOAP"
+git commit -m "fix(deps): patch fast-uri and postcss vulnerabilities"
 git push origin main
 ```
 
@@ -17,8 +17,8 @@ Wait for the GitHub CI workflow on `main` to be green.
 ## Tag
 
 ```bash
-git tag -a v0.8.20 -m "SALTA v0.8.20"
-git push origin v0.8.20
+git tag -a v0.8.21 -m "SALTA v0.8.21"
+git push origin v0.8.21
 ```
 
 ## Production update
@@ -26,7 +26,7 @@ git push origin v0.8.20
 If `.env` pins a versioned image, set:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.20
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.21
 ```
 
 Then update the deployment:

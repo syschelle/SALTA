@@ -2,6 +2,15 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.21
+
+- Updated transitive `fast-uri` 3.x from `3.1.4` to `3.1.5` to remediate GHSA-7p8r-x3mc-p8w7 / CVE-2026-18446.
+- Updated the nested `fast-uri` 4.x copy from `4.1.1` to `4.1.2` for the same host-confusion fix.
+- Updated development-only `postcss` from `8.5.20` to `8.5.23` to remediate GHSA-fxqj-rqcc-2cmp / CVE-2026-69153.
+- Kept all direct SALTA dependency ranges unchanged; only patched transitive lockfile versions were selected.
+- Added release validation guards preventing reintroduction of the known-vulnerable `fast-uri` and PostCSS versions.
+- No database, API or runtime feature changes are included in this security-only release.
+
 ## 0.8.20
 
 - Fixed FRITZ!Box TR-064 SOAP requests being rejected with HTTP 411 `Length Required` by adding an explicit UTF-8 `Content-Length` header.

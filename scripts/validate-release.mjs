@@ -211,6 +211,37 @@ for (const [path, entry] of Object.entries(packageLock.packages ?? {})) {
   }
 }
 
+const parseNumericVersion = (value) => {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(value ?? ""));
+  return match ? match.slice(1).map(Number) : null;
+};
+const versionAtLeast = (value, minimum) => {
+  const actual = parseNumericVersion(value);
+  const floor = parseNumericVersion(minimum);
+  if (!actual || !floor) return false;
+  for (let i = 0; i < 3; i += 1) {
+    if (actual[i] > floor[i]) return true;
+    if (actual[i] < floor[i]) return false;
+  }
+  return true;
+};
+
+for (const [path, entry] of Object.entries(packageLock.packages ?? {})) {
+  if (!(path === "node_modules/fast-uri" || path.endsWith("/node_modules/fast-uri"))) continue;
+  const major = parseNumericVersion(entry?.version)?.[0];
+  const minimum = major === 2 ? "2.4.4" : major === 3 ? "3.1.5" : major === 4 ? "4.1.2" : null;
+  if (minimum && !versionAtLeast(entry?.version, minimum)) {
+    fail(`${path} resolves to vulnerable fast-uri ${entry?.version}; expected at least ${minimum}`);
+  }
+}
+for (const [path, entry] of Object.entries(packageLock.packages ?? {})) {
+  if (!(path === "node_modules/postcss" || path.endsWith("/node_modules/postcss"))) continue;
+  const parsed = parseNumericVersion(entry?.version);
+  if (parsed?.[0] === 8 && parsed?.[1] === 5 && !versionAtLeast(entry?.version, "8.5.23")) {
+    fail(`${path} resolves to vulnerable postcss ${entry?.version}; expected at least 8.5.23`);
+  }
+}
+
 const exactOverrides = {
   "find-my-way": "9.7.0",
   "@homebridge/dbus-native": "0.7.7",
