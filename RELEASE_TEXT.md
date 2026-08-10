@@ -1,42 +1,40 @@
-# SALTA v0.8.19
+# SALTA v0.8.20
 
-SALTA v0.8.19 fixes the FRITZ!Box Presence connection flow by following the current FRITZ! TR-064 Hosts service requirements more closely and by making the actual Hosts control endpoint discoverable from `tr64desc.xml`.
+SALTA v0.8.20 fixes FRITZ!Box TR-064 SOAP requests being rejected with HTTP 411 `Length Required` on FRITZ!OS versions that require an explicit request body length.
 
-## FRITZ!Box Hosts requests no longer authenticate unnecessarily
+## FRITZ!Box HTTP 411 fix
 
-- `Hosts:GetHostNumberOfEntries` and `Hosts:GetSpecificHostEntry` are now attempted without authentication first.
-- This matches the current FRITZ! TR-064 Hosts specification, where both actions require no user rights.
-- A configured FRITZ!Box username no longer forces SALTA to send an `InitChallenge` / `ClientAuth` exchange for a Hosts action that the FRITZ!Box already permits anonymously on the local TR-064 interface.
-- This prevents a configured or stale credential from breaking an otherwise valid Presence connection.
-- HTTP Digest and SOAP content-level authentication remain available and are used only when the FRITZ!Box actually requests authentication.
+- Added an explicit `Content-Length` header to every FRITZ!Box TR-064 SOAP POST request.
+- The header is calculated with the actual UTF-8 byte length of the XML body using `Buffer.byteLength(...)`.
+- This prevents Node.js from falling back to `Transfer-Encoding: chunked` for the SOAP body.
+- FRITZ!Box models or FRITZ!OS versions that reject chunked TR-064 SOAP requests with HTTP 411 can now process the request normally.
+- The fix applies to all Presence SOAP requests, including:
+  - `GetHostNumberOfEntries`
+  - `GetSpecificHostEntry`
+  - HTTP Digest retries
+  - SOAP `InitChallenge` requests
+  - SOAP `ClientAuth` requests
 
-## TR-064 service discovery
+## TR-064 request compatibility
 
-- SALTA now reads `/tr64desc.xml` on the configured HTTP/HTTPS endpoint and looks up the advertised `urn:dslforum-org:service:Hosts:1` service.
-- The `controlURL` published by the FRITZ!Box is used for Hosts SOAP actions when available.
-- The canonical `/upnp/control/hosts` path remains as a compatibility fallback if the service description cannot be read or does not expose a usable same-origin Hosts control URL.
-- The discovered control URL is cached to avoid fetching the service description for every presence poll and every MAC-address query.
+- Added the `SALTA TR-064 Client` user agent to SOAP POST requests.
+- Added an explicit `Connection: close` header to keep the request framing deterministic and compatible with the FRITZ! TR-064 examples.
+- Existing discovery of the Hosts `controlURL` from `/tr64desc.xml` remains unchanged.
+- Existing HTTP Digest and SOAP content-level authentication fallbacks remain unchanged.
+- Existing HTTPS/self-signed-certificate handling remains request-scoped to the FRITZ!Box adapter.
 
-## Authentication fallback behavior
+## Diagnostics
 
-- SALTA first sends the normal Hosts SOAP action without credentials.
-- If the FRITZ!Box returns an HTTP Digest challenge, SALTA retries with HTTP Digest using the configured credentials.
-- If the FRITZ!Box requests SOAP content-level authentication, SALTA performs the documented `InitChallenge` / `Challenge` / `ClientAuth` flow.
-- A `503 / Auth. failed` response can initiate the content-authentication flow when credentials are configured.
-- Authentication failures continue to map to the existing dedicated SALTA Presence error codes.
-
-## Better Presence diagnostics
-
-- Failed manual connection tests now repeat the safe SALTA FRITZ!Box error code inside the structured system-log details as `errorCode`.
-- Scheduled Presence synchronization errors and individual device-query errors also include the safe error code in their detail payload.
-- FRITZ!Box passwords are still never written to the system log.
+- Added a dedicated German UI message for `FRITZBOX_HTTP_411` instead of showing only the generic Presence failure text.
+- The API now also returns a dedicated diagnostic message when a FRITZ!Box responds with HTTP 411.
+- Presence failures continue to be persisted under the `presence` source in the SALTA System Log without exposing credentials.
 
 ## Regression coverage
 
-- Added coverage proving that configured credentials do not cause authentication to be sent for a successful rights-free Hosts request.
-- Added coverage for deferred SOAP content-level authentication after the FRITZ!Box actually requests it.
-- Added coverage for discovering and using a non-default Hosts `controlURL` from `tr64desc.xml`.
-- Retained HTTP Digest compatibility coverage and request-scoped TLS certificate handling checks.
+- Added a transport regression test that verifies every SOAP request carries a non-zero `Content-Length` header.
+- The test verifies that the header matches the exact UTF-8 byte length of the transmitted XML body.
+- The test also verifies that the SOAP request is not sent with `Transfer-Encoding: chunked`.
+- Release validation now requires the explicit FRITZ!Box SOAP `Content-Length` implementation so this compatibility fix cannot be removed accidentally.
 
 ## Compatibility
 
@@ -44,8 +42,7 @@ SALTA v0.8.19 fixes the FRITZ!Box Presence connection flow by following the curr
 - No new database table is required.
 - No fresh PostgreSQL volume is required.
 - No new environment variable is required.
-- Existing FRITZ!Box credentials and Presence targets remain compatible.
-- Existing Presence automations remain unchanged.
+- Existing FRITZ!Box credentials, transport settings, Presence targets and automations remain compatible.
 - Existing Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device and HomeKit functionality remains unchanged.
 
 ## Security and dependencies
@@ -54,7 +51,7 @@ SALTA v0.8.19 fixes the FRITZ!Box Presence connection flow by following the curr
 - HTTPS certificate verification remains enabled by default.
 - The optional certificate-verification bypass remains scoped only to FRITZ!Box HTTPS requests.
 - SALTA does not set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
-- No production npm dependency was added or intentionally changed in v0.8.19.
+- No production npm dependency was added or intentionally changed in v0.8.20.
 - The locked dependency tree remains unchanged apart from the SALTA root version.
 - Retains `find-my-way` 9.7.0.
 - Retains `@homebridge/dbus-native` 0.7.7.
@@ -62,7 +59,7 @@ SALTA v0.8.19 fixes the FRITZ!Box Presence connection flow by following the curr
 ## Container tags
 
 ```text
-0.8.19
+0.8.20
 0.8
 latest
 ```
@@ -70,5 +67,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.19
+v0.8.20
 ```

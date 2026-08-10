@@ -57,6 +57,24 @@ describe("FRITZ!Box presence transport", () => {
     expect(() => normalizePresenceMac("not-a-mac")).toThrow("PRESENCE_MAC_INVALID");
   });
 
+  it("sends SOAP bodies with an explicit UTF-8 Content-Length instead of chunked transfer encoding", async () => {
+    let contentLength = "";
+    let transferEncoding = "";
+    let receivedBody = "";
+    const baseUrl = await localServer(async (request, response) => {
+      contentLength = String(request.headers["content-length"] ?? "");
+      transferEncoding = String(request.headers["transfer-encoding"] ?? "");
+      receivedBody = await requestBody(request);
+      response.writeHead(200, { "content-type": "text/xml" });
+      response.end(soap("<u:GetHostNumberOfEntriesResponse><NewHostNumberOfEntries>4</NewHostNumberOfEntries></u:GetHostNumberOfEntriesResponse>"));
+    });
+
+    await expect(fritzBoxHostCount(baseUrl)).resolves.toBe(4);
+    expect(contentLength).toBe(String(Buffer.byteLength(receivedBody, "utf8")));
+    expect(Number(contentLength)).toBeGreaterThan(0);
+    expect(transferEncoding).toBe("");
+  });
+
   it("reads the FRITZ!Box host count from the Hosts service", async () => {
     let soapAction = "";
     const baseUrl = await localServer((request, response) => {

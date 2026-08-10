@@ -136,6 +136,17 @@ function transportError(error: unknown): Error {
 
 async function executeSoapRequest(url: string, headers: Record<string,string>, body: string, tlsInsecure: boolean): Promise<SoapHttpResponse> {
   const target = new URL(url);
+  // FRITZ!OS TR-064 SOAP endpoints expect a concrete Content-Length. Without
+  // it Node.js sends the request body with Transfer-Encoding: chunked, which
+  // some FRITZ!OS versions reject with HTTP 411 (Length Required). Calculate
+  // the byte length of the UTF-8 XML payload explicitly for every SOAP retry,
+  // including Digest and content-level authentication requests.
+  const requestHeaders: Record<string,string> = {
+    ...headers,
+    "content-length": String(Buffer.byteLength(body,"utf8")),
+    "user-agent": "SALTA TR-064 Client",
+    connection: "close"
+  };
   return new Promise((resolve,reject)=>{
     let settled=false;
     const onResponse=(response: IncomingMessage)=>{
@@ -147,8 +158,8 @@ async function executeSoapRequest(url: string, headers: Record<string,string>, b
       });
     };
     const request=target.protocol === "https:"
-      ? httpsRequest(target,{method:"POST",headers,rejectUnauthorized:!tlsInsecure},onResponse)
-      : httpRequest(target,{method:"POST",headers},onResponse);
+      ? httpsRequest(target,{method:"POST",headers:requestHeaders,rejectUnauthorized:!tlsInsecure},onResponse)
+      : httpRequest(target,{method:"POST",headers:requestHeaders},onResponse);
     const timer=setTimeout(()=>{if(settled)return;settled=true;request.destroy(new Error("FRITZBOX_TIMEOUT"));reject(new Error("FRITZBOX_TIMEOUT"));},requestTimeoutMs);
     request.on("error",error=>{if(settled)return;settled=true;clearTimeout(timer);reject(transportError(error));});
     request.write(body); request.end();

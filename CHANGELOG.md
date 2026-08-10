@@ -2,6 +2,17 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.20
+
+- Fixed FRITZ!Box TR-064 SOAP requests being rejected with HTTP 411 `Length Required` by adding an explicit UTF-8 `Content-Length` header.
+- Prevented Node.js from using chunked transfer encoding for FRITZ!Box SOAP POST bodies.
+- Applied the framing fix to normal Hosts calls, HTTP Digest retries and SOAP content-level authentication requests.
+- Added a SALTA TR-064 user agent and explicit connection framing aligned with FRITZ! TR-064 request examples.
+- Added dedicated HTTP 411 diagnostics to the Presence UI and API.
+- Added regression coverage for exact SOAP body length and absence of `Transfer-Encoding: chunked`.
+- Extended release validation so explicit SOAP `Content-Length` handling cannot be removed accidentally.
+- Kept the database schema and npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.19
 
 - Changed FRITZ!Box Hosts calls to try the rights-free SOAP request before negotiating authentication.

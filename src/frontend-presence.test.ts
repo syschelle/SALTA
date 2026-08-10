@@ -33,6 +33,7 @@ describe("presence page", () => {
     expect(app).toContain("FRITZBOX_TLS_CERTIFICATE");
     expect(app).toContain("FRITZBOX_AUTHENTICATION_REQUIRED");
     expect(app).toContain("FRITZBOX_AUTHENTICATION_FAILED");
+    expect(app).toContain("FRITZBOX_HTTP_411");
     expect(app).toContain("FRITZBOX_AUTHORIZATION_FAILED");
     expect(app).toContain("TR-064 erreichbar · Anmeldung fehlgeschlagen");
     expect(app).toContain("FRITZ!Box erreichbar");
