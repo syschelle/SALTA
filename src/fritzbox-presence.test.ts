@@ -9,6 +9,7 @@ vi.mock("./db.js", () => ({
 }));
 
 import { FritzBoxPresenceAdapter, fritzBoxHostByMac, fritzBoxHostCount, normalizeFritzBoxBaseUrl, normalizePresenceMac } from "./fritzbox-presence.js";
+import { writeSystemLog } from "./db.js";
 import type { DeviceRegistry } from "./registry.js";
 
 const soap = (body: string) => `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>${body}</s:Body></s:Envelope>`;
@@ -34,6 +35,7 @@ async function requestBody(request: IncomingMessage): Promise<string> {
 
 afterEach(async () => {
   await Promise.all(servers.splice(0).map(server => new Promise<void>(resolve => server.close(() => resolve()))));
+  vi.clearAllMocks();
 });
 
 describe("FRITZ!Box presence transport", () => {
@@ -80,6 +82,24 @@ describe("FRITZ!Box presence transport", () => {
     await expect(adapter.testConnection({baseUrl,username:"",password:"",tlsInsecure:false})).rejects.toThrow("FRITZBOX_HTTP_503");
     expect(adapter.getStatus()).toMatchObject({lastTestSuccess:false,lastTestError:"FRITZBOX_HTTP_503",lastTestBaseUrl:baseUrl});
     expect(adapter.getStatus().lastTestAt).toBeTruthy();
+  });
+
+  it("writes failed manual presence connection tests to the persistent system log without credentials", async () => {
+    const baseUrl = await localServer((_request, response) => {
+      response.writeHead(503, { "content-type": "text/xml" });
+      response.end(soap("<u:Fault></u:Fault>"));
+    });
+    const adapter = new FritzBoxPresenceAdapter({} as DeviceRegistry);
+    await expect(adapter.testConnection({baseUrl,username:"salta",password:"super-secret",tlsInsecure:false})).rejects.toThrow();
+    expect(vi.mocked(writeSystemLog)).toHaveBeenCalledWith(
+      "error",
+      "presence",
+      expect.any(String),
+      "FRITZ!Box presence connection test failed",
+      expect.objectContaining({baseUrl,usernameConfigured:true,tlsCertificateVerificationDisabled:false})
+    );
+    const details = vi.mocked(writeSystemLog).mock.calls.at(-1)?.[4] ?? {};
+    expect(JSON.stringify(details)).not.toContain("super-secret");
   });
 
   it("queries a known MAC with GetSpecificHostEntry", async () => {

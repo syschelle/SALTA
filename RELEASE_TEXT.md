@@ -1,50 +1,54 @@
-# SALTA v0.8.17
+# SALTA v0.8.18
 
-SALTA v0.8.17 improves FRITZ!Box TR-064 authentication for Wi-Fi presence detection and makes authentication failures visible as clear, actionable connection errors.
+SALTA v0.8.18 adds persistent system-log coverage for FRITZ!Box presence failures and recoveries, making presence diagnostics available outside the transient Presence-page status.
 
-## FRITZ!Box TR-064 authentication
+## Presence errors in the system log
 
-- Added AVM SOAP content-level authentication for protected TR-064 actions.
-- SALTA now performs the documented `InitChallenge` / `Challenge` / `ClientAuth` exchange when a FRITZ!Box username is configured.
-- The response digest is calculated from the configured username, the FRITZ!Box `F!Box SOAP-Auth` realm, password and server nonce.
-- The authenticated SOAP request is used for both `GetHostNumberOfEntries` and `GetSpecificHostEntry`.
-- Standard HTTP Digest authentication remains available as a compatibility fallback for FRITZ!Box models or configurations that challenge at HTTP level.
-- No MAC address is required for the **Connection test**; the test still validates the `Hosts:1` service using `GetHostNumberOfEntries`.
+- Failed manual **Connection test** requests are now written to the persistent SALTA system log with source `presence`.
+- Automatic FRITZ!Box/TR-064 synchronization failures are logged as errors.
+- Individual MAC-address query failures are logged as warnings with the affected presence target.
+- Authentication, authorization, TLS certificate, timeout, unreachable-host and unexpected TR-064 response codes are retained in the log entry.
+- The Presence page already has its own `presence` source filter in the System Log, so these events can be isolated directly.
+- A failed Presence connection status now provides a direct **Open system log** link.
 
-## Better authentication error handling
+## Recovery logging and log-noise protection
 
-- SOAP authentication fault `503 / Auth. failed` is now recognized as an authentication result instead of a generic TR-064 failure.
-- Added a dedicated **Authentication required** result when the Hosts service needs credentials but no usable username is configured.
-- Added a dedicated **Authentication failed** result when the configured username or password is rejected.
-- Added a dedicated **Authorization failed** result when login succeeds but the FRITZ!Box user does not have the required TR-064 permissions.
-- The Presence page now explains these states directly in the FRITZ!Box connection card.
+- SALTA records an informational recovery event when the FRITZ!Box presence connection becomes healthy again after a synchronization failure.
+- SALTA records an informational recovery event when an individual presence target becomes queryable again.
+- Repeated identical scheduled connection errors are deduplicated until the error changes or the connection recovers.
+- Repeated identical per-device query errors are deduplicated per presence target until the device query recovers or the error changes.
+- Explicit manual connection tests remain individually logged because each test is a user-initiated diagnostic action.
 
-## Compatibility and reliability
+## Safe diagnostic details
 
-- HTTP and HTTPS transport selection remains unchanged.
-- Ports `49000` and `49443` remain independently selectable.
-- The explicit self-signed-certificate option remains scoped only to FRITZ!Box HTTPS requests.
-- Existing encrypted FRITZ!Box credentials remain compatible.
-- Existing presence targets, absence delays and automations remain unchanged.
-- Fixed a duplicated presence-device initialization statement that had accidentally remained in the previous source tree.
+- Presence log entries may include the TR-064 endpoint, target name, target ID, MAC address, host count and whether the explicit TLS-certificate bypass is active.
+- FRITZ!Box passwords are never written to the system log.
+- The configured password is never included in diagnostic detail objects.
+- The connection-test log stores only whether a username was configured, not the password.
+
+## Presence adapter reliability
+
+- Cleans the stored per-target error state after a successful device query so the card reflects recovery correctly.
+- Removes stale per-target error-deduplication state when a monitored presence target is deleted.
+- Removed an accidental duplicate `reload()` declaration from the Presence adapter source.
+- Existing presence hysteresis and last-known-state behavior remain unchanged: a FRITZ!Box outage does not automatically mark everyone as absent.
+
+## Compatibility
+
 - No database migration is required.
 - No new database table is required.
 - No fresh PostgreSQL volume is required.
 - No new environment variable is required.
-
-## Tests
-
-- Added a transport test for AVM SOAP content-level authentication.
-- The test verifies the official AVM example digest value for `admin`, realm `F!Box SOAP-Auth` and the documented nonce.
-- Added coverage for rejected SOAP content-level credentials.
-- Existing HTTP Digest compatibility coverage remains in place.
+- Existing FRITZ!Box credentials, transport settings, presence targets and automations remain compatible.
+- Existing Shelly, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device and HomeKit functionality remains unchanged.
 
 ## Security and dependencies
 
 - FRITZ!Box passwords remain encrypted at rest and are never returned to the browser.
 - HTTPS certificate verification remains enabled by default.
+- The optional certificate-verification bypass remains scoped only to FRITZ!Box HTTPS requests.
 - SALTA does not set `NODE_TLS_REJECT_UNAUTHORIZED=0`.
-- No production npm dependency was added or intentionally changed in v0.8.17.
+- No production npm dependency was added or intentionally changed in v0.8.18.
 - The locked dependency tree remains unchanged apart from the SALTA root version.
 - Retains `find-my-way` 9.7.0.
 - Retains `@homebridge/dbus-native` 0.7.7.
@@ -52,7 +56,7 @@ SALTA v0.8.17 improves FRITZ!Box TR-064 authentication for Wi-Fi presence detect
 ## Container tags
 
 ```text
-0.8.17
+0.8.18
 0.8
 latest
 ```
@@ -60,5 +64,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.17
+v0.8.18
 ```

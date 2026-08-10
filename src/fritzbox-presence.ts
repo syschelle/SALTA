@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { request as httpRequest, type IncomingHttpHeaders, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { getFritzBoxPresenceConnection, listPresenceTargets, writeSystemLog } from "./db.js";
-import type { Device, FritzBoxPresenceStatus, PresenceTarget } from "./types.js";
+import type { Device, FritzBoxPresenceStatus, PresenceTarget, SystemLogLevel } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 
 const serviceType = "urn:dslforum-org:service:Hosts:1";
@@ -221,7 +221,62 @@ export class FritzBoxPresenceAdapter {
   private reconcileTask?: Promise<void>;
   private status: FritzBoxPresenceStatus = {connected:false,enabled:false};
   private stopped = true;
+  private lastConnectionErrorSignature = "";
+  private targetErrorSignatures = new Map<string,string>();
   constructor(private readonly registry: DeviceRegistry) {}
+
+  private log(level: SystemLogLevel, code: string | undefined, message: string, details: Record<string, unknown> = {}): void {
+    void writeSystemLog(level,"presence",code,message,details).catch(()=>undefined);
+  }
+
+  private errorCode(error: unknown): string {
+    return error instanceof Error ? error.message : "FRITZBOX_REQUEST_FAILED";
+  }
+
+  private connectionLogDetails(baseUrl: string, tlsInsecure: boolean, extra: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      baseUrl: normalizeFritzBoxBaseUrl(baseUrl),
+      tlsCertificateVerificationDisabled: Boolean(tlsInsecure),
+      ...extra
+    };
+  }
+
+  private logScheduledConnectionFailure(code: string, baseUrl: string, tlsInsecure: boolean, targetCount: number): void {
+    const normalizedBaseUrl=normalizeFritzBoxBaseUrl(baseUrl);
+    const signature=`${normalizedBaseUrl}\u0000${code}`;
+    if(signature===this.lastConnectionErrorSignature) return;
+    this.lastConnectionErrorSignature=signature;
+    this.log("error",code,"FRITZ!Box presence synchronization failed",this.connectionLogDetails(normalizedBaseUrl,tlsInsecure,{targetCount}));
+  }
+
+  private logConnectionRecovery(baseUrl: string, tlsInsecure: boolean, hostCount: number): void {
+    if(!this.lastConnectionErrorSignature) return;
+    this.lastConnectionErrorSignature="";
+    this.log("info","FRITZBOX_PRESENCE_RECOVERED","FRITZ!Box presence connection recovered",this.connectionLogDetails(baseUrl,tlsInsecure,{hostCount}));
+  }
+
+  private logTargetFailure(target: PresenceTarget, error: unknown, baseUrl: string): void {
+    const code=this.errorCode(error);
+    const signature=`${code}`;
+    if(this.targetErrorSignatures.get(target.id)===signature) return;
+    this.targetErrorSignatures.set(target.id,signature);
+    this.log("warning",code,"FRITZ!Box presence device query failed",{
+      baseUrl:normalizeFritzBoxBaseUrl(baseUrl),
+      targetId:target.id,
+      targetName:target.name,
+      macAddress:target.macAddress
+    });
+  }
+
+  private logTargetRecovery(target: PresenceTarget, baseUrl: string): void {
+    if(!this.targetErrorSignatures.delete(target.id)) return;
+    this.log("info","FRITZBOX_PRESENCE_DEVICE_RECOVERED","FRITZ!Box presence device query recovered",{
+      baseUrl:normalizeFritzBoxBaseUrl(baseUrl),
+      targetId:target.id,
+      targetName:target.name,
+      macAddress:target.macAddress
+    });
+  }
 
   start(): void { this.stopped=false; void this.reload().catch(()=>undefined); }
   stop(): void { this.stopped=true; if(this.timer) clearInterval(this.timer); this.timer=undefined; }
@@ -230,7 +285,10 @@ export class FritzBoxPresenceAdapter {
   async reload(): Promise<void> {
     if(this.timer) clearInterval(this.timer); this.timer=undefined;
     const settings = await getFritzBoxPresenceConnection(); this.status.enabled=settings.enabled;
-    await this.ensureTargetDevices(await listPresenceTargets()); await this.updateHousePresence();
+    const targets=await listPresenceTargets();
+    const validTargetIds=new Set(targets.map(target=>target.id));
+    for(const targetId of this.targetErrorSignatures.keys()) if(!validTargetIds.has(targetId)) this.targetErrorSignatures.delete(targetId);
+    await this.ensureTargetDevices(targets); await this.updateHousePresence();
     if(!settings.enabled || this.stopped) { this.status={...this.status,connected:false,enabled:settings.enabled}; return; }
     await this.reconcile().catch(()=>undefined);
     if(this.stopped) return;
@@ -243,10 +301,12 @@ export class FritzBoxPresenceAdapter {
     try {
       const hostCount=await fritzBoxHostCount(baseUrl,connection.username,connection.password,connection.tlsInsecure);
       this.status={...this.status,lastTestAt:now(),lastTestSuccess:true,lastTestHostCount:hostCount,lastTestBaseUrl:baseUrl,lastTestError:undefined};
+      this.log("info","FRITZBOX_CONNECTION_TEST_OK","FRITZ!Box presence connection test succeeded",this.connectionLogDetails(baseUrl,connection.tlsInsecure,{hostCount,usernameConfigured:Boolean(connection.username.trim())}));
       return {hostCount};
     } catch(error) {
-      const code=error instanceof Error?error.message:"FRITZBOX_REQUEST_FAILED";
+      const code=this.errorCode(error);
       this.status={...this.status,lastTestAt:now(),lastTestSuccess:false,lastTestError:code,lastTestBaseUrl:baseUrl,lastTestHostCount:undefined};
+      this.log("error",code,"FRITZ!Box presence connection test failed",this.connectionLogDetails(baseUrl,connection.tlsInsecure,{usernameConfigured:Boolean(connection.username.trim())}));
       throw error;
     }
   }
@@ -261,14 +321,21 @@ export class FritzBoxPresenceAdapter {
     const targets=await listPresenceTargets(); await this.ensureTargetDevices(targets);
     try {
       const hostCount=await fritzBoxHostCount(connection.baseUrl,connection.username,connection.password,connection.tlsInsecure);
+      this.logConnectionRecovery(connection.baseUrl,connection.tlsInsecure,hostCount);
       for(const target of targets) {
-        try { const host=await fritzBoxHostByMac(connection.baseUrl,connection.username,connection.password,target.macAddress,connection.tlsInsecure); await this.applyTarget(target,host,connection.absenceDelaySeconds); }
-        catch(error){ await this.markTargetUnavailable(target,error); }
+        try {
+          const host=await fritzBoxHostByMac(connection.baseUrl,connection.username,connection.password,target.macAddress,connection.tlsInsecure);
+          await this.applyTarget(target,host,connection.absenceDelaySeconds);
+          this.logTargetRecovery(target,connection.baseUrl);
+        } catch(error) {
+          await this.markTargetUnavailable(target,error);
+          this.logTargetFailure(target,error,connection.baseUrl);
+        }
       }
       await this.updateHousePresence(); this.status={...this.status,connected:true,enabled:true,hostCount,lastSync:now(),lastError:undefined};
     } catch(error) {
-      const code=error instanceof Error?error.message:"FRITZBOX_REQUEST_FAILED"; this.status={...this.status,connected:false,enabled:true,lastError:code};
-      await writeSystemLog("warning","presence",code,"FRITZ!Box presence refresh failed",{}).catch(()=>undefined);
+      const code=this.errorCode(error); this.status={...this.status,connected:false,enabled:true,lastError:code};
+      this.logScheduledConnectionFailure(code,connection.baseUrl,connection.tlsInsecure,targets.length);
       for(const target of targets) await this.markTargetUnavailable(target,error);
       await this.updateHousePresence(); throw error;
     }
@@ -289,11 +356,12 @@ export class FritzBoxPresenceAdapter {
     if(host.active) missingSince=undefined;
     else if(previous) { missingSince=missingSince??stamp; present=(Date.now()-Date.parse(missingSince))<delay*1000; }
     const changed=present!==previous;
-    await this.registry.set({...existing,reachable:true,hostname:host.hostName||existing.hostname,state:{...existing.state,present,...(host.ipAddress?{ipAddress:host.ipAddress}:{}),...(host.interfaceType?{interfaceType:host.interfaceType}:{}),...(host.hostName?{hostName:host.hostName}:{})},lastSeen:host.active?stamp:existing.lastSeen,lastEvent:changed?stamp:existing.lastEvent,adapterData:{...(existing.adapterData??{}),targetId:target.id,absenceDelaySeconds:delay,...(missingSince?{missingSince}:{})}});
+    const adapterData={...(existing.adapterData??{})}; delete adapterData.lastError;
+    await this.registry.set({...existing,reachable:true,hostname:host.hostName||existing.hostname,state:{...existing.state,present,...(host.ipAddress?{ipAddress:host.ipAddress}:{}),...(host.interfaceType?{interfaceType:host.interfaceType}:{}),...(host.hostName?{hostName:host.hostName}:{})},lastSeen:host.active?stamp:existing.lastSeen,lastEvent:changed?stamp:existing.lastEvent,adapterData:{...adapterData,targetId:target.id,absenceDelaySeconds:delay,...(missingSince?{missingSince}:{})}});
   }
 
   private async markTargetUnavailable(target: PresenceTarget, error: unknown): Promise<void> {
-    const id=`presence:${target.id}`; const existing=this.registry.get(id); if(!existing) return; const code=error instanceof Error?error.message:"FRITZBOX_REQUEST_FAILED";
+    const id=`presence:${target.id}`; const existing=this.registry.get(id); if(!existing) return; const code=this.errorCode(error);
     await this.registry.set({...existing,reachable:false,adapterData:{...(existing.adapterData??{}),lastError:code}});
   }
 

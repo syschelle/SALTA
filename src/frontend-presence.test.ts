@@ -36,6 +36,7 @@ describe("presence page", () => {
     expect(app).toContain("FRITZBOX_AUTHORIZATION_FAILED");
     expect(app).toContain("TR-064 erreichbar · Anmeldung fehlgeschlagen");
     expect(app).toContain("FRITZ!Box erreichbar");
+    expect(app).toContain("Systemprotokoll öffnen");
     expect(app).toContain("Verbindung noch nicht geprüft");
     expect(app).toContain("lastTestSuccess");
     expect(app).toContain("loadPresence({applySettings:false})");

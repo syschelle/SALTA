@@ -2,6 +2,19 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.18
+
+- Added persistent System Log entries for failed FRITZ!Box Presence connection tests.
+- Added persistent error logging for scheduled TR-064 synchronization failures and warning logging for individual MAC-address query failures.
+- Added recovery events when the FRITZ!Box connection or an individual presence target becomes healthy again.
+- Deduplicated repeated scheduled Presence errors so short polling intervals do not flood the System Log.
+- Kept explicit manual connection-test attempts individually visible as diagnostic events.
+- Ensured Presence diagnostics never include the FRITZ!Box password or other secret material.
+- Added a direct **System Log** link to failed FRITZ!Box connection states on the Presence page.
+- Cleared stale per-device error state after recovery and removed stale logging state when presence targets are deleted.
+- Removed an accidental duplicate `reload()` declaration in the Presence adapter source.
+- Kept the database schema and npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.17
 
 - Added AVM SOAP content-level authentication (`InitChallenge` / `ClientAuth`) for FRITZ!Box TR-064 Hosts requests.
