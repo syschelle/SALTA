@@ -1,4 +1,4 @@
-# SALTA v0.8.26 – Git and Release Commands
+# SALTA v0.8.27 – Git and Release Commands
 
 ## Commit and push main
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(ui): consolidate layouts and enrich device details"
+git commit -m "fix(shelly): show accurate last-seen timestamp"
 git push origin main
 ```
 
@@ -17,8 +17,8 @@ Wait for the GitHub CI and CodeQL workflows on `main` to be green.
 ## Tag
 
 ```bash
-git tag -a v0.8.26 -m "SALTA v0.8.26"
-git push origin v0.8.26
+git tag -a v0.8.27 -m "SALTA v0.8.27"
+git push origin v0.8.27
 ```
 
 ## Production update
@@ -26,7 +26,7 @@ git push origin v0.8.26
 If `.env` pins a versioned image, set:
 
 ```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.26
+SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.27
 ```
 
 Then update the deployment:

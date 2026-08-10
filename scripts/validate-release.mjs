@@ -48,6 +48,11 @@ if (!virtualFrontend.includes("window.open(url,'_blank','noopener,noreferrer')")
 if (!virtualFrontend.includes('title="Shelly-Weboberfläche öffnen"')) fail("Shelly web shortcut title is missing");
 if (!publicIndex.includes('id="deviceInfoGrid"') || !publicIndex.includes('id="deviceDialogMeta"') || !publicIndex.includes('class="workflow-dialog device-config-dialog"')) fail("Structured device configuration dialog is incomplete");
 if (!virtualFrontend.includes("function renderDeviceDialogInfo(d)") || !virtualFrontend.includes("function renumberDeviceConfigSections()")) fail("Device information rendering or visible-section numbering is missing");
+if (!virtualFrontend.includes("Zuletzt gesehen: ${escapeHtml(deviceInfoTimestamp(selectedDevice.lastSeen))}")) fail("Shelly device dialog does not expose last-seen metadata in the header");
+if (!virtualFrontend.includes("add('Zuletzt gesehen',deviceInfoTimestamp(d.lastSeen))")) fail("Device information grid does not expose last-seen metadata");
+const shellyAdapterSource = read("src/shelly-adapter.ts");
+if (shellyAdapterSource.includes("reachable: false, lastSeen: now()")) fail("Failed Shelly refreshes must not advance lastSeen");
+if (!shellyAdapterSource.includes("const next = { ...device, reachable: false };")) fail("Shelly offline refresh path does not preserve the previous lastSeen timestamp");
 if (!virtualFrontend.includes("add('Sensor-Ressourcen',adapter.sensorResourceIds,{copy:true})") || !virtualFrontend.includes("add('OpenCCU-Kanalname',adapter.channelName)")) fail("Source-specific device information is incomplete");
 if (!serverSource.includes('"/api/adapters/virtual/devices"')) fail("Virtual device creation API route is missing");
 const automationFrontend = read("public/automation-ui.js");

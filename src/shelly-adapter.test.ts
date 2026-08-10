@@ -64,6 +64,20 @@ describe("ShellyAdapter device lifecycle", () => {
     expect(refreshed.presentationType).toBe("fan");
   });
 
+  it("keeps lastSeen at the last successful Shelly contact when a refresh fails", async () => {
+    const registry = new DeviceRegistry();
+    const adapter = new ShellyAdapter(registry);
+    const added = (await adapter.add("192.168.1.50", "", "", "Test Shelly", undefined, undefined, "none"))[0]!;
+    const successfulLastSeen = "2026-08-10T16:30:00.000Z";
+    registry.hydrate({ ...added, lastSeen: successfulLastSeen });
+
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
+    const refreshed = await adapter.refresh(registry.get(added.id)!);
+
+    expect(refreshed.reachable).toBe(false);
+    expect(refreshed.lastSeen).toBe(successfulLastSeen);
+  });
+
   it("reports unreachable devices with a stable error code", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("fetch failed"); }));
     const adapter = new ShellyAdapter(new DeviceRegistry());

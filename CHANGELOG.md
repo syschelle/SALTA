@@ -2,6 +2,14 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.27
+
+- Added a prominent **Zuletzt gesehen** indicator to the Shelly device configuration header.
+- Kept the existing read-only **Zuletzt gesehen** value in the technical device-information grid.
+- Corrected Shelly `lastSeen` semantics so failed refresh attempts no longer overwrite the timestamp of the last successful device contact.
+- Added regression coverage proving an unreachable Shelly keeps its previous successful `lastSeen` timestamp.
+- Kept database schema, APIs and npm dependencies unchanged apart from the SALTA root version.
+
 ## 0.8.26
 
 - Consolidated top-level SALTA widths into shared CSS layout tokens for the main page, common side columns, Settings and dialog sizes.

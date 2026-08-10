@@ -479,7 +479,7 @@ export class ShellyAdapter {
       return next;
     } catch {
       if (this.removedDeviceIds.has(device.id)) return device;
-      const next = { ...device, reachable: false, lastSeen: now() };
+      const next = { ...device, reachable: false };
       await this.registry.set(next);
       return next;
     }

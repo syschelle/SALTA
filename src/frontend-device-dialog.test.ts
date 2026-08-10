@@ -19,6 +19,8 @@ describe("device configuration details", () => {
   it("renders source-specific technical information without changing device persistence", () => {
     expect(source).toContain("function renderDeviceDialogInfo(d)");
     expect(source).toContain("add('Firmware',d.firmwareVersion)");
+    expect(source).toContain("Zuletzt gesehen: ${escapeHtml(deviceInfoTimestamp(selectedDevice.lastSeen))}");
+    expect(source).toContain("add('Zuletzt gesehen',deviceInfoTimestamp(d.lastSeen))");
     expect(source).toContain("add('MAC / Geräteadresse',d.macAddress,{copy:true})");
     expect(source).toContain("add('Sensor-Ressourcen',adapter.sensorResourceIds,{copy:true})");
     expect(source).toContain("add('OpenCCU-Kanalname',adapter.channelName)");
