@@ -2,6 +2,16 @@
 
 All notable changes to SALTA are documented in this file.
 
+## 0.8.23
+
+- Made automation rule cards substantially more compact by reducing padding/gaps, moving edit/delete into header icon actions and placing the last-event timestamp in the metadata row.
+- Removed the redundant `No additional condition` row when a rule has no condition.
+- Fixed rule summaries so every OR-linked trigger device is visible instead of only showing the primary device plus a trigger count.
+- Grouped multiple button events from the same device into one compact trigger entry while keeping different devices separated by an explicit OR marker.
+- Added runtime frontend regression coverage for multi-device trigger summaries and compact-card presentation.
+- Extended release validation to prevent regressions in complete OR-trigger summaries and compact automation cards.
+- Kept the database schema, automation persistence format and npm dependency tree unchanged apart from the SALTA root version.
+
 ## 0.8.22
 
 - Documented the FRITZ! TR-064 SOAP content-authentication MD5 requirement directly at the two protocol-mandated hash operations.

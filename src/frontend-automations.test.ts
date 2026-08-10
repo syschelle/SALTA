@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
 import { functionCalls, hasFunction, parseJavaScriptSource } from "./test-utils/source-inspection.js";
 import { cssMediaRuleContains, cssRuleContains } from "./test-utils/style-inspection.js";
@@ -76,15 +77,55 @@ describe("automation frontend", () => {
     expect(hasFunction(uiAst, "addAutomationAdditionalTrigger")).toBe(true);
     expect(hasFunction(uiAst, "renderAutomationAdditionalTriggers")).toBe(true);
     expect(hasFunction(uiAst, "automationStoredAdditionalTriggers")).toBe(true);
-    expect(ui).toContain("Auslöser (ODER)");
+    expect(ui).toContain("automationTriggerSummaryItems");
+    expect(ui).toContain("automationTriggerSummaryMarkup");
     expect(ui).toContain("Ereignisse");
     expect(cssRuleContains(styles, ".automation-add-trigger", "border:1px dashed var(--line)")).toBe(true);
     expect(cssRuleContains(styles, ".automation-or-trigger-body[hidden]", "display:none")).toBe(true);
   });
 
-  it("keeps automation cards responsive on mobile", () => {
+  it("shows every OR-trigger device in the rule summary and groups events from the same device", () => {
+    const sandbox: Record<string, unknown> = {
+      document: { getElementById: () => null },
+      all: [
+        { id: "left", name: "ZB_SW_LINKS", type: "button", state: { buttonEvent: 1002 } },
+        { id: "right", name: "ZB_SW_RECHTS", type: "button", state: { buttonEvent: 1002 } },
+      ],
+      rooms: [],
+      labels: {},
+      console,
+    };
+    runInNewContext(`${ui}\nglobalThis.__automationTriggerSummaryItems=automationTriggerSummaryItems;`, sandbox);
+    const summarize = sandbox.__automationTriggerSummaryItems as (rule: unknown) => string[];
+    expect(summarize({
+      triggerDeviceId: "left",
+      triggerStateKey: "event:buttonEvent:1002",
+      triggerValue: true,
+      additionalTriggers: [
+        { deviceId: "left", stateKey: "event:buttonEvent:1004", value: true },
+        { deviceId: "right", stateKey: "event:buttonEvent:1002", value: true },
+      ],
+    })).toEqual([
+      "ZB_SW_LINKS · 1002 · Einfachklick / 1004 · Doppelklick",
+      "ZB_SW_RECHTS · 1002 · Einfachklick",
+    ]);
+  });
+
+  it("renders compact automation cards and omits the empty-condition row", () => {
+    expect(ui).toContain("summary.conditionText?`<div>");
+    expect(ui).not.toContain("Ohne zusätzliche Bedingung");
+    expect(ui).toContain('class="automation-card-controls"');
+    expect(ui).toContain('class="automation-trigger-list"');
+    expect(cssRuleContains(styles, ".automation-list", "gap:8px")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-card", "padding:10px 11px")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-card", "gap:8px")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-card-icon-action", "width:30px")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-trigger-list", "flex-wrap:wrap")).toBe(true);
+  });
+
+  it("keeps compact automation cards responsive on mobile", () => {
     expect(cssRuleContains(styles, ".automation-list", "display:grid")).toBe(true);
-    expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card", "padding:11px")).toBe(true);
-    expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card-actions", "justify-content:stretch")).toBe(true);
+    expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card", "padding:9px")).toBe(true);
+    expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card-controls", "gap:4px")).toBe(true);
   });
 });

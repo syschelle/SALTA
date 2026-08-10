@@ -276,18 +276,33 @@ function automationLastEventLabel(value,now=new Date()){
   const time=eventDate.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
   return `Letztes Event: ${dayLabel} · ${time} Uhr`;
 }
-function automationSummary(rule){
-  const trigger=automationDeviceById(rule.triggerDeviceId);const condition=rule.conditionDeviceId?automationDeviceById(rule.conditionDeviceId):null;const target=automationDeviceById(rule.actionDeviceId);const event=automationParseStoredEventTrigger(rule.triggerStateKey);
-  const primary=event?`Wenn ${trigger?.name||'Unbekannt'} · ${automationButtonEventLabel(event.value)}`:`Wenn ${trigger?.name||'Unbekannt'} · ${automationStateLabel(rule.triggerStateKey)} = ${automationValueLabel(rule.triggerStateKey,rule.triggerValue)}`;
-  const triggerCount=1+(rule.additionalTriggers?.length||0);const triggerText=triggerCount>1?`${primary} · ${triggerCount} Auslöser (ODER)`:primary;
-  const conditionText=condition?`Nur wenn ${condition.name} · ${automationStateLabel(rule.conditionStateKey)} = ${automationValueLabel(rule.conditionStateKey,rule.conditionValue)}`:'Ohne zusätzliche Bedingung';
-  const actionText=`Dann ${target?.name||'Unbekannt'} → ${automationActionLabels[rule.action]||rule.action}`;
-  return {triggerText,conditionText,actionText};
+function automationTriggerSummaryItems(rule){
+  const definitions=[{deviceId:rule.triggerDeviceId,stateKey:rule.triggerStateKey,value:rule.triggerValue},...(rule.additionalTriggers||[])];
+  const groups=[];const eventGroups=new Map();
+  for(const definition of definitions){
+    const device=automationDeviceById(definition.deviceId);const name=device?.name||'Unbekannt';const event=automationParseStoredEventTrigger(definition.stateKey);
+    if(event){
+      const key=String(definition.deviceId||'');let group=eventGroups.get(key);
+      if(!group){group={kind:'event',name,values:[]};eventGroups.set(key,group);groups.push(group)}
+      if(!group.values.includes(event.value))group.values.push(event.value);
+      continue;
+    }
+    groups.push({kind:'state',name,stateKey:definition.stateKey,value:definition.value});
+  }
+  return groups.map(group=>group.kind==='event'?`${group.name} · ${group.values.map(automationButtonEventLabel).join(' / ')}`:`${group.name} · ${automationStateLabel(group.stateKey)} = ${automationValueLabel(group.stateKey,group.value===true||group.value==='true')}`);
 }
+function automationSummary(rule){
+  const condition=rule.conditionDeviceId?automationDeviceById(rule.conditionDeviceId):null;const target=automationDeviceById(rule.actionDeviceId);const triggerItems=automationTriggerSummaryItems(rule);
+  const triggerText=`Wenn ${triggerItems.join(' ODER ')}`;
+  const conditionText=condition?`Nur wenn ${condition.name} · ${automationStateLabel(rule.conditionStateKey)} = ${automationValueLabel(rule.conditionStateKey,rule.conditionValue)}`:null;
+  const actionText=`Dann ${target?.name||'Unbekannt'} → ${automationActionLabels[rule.action]||rule.action}`;
+  return {triggerItems,triggerText,conditionText,actionText};
+}
+function automationTriggerSummaryMarkup(items){return items.map((item,index)=>`${index?'<span class="automation-or-separator">ODER</span>':''}<span class="automation-trigger-chip">${escapeHtml(item)}</span>`).join('')}
 function renderAutomations(){
   automationElements.count.textContent=automationRules.length;
   if(!automationRules.length){automationElements.list.innerHTML='<div class="empty-state compact"><h3>Noch keine Automationen</h3><p class="muted">Lege rechts deine erste lokale Regel an.</p></div>';return}
-  automationElements.list.innerHTML=automationRules.map(rule=>{const summary=automationSummary(rule);const room=automationRoomById(rule.roomId);return `<article class="automation-card ${rule.enabled?'':'disabled'}"><div class="automation-card-head"><div class="automation-card-title"><h3>${escapeHtml(rule.name)}</h3><div class="automation-card-meta"><span>${rule.enabled?'Aktiv':'Deaktiviert'}</span>${room?`<span class="automation-room-badge">${iconMarkup(room.icon||'home-outline')} ${escapeHtml(room.name)}</span>`:''}</div><small class="automation-last-event">${escapeHtml(automationLastEventLabel(rule.lastTriggeredAt))}</small></div><label class="automation-switch" title="Automation ${rule.enabled?'deaktivieren':'aktivieren'}"><input type="checkbox" ${rule.enabled?'checked':''} onchange="toggleAutomation('${rule.id}',this.checked)"><span aria-hidden="true"></span></label></div><div class="automation-flow"><div><span class="automation-step-icon">${iconMarkup('flash-outline')}</span><p>${escapeHtml(summary.triggerText)}</p></div><div><span class="automation-step-icon">${iconMarkup('filter-outline')}</span><p>${escapeHtml(summary.conditionText)}</p></div><div><span class="automation-step-icon">${iconMarkup('arrow-right-bold-outline')}</span><p>${escapeHtml(summary.actionText)}</p></div></div><div class="automation-card-actions"><button class="secondary" type="button" onclick="editAutomation('${rule.id}')">${iconMarkup('pencil-outline')}<span>Bearbeiten</span></button><button class="danger" type="button" onclick="deleteAutomation('${rule.id}')">${iconMarkup('delete-outline')}<span>Löschen</span></button></div></article>`}).join('');
+  automationElements.list.innerHTML=automationRules.map(rule=>{const summary=automationSummary(rule);const room=automationRoomById(rule.roomId);return `<article class="automation-card ${rule.enabled?'':'disabled'}"><div class="automation-card-head"><div class="automation-card-title"><h3>${escapeHtml(rule.name)}</h3><div class="automation-card-meta"><span>${rule.enabled?'Aktiv':'Deaktiviert'}</span>${room?`<span class="automation-room-badge">${iconMarkup(room.icon||'home-outline')} ${escapeHtml(room.name)}</span>`:''}<span class="automation-last-event">${escapeHtml(automationLastEventLabel(rule.lastTriggeredAt).replace('Letztes Event: ',''))}</span></div></div><div class="automation-card-controls"><label class="automation-switch" title="Automation ${rule.enabled?'deaktivieren':'aktivieren'}"><input type="checkbox" ${rule.enabled?'checked':''} onchange="toggleAutomation('${rule.id}',this.checked)"><span aria-hidden="true"></span></label><button class="automation-card-icon-action secondary" type="button" onclick="editAutomation('${rule.id}')" aria-label="Automation bearbeiten" title="Bearbeiten">${iconMarkup('pencil-outline')}</button><button class="automation-card-icon-action danger" type="button" onclick="deleteAutomation('${rule.id}')" aria-label="Automation löschen" title="Löschen">${iconMarkup('delete-outline')}</button></div></div><div class="automation-flow"><div class="automation-trigger-flow"><span class="automation-step-icon">${iconMarkup('flash-outline')}</span><strong class="automation-flow-label">Wenn</strong><div class="automation-trigger-list">${automationTriggerSummaryMarkup(summary.triggerItems)}</div></div>${summary.conditionText?`<div><span class="automation-step-icon">${iconMarkup('filter-outline')}</span><p>${escapeHtml(summary.conditionText)}</p></div>`:''}<div><span class="automation-step-icon">${iconMarkup('arrow-right-bold-outline')}</span><p>${escapeHtml(summary.actionText)}</p></div></div></article>`}).join('');
 }
 async function loadAutomations(){const payload=await api('/api/automations');automationRules=payload?.automations||[];fillAutomationRoomSelect();renderAutomations();updateAutomationFormOptions()}
 function resetAutomationForm(){editingAutomationId=null;automationAdditionalTriggers=[];automationPrimaryEventValues=[];automationElements.form.reset();clearAutomationDeviceSearches();fillAutomationRoomSelect('');automationElements.enabled.checked=true;automationElements.conditionEnabled.checked=false;automationElements.conditionFields.hidden=true;automationElements.title.textContent='Automation hinzufügen';automationElements.save.textContent='Automation speichern';automationElements.cancel.hidden=true;updateAutomationFormOptions()}

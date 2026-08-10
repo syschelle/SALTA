@@ -47,6 +47,7 @@ if (!virtualFrontend.includes("window.open(url,'_blank','noopener,noreferrer')")
 if (!virtualFrontend.includes('title="Shelly-Weboberfläche öffnen"')) fail("Shelly web shortcut title is missing");
 if (!serverSource.includes('"/api/adapters/virtual/devices"')) fail("Virtual device creation API route is missing");
 const automationFrontend = read("public/automation-ui.js");
+const publicStyles = read("public/styles.css");
 const automationEngineSource = read("src/automations.ts");
 const mainSource = read("src/main.ts");
 if (!publicIndex.includes('data-nav="automations"')) fail("Automations navigation is missing");
@@ -79,6 +80,10 @@ if (!phosconAdapterSource.includes("buttonEventLastUpdated") || !phosconAdapterS
 if (!automationFrontend.includes("automationPrimaryEventValues") || !automationFrontend.includes("sameDeviceEventTriggers")) fail("Automation multi-event selection is missing");
 if (!automationFrontend.includes("automationToggleAdditionalEvent") || !automationFrontend.includes("renderAutomationAdditionalEventPicker")) fail("Additional OR-trigger multi-event selection is missing");
 if (!automationFrontend.includes("automationStoredAdditionalTriggers") || !automationFrontend.includes("automationAdditionalTriggers.flatMap")) fail("Additional button-event groups are not merged and expanded through the existing OR-trigger payload");
+if (!automationFrontend.includes("function automationTriggerSummaryItems(rule)") || !automationFrontend.includes("...(rule.additionalTriggers||[])")) fail("Automation rule summaries do not include all OR-trigger devices");
+if (!automationFrontend.includes("automationTriggerSummaryMarkup(summary.triggerItems)") || !automationFrontend.includes('class="automation-trigger-list"')) fail("Automation rule summaries do not render the complete compact trigger list");
+if (automationFrontend.includes("Ohne zusätzliche Bedingung")) fail("Automation cards still render the redundant empty-condition row");
+if (!publicStyles.includes(".automation-card-icon-action") || !publicStyles.includes(".automation-trigger-chip") || !publicStyles.includes(".automation-list{display:grid;gap:8px}")) fail("Compact automation-card presentation is missing");
 if (!automationFrontend.includes('id="automationExtraEventPicker-${trigger.id}"')) fail("Additional OR-trigger event picker markup is missing");
 if (!publicIndex.includes('id="automationTriggerEventPicker"') || !publicIndex.includes('id="automationTriggerEventOptions"')) fail("Automation multi-event picker markup is missing");
 if (!automationEngineSource.includes("automationRuleTriggers") || !automationEngineSource.includes("AUTOMATION_TRIGGER_LIMIT")) fail("Automation engine does not validate multiple OR triggers");

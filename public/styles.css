@@ -271,29 +271,43 @@ main{max-width:1680px}
 
 /* Automation engine */
 .automation-layout{grid-template-columns:minmax(0,1.25fr) minmax(460px,1fr)}
-.automation-list{display:grid;gap:12px}
-.automation-card{border:1px solid var(--line);border-radius:13px;padding:14px;background:var(--subtle-bg);display:grid;gap:12px}
+.automation-list{display:grid;gap:8px}
+.automation-card{border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:var(--subtle-bg);display:grid;gap:8px}
 .automation-card.disabled{opacity:.62}
-.automation-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
-.automation-card-title{min-width:0;display:grid;gap:4px}
-.automation-card-head h3{margin:0;font-size:15px}
-.automation-card-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;color:var(--muted);font-size:10.5px}
+.automation-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.automation-card-title{min-width:0;display:grid;gap:3px}
+.automation-card-head h3{margin:0;font-size:14px;line-height:1.2}
+.automation-card-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;color:var(--muted);font-size:10px;line-height:1.25}
 .automation-room-badge{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border-radius:999px;background:var(--accent-bg);color:var(--accent);font-weight:700}
 .automation-room-badge .mdi{font-size:12px}
-.automation-last-event{display:block;color:var(--muted);font-size:10.5px}
-.automation-flow{display:grid;gap:7px}
-.automation-flow>div{display:grid;grid-template-columns:26px minmax(0,1fr);gap:8px;align-items:center}
-.automation-flow p{margin:0;font-size:12px;line-height:1.4}
-.automation-step-icon{width:26px;height:26px;border-radius:8px;background:var(--accent-bg);color:var(--accent);display:grid;place-items:center}
-.automation-step-icon .mdi{font-size:15px}
-.automation-card-actions{display:flex;gap:7px;justify-content:flex-end;border-top:1px solid var(--line);padding-top:10px}
-.automation-card-actions button{padding:7px 9px;font-size:11px}
+.automation-last-event{display:inline;color:var(--muted);font-size:10px}.automation-last-event::before{content:"·";margin-right:6px}
+.automation-flow{display:grid;gap:5px}
+.automation-flow>div{display:grid;grid-template-columns:22px minmax(0,1fr);gap:6px;align-items:center}
+.automation-flow p{margin:0;font-size:11.5px;line-height:1.3}
+.automation-step-icon{width:22px;height:22px;border-radius:7px;background:var(--accent-bg);color:var(--accent);display:grid;place-items:center}
+.automation-step-icon .mdi{font-size:13px}
+.automation-card-actions{display:flex;gap:5px;justify-content:flex-end}
+.automation-card-actions button{padding:6px 8px;font-size:10.5px}
 .automation-switch{display:inline-flex;cursor:pointer;align-items:center}
 .automation-switch input{position:absolute;opacity:0;pointer-events:none}
-.automation-switch span{width:38px;height:22px;border-radius:999px;background:#b8c0ca;position:relative;transition:background-color .16s ease}
-.automation-switch span::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .16s ease;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.automation-switch span{width:34px;height:20px;border-radius:999px;background:#b8c0ca;position:relative;transition:background-color .16s ease}
+.automation-switch span::after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .16s ease;box-shadow:0 1px 4px rgba(0,0,0,.18)}
 .automation-switch input:checked+span{background:var(--green)}
-.automation-switch input:checked+span::after{transform:translateX(16px)}
+.automation-switch input:checked+span::after{transform:translateX(14px)}
+
+.automation-card-controls{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+.automation-card-icon-action{width:30px;height:30px;min-height:0;padding:0;border-radius:8px;display:inline-grid;place-items:center;box-shadow:none!important}
+.automation-card-icon-action .mdi{font-size:15px}
+.automation-card-icon-action.secondary{background:transparent;color:var(--text)}
+.automation-card-icon-action.secondary:hover{background:var(--hover-bg);transform:none!important}
+.automation-card-icon-action.danger{background:transparent;color:#c92a3a}
+.automation-card-icon-action.danger:hover{background:#fff1f2;transform:none!important}
+html[data-theme="dark"] .automation-card-icon-action.danger:hover{background:#321a20;color:#ffabb6}
+.automation-trigger-flow{grid-template-columns:22px 34px minmax(0,1fr)!important;align-items:start!important}
+.automation-flow-label{font-size:10.5px;line-height:22px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.automation-trigger-list{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0}
+.automation-trigger-chip{display:inline-flex;align-items:center;max-width:100%;padding:3px 6px;border-radius:7px;background:var(--card);border:1px solid var(--line);font-size:10.5px;line-height:1.25;color:var(--text)}
+.automation-or-separator{font-size:8.5px;font-weight:850;letter-spacing:.05em;color:var(--accent)}
 .automation-step{border:1px solid var(--line);border-radius:12px;padding:12px;margin:0;display:grid;gap:10px;background:var(--subtle-bg)}
 .automation-step legend{font-weight:800;padding:0 7px;display:flex;align-items:center;gap:7px}
 .automation-step legend>span{width:23px;height:23px;border-radius:7px;background:var(--accent-bg);color:var(--accent);display:inline-grid;place-items:center;font-size:11px}
@@ -326,7 +340,7 @@ main{max-width:1680px}
 .automation-device-picker{gap:7px}
 .automation-device-match-count{display:block;color:var(--muted);font-size:10.5px;line-height:1.25;min-height:13px}
 @media(max-width:1200px){.automation-layout{grid-template-columns:1fr}}
-@media(max-width:620px){.automation-form-basics,.automation-field-row{grid-template-columns:1fr}.page-form .automation-device-search{height:36px}.automation-card{padding:11px}.automation-card-actions{justify-content:stretch}.automation-card-actions button{flex:1}.automation-flow p{font-size:11.5px}.automation-step{padding:10px}}
+@media(max-width:620px){.automation-form-basics,.automation-field-row{grid-template-columns:1fr}.page-form .automation-device-search{height:36px}.automation-card{padding:9px}.automation-card-controls{gap:4px}.automation-flow p{font-size:11px}.automation-trigger-flow{grid-template-columns:22px 34px minmax(0,1fr)!important}.automation-trigger-chip{white-space:normal}.automation-step{padding:10px}}
 
 
 /* Compact OR-trigger editor */
