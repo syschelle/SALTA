@@ -1,6 +1,4 @@
-# SALTA v0.8.27 – Git and Release Commands
-
-## Commit and push main
+# SALTA v0.8.28 Git commands
 
 ```bash
 git checkout main
@@ -8,31 +6,13 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(shelly): show accurate last-seen timestamp"
+git commit -m "fix(shelly): stabilize Gen4 reachability polling"
 git push origin main
 ```
 
-Wait for the GitHub CI and CodeQL workflows on `main` to be green.
-
-## Tag
+After CI and CodeQL are green:
 
 ```bash
-git tag -a v0.8.27 -m "SALTA v0.8.27"
-git push origin v0.8.27
-```
-
-## Production update
-
-If `.env` pins a versioned image, set:
-
-```env
-SALTA_IMAGE=ghcr.io/syschelle/salta:0.8.27
-```
-
-Then update the deployment:
-
-```bash
-docker compose --env-file .env -f docker-compose.image.yml pull
-docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans
-docker compose --env-file .env -f docker-compose.image.yml ps
+git tag -a v0.8.28 -m "SALTA v0.8.28"
+git push origin v0.8.28
 ```

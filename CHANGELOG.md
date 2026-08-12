@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.28
+
+- Optimized Shelly Gen2+/Gen3/Gen4 background polling so all logical channels of the same physical device share one `Shelly.GetStatus` request per reconciliation cycle.
+- Added one retry for transient Shelly status failures.
+- Added a three-cycle offline hysteresis to avoid false offline states caused by short Wi-Fi or RPC interruptions.
+- Successful polls immediately restore online state and continue updating the existing `lastSeen` timestamp only after successful contact.
+
 All notable changes to SALTA are documented in this file.
 
 ## 0.8.27

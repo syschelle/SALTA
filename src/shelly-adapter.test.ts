@@ -293,3 +293,70 @@ describe("ShellyAdapter cover position commands", () => {
     await expect(adapter.command({ deviceId: device.id, capability: "setTargetPosition", value: 120, source: "api" })).rejects.toThrow("INVALID_POSITION");
   });
 });
+
+describe("ShellyAdapter resilient host polling", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("polls a two-channel Gen4 Shelly only once per reconcile cycle", async () => {
+    let statusCalls = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/shelly")) return jsonResponse({ id: "shelly2pmg4-test", app: "2PMG4", model: "S4SW-002P16EU", gen: 4, profile: "switch", ver: "2.0.0" });
+      if (url.endsWith("/rpc/Shelly.GetStatus")) {
+        statusCalls += 1;
+        return jsonResponse({
+          "switch:0": { id: 0, output: true, apower: 12.3 },
+          "switch:1": { id: 1, output: false, apower: 0 }
+        });
+      }
+      if (url.endsWith("/rpc/Shelly.GetConfig")) return jsonResponse({
+        "switch:0": { id: 0, name: "Channel 1" },
+        "switch:1": { id: 1, name: "Channel 2" }
+      });
+      return jsonResponse({}, 404);
+    }));
+
+    const registry = new DeviceRegistry();
+    const adapter = new ShellyAdapter(registry);
+    await adapter.add("192.168.1.80", "", "", undefined, undefined, undefined, "none");
+    statusCalls = 0;
+
+    await adapter.reconcile();
+
+    expect(statusCalls).toBe(1);
+    expect(registry.all().filter(device => device.host === "192.168.1.80")).toHaveLength(2);
+    expect(registry.all().filter(device => device.host === "192.168.1.80").every(device => device.reachable)).toBe(true);
+  });
+
+  it("keeps a Shelly online through short polling failures and marks it offline only after three failed cycles", async () => {
+    let failStatus = false;
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/shelly")) return jsonResponse({ id: "shelly2pmg4-hysteresis", app: "2PMG4", model: "S4SW-002P16EU", gen: 4, profile: "switch" });
+      if (url.endsWith("/rpc/Shelly.GetStatus")) {
+        if (failStatus) throw new TypeError("temporary Wi-Fi failure");
+        return jsonResponse({ "switch:0": { id: 0, output: true }, "switch:1": { id: 1, output: false } });
+      }
+      if (url.endsWith("/rpc/Shelly.GetConfig")) return jsonResponse({});
+      return jsonResponse({}, 404);
+    }));
+
+    const registry = new DeviceRegistry();
+    const adapter = new ShellyAdapter(registry);
+    await adapter.add("192.168.1.81", "", "", undefined, undefined, undefined, "none");
+    const before = registry.all().find(device => device.host === "192.168.1.81")!.lastSeen;
+    failStatus = true;
+
+    await adapter.reconcile();
+    expect(registry.all().filter(device => device.host === "192.168.1.81").every(device => device.reachable)).toBe(true);
+    await adapter.reconcile();
+    expect(registry.all().filter(device => device.host === "192.168.1.81").every(device => device.reachable)).toBe(true);
+    await adapter.reconcile();
+    expect(registry.all().filter(device => device.host === "192.168.1.81").every(device => !device.reachable)).toBe(true);
+    expect(registry.all().find(device => device.host === "192.168.1.81")!.lastSeen).toBe(before);
+
+    failStatus = false;
+    await adapter.reconcile();
+    expect(registry.all().filter(device => device.host === "192.168.1.81").every(device => device.reachable)).toBe(true);
+  });
+});

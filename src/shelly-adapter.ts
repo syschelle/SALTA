@@ -201,6 +201,21 @@ async function requestRpcMethod(host: string, method: string, username = "", pas
   }
 }
 
+function transientShellyPollError(error: unknown): boolean {
+  const code = error instanceof Error ? error.message : "";
+  return ["DEVICE_UNREACHABLE", "DETECTION_TIMEOUT", "HTTP_500", "HTTP_502", "HTTP_503", "HTTP_504"].includes(code);
+}
+
+async function requestRpcStatusWithRetry(host: string, username = "", password = ""): Promise<unknown> {
+  try {
+    return await requestRpcMethod(host, "Shelly.GetStatus", username, password);
+  } catch (error) {
+    if (!transientShellyPollError(error)) throw error;
+    await new Promise(resolve => setTimeout(resolve, 250));
+    return requestRpcMethod(host, "Shelly.GetStatus", username, password);
+  }
+}
+
 function idFor(host: string, sourceId: string): string {
   return `shelly:${createHash("sha1").update(`${host}:${sourceId}`).digest("hex").slice(0, 20)}`;
 }
@@ -252,6 +267,8 @@ export class ShellyAdapter {
   private timer?: NodeJS.Timeout;
   private reconcileTask?: Promise<void>;
   private readonly removedDeviceIds = new Set<string>();
+  private readonly hostFailureCounts = new Map<string, number>();
+  private readonly offlineFailureThreshold = 3;
 
   constructor(private registry: DeviceRegistry) {}
 
@@ -499,11 +516,88 @@ export class ShellyAdapter {
     }
   }
 
+  private async markHostRefreshFailure(devices: Device[]): Promise<void> {
+    const host = devices[0]?.host;
+    if (!host) return;
+    const failureCount = (this.hostFailureCounts.get(host) ?? 0) + 1;
+    this.hostFailureCounts.set(host, failureCount);
+    const markOffline = failureCount >= this.offlineFailureThreshold;
+    await Promise.all(devices.map(async device => {
+      if (this.removedDeviceIds.has(device.id)) return;
+      const next = { ...device, reachable: markOffline ? false : device.reachable };
+      await this.registry.set(next);
+    }));
+  }
+
+  private async refreshRpcHost(devices: Device[]): Promise<void> {
+    const representative = devices[0];
+    if (!representative?.host) return;
+    const credentials = await getDeviceCredentials(representative.id);
+    try {
+      // A multi-channel Shelly (for example Shelly 2PM Gen4) is represented by
+      // multiple logical SALTA devices. Poll the physical device only once and
+      // fan the returned component states out to the logical devices.
+      const rawStatus = await requestRpcStatusWithRetry(representative.host, credentials.username, credentials.password);
+      const syntheticInfo: JsonRecord = {
+        id: representative.hostname ?? representative.sourceId,
+        app: representative.model,
+        model: representative.model,
+        profile: representative.profile
+      };
+      const detections = detectRpcShellyComponents(syntheticInfo, rawStatus);
+      const seenAt = now();
+      this.hostFailureCounts.delete(representative.host);
+
+      await Promise.all(devices.map(async device => {
+        const detection = detections.find(item =>
+          item.componentKind === device.componentKind && item.componentId === device.componentId
+        ) ?? (device.componentId === undefined || device.componentId === 0 ? detections[0] : undefined);
+        if (!detection || this.removedDeviceIds.has(device.id)) return;
+        const next: Device = {
+          ...device,
+          type: detection.type,
+          profile: detection.profile ?? device.profile,
+          componentKind: detection.componentKind,
+          componentId: detection.componentId,
+          channelCount: detection.channelCount,
+          powerMetering: detection.powerMetering,
+          coverSupport: detection.coverSupport,
+          switchSupport: detection.switchSupport,
+          lightSupport: detection.lightSupport,
+          inputSupport: detection.inputSupport,
+          reachable: true,
+          state: detection.state,
+          capabilities: detection.capabilities,
+          lastSeen: seenAt,
+          lastEvent: statesEqual(device.state, detection.state) ? device.lastEvent : seenAt
+        };
+        await this.registry.set(next);
+      }));
+    } catch {
+      await this.markHostRefreshFailure(devices);
+    }
+  }
+
   reconcile(): Promise<void> {
     if (this.reconcileTask) return this.reconcileTask;
-    this.reconcileTask = Promise.allSettled(
-      this.registry.all().filter(device => device.source === "shelly").map(device => this.refresh(device))
-    ).then(() => undefined).finally(() => {
+    const devices = this.registry.all().filter(device => device.source === "shelly");
+    const byHost = new Map<string, Device[]>();
+    const withoutHost: Device[] = [];
+    for (const device of devices) {
+      if (!device.host) { withoutHost.push(device); continue; }
+      const group = byHost.get(device.host) ?? [];
+      group.push(device);
+      byHost.set(device.host, group);
+    }
+
+    const tasks: Promise<unknown>[] = [];
+    for (const group of byHost.values()) {
+      const rpcGroup = group.every(device => device.generation !== "gen1");
+      tasks.push(rpcGroup ? this.refreshRpcHost(group) : Promise.allSettled(group.map(device => this.refresh(device))));
+    }
+    tasks.push(...withoutHost.map(device => this.refresh(device)));
+
+    this.reconcileTask = Promise.allSettled(tasks).then(() => undefined).finally(() => {
       this.reconcileTask = undefined;
     });
     return this.reconcileTask;

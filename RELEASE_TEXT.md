@@ -1,27 +1,34 @@
-# SALTA v0.8.27
+# SALTA v0.8.28
 
-SALTA v0.8.27 improves Shelly device diagnostics by making the last successful contact time clearly visible in the device configuration view and by correcting the underlying `lastSeen` semantics for unreachable Shelly devices.
+SALTA v0.8.28 improves Shelly reachability handling, especially for multi-channel Gen4 devices such as the Shelly 2PM Gen4, by reducing duplicate polling and adding tolerance for short network or RPC interruptions.
 
-## Shelly last-seen indicator
+## Shared polling for multi-channel Shelly devices
 
-- Added a prominent **Last seen** / `Zuletzt gesehen` indicator to the metadata row at the top of the Shelly device configuration dialog.
-- The value is formatted using the local browser date and time and is visible immediately next to the Shelly source, resolved device type and room.
-- The existing **Last seen** entry remains available in the read-only technical Device information section as well.
-- Other device sources keep their existing detail presentation; the additional header indicator is Shelly-specific.
+- SALTA now groups Shelly Gen2+, Gen3 and Gen4 logical devices by their physical host during the regular background reconciliation.
+- A multi-channel Shelly such as the Shelly 2PM Gen4 is polled only once per reconciliation cycle using `Shelly.GetStatus`.
+- The returned component states are then distributed to the matching logical SALTA devices, for example `switch:0` and `switch:1`.
+- This removes the previous behavior where every logical channel independently performed a complete device probe against the same physical Shelly.
+- Normal onboarding and explicit device probing still obtain device identity and configuration as before.
 
-## Correct lastSeen semantics
+## More robust reachability
 
-- Fixed Shelly refresh failures incorrectly updating `lastSeen` to the time of the failed poll.
-- `lastSeen` now changes only after a successful Shelly probe/refresh.
-- When a Shelly becomes unreachable, SALTA sets the device to offline while preserving the timestamp of the last successful contact.
-- This makes the displayed value useful for diagnosing when an offline Shelly was actually last reachable instead of when SALTA most recently attempted a poll.
-- No additional database field or migration is required because SALTA continues to use the existing persisted `last_seen` column.
+- Added a single short retry for transient status failures such as connection resets, timeouts and temporary HTTP 5xx responses.
+- A single failed background poll no longer immediately marks a Shelly offline.
+- SALTA now requires three consecutive failed reconciliation cycles before marking the physical Shelly and its logical channels offline.
+- With the existing 10-second Shelly polling interval, short interruptions of one or two cycles therefore no longer create a false offline indication.
+- Any successful status poll immediately resets the failure counter and restores all logical devices for that Shelly to online.
+
+## Last-seen behavior
+
+- `lastSeen` continues to update only after a successful Shelly response.
+- Failed or retried polls do not overwrite the last successful contact timestamp.
+- When a Shelly finally reaches the offline threshold, the configuration dialog still shows when the device was actually last reachable.
 
 ## Regression coverage
 
-- Added frontend regression coverage for the Shelly-specific **Zuletzt gesehen** header indicator and the existing technical information row.
-- Added Shelly adapter regression coverage proving that a failed refresh preserves the previous successful `lastSeen` timestamp.
-- Existing Shelly state refresh, presentation override and lifecycle behavior remains unchanged.
+- Added coverage proving that a two-channel Shelly 2PM Gen4 produces only one `Shelly.GetStatus` poll per reconciliation cycle.
+- Added coverage for the three-cycle offline hysteresis and immediate recovery after a successful poll.
+- Existing Shelly command, authentication, cover and multi-profile behavior remains unchanged.
 
 ## Compatibility
 
@@ -29,13 +36,12 @@ SALTA v0.8.27 improves Shelly device diagnostics by making the last successful c
 - No new database table is required.
 - No fresh PostgreSQL volume is required.
 - No new environment variable is required.
-- No device API or persistence format is changed.
-- Existing Shelly credentials, rooms, presentation overrides, automations and HomeKit exports remain compatible.
-- Existing FRITZ!Box Presence, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight, virtual-device and automation functionality remains unchanged.
+- Existing Shelly devices, credentials, room assignments, presentation overrides, automations and HomeKit exports remain compatible.
+- Existing FRITZ!Box Presence, Phoscon/Zigbee, OpenCCU/HomeMatic, Daylight and virtual-device functionality remains unchanged.
 
 ## Security and dependencies
 
-- No production or development npm dependency was added or intentionally changed in v0.8.27.
+- No production or development npm dependency was added or intentionally changed in v0.8.28.
 - The locked dependency tree remains unchanged apart from the SALTA root version.
 - Retains the patched `fast-uri` dependency versions introduced in v0.8.21.
 - Retains PostCSS `8.5.23` in the development dependency tree.
@@ -45,7 +51,7 @@ SALTA v0.8.27 improves Shelly device diagnostics by making the last successful c
 ## Container tags
 
 ```text
-0.8.27
+0.8.28
 0.8
 latest
 ```
@@ -53,5 +59,5 @@ latest
 ## Git tag
 
 ```text
-v0.8.27
+v0.8.28
 ```
