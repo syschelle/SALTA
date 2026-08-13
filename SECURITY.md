@@ -154,7 +154,7 @@ The authenticated System Log page stores selected application lifecycle and adap
 
 SALTA does not intentionally write passwords, API keys, authorization headers, cookies, CSRF tokens, encryption keys or OpenCCU session identifiers to the system log. Do not paste secrets into device names, gateway names or other free-form fields that may later be included in diagnostics.
 
-System-log entries are retained for at most 30 days and capped at the newest 2,000 records. An authenticated administrator can clear them from the web interface. Database backups include retained system-log entries and must therefore be protected like the rest of the SALTA database.
+System-log entries are retained for at most 30 days and capped at the newest 100 records. An authenticated administrator can clear them from the web interface. Database backups include retained system-log entries and must therefore be protected like the rest of the SALTA database.
 
 ## Scope and limitations
 

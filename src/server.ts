@@ -77,7 +77,7 @@ const automationSchema = z.object({
 }).strict();
 const automationEnabledSchema = z.object({ enabled: z.boolean() }).strict();
 const systemLogQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(500).default(200),
+  limit: z.coerce.number().int().min(1).max(100).default(100),
   source: z.string().trim().min(1).max(80).optional(),
   level: z.enum(["info", "warning", "error"]).optional()
 }).strict();
@@ -513,9 +513,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.36" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.37" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.36", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.37", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {

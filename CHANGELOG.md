@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.37
+
+- Reduced the persistent System Log retention cap from 2,000 to the newest 100 entries while keeping the existing 30-day age limit.
+- Capped `/api/logs` at 100 entries and changed the frontend to request at most 100 records.
+- Reworked the System Log page into a compact SALTA-style layout with a small toolbar, entry counter, compact filters and reduced action buttons.
+- Replaced large always-visible detail blocks with expandable `Details` sections so normal log rows stay compact.
+- Added compact severity badges, localized source labels and tighter timestamps/code presentation, including dark-theme styling.
+- Added regression coverage for the 100-entry API limit, persistence cap, compact layout and responsive behavior.
+- No database migration, environment-variable or dependency change is required.
+
 ## v0.8.36
 
 - Corrected the deployment quality gate so standalone Docker Compose configuration, not optional shell convenience scripts, defines the mandatory production contract.

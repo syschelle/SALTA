@@ -312,7 +312,7 @@ The OpenCCU settings include an in-application diagnostic run. It checks login, 
 
 SALTA includes a protected **System Log** page for technical events and adapter diagnostics. It supports source and severity filters, manual refresh and clearing the retained entries. OpenCCU connection tests, failed JSON-RPC methods, synchronization results, application startup and shutdown are recorded. Passwords, API keys and OpenCCU session identifiers are not written to this log.
 
-Entries are kept for at most 30 days and the newest 2,000 records. Cleanup runs during database initialization and periodically while new entries are written. The system log is available only to an authenticated SALTA user.
+Entries are kept for at most 30 days and the newest 100 records. Cleanup runs during database initialization and periodically while new entries are written. The system log is available only to an authenticated SALTA user.
 
 ## Rooms
 

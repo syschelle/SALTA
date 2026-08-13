@@ -95,7 +95,10 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS system_logs");
     expect(databaseSource).toContain("CHECK(level IN ('info','warning','error'))");
     expect(databaseSource).toContain("created_at < now() - interval '30 days'");
-    expect(databaseSource).toContain("ORDER BY created_at DESC, id DESC OFFSET 2000");
+    expect(databaseSource).toContain("ORDER BY created_at DESC, id DESC OFFSET 100");
+    expect(databaseSource).toContain("limit = 100");
+    expect(databaseSource).toContain("Math.min(limit, 100)");
+    expect(databaseSource).not.toContain("OFFSET 2000");
   });
 
   it("accepts only the current v2 encrypted-secret format", () => {

@@ -33,7 +33,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.36</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.37</strong></div>
   </div>
 </aside>
 
@@ -177,9 +177,9 @@
   </section>
 
 
-  <section class="page" data-page="logs" aria-labelledby="logs-title" hidden>
-    <header class="page-header"><div><p class="eyebrow">DIAGNOSE &amp; FEHLERSUCHE</p><h1 id="logs-title">Systemprotokoll</h1><p class="muted">Technische Ereignisse und Adapterfehler. Passwörter, API-Schlüssel und Sitzungstoken werden nicht protokolliert.</p></div><div class="header-actions"><button class="secondary" type="button" onclick="loadSystemLogs()"><span class="mdi mdi-refresh" aria-hidden="true"></span>Aktualisieren</button><button class="danger" type="button" onclick="clearSystemLog()"><span class="mdi mdi-delete-outline" aria-hidden="true"></span>Protokoll leeren</button></div></header>
-    <section class="section-head"><div><h2>Letzte Ereignisse</h2><p class="muted">Das Protokoll wird maximal 30 Tage beziehungsweise 2.000 Einträge aufbewahrt.</p></div><div class="filters"><select id="logSourceFilter"><option value="">Alle Quellen</option><option value="system">System</option><option value="openccu">OpenCCU</option><option value="virtual">Virtuelle Geräte</option><option value="presence">Präsenz</option><option value="automation">Automationen</option><option value="notification">Benachrichtigungen</option></select><select id="logLevelFilter"><option value="">Alle Stufen</option><option value="error">Fehler</option><option value="warning">Warnungen</option><option value="info">Informationen</option></select></div></section>
+  <section class="page logs-page" data-page="logs" aria-labelledby="logs-title" hidden>
+    <header class="page-header logs-page-header"><div><p class="eyebrow">DIAGNOSE &amp; FEHLERSUCHE</p><h1 id="logs-title">Systemprotokoll</h1><p class="muted">Technische Ereignisse und Adapterfehler. Zugangsdaten und Sitzungstoken werden nicht protokolliert.</p></div><div class="header-actions log-header-actions"><button class="secondary" type="button" onclick="loadSystemLogs()"><span class="mdi mdi-refresh" aria-hidden="true"></span>Aktualisieren</button><button class="danger" type="button" onclick="clearSystemLog()"><span class="mdi mdi-delete-outline" aria-hidden="true"></span>Leeren</button></div></header>
+    <section class="log-toolbar" aria-label="Protokollfilter"><div class="log-toolbar-copy"><div class="log-toolbar-title"><h2>Letzte Ereignisse</h2><span class="count-badge" id="systemLogCount">0</span></div><p class="muted">Maximal 100 Einträge, höchstens 30 Tage.</p></div><div class="filters log-filters"><select id="logSourceFilter" aria-label="Quelle filtern"><option value="">Alle Quellen</option><option value="system">System</option><option value="openccu">OpenCCU</option><option value="virtual">Virtuelle Geräte</option><option value="presence">Präsenz</option><option value="automation">Automationen</option><option value="notification">Benachrichtigungen</option></select><select id="logLevelFilter" aria-label="Stufe filtern"><option value="">Alle Stufen</option><option value="error">Fehler</option><option value="warning">Warnungen</option><option value="info">Informationen</option></select></div></section>
     <section id="systemLogList" class="system-log-list" aria-live="polite"></section>
   </section>
 

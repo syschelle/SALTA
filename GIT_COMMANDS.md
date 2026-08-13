@@ -1,4 +1,4 @@
-# SALTA v0.8.36 Git commands
+# SALTA v0.8.37 Git commands
 
 ```bash
 git checkout main
@@ -6,15 +6,15 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(ci): make deployment helper scripts optional"
+git commit -m "feat(logs): compact system log and cap retention"
 git push origin main
 ```
 
 After CI and CodeQL are green:
 
 ```bash
-git tag -a v0.8.36 -m "SALTA v0.8.36"
-git push origin v0.8.36
+git tag -a v0.8.37 -m "SALTA v0.8.37"
+git push origin v0.8.37
 ```
 
 Production update:

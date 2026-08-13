@@ -212,7 +212,7 @@ export async function initializeDatabaseSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS system_logs_created_idx ON system_logs(created_at DESC);
     CREATE INDEX IF NOT EXISTS system_logs_source_idx ON system_logs(source, created_at DESC);
     DELETE FROM system_logs WHERE created_at < now() - interval '30 days';
-    DELETE FROM system_logs WHERE id IN (SELECT id FROM system_logs ORDER BY created_at DESC, id DESC OFFSET 2000);
+    DELETE FROM system_logs WHERE id IN (SELECT id FROM system_logs ORDER BY created_at DESC, id DESC OFFSET 100);
   `);
 }
 
@@ -810,11 +810,11 @@ export async function writeSystemLog(
     [randomUUID(), level, source.slice(0, 80), code?.slice(0, 120) ?? null, message.slice(0, 1000), JSON.stringify(details)]
   );
   await pool.query("DELETE FROM system_logs WHERE created_at < now() - interval '30 days'");
-  await pool.query("DELETE FROM system_logs WHERE id IN (SELECT id FROM system_logs ORDER BY created_at DESC, id DESC OFFSET 2000)");
+  await pool.query("DELETE FROM system_logs WHERE id IN (SELECT id FROM system_logs ORDER BY created_at DESC, id DESC OFFSET 100)");
 }
 
 export async function listSystemLogs(
-  limit = 200,
+  limit = 100,
   source?: string,
   level?: SystemLogLevel
 ): Promise<SystemLogEntry[]> {
@@ -822,7 +822,7 @@ export async function listSystemLogs(
   const conditions: string[] = [];
   if (source) { values.push(source); conditions.push(`source=$${values.length}`); }
   if (level) { values.push(level); conditions.push(`level=$${values.length}`); }
-  values.push(Math.max(1, Math.min(limit, 500)));
+  values.push(Math.max(1, Math.min(limit, 100)));
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const result = await pool.query<SystemLogEntry>(
     `SELECT id,level,source,code,message,details,created_at as "createdAt" FROM system_logs ${where} ORDER BY created_at DESC LIMIT $${values.length}`,
