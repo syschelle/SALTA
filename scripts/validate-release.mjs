@@ -9,6 +9,12 @@ const fail = (message) => {
 };
 
 const requiredReleaseFiles = [
+  "install.sh",
+  "update.sh",
+  "backup.sh",
+  "restore.sh",
+  "docker-compose.image.yml",
+  ".env.example",
   "scripts/check-test-symbols.mjs",
   "tsconfig.tests.json",
   "src/automations.ts",

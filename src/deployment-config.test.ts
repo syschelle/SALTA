@@ -1,22 +1,42 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const productionCompose = readFileSync(new URL("../docker-compose.image.yml", import.meta.url), "utf8");
-const environmentExample = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
-const installer = readFileSync(new URL("../install.sh", import.meta.url), "utf8");
-const updater = readFileSync(new URL("../update.sh", import.meta.url), "utf8");
-const backupScript = readFileSync(new URL("../backup.sh", import.meta.url), "utf8");
-const restoreScript = readFileSync(new URL("../restore.sh", import.meta.url), "utf8");
+const projectFile = (name: string) => new URL(`../${name}`, import.meta.url);
+const readProjectFile = (name: string) => {
+  const file = projectFile(name);
+  return existsSync(file) ? readFileSync(file, "utf8") : "";
+};
 
+const productionCompose = readProjectFile("docker-compose.image.yml");
+const environmentExample = readProjectFile(".env.example");
+const installer = readProjectFile("install.sh");
+const updater = readProjectFile("update.sh");
+const backupScript = readProjectFile("backup.sh");
+const restoreScript = readProjectFile("restore.sh");
+
+const requiredDeploymentFiles = [
+  "docker-compose.image.yml",
+  ".env.example",
+  "install.sh",
+  "update.sh",
+  "backup.sh",
+  "restore.sh",
+];
 const productionScripts = [installer, updater, backupScript, restoreScript];
 
 describe("production deployment configuration", () => {
+  it("ships every required production deployment file", () => {
+    for (const file of requiredDeploymentFiles) {
+      expect(existsSync(projectFile(file)), `required production file is missing: ${file}`).toBe(true);
+    }
+  });
+
   it("provides docker-compose.image.yml as a complete standalone production deployment", () => {
     expect(productionCompose).toContain("name: salta");
     expect(productionCompose).toContain("postgres:");
     expect(productionCompose).toContain("image: postgres:17-alpine");
     expect(productionCompose).toContain("salta:");
-    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.33}");
+    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.34}");
     expect(productionCompose).toContain("salta_postgres_data:");
     expect(productionCompose).toContain("frontend:");
     expect(productionCompose).toContain("backend:");

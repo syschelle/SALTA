@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.34
+
+- Restored and explicitly guarded the required `update.sh` production updater after CI showed that the repository checkout could miss it while the deployment regression suite still attempted to read it at module load time.
+- Changed deployment regression tests to verify required production files explicitly before inspecting their contents, avoiding opaque `ENOENT` suite-load failures.
+- Added `install.sh`, `update.sh`, `backup.sh`, `restore.sh`, `docker-compose.image.yml` and `.env.example` to the release validator's required-file contract.
+- Moved deployment-script existence and shell-syntax validation to immediately after repository checkout in CI and release verification, before dependency installation and the full test suite.
+- Missing deployment scripts now fail fast with a clear GitHub Actions error that identifies the missing file.
+- No runtime, database, HomeKit, climate-mode, battery-warning, Pushover or dependency behavior changed.
+
 ## v0.8.33
 
 - Compactified the Overview heating-mode and battery-warning cards and aligned their typography, spacing, icons and actions with the rest of the SALTA UI.
