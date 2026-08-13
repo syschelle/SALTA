@@ -10,7 +10,9 @@ describe("system climate and battery controls",()=>{
     expect(html).toContain('id="climateWinterMode"');
     expect(html).toContain("Dieser Schalter wird nicht an HomeKit übergeben");
     expect(script).toContain("api('/api/system/climate-mode'");
-    expect(script).toContain("applyClimateMode('summer')");
+    expect(html).toContain("onclick=\"applyClimateMode('summer')\"");
+    expect(html).toContain("onclick=\"applyClimateMode('winter')\"");
+    expect(script).toContain("async function applyClimateMode(mode)");
   });
   it("offers Pushover battery warning settings and seven-day status",()=>{
     expect(html).toContain('data-settings-panel="notifications"');

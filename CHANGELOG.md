@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.32
+
+- Fixed the frontend system-controls regression test introduced in v0.8.31.
+- The Summer button already called `applyClimateMode('summer')` correctly from `public/index.html`; the test incorrectly searched for that inline handler in `public/app.js`.
+- The regression test now verifies both Summer and Winter button bindings in the HTML and separately verifies the `applyClimateMode()` implementation and climate-mode API call in JavaScript.
+- No runtime climate-mode, battery-warning, Pushover, database, HomeKit or dependency behavior changed.
+
 ## v0.8.31
 
 - Added a persistent SALTA-only global **Summer / Winter** heating mode that is never exposed as a HomeKit accessory.
