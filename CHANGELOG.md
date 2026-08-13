@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.30
+
+- Fixed two frontend regression tests that still expected the pre-v0.8.29 device configuration payload.
+- Kept the existing name, room and presentation assertions while adding checks for the HomeKit publication and SALTA-room inheritance fields.
+- No runtime HomeKit, device, database or dependency behavior changed.
+
 ## v0.8.29
 
 - Added per-device HomeKit publication controls, optional HomeKit names and SALTA-room inheritance.

@@ -13,7 +13,9 @@ describe("device display-name editing", () => {
   it("loads and saves the name for every device type", () => {
     expect(source).toContain("deviceName.value=selectedDevice.name");
     expect(source).toContain("const name=deviceName.value.trim()");
-    expect(source).toContain("const config={name,roomId:deviceRoom.value||null,presentationType}");
+    expect(source).toContain("const config={name,roomId:deviceRoom.value||null,presentationType,");
+    expect(source).toContain("homekitEnabled:homekitSupported&&deviceHomeKitEnabled.checked");
+    expect(source).toContain("homekitUseSaltaRoom:useSaltaRoom");
     expect(source).toContain("body:JSON.stringify(config)");
   });
 });
