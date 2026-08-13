@@ -15,3 +15,16 @@ export function resolvePresentationType(device: Device): ResolvedPresentationTyp
   if (configured !== "auto" && supportsPresentationOverride(device)) return configured;
   return device.type;
 }
+
+const HOMEKIT_SUPPORTED_TYPES = new Set<ResolvedPresentationType>(["outlet", "switch", "light", "fan", "windowCovering"]);
+
+export function isHomeKitSupportedDevice(device: Device): boolean {
+  const type = resolvePresentationType(device);
+  if (!HOMEKIT_SUPPORTED_TYPES.has(type)) return false;
+  if (type === "windowCovering") return device.capabilities.includes("setTargetPosition");
+  return device.capabilities.includes("turnOn") && device.capabilities.includes("turnOff");
+}
+
+export function homeKitAccessoryName(device: Device): string {
+  return device.homekitName?.trim() || device.name;
+}

@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import type { CredentialMode, Device, DeviceEvent } from "./types.js";
-import { deleteDevice, setDeviceCredentials, upsertDevice } from "./db.js";
+import { deleteDevice, setDeviceCredentials, updateDeviceHomeKitSettings, upsertDevice } from "./db.js";
 
 export class DeviceRegistry extends EventEmitter {
   private readonly devices = new Map<string, Device>();
@@ -39,7 +39,20 @@ export class DeviceRegistry extends EventEmitter {
 
   async set(input: Device): Promise<void> {
     if (this.removedDeviceIds.has(input.id)) return;
-    const device = this.withoutDeletedRoom(input);
+    const current = this.devices.get(input.id);
+    const homekitUseSaltaRoom = current?.homekitUseSaltaRoom ?? input.homekitUseSaltaRoom;
+    const followsSaltaRoom = homekitUseSaltaRoom !== false;
+    const hasHomeKitMetadata = current?.homekitName !== undefined || input.homekitName !== undefined || homekitUseSaltaRoom !== undefined || current?.homekitRoomId !== undefined || input.homekitRoomId !== undefined;
+    const device = this.withoutDeletedRoom({
+      ...input,
+      homekitEnabled: current?.homekitEnabled ?? input.homekitEnabled,
+      ...(current?.homekitName !== undefined || input.homekitName !== undefined ? { homekitName: current?.homekitName ?? input.homekitName } : {}),
+      ...(hasHomeKitMetadata ? {
+        homekitUseSaltaRoom: homekitUseSaltaRoom ?? true,
+        homekitRoomId: followsSaltaRoom ? input.roomId : (current?.homekitRoomId ?? input.homekitRoomId),
+        homekitRoom: followsSaltaRoom ? input.room : (current?.homekitRoom ?? input.homekitRoom)
+      } : {})
+    });
     this.devices.set(device.id, device);
     await upsertDevice(device);
     if (this.removedDeviceIds.has(device.id)) {
@@ -84,8 +97,15 @@ export class DeviceRegistry extends EventEmitter {
   updateRoomName(roomId: string, roomName: string): Device[] {
     const updated: Device[] = [];
     for (const [id, current] of this.devices) {
-      if (current.roomId !== roomId || current.room === roomName) continue;
-      const next = { ...current, room: roomName };
+      const saltaRoomChanged = current.roomId === roomId && current.room !== roomName;
+      const homekitOverrideChanged = current.homekitUseSaltaRoom === false && current.homekitRoomId === roomId && current.homekitRoom !== roomName;
+      if (!saltaRoomChanged && !homekitOverrideChanged) continue;
+      const next = {
+        ...current,
+        ...(saltaRoomChanged ? { room: roomName } : {}),
+        ...(current.homekitUseSaltaRoom !== false && current.roomId === roomId ? { homekitRoom: roomName, homekitRoomId: roomId } : {}),
+        ...(homekitOverrideChanged ? { homekitRoom: roomName } : {})
+      };
       this.devices.set(id, next);
       this.notify("device", next);
       updated.push(next);
@@ -97,8 +117,15 @@ export class DeviceRegistry extends EventEmitter {
     this.deletedRoomIds.add(roomId);
     const updated: Device[] = [];
     for (const [id, current] of this.devices) {
-      if (current.roomId !== roomId) continue;
-      const next = { ...current, roomId: undefined, room: undefined };
+      const saltaRoomDeleted = current.roomId === roomId;
+      const homekitOverrideDeleted = current.homekitUseSaltaRoom === false && current.homekitRoomId === roomId;
+      if (!saltaRoomDeleted && !homekitOverrideDeleted) continue;
+      const next = {
+        ...current,
+        ...(saltaRoomDeleted ? { roomId: undefined, room: undefined } : {}),
+        ...(saltaRoomDeleted && current.homekitUseSaltaRoom !== false ? { homekitRoomId: undefined, homekitRoom: undefined } : {}),
+        ...(homekitOverrideDeleted ? { homekitRoomId: undefined, homekitRoom: undefined } : {})
+      };
       this.devices.set(id, next);
       this.notify("device", next);
       updated.push(next);
@@ -109,6 +136,22 @@ export class DeviceRegistry extends EventEmitter {
   async patch(id: string, patch: Partial<Pick<Device,"name"|"roomId"|"room"|"homekitEnabled"|"hidden"|"presentationType">>): Promise<Device> {
     const current=this.devices.get(id); if(!current) throw new Error("DEVICE_NOT_FOUND");
     const next={...current,...patch}; await this.set(next); return next;
+  }
+
+  async patchHomeKit(id: string, settings: { enabled: boolean; name?: string; useSaltaRoom: boolean; roomId?: string; room?: string }): Promise<Device> {
+    const current=this.devices.get(id); if(!current) throw new Error("DEVICE_NOT_FOUND");
+    await updateDeviceHomeKitSettings(id,{enabled:settings.enabled,name:settings.name,useSaltaRoom:settings.useSaltaRoom,roomId:settings.roomId});
+    const next={
+      ...current,
+      homekitEnabled:settings.enabled,
+      homekitName:settings.name?.trim()||undefined,
+      homekitUseSaltaRoom:settings.useSaltaRoom,
+      homekitRoomId:settings.useSaltaRoom?current.roomId:settings.roomId,
+      homekitRoom:settings.useSaltaRoom?current.room:settings.room
+    };
+    this.devices.set(id,next);
+    this.notify("device",next);
+    return next;
   }
 
   async patchCredentials(id: string, credentialMode: CredentialMode, credentialUsername?: string, password?: string): Promise<Device> {

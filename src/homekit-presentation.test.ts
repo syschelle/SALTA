@@ -15,11 +15,24 @@ describe("HomeKit device presentation", () => {
 
 
   it("removes hidden devices from HomeKit", () => {
-    expect(source).toContain("if(!d.homekitEnabled || d.hidden){ this.remove(d.id); return; }");
+    expect(source).toContain("if(!d.homekitEnabled || d.hidden || !isHomeKitSupportedDevice(d)){ this.remove(d.id); return; }");
   });
 
   it("persists the selected presentation type", () => {
     expect(databaseSource).toContain("presentation_type text NOT NULL DEFAULT 'auto'");
     expect(databaseSource).toContain('d.presentation_type as "presentationType"');
   });
+  it("uses the optional HomeKit name override and does not coerce unsupported sensors into switches", () => {
+    expect(source).toContain("const accessoryName=homeKitAccessoryName(d)");
+    expect(source).toContain("a=new Accessory(accessoryName");
+    expect(source).toContain("default: return;");
+  });
+
+  it("loads additive HomeKit publication settings and target-room metadata", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS device_homekit_settings");
+    expect(databaseSource).toContain('COALESCE(hk.enabled,d.homekit_enabled) as "homekitEnabled"');
+    expect(databaseSource).toContain('COALESCE(hk.use_salta_room,true) as "homekitUseSaltaRoom"');
+    expect(databaseSource).toContain('as "homekitRoom"');
+  });
+
 });

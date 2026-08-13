@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Device } from "./types.js";
-import { resolvePresentationType, supportsPresentationOverride } from "./device-presentation.js";
+import { homeKitAccessoryName, isHomeKitSupportedDevice, resolvePresentationType, supportsPresentationOverride } from "./device-presentation.js";
 
 function device(overrides: Partial<Device> = {}): Device {
   return {
@@ -43,4 +43,15 @@ describe("device presentation types", () => {
     expect(supportsPresentationOverride(meter)).toBe(false);
     expect(resolvePresentationType(meter)).toBe("energyMeter");
   });
+  it("exposes only device types implemented by the current HomeKit bridge", () => {
+    expect(isHomeKitSupportedDevice(device())).toBe(true);
+    expect(isHomeKitSupportedDevice(device({ type: "energyMeter", capabilities: [] }))).toBe(false);
+    expect(isHomeKitSupportedDevice(device({ type: "windowCovering", capabilities: ["setTargetPosition"] }))).toBe(true);
+  });
+
+  it("uses an optional HomeKit name override without changing the SALTA device name", () => {
+    expect(homeKitAccessoryName(device())).toBe("Test");
+    expect(homeKitAccessoryName(device({ homekitName: "Fernseher" }))).toBe("Fernseher");
+  });
+
 });

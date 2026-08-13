@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.29
+
+- Added per-device HomeKit publication controls, optional HomeKit names and SALTA-room inheritance.
+- Added additive `device_homekit_settings` persistence while preserving existing HomeKit enabled states.
+- Prevented unsupported devices from being coerced into generic HomeKit switch accessories.
+- Added HomeKit compatibility and target-room information to the device configuration dialog.
+- Added regression coverage for HomeKit settings, room inheritance and adapter-refresh persistence.
+
 ## v0.8.28
 
 - Optimized Shelly Gen2+/Gen3/Gen4 background polling so all logical channels of the same physical device share one `Shelly.GetStatus` request per reconciliation cycle.

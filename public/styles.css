@@ -445,6 +445,19 @@ html[data-theme="dark"] .automation-or-trigger-remove:hover{background:#321a20;c
 .device-dialog-content{padding-top:22px!important}
 .device-config-dialog .form-section{grid-template-columns:170px minmax(0,1fr);gap:28px;padding-bottom:22px;margin-bottom:22px}
 .device-config-dialog .section-label p{max-width:150px}
+.homekit-compatibility{display:flex;align-items:flex-start;gap:9px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--subtle-bg)}
+.homekit-compatibility>.mdi{font-size:18px;margin-top:1px;flex:0 0 auto}
+.homekit-compatibility strong,.homekit-compatibility small{display:block}
+.homekit-compatibility strong{font-size:11.5px;line-height:1.25}
+.homekit-compatibility small{margin-top:3px;color:var(--muted);font-size:10px;line-height:1.4}
+.homekit-compatibility.supported{border-color:#b8dfca;background:#f0faf5}.homekit-compatibility.supported>.mdi{color:#18734a}
+.homekit-compatibility.warning{border-color:#ead39b;background:#fff9ea}.homekit-compatibility.warning>.mdi{color:#a46d00}
+.homekit-compatibility.unsupported{border-color:#d7dce3}.homekit-compatibility.unsupported>.mdi{color:#7a8490}
+.homekit-choice-row{padding:10px 11px}
+.device-homekit-section .field-stack{gap:10px}
+#deviceHomeKitRoomField.disabled{opacity:.62}
+#deviceHomeKitRoomField.disabled select{cursor:not-allowed}
+.homekit-room-note{margin:0;font-size:10.5px;line-height:1.45}
 .device-info-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .device-info-item{min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--subtle-bg)}
 .device-info-item>span{display:block;color:var(--muted);font-size:9.5px;line-height:1.2;margin-bottom:3px}
@@ -461,6 +474,8 @@ html[data-theme="dark"] .automation-or-trigger-remove:hover{background:#321a20;c
 @media(max-width:720px){.device-config-dialog .form-section{grid-template-columns:1fr;gap:14px}.device-config-dialog .section-label p{max-width:none}.device-info-grid{grid-template-columns:1fr}.device-config-dialog .danger-zone-content{align-items:stretch;flex-direction:column}.device-config-dialog .danger-button{align-self:flex-start}}
 
 html[data-theme="dark"] .gateway-status.failed{border-color:#743b46}
+html[data-theme="dark"] .homekit-compatibility.supported{border-color:#315b47;background:#172a21}
+html[data-theme="dark"] .homekit-compatibility.warning{border-color:#6c592d;background:#2b2618}
 
 /* Compact overview summary */
 .overview-header{align-items:flex-end;gap:16px}

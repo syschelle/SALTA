@@ -77,6 +77,17 @@ export async function initializeDatabaseSchema(): Promise<void> {
       hidden boolean NOT NULL DEFAULT false,
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS device_homekit_settings (
+      device_id text PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+      enabled boolean NOT NULL DEFAULT true,
+      name_override text,
+      use_salta_room boolean NOT NULL DEFAULT true,
+      room_id uuid REFERENCES rooms(id) ON DELETE SET NULL,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    INSERT INTO device_homekit_settings(device_id,enabled)
+    SELECT id,homekit_enabled FROM devices
+    ON CONFLICT(device_id) DO NOTHING;
     CREATE TABLE IF NOT EXISTS adapter_settings (
       adapter_id text PRIMARY KEY,
       username text NOT NULL DEFAULT '',
@@ -206,6 +217,7 @@ export async function upsertDevice(d: Device): Promise<void> {
   SELECT device_id,$32::jsonb FROM upserted_preferences
   ON CONFLICT(device_id) DO UPDATE SET data=EXCLUDED.data,updated_at=now()`,
     [d.id,d.source,d.sourceId,d.type,d.presentationType??"auto",d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.profile??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent,d.hidden,JSON.stringify(d.adapterData??{})]);
+  await pool.query(`INSERT INTO device_homekit_settings(device_id,enabled) VALUES($1,$2) ON CONFLICT(device_id) DO NOTHING`,[d.id,d.homekitEnabled]);
 }
 
 export async function deleteDevice(id: string): Promise<boolean> {
@@ -219,15 +231,31 @@ export async function listDevices(): Promise<Device[]> {
     d.component_id as "componentId",d.channel_count as "channelCount",d.power_metering as "powerMetering",
     d.cover_support as "coverSupport",d.switch_support as "switchSupport",d.light_support as "lightSupport",d.input_support as "inputSupport",
     d.room_id as "roomId",r.name as room,d.reachable,d.state,d.capabilities,
-    d.homekit_enabled as "homekitEnabled",COALESCE(p.hidden,false) as hidden,d.credential_mode as "credentialMode",d.credential_username as "credentialUsername",
+    COALESCE(hk.enabled,d.homekit_enabled) as "homekitEnabled",NULLIF(hk.name_override,'') as "homekitName",
+    COALESCE(hk.use_salta_room,true) as "homekitUseSaltaRoom",
+    CASE WHEN COALESCE(hk.use_salta_room,true) THEN d.room_id ELSE hk.room_id END as "homekitRoomId",
+    CASE WHEN COALESCE(hk.use_salta_room,true) THEN r.name ELSE hkr.name END as "homekitRoom",
+    COALESCE(p.hidden,false) as hidden,d.credential_mode as "credentialMode",d.credential_username as "credentialUsername",
     (d.credential_password IS NOT NULL AND d.credential_password <> '') as "passwordConfigured",
     d.last_seen as "lastSeen",d.last_event as "lastEvent",COALESCE(ad.data,'{}'::jsonb) as "adapterData"
     FROM devices d
     LEFT JOIN rooms r ON r.id=d.room_id
     LEFT JOIN device_preferences p ON p.device_id=d.id
+    LEFT JOIN device_homekit_settings hk ON hk.device_id=d.id
+    LEFT JOIN rooms hkr ON hkr.id=hk.room_id
     LEFT JOIN device_adapter_data ad ON ad.device_id=d.id
     ORDER BY d.name`);
   return r.rows;
+}
+
+export async function updateDeviceHomeKitSettings(id: string, settings: { enabled: boolean; name?: string; useSaltaRoom: boolean; roomId?: string }): Promise<void> {
+  await pool.query(`WITH updated_device AS (
+    UPDATE devices SET homekit_enabled=$2,updated_at=now() WHERE id=$1 RETURNING id
+  )
+  INSERT INTO device_homekit_settings(device_id,enabled,name_override,use_salta_room,room_id,updated_at)
+  SELECT id,$2,$3,$4,$5,now() FROM updated_device
+  ON CONFLICT(device_id) DO UPDATE SET enabled=EXCLUDED.enabled,name_override=EXCLUDED.name_override,use_salta_room=EXCLUDED.use_salta_room,room_id=EXCLUDED.room_id,updated_at=now()`,
+  [id,settings.enabled,settings.name?.trim()||null,settings.useSaltaRoom,settings.useSaltaRoom?null:(settings.roomId??null)]);
 }
 
 export async function setDeviceCredentials(id: string, mode: CredentialMode, username?: string, password?: string): Promise<void> {

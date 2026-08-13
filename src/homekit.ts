@@ -2,7 +2,7 @@ import { Accessory, Bridge, Categories, Characteristic, Service, uuid } from "@h
 import type { Device, DeviceCommand } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 import { config } from "./config.js";
-import { resolvePresentationType, type ResolvedPresentationType } from "./device-presentation.js";
+import { homeKitAccessoryName, isHomeKitSupportedDevice, resolvePresentationType, type ResolvedPresentationType } from "./device-presentation.js";
 
 export class HomeKitBridge {
   private bridge?: Bridge;
@@ -28,10 +28,11 @@ export class HomeKitBridge {
   }
   private sync(d:Device):void{
     if(!this.bridge) return;
-    if(!d.homekitEnabled || d.hidden){ this.remove(d.id); return; }
+    if(!d.homekitEnabled || d.hidden || !isHomeKitSupportedDevice(d)){ this.remove(d.id); return; }
     const serviceType=resolvePresentationType(d);
+    const accessoryName=homeKitAccessoryName(d);
     let a=this.accessories.get(d.id);
-    if(a && (this.accessoryTypes.get(d.id)!==serviceType || this.accessoryNames.get(d.id)!==d.name)){
+    if(a && (this.accessoryTypes.get(d.id)!==serviceType || this.accessoryNames.get(d.id)!==accessoryName)){
       this.bridge.removeBridgedAccessory(a);
       this.accessories.delete(d.id);
       this.accessoryTypes.delete(d.id);
@@ -39,12 +40,12 @@ export class HomeKitBridge {
       a=undefined;
     }
     if(!a){
-      a=new Accessory(d.name,uuid.generate(`salta:${d.id}`));
-      this.addService(a,d,serviceType);
+      a=new Accessory(accessoryName,uuid.generate(`salta:${d.id}`));
+      this.addService(a,d,serviceType,accessoryName);
       this.bridge.addBridgedAccessory(a);
       this.accessories.set(d.id,a);
       this.accessoryTypes.set(d.id,serviceType);
-      this.accessoryNames.set(d.id,d.name);
+      this.accessoryNames.set(d.id,accessoryName);
     }
     const service=a.services.find(s=>s.UUID!==Service.AccessoryInformation.UUID); if(!service) return;
     if("on" in d.state){
@@ -56,15 +57,15 @@ export class HomeKitBridge {
     if("currentPosition" in d.state) service.updateCharacteristic(Characteristic.CurrentPosition,Number(d.state.currentPosition));
     if("targetPosition" in d.state) service.updateCharacteristic(Characteristic.TargetPosition,Number(d.state.targetPosition));
   }
-  private addService(a:Accessory,d:Device,serviceType:ResolvedPresentationType):void{
+  private addService(a:Accessory,d:Device,serviceType:ResolvedPresentationType,name:string):void{
     let s:Service;
     switch(serviceType){
-      case "outlet": s=a.addService(Service.Outlet,d.name); break;
-      case "switch": s=a.addService(Service.Switch,d.name); break;
-      case "light": s=a.addService(Service.Lightbulb,d.name); break;
-      case "fan": s=a.addService(Service.Fanv2,d.name); break;
-      case "windowCovering": s=a.addService(Service.WindowCovering,d.name); break;
-      default: s=a.addService(Service.Switch,d.name); break;
+      case "outlet": s=a.addService(Service.Outlet,name); break;
+      case "switch": s=a.addService(Service.Switch,name); break;
+      case "light": s=a.addService(Service.Lightbulb,name); break;
+      case "fan": s=a.addService(Service.Fanv2,name); break;
+      case "windowCovering": s=a.addService(Service.WindowCovering,name); break;
+      default: return;
     }
     const cmd=(capability:string,value?:unknown)=>void this.commander.command({deviceId:d.id,capability,value:value as never,source:"homekit"}).catch(()=>undefined);
     if(d.capabilities.includes("turnOn")){

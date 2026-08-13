@@ -184,6 +184,10 @@ See `SECURITY.md` for the exact behavior, configuration guidance and limitations
 
 HomeKit is disabled by default. Enable it in `.env` when required. Depending on the Docker host, multicast discovery may require an mDNS reflector or a dedicated LAN/macvlan setup.
 
+Each compatible device now has its own HomeKit section in the device configuration dialog. SALTA controls whether the device is published, allows an optional HomeKit-specific name, and uses the existing SALTA room as the desired HomeKit target room by default. This keeps SALTA as the single room source of truth: room renames and device moves automatically update the stored HomeKit target metadata. An exceptional override can point to another existing SALTA room without maintaining a second room list.
+
+The HAP bridge itself cannot force Apple Home to place a bridged accessory into an Apple Home room. SALTA therefore stores the desired room centrally as HomeKit target metadata for the current bridge and future tooling; the final Apple Home room assignment remains controlled by Apple Home. Unsupported device types are not published as fallback switches.
+
 SALTA-owned deprecated dependencies have been removed. The HomeKit library still carries one deprecated transitive upstream package through its persistence layer; it is documented in `DEPENDENCY_NOTES.md` and retained to avoid silently breaking HomeKit.
 
 ## Shelly support

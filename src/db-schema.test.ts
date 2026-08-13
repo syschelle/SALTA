@@ -70,6 +70,16 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("encrypted_password text NOT NULL DEFAULT ''");
   });
 
+  it("stores HomeKit publication preferences in an additive settings table", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS device_homekit_settings");
+    expect(databaseSource).toContain("enabled boolean NOT NULL DEFAULT true");
+    expect(databaseSource).toContain("name_override text");
+    expect(databaseSource).toContain("use_salta_room boolean NOT NULL DEFAULT true");
+    expect(databaseSource).toContain("room_id uuid REFERENCES rooms(id) ON DELETE SET NULL");
+    expect(databaseSource).toContain("LEFT JOIN device_homekit_settings hk ON hk.device_id=d.id");
+    expect(databaseSource).toContain("LEFT JOIN rooms hkr ON hkr.id=hk.room_id");
+  });
+
   it("stores a bounded persistent system log", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS system_logs");
     expect(databaseSource).toContain("CHECK(level IN ('info','warning','error'))");

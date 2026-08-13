@@ -318,6 +318,28 @@ describe("PATCH /api/devices/:id/config", () => {
     expect(patch).not.toHaveBeenCalled();
   });
 
+  it("stores HomeKit publication settings while inheriting the SALTA room by default", async () => {
+    const room = { id: "11111111-1111-4111-8111-111111111111", name: "Wohnzimmer", icon: "sofa-outline", sortOrder: 0, createdAt: "2026-08-12T00:00:00.000Z", updatedAt: "2026-08-12T00:00:00.000Z" };
+    vi.mocked(listRooms).mockResolvedValueOnce([room]);
+    const current = { id: "shelly:tv", source: "shelly", type: "switch", name: "TV", roomId: room.id, room: room.name, capabilities: ["turnOn", "turnOff"], homekitEnabled: true };
+    const patch = vi.fn(async () => current as never);
+    const patchHomeKit = vi.fn(async () => ({ ...current, homekitName: "Fernseher", homekitUseSaltaRoom: true, homekitRoomId: room.id, homekitRoom: room.name }) as never);
+    const server = createServer(vi.fn(), vi.fn(), { get: () => current as never, patch, patchHomeKit });
+    const response = await authenticatedInject(server, { method: "PATCH", url: "/api/devices/shelly%3Atv/config", payload: { name: "TV", roomId: room.id, homekitEnabled: true, homekitName: "Fernseher", homekitUseSaltaRoom: true, homekitRoomId: null } });
+    expect(response.statusCode).toBe(200);
+    expect(patchHomeKit).toHaveBeenCalledWith("shelly:tv", { enabled: true, name: "Fernseher", useSaltaRoom: true, roomId: undefined, room: undefined });
+  });
+
+  it("rejects HomeKit publication for device types not implemented by the bridge", async () => {
+    const current = { id: "shelly:3em", source: "shelly", type: "energyMeter", capabilities: [], homekitEnabled: false };
+    const patch = vi.fn();const patchHomeKit = vi.fn();
+    const server = createServer(vi.fn(), vi.fn(), { get: () => current as never, patch, patchHomeKit });
+    const response = await authenticatedInject(server, { method: "PATCH", url: "/api/devices/shelly%3A3em/config", payload: { homekitEnabled: true } });
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: "HOMEKIT_NOT_SUPPORTED" } });
+    expect(patch).not.toHaveBeenCalled();expect(patchHomeKit).not.toHaveBeenCalled();
+  });
+
   it("rejects presentation overrides for non-switchable devices", async () => {
     const current = { id: "shelly:3em", type: "energyMeter", capabilities: [] };
     const patch = vi.fn();
@@ -681,7 +703,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.28" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.29" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {

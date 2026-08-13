@@ -4,6 +4,7 @@ import type { Device } from "./types.js";
 const dbMocks = vi.hoisted(() => ({
   deleteDevice: vi.fn(async (): Promise<boolean> => true),
   setDeviceCredentials: vi.fn(async (): Promise<void> => undefined),
+  updateDeviceHomeKitSettings: vi.fn(async (): Promise<void> => undefined),
   upsertDevice: vi.fn(async (): Promise<void> => undefined)
 }));
 
@@ -149,6 +150,26 @@ describe("DeviceRegistry removal", () => {
 
     expect(registry.get(device.id)).toMatchObject({ roomId: undefined, room: undefined });
     expect(dbMocks.upsertDevice).toHaveBeenLastCalledWith(expect.objectContaining({ roomId: undefined, room: undefined }));
+  });
+
+  it("persists HomeKit publication, name and SALTA-room inheritance independently from adapter refreshes", async () => {
+    const registry = new DeviceRegistry();
+    const roomId = "11111111-1111-4111-8111-111111111111";
+    await registry.set({ ...device, roomId, room: "Wohnzimmer" });
+    const updated = await registry.patchHomeKit(device.id, { enabled: true, name: "Fernseher", useSaltaRoom: true });
+    expect(dbMocks.updateDeviceHomeKitSettings).toHaveBeenCalledWith(device.id, { enabled: true, name: "Fernseher", useSaltaRoom: true, roomId: undefined });
+    expect(updated).toMatchObject({ homekitEnabled: true, homekitName: "Fernseher", homekitUseSaltaRoom: true, homekitRoomId: roomId, homekitRoom: "Wohnzimmer" });
+    await registry.set({ ...device, roomId, room: "Wohnzimmer", state: { on: true } });
+    expect(registry.get(device.id)).toMatchObject({ homekitName: "Fernseher", homekitUseSaltaRoom: true, homekitRoom: "Wohnzimmer", state: { on: true } });
+  });
+
+  it("keeps an explicit HomeKit target room separate from the device room", async () => {
+    const registry = new DeviceRegistry();
+    const deviceRoomId = "11111111-1111-4111-8111-111111111111";
+    const targetRoomId = "22222222-2222-4222-8222-222222222222";
+    await registry.set({ ...device, roomId: deviceRoomId, room: "Wohnzimmer" });
+    await registry.patchHomeKit(device.id, { enabled: true, useSaltaRoom: false, roomId: targetRoomId, room: "Büro" });
+    expect(registry.get(device.id)).toMatchObject({ homekitUseSaltaRoom: false, homekitRoomId: targetRoomId, homekitRoom: "Büro" });
   });
 
 });

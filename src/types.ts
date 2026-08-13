@@ -41,6 +41,10 @@ export interface Device {
   state: DeviceState;
   capabilities: string[];
   homekitEnabled: boolean;
+  homekitName?: string;
+  homekitUseSaltaRoom?: boolean;
+  homekitRoomId?: string;
+  homekitRoom?: string;
   hidden: boolean;
   credentialMode: CredentialMode;
   credentialUsername?: string;

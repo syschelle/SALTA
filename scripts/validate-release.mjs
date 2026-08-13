@@ -189,6 +189,11 @@ for (const variable of ["DATABASE_URL", "ADMIN_PASSWORD", "SALTA_HEALTH_TOKEN", 
 if (testRunnerSource.includes("vitest.config.ts") || testRunnerSource.includes("test-setup.ts")) fail("test runner must not depend on optional standalone Vitest bootstrap files");
 const homeKitSource = read("src/homekit.ts");
 if (!homeKitSource.includes("this.commander.command({deviceId:d.id")) fail("HomeKit does not use the shared device command dispatcher");
+if (!homeKitSource.includes("!isHomeKitSupportedDevice(d)") || !homeKitSource.includes("homeKitAccessoryName(d)")) fail("HomeKit bridge does not enforce supported-device publication and optional HomeKit names");
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS device_homekit_settings") || !databaseSource.includes("use_salta_room boolean NOT NULL DEFAULT true")) fail("Additive per-device HomeKit settings are missing");
+if (!databaseSource.includes('COALESCE(hk.use_salta_room,true) as "homekitUseSaltaRoom"') || !databaseSource.includes('as "homekitRoom"')) fail("HomeKit SALTA-room inheritance is not exposed by the device query");
+if (!publicIndex.includes('id="deviceHomeKitEnabled"') || !publicIndex.includes('id="deviceHomeKitUseSaltaRoom"') || !publicIndex.includes('id="deviceHomeKitRoom"')) fail("Device HomeKit configuration controls are incomplete");
+if (!virtualFrontend.includes("function homeKitSupportedDevice(d)") || !virtualFrontend.includes("homekitUseSaltaRoom:useSaltaRoom") || !virtualFrontend.includes("homekitRoomId:useSaltaRoom?null:")) fail("Device HomeKit configuration is not wired to the API payload");
 
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");

@@ -30,8 +30,22 @@ describe("device configuration details", () => {
   });
 
   it("numbers only visible configuration sections", () => {
-    expect(html.match(/data-device-config-section/g)?.length).toBe(6);
+    expect(html.match(/data-device-config-section/g)?.length).toBe(7);
     expect(source).toContain("function renumberDeviceConfigSections()");
     expect(source).toContain("if(section.hidden)return");
   });
+  it("prepares per-device HomeKit publication without duplicating SALTA room maintenance", () => {
+    expect(html).toContain('id="deviceHomeKitSection"');
+    expect(html).toContain('id="deviceHomeKitEnabled"');
+    expect(html).toContain('id="deviceHomeKitName"');
+    expect(html).toContain('id="deviceHomeKitUseSaltaRoom"');
+    expect(html).toContain('id="deviceHomeKitRoom"');
+    expect(html).toContain("SALTA-Raum für HomeKit verwenden");
+    expect(source).toContain("function homeKitSupportedDevice(d)");
+    expect(source).toContain("function syncDeviceHomeKitRoomControls()");
+    expect(source).toContain("homekitUseSaltaRoom:useSaltaRoom");
+    expect(source).toContain("homekitRoomId:useSaltaRoom?null:");
+    expect(styles).toContain(".homekit-compatibility");
+  });
+
 });

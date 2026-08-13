@@ -14,7 +14,7 @@ import type { DeviceCommandRouter } from "./device-command-router.js";
 import type { AutomationEngine } from "./automations.js";
 import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateFritzBoxPresenceSettings, updatePresenceTarget, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
-import { supportsPresentationOverride } from "./device-presentation.js";
+import { isHomeKitSupportedDevice, supportsPresentationOverride } from "./device-presentation.js";
 import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
 
 const commandSchema = z.object({ capability: z.string().min(1).max(80), value: z.union([z.string(), z.number(), z.boolean()]).optional() });
@@ -22,6 +22,9 @@ const patchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   roomId: z.string().uuid().nullable().optional(),
   homekitEnabled: z.boolean().optional(),
+  homekitName: z.string().trim().max(120).nullable().optional(),
+  homekitUseSaltaRoom: z.boolean().optional(),
+  homekitRoomId: z.string().uuid().nullable().optional(),
   hidden: z.boolean().optional(),
   presentationType: z.enum(["auto", "outlet", "switch", "light", "fan"]).optional()
 }).strict();
@@ -499,9 +502,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.28" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.29" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.28", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.29", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -764,9 +767,37 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       if (parsed.data.hidden !== undefined && current?.source !== "phoscon") {
         return reply.code(409).send({ error: { code: "VISIBILITY_NOT_SUPPORTED", message: "Only Zigbee devices can be hidden from the Zigbee overview.", requestId: request.id } });
       }
+      const rooms = await listRooms();
       let room: string | undefined;
-      if (parsed.data.roomId) room=(await listRooms()).find(item=>item.id===parsed.data.roomId)?.name;
-      return await registry.patch(request.params.id,{...parsed.data,roomId:parsed.data.roomId ?? undefined,room});
+      if (parsed.data.roomId) {
+        room=rooms.find(item=>item.id===parsed.data.roomId)?.name;
+        if (!room) return reply.code(404).send({ error: { code: "ROOM_NOT_FOUND", message: "Room not found", requestId: request.id } });
+      }
+      const homekitRequested = parsed.data.homekitEnabled !== undefined || parsed.data.homekitName !== undefined || parsed.data.homekitUseSaltaRoom !== undefined || parsed.data.homekitRoomId !== undefined;
+      const presentationType = parsed.data.presentationType ?? current?.presentationType;
+      const candidate = current ? { ...current, presentationType } : undefined;
+      if (parsed.data.homekitEnabled === true && candidate && !isHomeKitSupportedDevice(candidate)) {
+        return reply.code(409).send({ error: { code: "HOMEKIT_NOT_SUPPORTED", message: "This device type is not supported by the SALTA HomeKit bridge yet.", requestId: request.id } });
+      }
+      const useSaltaRoom = parsed.data.homekitUseSaltaRoom ?? current?.homekitUseSaltaRoom ?? true;
+      let homekitRoom: string | undefined;
+      const requestedHomeKitRoomId = useSaltaRoom ? undefined : (parsed.data.homekitRoomId ?? current?.homekitRoomId);
+      if (requestedHomeKitRoomId) {
+        homekitRoom = rooms.find(item=>item.id===requestedHomeKitRoomId)?.name;
+        if (!homekitRoom) return reply.code(404).send({ error: { code: "HOMEKIT_ROOM_NOT_FOUND", message: "The selected HomeKit target room does not exist in SALTA.", requestId: request.id } });
+      }
+      const { homekitEnabled: _homekitEnabled, homekitName: _homekitName, homekitUseSaltaRoom: _homekitUseSaltaRoom, homekitRoomId: _homekitRoomId, ...devicePatch } = parsed.data;
+      let updated = await registry.patch(request.params.id,{...devicePatch,roomId:parsed.data.roomId ?? undefined,room});
+      if (homekitRequested) {
+        updated = await registry.patchHomeKit(request.params.id,{
+          enabled: parsed.data.homekitEnabled ?? updated.homekitEnabled,
+          name: parsed.data.homekitName === null ? undefined : (parsed.data.homekitName ?? updated.homekitName),
+          useSaltaRoom,
+          roomId: requestedHomeKitRoomId,
+          room: homekitRoom
+        });
+      }
+      return updated;
     } catch { return reply.code(404).send({ error: { code: "DEVICE_NOT_FOUND", message: "Device not found", requestId: request.id } }); }
   });
   app.delete<{ Params: { id: string } }>("/api/devices/:id", async (request, reply) => {
