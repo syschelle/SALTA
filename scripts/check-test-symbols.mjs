@@ -4,51 +4,43 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const configPath = resolve(root, "tsconfig.tests.json");
-const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
-if (configFile.error) {
-  throw new Error(ts.flattenDiagnosticMessageText(configFile.error.messageText, "\n"));
+const vitestOnly = process.argv.includes("--vitest-only");
+const runVitest = process.argv.includes("--vitest") || vitestOnly;
+
+if (!vitestOnly) {
+  const configPath = resolve(root, "tsconfig.tests.json");
+  const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
+  if (configFile.error) throw new Error(ts.flattenDiagnosticMessageText(configFile.error.messageText, "\n"));
+  const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, root, undefined, configPath);
+  if (parsed.errors.length) {
+    throw new Error(ts.formatDiagnosticsWithColorAndContext(parsed.errors, {
+      getCanonicalFileName: (file) => file, getCurrentDirectory: () => root, getNewLine: () => "\n",
+    }));
+  }
+  const program = ts.createProgram({ rootNames: parsed.fileNames, options: parsed.options });
+  const testFiles = program.getSourceFiles().filter((sourceFile) =>
+    sourceFile.fileName.startsWith(resolve(root, "src")) && sourceFile.fileName.endsWith(".test.ts")
+  );
+  const unresolved = testFiles.flatMap((sourceFile) =>
+    program.getSemanticDiagnostics(sourceFile).filter((diagnostic) => diagnostic.code === 2304 || diagnostic.code === 2552)
+  );
+  if (unresolved.length) {
+    console.error("Test symbol preflight found unresolved identifiers:");
+    console.error(ts.formatDiagnosticsWithColorAndContext(unresolved, {
+      getCanonicalFileName: (file) => file, getCurrentDirectory: () => root, getNewLine: () => "\n",
+    }));
+    process.exit(1);
+  }
+  console.log(`Test symbol preflight passed for ${testFiles.length} test files: no unresolved identifiers.`);
 }
 
-const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, root, undefined, configPath);
-if (parsed.errors.length) {
-  const message = ts.formatDiagnosticsWithColorAndContext(parsed.errors, {
-    getCanonicalFileName: (file) => file,
-    getCurrentDirectory: () => root,
-    getNewLine: () => "\n",
-  });
-  throw new Error(message);
-}
-
-const program = ts.createProgram({ rootNames: parsed.fileNames, options: parsed.options });
-const testFiles = program.getSourceFiles().filter((sourceFile) =>
-  sourceFile.fileName.startsWith(resolve(root, "src")) && sourceFile.fileName.endsWith(".test.ts")
-);
-
-const unresolved = testFiles.flatMap((sourceFile) =>
-  program.getSemanticDiagnostics(sourceFile).filter((diagnostic) => diagnostic.code === 2304 || diagnostic.code === 2552)
-);
-
-if (unresolved.length) {
-  console.error("Test symbol preflight found unresolved identifiers:");
-  console.error(ts.formatDiagnosticsWithColorAndContext(unresolved, {
-    getCanonicalFileName: (file) => file,
-    getCurrentDirectory: () => root,
-    getNewLine: () => "\n",
-  }));
-  process.exit(1);
-}
-
-console.log(`Test symbol preflight passed for ${testFiles.length} test files: no unresolved identifiers.`);
-
-if (process.argv.includes("--vitest")) {
+if (runVitest) {
   const vitestEntry = resolve(root, "node_modules", "vitest", "vitest.mjs");
   if (!existsSync(vitestEntry)) {
     console.error(`Vitest executable is missing: ${vitestEntry}`);
     console.error("Run npm ci before npm test.");
     process.exit(1);
   }
-
   const env = {
     ...process.env,
     NODE_ENV: "test",
@@ -59,16 +51,7 @@ if (process.argv.includes("--vitest")) {
     HOMEKIT_ENABLED: "false",
     LOG_LEVEL: "silent",
   };
-
-  const result = spawnSync(process.execPath, [vitestEntry, "run", "--passWithNoTests"], {
-    cwd: root,
-    env,
-    stdio: "inherit",
-  });
-
-  if (result.error) {
-    console.error(result.error);
-    process.exit(1);
-  }
+  const result = spawnSync(process.execPath, [vitestEntry, "run", "--passWithNoTests"], { cwd: root, env, stdio: "inherit" });
+  if (result.error) { console.error(result.error); process.exit(1); }
   process.exit(result.status ?? 1);
 }

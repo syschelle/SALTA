@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.8.33
+
+- Compactified the Overview heating-mode and battery-warning cards and aligned their typography, spacing, icons and actions with the rest of the SALTA UI.
+- Added a stable `data-homekit-exposed="false"` contract to the SALTA-only heating control while keeping Summer/Winter behavior unchanged.
+- Changed thermostat execution details to compact status chips and moved the Pushover action into the battery-card header.
+- Reduced battery-warning height by summarizing affected devices inline.
+- Replaced fragile device-config and climate frontend source-string assertions with AST-based function/call/object inspection.
+- Consolidated duplicate device-name and device-presentation regression tests into the shared device-dialog contract test.
+- Moved test-only inspection helpers out of `src` so they are no longer compiled into the production `dist` tree.
+- Optimized `npm run check` to avoid the duplicate production TypeScript compile and the duplicate test-symbol preflight.
+- Removed historical release-validator checks that inspected individual test-file implementations and added generic anti-fragility guards instead.
+- No database, runtime API, dependency or HomeKit behavior changed.
+
 ## v0.8.32
 
 - Fixed the frontend system-controls regression test introduced in v0.8.31.

@@ -138,7 +138,7 @@ npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
 npm run check
 ```
 
-The quality gate validates release-version consistency, npm registry URLs, security dependency overrides, the Homebridge DBus lock checksum, TypeScript types, all automated tests, the production compilation and browser JavaScript syntax.
+The quality gate validates release-version consistency, npm registry URLs, security dependency overrides, the Homebridge DBus lock checksum, browser JavaScript syntax, one production TypeScript build and the complete Vitest suite. Test-symbol preflight runs once before the build; the final Vitest phase reuses that result instead of repeating it.
 
 Use the safe version command for future releases:
 

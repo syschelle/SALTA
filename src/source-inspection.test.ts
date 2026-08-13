@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { functionTransitivelyCalls, parseJavaScriptSource } from "./test-utils/source-inspection.js";
+import { functionTransitivelyCalls, parseJavaScriptSource } from "../test-utils/source-inspection.js";
 
 describe("source inspection call graph", () => {
   it("follows composed renderer helpers instead of requiring a direct call", () => {

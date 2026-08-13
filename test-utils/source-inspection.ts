@@ -125,3 +125,61 @@ export function functionTransitivelyCalls(
   return visitFunction(startingFunctionName, 0);
 }
 
+
+export function functionCallsWithStringArgument(
+  sourceFile: ts.SourceFile,
+  containingFunctionName: string,
+  calledFunctionName: string,
+  argumentValue: string,
+): boolean {
+  const functionNode = findFunctionNode(sourceFile, containingFunctionName);
+  let found = false;
+
+  const visit = (node: ts.Node): void => {
+    if (found) return;
+    if (ts.isCallExpression(node) && callName(node.expression) === calledFunctionName) {
+      found = node.arguments.some((argument) =>
+        (ts.isStringLiteral(argument) || ts.isNoSubstitutionTemplateLiteral(argument)) && argument.text === argumentValue
+      );
+      if (found) return;
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  ts.forEachChild(functionNode, visit);
+  return found;
+}
+
+export function objectLiteralPropertyNames(
+  sourceFile: ts.SourceFile,
+  containingFunctionName: string,
+  variableName: string,
+): string[] {
+  const functionNode = findFunctionNode(sourceFile, containingFunctionName);
+  let result: string[] | undefined;
+
+  const visit = (node: ts.Node): void => {
+    if (result) return;
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === variableName &&
+      node.initializer &&
+      ts.isObjectLiteralExpression(node.initializer)
+    ) {
+      result = node.initializer.properties.flatMap((property) => {
+        if (ts.isShorthandPropertyAssignment(property)) return [property.name.text];
+        if (ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name))) {
+          return [property.name.text];
+        }
+        return [];
+      });
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  ts.forEachChild(functionNode, visit);
+  if (!result) throw new Error(`Object variable ${variableName} was not found in function ${containingFunctionName}`);
+  return result;
+}

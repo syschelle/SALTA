@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { functionSource, functionTransitivelyCalls, hasFunction, parseJavaScriptSource } from "./test-utils/source-inspection.js";
+import { functionSource, functionTransitivelyCalls, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
 
 const adapter = readFileSync(new URL("./openccu-adapter.ts", import.meta.url), "utf8");
 const core = readFileSync(new URL("./openccu-core.ts", import.meta.url), "utf8");

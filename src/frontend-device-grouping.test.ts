@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { functionCalls, hasFunction, parseJavaScriptSource } from "./test-utils/source-inspection.js";
+import { functionCalls, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
 
 const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
 const htmlSource = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");

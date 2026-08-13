@@ -18,11 +18,8 @@ const requiredReleaseFiles = [
   "src/fritzbox-presence.ts",
   "src/climate-mode.ts",
   "src/battery-monitor.ts",
-  "src/climate-mode.test.ts",
-  "src/battery-monitor.test.ts",
-  "src/frontend-system-controls.test.ts",
-  "src/frontend-presence.test.ts",
-  "src/frontend-overview-summary.test.ts",
+  "test-utils/source-inspection.ts",
+  "test-utils/style-inspection.ts",
   "public/automation-ui.js",
 ];
 for (const file of requiredReleaseFiles) {
@@ -64,7 +61,7 @@ const climateModeSource = read("src/climate-mode.ts");
 const batteryMonitorSource = read("src/battery-monitor.ts");
 const climateDbSource = read("src/db.ts");
 if (!publicIndex.includes('id="climateSummerButton"') || !publicIndex.includes('id="climateWinterButton"') || !publicIndex.includes('id="climateWinterMode"')) fail("Global summer/winter thermostat controls are missing");
-if (!publicIndex.includes("Dieser Schalter wird nicht an HomeKit übergeben")) fail("Climate mode must remain explicitly SALTA-only");
+if (!publicIndex.includes('class="panel overview-system-card climate-mode-card" data-homekit-exposed="false"')) fail("Climate mode must remain explicitly SALTA-only");
 if (!serverSource.includes('"/api/system/climate-mode"')) fail("Climate mode API is missing");
 if (!climateModeSource.includes('value: targetMode') || !climateModeSource.includes('source: "system"')) fail("Climate mode does not route thermostat mode commands through SALTA system commands");
 if (!batteryMonitorSource.includes("7 * 24 * 60 * 60 * 1000")) fail("Battery warning does not enforce the seven-day notification interval");
@@ -137,7 +134,6 @@ if (!virtualFrontend.includes("sunrise:'Sonnenaufgang'") || !virtualFrontend.inc
 if (!virtualFrontend.includes("split(' + ').includes('Daylight')?5:4")) fail("Phoscon Daylight card does not expose all five Daylight values");
 const presenceSource = read("src/fritzbox-presence.ts");
 const securitySource = read("SECURITY.md");
-const presenceFrontendTest = read("src/frontend-presence.test.ts");
 if (!publicIndex.includes('data-nav="presence"') || !publicIndex.includes('data-page="presence"')) fail("Dedicated Presence navigation/page is missing");
 for (const id of ["presenceSettingsForm", "presenceHouseSummary", "presenceTargetList", "presenceTargetForm", "presenceProtocol", "presenceHost", "presencePort", "presenceTlsInsecure"]) {
   if (!publicIndex.includes(`id="${id}"`)) fail(`Presence page section is missing: ${id}`);
@@ -185,20 +181,15 @@ for (const route of ['/api/presence', '/api/presence/settings', '/api/presence/t
 }
 if (!mainSource.includes("new FritzBoxPresenceAdapter(registry)") || !mainSource.includes("presence.start()") || !mainSource.includes("presence.stop()")) fail("Presence adapter lifecycle is incomplete");
 if (!automationFrontend.includes("'present','anyHome','nobodyHome'") || !automationFrontend.includes("present:['Anwesend','Abwesend']") || !automationFrontend.includes("anyHome:['Jemand zuhause','Niemand zuhause']")) fail("Presence automation states are missing");
-if (!presenceFrontendTest.includes('data-nav="presence"') || !presenceFrontendTest.includes('id="presenceSettingsForm"') || !presenceFrontendTest.includes("'nobodyHome'")) fail("Presence frontend regression coverage is incomplete");
 if (!phosconCoreSource.includes("websocketport")) fail("Phoscon websocket port discovery is missing");
 if (!phosconCoreSource.includes('sensor.type === "button"')) fail("Phoscon button resources may be merged into actuator devices");
 const automationPersistenceSource = read("src/automation-persistence.ts");
 if (automationEngineSource.includes('from "./db.js"')) fail("automation core must not import the database/configuration layer directly");
 if (!automationPersistenceSource.includes('from "./db.js"')) fail("automation persistence adapter is not wired to the database layer");
 if (!mainSource.includes("databaseAutomationStore, databaseAutomationLogger")) fail("main does not inject automation persistence and logging adapters");
-const frontendAutomationTestSource = read("src/frontend-automations.test.ts");
-const phosconWebSocketTestSource = read("src/phoscon-websocket.test.ts");
-if (frontendAutomationTestSource.includes('expect(ui).toContain("Mehrere Ereignisse werden ODER-verknüpft")')) fail("Automation multi-event hint test must inspect the HTML owner, not automation-ui.js");
-if (frontendAutomationTestSource.includes('additionalTriggers:automationAdditionalTriggerPayload()')) fail("Automation OR-trigger test still assumes the pre-multi-event payload shape");
-if (phosconWebSocketTestSource.includes('typeof statePatch.buttonEvent === "number"')) fail("Phoscon websocket test still assumes the pre-normalization button event type check");
 const testRunnerSource = read("scripts/check-test-symbols.mjs");
 if (!testRunnerSource.includes('resolve(root, "node_modules", "vitest", "vitest.mjs")')) fail("npm test does not launch the locked local Vitest executable");
+if (!testRunnerSource.includes('const vitestOnly = process.argv.includes("--vitest-only")')) fail("test runner does not support the optimized Vitest-only phase");
 if (!testRunnerSource.includes('NODE_ENV: "test"')) fail("test runner does not force NODE_ENV=test");
 for (const variable of ["DATABASE_URL", "ADMIN_PASSWORD", "SALTA_HEALTH_TOKEN", "SALTA_ENCRYPTION_KEY"]) {
   if (!testRunnerSource.includes(`${variable}: process.env.${variable} ??`)) fail(`test runner does not initialize ${variable}`);
@@ -214,13 +205,24 @@ if (!virtualFrontend.includes("function homeKitSupportedDevice(d)") || !virtualF
 
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");
-if (!String(packageJson.scripts?.check ?? "").includes("node --check public/automation-ui.js")) fail("npm run check must syntax-check automation-ui.js");
+const checkScript = String(packageJson.scripts?.check ?? "");
+for (const command of [
+  "npm run validate:release",
+  "npm run test:preflight",
+  "node --check public/room-grouping.js",
+  "node --check public/automation-ui.js",
+  "node --check public/app.js",
+  "npm run build",
+  "npm run test:vitest",
+]) {
+  if (!checkScript.includes(command)) fail(`npm run check is missing: ${command}`);
+}
+if (checkScript.includes("npm run typecheck")) fail("npm run check must not compile production TypeScript twice; npm run build already typechecks");
 if (packageJson.scripts?.["test:preflight"] !== "node scripts/check-test-symbols.mjs") fail("test:preflight script is missing or changed");
-if (packageJson.scripts?.test !== "node scripts/check-test-symbols.mjs --vitest") fail("npm test must use the preflight-backed Vitest runner");
-if (!String(packageJson.scripts?.check ?? "").includes("npm test")) fail("npm run check must execute the preflight-backed test runner");
+if (packageJson.scripts?.["test:vitest"] !== "node scripts/check-test-symbols.mjs --vitest-only") fail("test:vitest script is missing or changed");
+if (packageJson.scripts?.test !== "node scripts/check-test-symbols.mjs --vitest") fail("npm test must keep the standalone preflight-backed Vitest runner");
 const testTypeConfig = json("tsconfig.tests.json");
-if (!Array.isArray(testTypeConfig.exclude) || testTypeConfig.exclude.length !== 0) fail("tsconfig.tests.json must include test files instead of inheriting the production test exclusion");
-const productionTypeConfig = json("tsconfig.json");
+if (!Array.isArray(testTypeConfig.exclude) || testTypeConfig.exclude.length !== 0 || !testTypeConfig.include?.includes("test-utils/**/*.ts")) fail("tsconfig.tests.json must include tests and test-only helpers");
 const testSymbolPreflight = read("scripts/check-test-symbols.mjs");
 if (!testSymbolPreflight.includes("diagnostic.code === 2304 || diagnostic.code === 2552")) fail("test symbol preflight must reject unresolved TypeScript identifiers");
 const version = String(packageJson.version ?? "");
@@ -325,47 +327,26 @@ if (dbus?.integrity !== "sha512-VwTSCy1qofS0QLHtOiSVVmtR49xr/DR17D+5VeJm+xw1rGal
 
 const testFiles = readdirSync(resolve(root, "src"), { recursive: true })
   .filter((file) => typeof file === "string" && file.endsWith(".test.ts"));
-const forbiddenExactCallAssertions = [
-  "targetTemperatureControl(d)",
-  "thermostatModeControl(d)",
-  "brightnessControl(d)",
-  "coverControl(d)",
-];
 for (const file of testFiles) {
   const source = read(`src/${file}`);
-  for (const exactCall of forbiddenExactCallAssertions) {
-    if (source.includes(`toContain(\"${exactCall}\")`) || source.includes(`toContain('${exactCall}')`)) {
-      fail(`${file} contains the fragile exact-call assertion ${exactCall}; use the AST source-inspection helper instead`);
-    }
+  if (/expect\((?:source|script)\)\.toContain\(\s*["'`]const\s+\w+\s*=\s*\{/.test(source)) {
+    fail(`${file} contains a fragile exact object-literal source assertion; inspect AST properties instead`);
   }
-  if (/toContain\(\s*[\"'`]@media[^\"'`]*\{\./.test(source)) {
+  if (/expect\((?:source|script)\)\.toContain\(\s*["'`](?:async\s+)?function\s+[A-Za-z_$]/.test(source)) {
+    fail(`${file} contains a fragile exact function-declaration source assertion; use source-inspection.ts instead`);
+  }
+  if (/toContain\(\s*["'`]@media[^"'`]*\{\./.test(source)) {
     fail(`${file} contains a fragile media-query selector-adjacency assertion; use cssMediaRuleContains instead`);
   }
 }
 
-const densityTest = read("src/frontend-device-density.test.ts");
-if (densityTest.includes("latestRule(")) {
-  fail("frontend-device-density.test.ts must inspect all matching CSS rules instead of only the last media-query override");
+const sourceInspectionHelper = read("test-utils/source-inspection.ts");
+for (const helper of ["parseJavaScriptSource", "hasFunction", "functionCalls", "functionCallsWithStringArgument", "objectLiteralPropertyNames"]) {
+  if (!sourceInspectionHelper.includes(`function ${helper}`)) fail(`source-inspection.ts must provide ${helper}`);
 }
-if (!densityTest.includes("cssRuleContains")) {
-  fail("frontend-device-density.test.ts must use the shared CSS rule inspection helper");
-}
-
-const automationFrontendTest = read("src/frontend-automations.test.ts");
-if (automationFrontendTest.includes("@media(max-width:620px){.automation-card")) {
-  fail("frontend-automations.test.ts must not require selector adjacency inside a media query");
-}
-if (!automationFrontendTest.includes("cssMediaRuleContains")) {
-  fail("frontend-automations.test.ts must use the shared media-query CSS inspection helper");
-}
-const styleInspectionHelper = read("src/test-utils/style-inspection.ts");
+const styleInspectionHelper = read("test-utils/style-inspection.ts");
 if (!styleInspectionHelper.includes("cssMediaRuleContains") || !styleInspectionHelper.includes("cssMediaBlocks")) {
   fail("style-inspection.ts must provide media-query-aware CSS inspection helpers");
-}
-
-const openCcuControlTest = read("src/openccu-control.test.ts");
-if (!openCcuControlTest.includes("functionTransitivelyCalls")) {
-  fail("openccu-control.test.ts must follow the renderer call graph through composed control helpers");
 }
 
 console.log(`Release validation passed for SALTA v${version}.`);

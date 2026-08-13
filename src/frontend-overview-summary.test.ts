@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { functionSource, parseJavaScriptSource } from "./test-utils/source-inspection.js";
-import { cssMediaRuleContains, cssRuleContains } from "./test-utils/style-inspection.js";
+import { functionSource, parseJavaScriptSource } from "../test-utils/source-inspection.js";
+import { cssMediaRuleContains, cssRuleContains } from "../test-utils/style-inspection.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");

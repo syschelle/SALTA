@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
-import { functionCalls, hasFunction, parseJavaScriptSource } from "./test-utils/source-inspection.js";
-import { cssMediaRuleContains, cssRuleContains } from "./test-utils/style-inspection.js";
+import { functionCalls, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
+import { cssMediaRuleContains, cssRuleContains } from "../test-utils/style-inspection.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const ui = readFileSync(new URL("../public/automation-ui.js", import.meta.url), "utf8");

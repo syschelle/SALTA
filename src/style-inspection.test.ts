@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cssMediaRuleContains, cssRuleContains } from "./test-utils/style-inspection.js";
+import { cssMediaRuleContains, cssRuleContains } from "../test-utils/style-inspection.js";
 
 describe("CSS rule inspection", () => {
   it("finds a base declaration even when a later media query overrides the same selector", () => {

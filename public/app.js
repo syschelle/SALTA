@@ -66,18 +66,23 @@ function renderClimateMode(){
   climateWinterButton.classList.toggle('active',!summer);
   climateSummerButton.setAttribute('aria-pressed',String(summer));
   climateWinterButton.setAttribute('aria-pressed',String(!summer));
-  const applied=climateModeData.lastAppliedAt?new Date(climateModeData.lastAppliedAt).toLocaleString('de-DE'):'noch nicht angewendet';
+  const thermostats=Number(climateModeData.thermostats||0);
+  const supported=Number(climateModeData.supportedThermostats||0);
   const result=climateModeData.lastResult;
-  const resultText=result?` · ${result.succeeded} erfolgreich${result.failed?` · ${result.failed} fehlgeschlagen`:''}`:'';
-  climateModeStatus.textContent=`${climateModeData.supportedThermostats||0} von ${climateModeData.thermostats||0} Thermostaten unterstützt · ${applied}${resultText}`;
+  const applied=climateModeData.lastAppliedAt?new Date(climateModeData.lastAppliedAt).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'}):'noch nicht angewendet';
+  const chips=[`<span>${supported}/${thermostats} unterstützt</span>`,`<span>${escapeHtml(applied)}</span>`];
+  if(result){chips.push(`<span class="${Number(result.failed||0)>0?'warning':'success'}">${Number(result.succeeded||0)} erfolgreich${Number(result.failed||0)>0?` · ${Number(result.failed)} fehlgeschlagen`:''}</span>`)}
+  climateModeStatus.innerHTML=chips.join('');
 }
 function renderBatteryOverview(){
   if(!notificationData)return;
   const warnings=notificationData.warnings||[];
+  const threshold=Number(notificationData.batteryThreshold||20);
   batteryOverviewStatus.className=`battery-overview-status ${warnings.length?'warning':'ok'}`;
-  if(!warnings.length){batteryOverviewStatus.innerHTML='<span class="mdi mdi-battery-check" aria-hidden="true"></span><div><strong>Keine Batteriewarnung</strong><small>Alle gemeldeten Batteriestände liegen über dem Grenzwert.</small></div>';return}
-  const names=warnings.slice(0,3).map(item=>`${escapeHtml(item.name)}${item.battery!==undefined?` · ${Number(item.battery)} %`:''}`).join('<br>');
-  batteryOverviewStatus.innerHTML=`<span class="mdi mdi-battery-alert-variant-outline" aria-hidden="true"></span><div><strong>${warnings.length} ${warnings.length===1?'Batteriewarnung':'Batteriewarnungen'}</strong><small>${names}${warnings.length>3?`<br>+ ${warnings.length-3} weitere`:''}</small></div>`;
+  if(!warnings.length){batteryOverviewStatus.innerHTML=`<span class="mdi mdi-battery-check" aria-hidden="true"></span><div><strong>Keine Batteriewarnung</strong><small>Grenzwert ${threshold} % · aktuell alles im grünen Bereich</small></div>`;return}
+  const names=warnings.slice(0,2).map(item=>`${escapeHtml(item.name)}${item.battery!==undefined?` · ${Number(item.battery)} %`:' · Low Battery'}`).join(' · ');
+  const more=warnings.length>2?` · +${warnings.length-2} weitere`:'';
+  batteryOverviewStatus.innerHTML=`<span class="mdi mdi-battery-alert-variant-outline" aria-hidden="true"></span><div><strong>${warnings.length} ${warnings.length===1?'Batteriewarnung':'Batteriewarnungen'}</strong><small>${names}${more}</small></div>`;
 }
 async function loadSystemControls(){
   try{

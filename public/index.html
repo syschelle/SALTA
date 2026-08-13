@@ -33,7 +33,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.32</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.33</strong></div>
   </div>
 </aside>
 
@@ -51,19 +51,25 @@
       <article id="overviewPresenceCard" class="overview-presence-stat"><span>Anwesenheit</span><strong id="overviewPresence">–</strong><small id="overviewPresenceDetail">nicht eingerichtet</small></article>
     </section>
     <section class="overview-system-grid" aria-label="Globale SALTA-Steuerung">
-      <article class="panel overview-system-card climate-mode-card">
-        <div class="panel-head"><div><h2>Heizmodus</h2><p class="muted">Globaler SALTA-Modus für alle kompatiblen Thermostate. Dieser Schalter wird nicht an HomeKit übergeben.</p></div><span class="mdi mdi-radiator" aria-hidden="true"></span></div>
-        <div class="climate-mode-controls" role="group" aria-label="Sommer- oder Wintermodus">
-          <button id="climateSummerButton" type="button" class="secondary" onclick="applyClimateMode('summer')"><span class="mdi mdi-weather-sunny" aria-hidden="true"></span>Sommer</button>
-          <button id="climateWinterButton" type="button" class="secondary" onclick="applyClimateMode('winter')"><span class="mdi mdi-snowflake" aria-hidden="true"></span>Winter</button>
+      <article class="panel overview-system-card climate-mode-card" data-homekit-exposed="false">
+        <div class="system-card-head">
+          <div class="system-card-title"><span class="system-card-icon mdi mdi-radiator" aria-hidden="true"></span><div><div class="system-card-title-line"><h2>Heizmodus</h2><span class="system-card-badge">Nur SALTA</span></div><p>Alle kompatiblen Thermostate zentral umschalten.</p></div></div>
         </div>
-        <label class="climate-winter-mode">Winterbetrieb<select id="climateWinterMode"><option value="manual">Handbetrieb</option><option value="auto">Automatik</option></select></label>
-        <div id="climateModeStatus" class="system-control-status">Noch nicht geladen</div>
+        <div class="climate-mode-row">
+          <div class="climate-mode-controls" role="group" aria-label="Sommer- oder Wintermodus">
+            <button id="climateSummerButton" type="button" class="secondary" onclick="applyClimateMode('summer')"><span class="mdi mdi-weather-sunny" aria-hidden="true"></span>Sommer</button>
+            <button id="climateWinterButton" type="button" class="secondary" onclick="applyClimateMode('winter')"><span class="mdi mdi-snowflake" aria-hidden="true"></span>Winter</button>
+          </div>
+          <label class="climate-winter-mode"><span>Winterbetrieb</span><select id="climateWinterMode"><option value="manual">Handbetrieb</option><option value="auto">Automatik</option></select></label>
+        </div>
+        <div id="climateModeStatus" class="system-control-status" aria-live="polite">Noch nicht geladen</div>
       </article>
       <article class="panel overview-system-card battery-overview-card">
-        <div class="panel-head"><div><h2>Batterien</h2><p class="muted">Überwacht Batterie-Prozentwerte und Low-Battery-Meldungen aller Geräte.</p></div><span class="mdi mdi-battery-alert-variant-outline" aria-hidden="true"></span></div>
-        <div id="batteryOverviewStatus" class="battery-overview-status">Wird geprüft …</div>
-        <a class="button-link secondary-link compact-link" href="#settings" onclick="showSettingsPanel('notifications')"><span class="mdi mdi-bell-outline" aria-hidden="true"></span>Pushover konfigurieren</a>
+        <div class="system-card-head">
+          <div class="system-card-title"><span class="system-card-icon mdi mdi-battery-alert-variant-outline" aria-hidden="true"></span><div><div class="system-card-title-line"><h2>Batterien</h2></div><p>Batteriestände und Low-Battery-Meldungen im Blick.</p></div></div>
+          <a class="system-card-action" href="#settings" onclick="showSettingsPanel('notifications')" title="Pushover konfigurieren" aria-label="Pushover konfigurieren"><span class="mdi mdi-bell-outline" aria-hidden="true"></span><span>Pushover</span></a>
+        </div>
+        <div id="batteryOverviewStatus" class="battery-overview-status" aria-live="polite">Wird geprüft …</div>
       </article>
     </section>
     <section class="section-head overview-section-head"><div><h2>Geräte nach Räumen</h2><p class="muted">Shelly-, Zigbee-, HomeMatic- und virtuelle Geräte nach Raum.</p></div></section>

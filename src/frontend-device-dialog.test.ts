@@ -1,9 +1,17 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import {
+  functionCalls,
+  functionSource,
+  hasFunction,
+  objectLiteralPropertyNames,
+  parseJavaScriptSource,
+} from "../test-utils/source-inspection.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const source = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
+const app = parseJavaScriptSource(source);
 
 describe("device configuration details", () => {
   it("uses the wider structured device configuration dialog", () => {
@@ -16,36 +24,45 @@ describe("device configuration details", () => {
     expect(styles).toContain(".device-config-dialog{width:min(var(--dialog-device-width),calc(100vw - 28px))}");
   });
 
-  it("renders source-specific technical information without changing device persistence", () => {
-    expect(source).toContain("function renderDeviceDialogInfo(d)");
-    expect(source).toContain("add('Firmware',d.firmwareVersion)");
-    expect(source).toContain("Zuletzt gesehen: ${escapeHtml(deviceInfoTimestamp(selectedDevice.lastSeen))}");
-    expect(source).toContain("add('Zuletzt gesehen',deviceInfoTimestamp(d.lastSeen))");
-    expect(source).toContain("add('MAC / Geräteadresse',d.macAddress,{copy:true})");
-    expect(source).toContain("add('Sensor-Ressourcen',adapter.sensorResourceIds,{copy:true})");
-    expect(source).toContain("add('OpenCCU-Kanalname',adapter.channelName)");
-    expect(source).toContain("add('Virtueller Typ',adapter.virtualType||d.type)");
-    expect(source).toContain("add('SALTA-ID',d.id,{copy:true})");
+  it("keeps name, room, presentation and HomeKit fields in one shared save contract", () => {
+    expect(html).toContain('id="deviceName" maxlength="120" required');
+    expect(html).toContain('id="devicePresentationType"');
+    for (const value of ["auto", "light", "switch", "outlet", "fan"]) {
+      expect(html).toContain(`option value="${value}"`);
+    }
+    expect(hasFunction(app, "openDevice")).toBe(true);
+    expect(functionSource(app, "openDevice")).toContain("deviceName.value=selectedDevice.name");
+    expect(functionSource(app, "saveDeviceConfig")).toContain("deviceName.value.trim()");
+    expect(functionCalls(app, "saveDeviceConfig", "api", 2)).toBe(true);
+    expect(objectLiteralPropertyNames(app, "saveDeviceConfig", "config")).toEqual(expect.arrayContaining([
+      "name", "roomId", "presentationType", "homekitEnabled", "homekitName", "homekitUseSaltaRoom", "homekitRoomId",
+    ]));
+    expect(hasFunction(app, "resolvedPresentationType")).toBe(true);
+    expect(source).toContain("fan:'Ventilator'");
+  });
+
+  it("renders source-specific technical information", () => {
+    expect(hasFunction(app, "renderDeviceDialogInfo")).toBe(true);
+    const infoRenderer = functionSource(app, "renderDeviceDialogInfo");
+    for (const label of ["Firmware", "Zuletzt gesehen", "MAC / Geräteadresse", "Sensor-Ressourcen", "OpenCCU-Kanalname", "Virtueller Typ", "SALTA-ID"]) {
+      expect(infoRenderer).toContain(label);
+    }
     expect(source).toContain("openShellyWeb");
   });
 
   it("numbers only visible configuration sections", () => {
     expect(html.match(/data-device-config-section/g)?.length).toBe(7);
-    expect(source).toContain("function renumberDeviceConfigSections()");
-    expect(source).toContain("if(section.hidden)return");
-  });
-  it("prepares per-device HomeKit publication without duplicating SALTA room maintenance", () => {
-    expect(html).toContain('id="deviceHomeKitSection"');
-    expect(html).toContain('id="deviceHomeKitEnabled"');
-    expect(html).toContain('id="deviceHomeKitName"');
-    expect(html).toContain('id="deviceHomeKitUseSaltaRoom"');
-    expect(html).toContain('id="deviceHomeKitRoom"');
-    expect(html).toContain("SALTA-Raum für HomeKit verwenden");
-    expect(source).toContain("function homeKitSupportedDevice(d)");
-    expect(source).toContain("function syncDeviceHomeKitRoomControls()");
-    expect(source).toContain("homekitUseSaltaRoom:useSaltaRoom");
-    expect(source).toContain("homekitRoomId:useSaltaRoom?null:");
-    expect(styles).toContain(".homekit-compatibility");
+    expect(hasFunction(app, "renumberDeviceConfigSections")).toBe(true);
+    expect(functionSource(app, "renumberDeviceConfigSections")).toContain("section.hidden");
   });
 
+  it("prepares per-device HomeKit publication without duplicating SALTA room maintenance", () => {
+    for (const id of ["deviceHomeKitSection", "deviceHomeKitEnabled", "deviceHomeKitName", "deviceHomeKitUseSaltaRoom", "deviceHomeKitRoom"]) {
+      expect(html).toContain(`id="${id}"`);
+    }
+    expect(html).toContain("SALTA-Raum für HomeKit verwenden");
+    expect(hasFunction(app, "homeKitSupportedDevice")).toBe(true);
+    expect(hasFunction(app, "syncDeviceHomeKitRoomControls")).toBe(true);
+    expect(styles).toContain(".homekit-compatibility");
+  });
 });
