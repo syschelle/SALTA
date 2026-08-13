@@ -58,6 +58,28 @@ function homeKitTargetRoomName(d){if(d.homekitUseSaltaRoom===false)return d.home
 function syncDeviceHomeKitRoomControls(){const useSaltaRoom=deviceHomeKitUseSaltaRoom.checked;deviceHomeKitRoom.disabled=useSaltaRoom;deviceHomeKitRoomField.classList.toggle('disabled',useSaltaRoom);if(useSaltaRoom)deviceHomeKitRoom.value=deviceRoom.value||''}
 function renderDeviceHomeKitCompatibility(){if(!selectedDevice)return;const candidate={...selectedDevice,presentationType:devicePresentationSection.hidden?(selectedDevice.presentationType||'auto'):devicePresentationType.value};const supported=homeKitSupportedDevice(candidate);const hidden=selectedDevice.source==='phoscon'&&deviceHidden.checked;deviceHomeKitEnabled.disabled=!supported;deviceHomeKitEnabledRow.classList.toggle('disabled',!supported);if(!supported){deviceHomeKitEnabled.checked=false;deviceHomeKitCompatibility.className='homekit-compatibility unsupported';deviceHomeKitCompatibility.innerHTML=`<span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span><div><strong>Noch nicht unterstützt</strong><small>${escapeHtml(typeLabels[resolvedPresentationType(candidate)]||resolvedPresentationType(candidate))} kann von der aktuellen SALTA-HomeKit-Bridge noch nicht veröffentlicht werden.</small></div>`;return}deviceHomeKitCompatibility.className=`homekit-compatibility ${hidden?'warning':'supported'}`;deviceHomeKitCompatibility.innerHTML=hidden?'<span class="mdi mdi-eye-off-outline" aria-hidden="true"></span><div><strong>HomeKit-kompatibel, aber ausgeblendet</strong><small>Das Zigbee-Gerät wird erst veröffentlicht, wenn „Gerät ausblenden“ deaktiviert ist.</small></div>':`<span class="mdi mdi-check-circle-outline" aria-hidden="true"></span><div><strong>HomeKit-kompatibel</strong><small>${escapeHtml(typeLabels[resolvedPresentationType(candidate)]||resolvedPresentationType(candidate))} wird von der SALTA-HomeKit-Bridge unterstützt.</small></div>`}
 
+function daylightOverviewDevice(){
+  return all.find(device=>device.source==='phoscon'&&String(device.profile||'').split(' + ').includes('Daylight'))||null;
+}
+function renderDaylightOverview(){
+  const device=daylightOverviewDevice();
+  if(!daylightOverviewStatus)return;
+  if(!device){
+    daylightOverviewStatus.className='daylight-overview-status unavailable';
+    daylightOverviewStatus.innerHTML='<div class="daylight-current"><span class="mdi mdi-weather-cloudy-alert" aria-hidden="true"></span><div><strong>Nicht verfügbar</strong><small>Kein Phoscon-Daylight-Sensor gefunden</small></div></div>';
+    return;
+  }
+  const state=device.state||{};
+  const status=Number(state.daylightStatus);
+  const phase=device.reachable===false?'Sensor offline':Number.isFinite(status)?(daylightPhaseLabels[status]||`Sonnenphase ${status}`):(state.daylight===true?'Tageslicht':state.dark===true?'Dunkel':'Status unbekannt');
+  const daylightState=device.reachable===false?'Phoscon-Daylight nicht erreichbar':state.daylight===true?'Tageslicht':state.dark===true?'Dunkel':'Daylight-Sensor';
+  const sunrise=state.sunrise?daylightTimeLabel(state.sunrise):'–';
+  const sunset=state.sunset?daylightTimeLabel(state.sunset):'–';
+  const icon=state.daylight===true?'mdi-weather-sunny':state.dark===true?'mdi-weather-night':'mdi-weather-sunset';
+  daylightOverviewStatus.className=`daylight-overview-status ${device.reachable===false?'unavailable':state.daylight===true?'day':'night'}`;
+  daylightOverviewStatus.innerHTML=`<div class="daylight-current"><span class="mdi ${icon}" aria-hidden="true"></span><div><strong>${escapeHtml(phase)}</strong><small>${escapeHtml(daylightState)}</small></div></div><div class="daylight-times"><div><span class="mdi mdi-weather-sunset-up" aria-hidden="true"></span><small>Sonnenaufgang</small><strong>${escapeHtml(sunrise)}</strong></div><div><span class="mdi mdi-weather-sunset-down" aria-hidden="true"></span><small>Sonnenuntergang</small><strong>${escapeHtml(sunset)}</strong></div></div>`;
+}
+
 function renderClimateMode(){
   if(!climateModeData)return;
   const summer=climateModeData.mode==='summer';
@@ -189,6 +211,7 @@ async function logout(){
   try{await api('/auth/logout',{method:'POST'})}finally{location.replace('/login')}
 }
 function updateDashboardSummary(){
+  renderDaylightOverview();
   const dashboardDevices=all.filter(device=>device.source!=='presence');
   deviceCount.textContent=dashboardDevices.length;
   reachableCount.textContent=dashboardDevices.filter(device=>device.reachable).length;

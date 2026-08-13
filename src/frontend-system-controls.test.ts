@@ -1,14 +1,25 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { cssMediaRuleContains, cssRuleContains } from "../test-utils/style-inspection.js";
-import { functionCallsWithStringArgument, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
+import { functionCalls, functionCallsWithStringArgument, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const script = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
 const app = parseJavaScriptSource(script);
 
-describe("system climate and battery controls", () => {
+describe("system overview controls", () => {
+  it("shows the Phoscon daylight sensor beside the climate control", () => {
+    expect(html).toContain('class="panel overview-system-card daylight-overview-card"');
+    expect(html).toContain('id="daylightOverviewStatus"');
+    expect(html.indexOf('daylight-overview-card')).toBeLessThan(html.indexOf('climate-mode-card'));
+    expect(hasFunction(app, "daylightOverviewDevice")).toBe(true);
+    expect(hasFunction(app, "renderDaylightOverview")).toBe(true);
+    expect(functionCalls(app, "renderDaylightOverview", "daylightOverviewDevice")).toBe(true);
+    expect(functionCalls(app, "renderDaylightOverview", "daylightTimeLabel")).toBe(true);
+    expect(cssRuleContains(styles, ".daylight-times", "grid-template-columns:1fr 1fr")).toBe(true);
+  });
+
   it("shows a compact SALTA-only summer/winter thermostat control", () => {
     expect(html).toContain('id="climateSummerButton"');
     expect(html).toContain('id="climateWinterButton"');

@@ -33,7 +33,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.37</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.38</strong></div>
   </div>
 </aside>
 
@@ -51,6 +51,14 @@
       <article id="overviewPresenceCard" class="overview-presence-stat"><span>Anwesenheit</span><strong id="overviewPresence">–</strong><small id="overviewPresenceDetail">nicht eingerichtet</small></article>
     </section>
     <section class="overview-system-grid" aria-label="Globale SALTA-Steuerung">
+      <article class="panel overview-system-card daylight-overview-card">
+        <div class="system-card-head">
+          <div class="system-card-title"><span class="system-card-icon mdi mdi-weather-sunset-up" aria-hidden="true"></span><div><div class="system-card-title-line"><h2>Tageslicht</h2><span class="system-card-badge">Phoscon</span></div><p>Aktuelle Sonnenphase sowie Auf- und Untergang.</p></div></div>
+        </div>
+        <div id="daylightOverviewStatus" class="daylight-overview-status unavailable" aria-live="polite">
+          <div class="daylight-current"><span class="mdi mdi-weather-partly-cloudy" aria-hidden="true"></span><div><strong>Wird geladen …</strong><small>Daylight-Sensor wird gesucht</small></div></div>
+        </div>
+      </article>
       <article class="panel overview-system-card climate-mode-card" data-homekit-exposed="false">
         <div class="system-card-head">
           <div class="system-card-title"><span class="system-card-icon mdi mdi-radiator" aria-hidden="true"></span><div><div class="system-card-title-line"><h2>Heizmodus</h2><span class="system-card-badge">Nur SALTA</span></div><p>Alle kompatiblen Thermostate zentral umschalten.</p></div></div>

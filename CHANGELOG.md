@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.38
+
+- Added a compact **Tageslicht** card to the Overview, positioned directly left of the global heating-mode card.
+- The card reads the existing Phoscon/deCONZ `Daylight` sensor and shows the current solar phase, daylight/night state, sunrise and sunset.
+- The Daylight card refreshes with the normal live device refresh and does not require a new backend API, database table or environment variable.
+- Added a graceful unavailable state when no Phoscon Daylight sensor is present or the sensor cannot be reached.
+- Reworked the global Overview system grid into a responsive three-card layout for Daylight, heating mode and battery status.
+- Extended the existing AST-backed frontend system-control regression test instead of adding brittle exact JavaScript source comparisons.
+- No dependency, persistence, HomeKit or device-control behavior changed.
+
 ## v0.8.37
 
 - Reduced the persistent System Log retention cap from 2,000 to the newest 100 entries while keeping the existing 30-day age limit.
