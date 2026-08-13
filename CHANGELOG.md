@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.39
+
+- Changed the device-card `Energie` display from Wh to kWh while keeping the underlying device/API value unchanged.
+- Energy values are converted only for presentation and shown with up to three decimal places, so small totals remain meaningful.
+- Kept the separate `Verbrauch` display in Wh.
+- Extended the existing AST-backed frontend device-card test with behavioral formatter checks instead of fragile full-source comparisons.
+- No dependency, database, API, HomeKit or adapter behavior changed.
+
 ## v0.8.38
 
 - Added a compact **Tageslicht** card to the Overview, positioned directly left of the global heating-mode card.

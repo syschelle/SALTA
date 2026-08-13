@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { functionCalls, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
+import { functionCalls, functionSource, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
 import { cssRuleContains } from "../test-utils/style-inspection.js";
 
 const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
@@ -30,6 +30,22 @@ describe("compact responsive device-card layout", () => {
     expect(appSource).toContain("${actionMarkup?`<div class=\"actions\">${actionMarkup}</div>`:''}");
     expect(cssRuleContains(styles, ".device-config-button", "width:28px")).toBe(true);
     expect(cssRuleContains(styles, ".device-config-button", "height:28px")).toBe(true);
+  });
+
+
+  it("formats device energy readings as kWh while leaving consumption in Wh", () => {
+    expect(hasFunction(appAst, "formatEnergyKwh")).toBe(true);
+    expect(functionCalls(appAst, "fmt", "formatEnergyKwh", 1)).toBe(true);
+
+    const energyFormatter = new Function(`return (${functionSource(appAst, "formatEnergyKwh")})`)() as (value: number) => string;
+    const stateFormatter = new Function(
+      "formatEnergyKwh",
+      `return (${functionSource(appAst, "fmt")})`,
+    )(energyFormatter) as (key: string, value: number) => string;
+
+    expect(stateFormatter("energy", 3245.3)).toBe("3.245 kWh");
+    expect(stateFormatter("energy", 10)).toBe("0.01 kWh");
+    expect(stateFormatter("consumption", 3245.3)).toBe("3245.3 Wh");
   });
 
   it("uses a single compact card column and two summary columns on phones", () => {
