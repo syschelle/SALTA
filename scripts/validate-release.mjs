@@ -66,10 +66,12 @@ if (!serverSource.includes('"/api/adapters/virtual/devices"')) fail("Virtual dev
 const climateModeSource = read("src/climate-mode.ts");
 const batteryMonitorSource = read("src/battery-monitor.ts");
 const climateDbSource = read("src/db.ts");
-if (!publicIndex.includes('id="climateSummerButton"') || !publicIndex.includes('id="climateWinterButton"') || !publicIndex.includes('id="climateWinterMode"')) fail("Global summer/winter thermostat controls are missing");
+if (!publicIndex.includes('id="climateSummerButton"') || !publicIndex.includes('id="climateWinterButton"') || !publicIndex.includes('id="climateWinterModeDisplay"')) fail("Global summer/winter thermostat controls are missing");
+if (!publicIndex.includes('data-settings-panel="climate"') || !publicIndex.includes('id="climateSettingsWinterMode"') || !publicIndex.includes('id="climateApplyNowButton"')) fail("Climate mode settings are missing");
 if (!publicIndex.includes('class="panel overview-system-card climate-mode-card" data-homekit-exposed="false"')) fail("Climate mode must remain explicitly SALTA-only");
-if (!serverSource.includes('"/api/system/climate-mode"')) fail("Climate mode API is missing");
+if (!serverSource.includes('"/api/system/climate-mode"') || !serverSource.includes('"/api/settings/climate-mode"')) fail("Climate mode APIs are missing");
 if (!climateModeSource.includes('value: targetMode') || !climateModeSource.includes('source: "system"')) fail("Climate mode does not route thermostat mode commands through SALTA system commands");
+if (!climateModeSource.includes('async setWinterMode') || !climateModeSource.includes('updateClimateWinterMode')) fail("Winter thermostat mode is not stored separately from mode application");
 if (!batteryMonitorSource.includes("7 * 24 * 60 * 60 * 1000")) fail("Battery warning does not enforce the seven-day notification interval");
 if (!batteryMonitorSource.includes("https://api.pushover.net/1/messages.json")) fail("Pushover message endpoint is missing");
 if (!publicIndex.includes('data-settings-panel="notifications"') || !publicIndex.includes('id="notificationBatteryThreshold"')) fail("Pushover battery warning settings are missing");

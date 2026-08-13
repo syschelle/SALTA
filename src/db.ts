@@ -732,6 +732,14 @@ export async function updateClimateModeSettings(input: { mode: "summer" | "winte
   return getClimateModeSettings();
 }
 
+export async function updateClimateWinterMode(winterMode: "manual" | "auto"): Promise<ClimateModeSettings> {
+  await pool.query(`INSERT INTO climate_mode_settings(id,winter_mode,updated_at)
+    VALUES('global',$1,now())
+    ON CONFLICT(id) DO UPDATE SET winter_mode=EXCLUDED.winter_mode,updated_at=now()`,
+    [winterMode]);
+  return getClimateModeSettings();
+}
+
 export async function getPushoverSettings(): Promise<PushoverSettings> {
   const result = await pool.query<{ enabled: boolean; encrypted_user_key: string; encrypted_api_token: string; battery_threshold: number }>(
     "SELECT enabled,encrypted_user_key,encrypted_api_token,battery_threshold FROM notification_settings WHERE channel='pushover'"

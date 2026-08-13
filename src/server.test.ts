@@ -6,6 +6,7 @@ import type { PhosconAdapter } from "./phoscon-adapter.js";
 import type { OpenCcuAdapter } from "./openccu-adapter.js";
 import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import type { AutomationEngine } from "./automations.js";
+import type { ClimateModeManager } from "./climate-mode.js";
 
 vi.mock("./config.js", () => ({
   config: {
@@ -74,7 +75,8 @@ function createServer(
   phosconOverrides: Partial<PhosconAdapter> = {},
   openCcuOverrides: Partial<OpenCcuAdapter> = {},
   virtualOverrides: Partial<VirtualDeviceAdapter> = {},
-  automationOverrides: Partial<AutomationEngine> = {}
+  automationOverrides: Partial<AutomationEngine> = {},
+  climateMode?: ClimateModeManager
 ) {
   const registry = {
     all: () => [],
@@ -120,7 +122,7 @@ function createServer(
     clearRoomAssignment: vi.fn(),
     ...automationOverrides
   } as unknown as AutomationEngine;
-  const server = buildServer(registry, adapter, phoscon, openCcu, virtual, undefined, automation);
+  const server = buildServer(registry, adapter, phoscon, openCcu, virtual, undefined, automation, undefined, climateMode);
   openServers.push(server);
   return server;
 }
@@ -594,6 +596,41 @@ describe("OpenCCU settings API", () => {
 });
 
 
+describe("climate mode API", () => {
+  it("stores the winter target mode without applying thermostat commands", async () => {
+    const status = vi.fn(async () => ({ mode: "winter", winterMode: "auto", thermostats: 2, supportedThermostats: 2 }));
+    const setWinterMode = vi.fn(async (winterMode: "manual" | "auto") => ({ mode: "winter", winterMode, thermostats: 2, supportedThermostats: 2 }));
+    const apply = vi.fn();
+    const climate = { status, setWinterMode, apply } as unknown as ClimateModeManager;
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, climate);
+
+    const response = await authenticatedInject(server, {
+      method: "PUT",
+      url: "/api/settings/climate-mode",
+      payload: { winterMode: "manual" }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(setWinterMode).toHaveBeenCalledWith("manual");
+    expect(apply).not.toHaveBeenCalled();
+  });
+
+  it("applies the selected global mode using the stored winter configuration", async () => {
+    const apply = vi.fn(async (mode: "summer" | "winter") => ({ mode, winterMode: "manual", thermostats: 2, supportedThermostats: 2 }));
+    const climate = { status: vi.fn(), setWinterMode: vi.fn(), apply } as unknown as ClimateModeManager;
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, climate);
+
+    const response = await authenticatedInject(server, {
+      method: "PUT",
+      url: "/api/system/climate-mode",
+      payload: { mode: "winter" }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(apply).toHaveBeenCalledWith("winter");
+  });
+});
+
 describe("system log API", () => {
   it("returns filtered persistent log entries", async () => {
     const entries = [{ id: "11111111-1111-4111-8111-111111111111", level: "error", source: "openccu", code: "OPENCCU_API_ERROR", message: "OpenCCU synchronization failed", details: { method: "Device.listAllDetail" }, createdAt: "2026-07-24T10:00:00.000Z" }];
@@ -705,7 +742,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.34" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.35" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {

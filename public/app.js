@@ -60,7 +60,6 @@ function renderDeviceHomeKitCompatibility(){if(!selectedDevice)return;const cand
 
 function renderClimateMode(){
   if(!climateModeData)return;
-  climateWinterMode.value=climateModeData.winterMode||'auto';
   const summer=climateModeData.mode==='summer';
   climateSummerButton.classList.toggle('active',summer);
   climateWinterButton.classList.toggle('active',!summer);
@@ -70,6 +69,8 @@ function renderClimateMode(){
   const supported=Number(climateModeData.supportedThermostats||0);
   const result=climateModeData.lastResult;
   const applied=climateModeData.lastAppliedAt?new Date(climateModeData.lastAppliedAt).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'}):'noch nicht angewendet';
+  const winterModeLabel=climateModeData.winterMode==='manual'?'Handbetrieb':'Automatik';
+  climateWinterModeDisplay.innerHTML=`<span>Winterbetrieb</span><strong>${winterModeLabel}</strong>`;
   const chips=[`<span>${supported}/${thermostats} unterstützt</span>`,`<span>${escapeHtml(applied)}</span>`];
   if(result){chips.push(`<span class="${Number(result.failed||0)>0?'warning':'success'}">${Number(result.succeeded||0)} erfolgreich${Number(result.failed||0)>0?` · ${Number(result.failed)} fehlgeschlagen`:''}</span>`)}
   climateModeStatus.innerHTML=chips.join('');
@@ -92,13 +93,43 @@ async function loadSystemControls(){
 }
 async function applyClimateMode(mode){
   const summer=mode==='summer';const button=summer?climateSummerButton:climateWinterButton;const original=button.innerHTML;
-  climateSummerButton.disabled=true;climateWinterButton.disabled=true;climateWinterMode.disabled=true;button.textContent='Wird angewendet …';
+  climateSummerButton.disabled=true;climateWinterButton.disabled=true;button.textContent='Wird angewendet …';
   try{
-    climateModeData=await api('/api/system/climate-mode',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({mode,winterMode:climateWinterMode.value})});
+    climateModeData=await api('/api/system/climate-mode',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({mode})});
     renderClimateMode();
+    renderClimateSettings();
     const result=climateModeData.lastResult||{};
     notify(`${summer?'Sommer':'Winter'}modus angewendet: ${Number(result.succeeded||0)} Thermostate erfolgreich${Number(result.failed||0)?`, ${Number(result.failed)} fehlgeschlagen`:''}.`,Number(result.failed||0)>0);
-  }catch(error){notify(error.message,true)}finally{climateSummerButton.disabled=false;climateWinterButton.disabled=false;climateWinterMode.disabled=false;button.innerHTML=original;renderClimateMode()}
+  }catch(error){notify(error.message,true)}finally{climateSummerButton.disabled=false;climateWinterButton.disabled=false;button.innerHTML=original;renderClimateMode()}
+}
+function renderClimateSettings(){
+  if(!climateModeData)return;
+  climateSettingsWinterMode.value=climateModeData.winterMode||'auto';
+  const currentMode=climateModeData.mode==='summer'?'Sommer':'Winter';
+  const winterMode=climateModeData.winterMode==='manual'?'Handbetrieb':'Automatik';
+  const applied=climateModeData.lastAppliedAt?new Date(climateModeData.lastAppliedAt).toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'}):'noch nicht angewendet';
+  const result=climateModeData.lastResult;
+  const resultText=result?`${Number(result.succeeded||0)} erfolgreich${Number(result.failed||0)?` · ${Number(result.failed)} fehlgeschlagen`:''}`:'noch kein Ergebnis';
+  climateSettingsStatus.className='gateway-status connected';
+  climateSettingsStatus.innerHTML=`<span class="gateway-status-dot" aria-hidden="true"></span><div><strong>Aktuell: ${currentMode} · Winter: ${winterMode}</strong><small>${Number(climateModeData.supportedThermostats||0)} von ${Number(climateModeData.thermostats||0)} Thermostaten unterstützt · zuletzt angewendet ${escapeHtml(applied)} · ${escapeHtml(resultText)}</small></div>`;
+}
+async function loadClimateSettings(){
+  climateModeData=await api('/api/settings/climate-mode');
+  renderClimateMode();renderClimateSettings();
+  return climateModeData;
+}
+async function saveClimateSettings({announce=true}={}){
+  climateModeData=await api('/api/settings/climate-mode',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({winterMode:climateSettingsWinterMode.value})});
+  renderClimateMode();renderClimateSettings();
+  if(announce)notify('Winterbetriebsart wurde gespeichert. Die Thermostate wurden nicht umgeschaltet.');
+  return climateModeData;
+}
+async function applyClimateSettingsNow(){
+  const original=climateApplyNowButton.innerHTML;climateApplyNowButton.disabled=true;
+  try{
+    await saveClimateSettings({announce:false});
+    await applyClimateMode(climateModeData?.mode==='summer'?'summer':'winter');
+  }catch(error){notify(error.message,true)}finally{climateApplyNowButton.disabled=false;climateApplyNowButton.innerHTML=original}
 }
 function renderNotificationSettings(){
   if(!notificationData)return;
@@ -354,7 +385,7 @@ async function loadOpenCcuSettings(){const settings=await api('/api/settings/ope
 async function saveOpenCcu(){clearOpenCcuError();try{const settings=await api('/api/settings/openccu',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({baseUrl:openCcuBaseUrl.value.trim(),username:openCcuUsername.value.trim(),password:openCcuPassword.value||undefined})});openCcuSettingsStatus=settings;await load();await loadOpenCcuSettings();if(settings.gateway?.lastError){const error={code:settings.gateway.lastError,details:{method:settings.gateway.lastErrorMethod,remoteCode:settings.gateway.lastErrorRemoteCode,remoteMessage:settings.gateway.lastErrorMessage}};showOpenCcuError(error);notify('OpenCCU wurde gespeichert, die Gerätesynchronisierung enthält aber einen Fehler.',true)}else if(settings.gateway?.lastDiagnostic?.steps?.some(step=>step.status==='warning'))notify('OpenCCU wurde gespeichert. Die Diagnose enthält Warnungen; Details stehen im Bericht und im Systemprotokoll.',true);else notify('OpenCCU-Verbindung wurde gespeichert und geprüft.')}catch(error){showOpenCcuError(error);notify(friendlyOpenCcuError(error),true)}}
 async function diagnoseOpenCcu(){const original=openCcuDiagnoseButton.textContent;openCcuDiagnoseButton.disabled=true;openCcuDiagnoseButton.textContent='Diagnose läuft …';clearOpenCcuError();try{const result=await api('/api/settings/openccu/diagnose',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({baseUrl:openCcuBaseUrl.value.trim()||undefined,username:openCcuUsername.value.trim()||undefined,password:openCcuPassword.value||undefined})});renderOpenCcuDiagnosticReport(result.report);await loadOpenCcuSettings();if(result.report.ok&&result.report.steps.some(step=>step.status==='warning'))notify('OpenCCU-Diagnose abgeschlossen. Es gibt Warnungen im Bericht.',true);else if(result.report.ok)notify('OpenCCU-Diagnose erfolgreich abgeschlossen.');else{const failed=result.report.steps.find(step=>step.status==='error');showOpenCcuError({code:failed?.code||'OPENCCU_REQUEST_FAILED',details:{method:failed?.method,remoteCode:failed?.remoteCode,remoteMessage:failed?.message}});notify('Die OpenCCU-Diagnose hat einen Fehler gefunden.',true)}}catch(error){showOpenCcuError(error);notify(friendlyOpenCcuError(error),true)}finally{openCcuDiagnoseButton.disabled=false;openCcuDiagnoseButton.textContent=original}}
 async function disconnectOpenCcu(){if(!confirm('OpenCCU-Verbindung trennen? Die synchronisierten HomeMatic-Geräte werden aus SALTA entfernt, aber nicht aus OpenCCU gelöscht.'))return;await api('/api/settings/openccu',{method:'DELETE'});openCcuSettingsStatus=null;clearOpenCcuError();renderOpenCcuDiagnosticReport(null);await load();await loadOpenCcuSettings();notify('OpenCCU-Verbindung wurde getrennt.')}
-async function showSettingsPanel(panel){const target=['phoscon','openccu','notifications'].includes(panel)?panel:'shelly';document.querySelectorAll('[data-settings-content]').forEach(content=>content.hidden=content.dataset.settingsContent!==target);document.querySelectorAll('[data-settings-panel]').forEach(button=>{const active=button.dataset.settingsPanel===target;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});if(target==='phoscon')await loadPhosconSettings();else if(target==='openccu')await loadOpenCcuSettings();else if(target==='notifications')await loadNotificationSettings();else await loadShellySettings()}
+async function showSettingsPanel(panel){const target=['phoscon','openccu','climate','notifications'].includes(panel)?panel:'shelly';document.querySelectorAll('[data-settings-content]').forEach(content=>content.hidden=content.dataset.settingsContent!==target);document.querySelectorAll('[data-settings-panel]').forEach(button=>{const active=button.dataset.settingsPanel===target;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});if(target==='phoscon')await loadPhosconSettings();else if(target==='openccu')await loadOpenCcuSettings();else if(target==='climate')await loadClimateSettings();else if(target==='notifications')await loadNotificationSettings();else await loadShellySettings()}
 function openAddVirtualDevice(){addVirtualDeviceForm.reset();virtualDeviceRoom.innerHTML='<option value="">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');addVirtualDeviceDialog.showModal();virtualDeviceName.focus()}
 async function addVirtualDevice(){const name=virtualDeviceName.value.trim();if(!name){virtualDeviceName.focus();return}const original=addVirtualDeviceButton.textContent;addVirtualDeviceButton.disabled=true;addVirtualDeviceButton.textContent='Schalter wird angelegt …';try{await api('/api/adapters/virtual/devices',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,type:'switch',roomId:virtualDeviceRoom.value||null})});addVirtualDeviceDialog.close();await load();notify('Virtueller Schalter wurde angelegt und an HomeKit übergeben.')}catch(error){notify(error.message,true)}finally{addVirtualDeviceButton.disabled=false;addVirtualDeviceButton.textContent=original}}
 function deviceInfoTimestamp(value){if(!value)return '–';const date=new Date(value);return Number.isNaN(date.getTime())?'–':date.toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'})}
@@ -507,6 +538,7 @@ roomForm.addEventListener('submit',event=>{event.preventDefault();createRoom().c
 shellyForm.addEventListener('submit',event=>{event.preventDefault();saveShelly().catch(e=>notify(e.message,true))});
 phosconForm.addEventListener('submit',event=>{event.preventDefault();savePhoscon().catch(e=>notify(friendlyPhosconError(e),true))});
 openCcuForm.addEventListener('submit',event=>{event.preventDefault();saveOpenCcu().catch(e=>notify(friendlyOpenCcuError(e),true))});
+climateSettingsForm.addEventListener('submit',event=>{event.preventDefault();saveClimateSettings().catch(e=>notify(e.message,true))});
 notificationForm.addEventListener('submit',event=>{event.preventDefault();saveNotificationSettings().catch(e=>notify(e.message,true))});
 presenceSettingsForm.addEventListener('submit',event=>{event.preventDefault();savePresenceSettings().catch(e=>notify(presenceFriendlyError(e),true))});
 presenceSettingsForm.addEventListener('input',()=>{presenceSettingsDirty=true});
@@ -521,7 +553,6 @@ deviceHomeKitUseSaltaRoom.addEventListener('change',syncDeviceHomeKitRoomControl
 deviceRoom.addEventListener('change',syncDeviceHomeKitRoomControls);
 devicePresentationType.addEventListener('change',renderDeviceHomeKitCompatibility);
 deviceHidden.addEventListener('change',renderDeviceHomeKitCompatibility);
-climateWinterMode.addEventListener('change',()=>{if(climateModeData?.mode==='winter')applyClimateMode('winter')});
 window.addEventListener('hashchange',navigate);
 menuToggle.addEventListener('click',openMenu);
 menuClose.addEventListener('click',()=>closeMenu({restoreFocus:true}));

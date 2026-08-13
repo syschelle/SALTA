@@ -82,7 +82,8 @@ const systemLogQuerySchema = z.object({
   level: z.enum(["info", "warning", "error"]).optional()
 }).strict();
 const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
-const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]), winterMode: z.enum(["manual", "auto"]) }).strict();
+const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]), winterMode: z.enum(["manual", "auto"]).optional() }).strict();
+const climateModeSettingsSchema = z.object({ winterMode: z.enum(["manual", "auto"]) }).strict();
 const pushoverSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   userKey: z.string().trim().max(120).optional(),
@@ -512,9 +513,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.34" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.35" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.34", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.35", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -911,7 +912,22 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = climateModeSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
     if (!climateMode) return reply.code(503).send({ error: { code: "CLIMATE_MODE_UNAVAILABLE", message: "Climate mode is not available", requestId: request.id } });
-    return climateMode.apply(parsed.data.mode, parsed.data.winterMode);
+    return climateMode.apply(parsed.data.mode);
+  });
+
+  app.get("/api/settings/climate-mode", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "climate-mode-settings-read" } }
+  }, async (_request, reply) => {
+    if (!climateMode) return reply.code(503).send({ error: { code: "CLIMATE_MODE_UNAVAILABLE", message: "Climate mode is not available" } });
+    return climateMode.status();
+  });
+  app.put<{ Body: unknown }>("/api/settings/climate-mode", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "climate-mode-settings-write" } }
+  }, async (request, reply) => {
+    const parsed = climateModeSettingsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    if (!climateMode) return reply.code(503).send({ error: { code: "CLIMATE_MODE_UNAVAILABLE", message: "Climate mode is not available", requestId: request.id } });
+    return climateMode.setWinterMode(parsed.data.winterMode);
   });
 
   app.get("/api/settings/notifications", {

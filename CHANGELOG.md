@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.35
+
+- Moved the configurable Winter thermostat target mode from the Overview into a dedicated **Settings → Heizmodus** panel.
+- The Overview now only switches between Summer and Winter and shows the configured Winter target mode as read-only metadata.
+- Added a persistent Winter-mode settings API that stores `Handbetrieb` or `Automatik` without immediately changing thermostat state.
+- Winter activation now always reads the stored Winter target mode on the server instead of accepting it from the Overview request.
+- Added **Aktuellen Modus jetzt anwenden** in Settings for an explicit save-and-apply workflow.
+- Added API and frontend regression coverage proving that saving the Winter target mode does not issue thermostat commands.
+- Kept the global heating mode explicitly SALTA-only and excluded from HomeKit.
+- No database migration, environment-variable or dependency change is required.
+
 ## v0.8.34
 
 - Restored and explicitly guarded the required `update.sh` production updater after CI showed that the repository checkout could miss it while the deployment regression suite still attempted to read it at module load time.

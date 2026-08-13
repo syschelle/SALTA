@@ -12,14 +12,18 @@ describe("system climate and battery controls", () => {
   it("shows a compact SALTA-only summer/winter thermostat control", () => {
     expect(html).toContain('id="climateSummerButton"');
     expect(html).toContain('id="climateWinterButton"');
-    expect(html).toContain('id="climateWinterMode"');
+    expect(html).toContain('id="climateWinterModeDisplay"');
+    expect(html).toContain('data-settings-panel="climate"');
+    expect(html).toContain('id="climateSettingsWinterMode"');
+    expect(html).toContain('id="climateApplyNowButton"');
     expect(html).toContain('class="panel overview-system-card climate-mode-card" data-homekit-exposed="false"');
     expect(html).toContain("onclick=\"applyClimateMode('summer')\"");
     expect(html).toContain("onclick=\"applyClimateMode('winter')\"");
     expect(hasFunction(app, "applyClimateMode")).toBe(true);
     expect(functionCallsWithStringArgument(app, "applyClimateMode", "api", "/api/system/climate-mode")).toBe(true);
+    expect(functionCallsWithStringArgument(app, "saveClimateSettings", "api", "/api/settings/climate-mode")).toBe(true);
     expect(cssRuleContains(styles, ".overview-system-card", "padding:13px 15px")).toBe(true);
-    expect(cssRuleContains(styles, ".climate-mode-row", "grid-template-columns:minmax(220px,1fr) minmax(180px,220px)")).toBe(true);
+    expect(cssRuleContains(styles, ".climate-mode-row", "grid-template-columns:minmax(220px,1fr) auto")).toBe(true);
     expect(cssMediaRuleContains(styles, "(max-width:620px)", ".climate-mode-row", "grid-template-columns:1fr")).toBe(true);
   });
 

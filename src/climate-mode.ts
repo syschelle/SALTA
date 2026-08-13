@@ -1,6 +1,6 @@
 import type { ClimateMode, ClimateModeSettings, Device, DeviceCommand, WinterThermostatMode } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
-import { getClimateModeSettings, updateClimateModeSettings, writeSystemLog } from "./db.js";
+import { getClimateModeSettings, updateClimateModeSettings, updateClimateWinterMode, writeSystemLog } from "./db.js";
 
 export interface ClimateModeStatus extends ClimateModeSettings {
   thermostats: number;
@@ -35,7 +35,21 @@ export class ClimateModeManager {
     return { ...(await getClimateModeSettings()), ...this.thermostatCounts() };
   }
 
-  async apply(mode: ClimateMode, winterMode: WinterThermostatMode): Promise<ClimateModeStatus> {
+  async setWinterMode(winterMode: WinterThermostatMode): Promise<ClimateModeStatus> {
+    await updateClimateWinterMode(winterMode);
+    await writeSystemLog(
+      "info",
+      "system",
+      "CLIMATE_WINTER_MODE_CONFIGURED",
+      "Winter thermostat mode configuration updated",
+      { winterMode }
+    ).catch(() => undefined);
+    return this.status();
+  }
+
+  async apply(mode: ClimateMode): Promise<ClimateModeStatus> {
+    const current = await getClimateModeSettings();
+    const winterMode = current.winterMode;
     const thermostats = this.registry.all().filter(thermostatSupportsSystemMode);
     const targetMode = mode === "summer" ? "off" : winterMode;
     let succeeded = 0;
