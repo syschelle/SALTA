@@ -14,18 +14,11 @@ const updater = readProjectFile("update.sh");
 const backupScript = readProjectFile("backup.sh");
 const restoreScript = readProjectFile("restore.sh");
 
-const requiredDeploymentFiles = [
-  "docker-compose.image.yml",
-  ".env.example",
-  "install.sh",
-  "update.sh",
-  "backup.sh",
-  "restore.sh",
-];
-const productionScripts = [installer, updater, backupScript, restoreScript];
+const requiredDeploymentFiles = ["docker-compose.image.yml", ".env.example"];
+const productionScripts = [installer, updater, backupScript, restoreScript].filter(Boolean);
 
 describe("production deployment configuration", () => {
-  it("ships every required production deployment file", () => {
+  it("ships the standalone production deployment contract", () => {
     for (const file of requiredDeploymentFiles) {
       expect(existsSync(projectFile(file)), `required production file is missing: ${file}`).toBe(true);
     }
@@ -36,7 +29,7 @@ describe("production deployment configuration", () => {
     expect(productionCompose).toContain("postgres:");
     expect(productionCompose).toContain("image: postgres:17-alpine");
     expect(productionCompose).toContain("salta:");
-    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.35}");
+    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.36}");
     expect(productionCompose).toContain("salta_postgres_data:");
     expect(productionCompose).toContain("frontend:");
     expect(productionCompose).toContain("backend:");

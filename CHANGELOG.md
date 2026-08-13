@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.36
+
+- Corrected the deployment quality gate so standalone Docker Compose configuration, not optional shell convenience scripts, defines the mandatory production contract.
+- CI and release verification now syntax-check `install.sh`, `update.sh`, `backup.sh` and `restore.sh` only when those files are present instead of failing the build when a helper script is absent.
+- Release validation now requires `docker-compose.image.yml` and `.env.example` while validating optional helper scripts conditionally.
+- Deployment regression tests no longer require convenience scripts and continue to verify them when available.
+- `version:set` no longer depends on `install.sh` being present, but still updates its embedded version when the helper exists.
+- Updated installation/update documentation so direct `docker compose --env-file .env -f docker-compose.image.yml ...` commands are the authoritative production path.
+- No runtime, database, HomeKit, climate, battery-warning or dependency behavior changed.
+
 ## v0.8.35
 
 - Moved the configurable Winter thermostat target mode from the Overview into a dedicated **Settings → Heizmodus** panel.

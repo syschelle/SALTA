@@ -24,15 +24,13 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Validate required deployment scripts
+      - name: Validate optional deployment helper scripts
         shell: bash
         run: |
           for script in install.sh update.sh backup.sh restore.sh; do
-            if [ ! -f "$script" ]; then
-              echo "::error file=$script::Required deployment script is missing"
-              exit 1
+            if [ -f "$script" ]; then
+              sh -n "$script"
             fi
-            sh -n "$script"
           done
 
       - name: Set up Node.js

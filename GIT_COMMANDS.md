@@ -1,4 +1,4 @@
-# SALTA v0.8.35 Git commands
+# SALTA v0.8.36 Git commands
 
 ```bash
 git checkout main
@@ -6,17 +6,15 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git ls-files --error-unmatch update.sh
-
-git commit -m "feat(climate): move winter mode configuration to settings"
+git commit -m "fix(ci): make deployment helper scripts optional"
 git push origin main
 ```
 
 After CI and CodeQL are green:
 
 ```bash
-git tag -a v0.8.35 -m "SALTA v0.8.35"
-git push origin v0.8.35
+git tag -a v0.8.36 -m "SALTA v0.8.36"
+git push origin v0.8.36
 ```
 
 Production update:

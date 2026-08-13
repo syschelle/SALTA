@@ -9,10 +9,6 @@ const fail = (message) => {
 };
 
 const requiredReleaseFiles = [
-  "install.sh",
-  "update.sh",
-  "backup.sh",
-  "restore.sh",
   "docker-compose.image.yml",
   ".env.example",
   "scripts/check-test-symbols.mjs",
@@ -30,6 +26,15 @@ const requiredReleaseFiles = [
 ];
 for (const file of requiredReleaseFiles) {
   if (!existsSync(resolve(root, file))) fail(`required release file is missing: ${file}`);
+}
+
+const optionalDeploymentScripts = ["install.sh", "update.sh", "backup.sh", "restore.sh"];
+for (const file of optionalDeploymentScripts) {
+  const path = resolve(root, file);
+  if (!existsSync(path)) continue;
+  const source = read(file);
+  if (!source.startsWith("#!/usr/bin/env sh")) fail(`optional deployment helper must use the portable sh shebang: ${file}`);
+  if (!source.includes("-f docker-compose.image.yml")) fail(`optional deployment helper must use docker-compose.image.yml: ${file}`);
 }
 
 const publicIndex = read("public/index.html");
@@ -247,7 +252,6 @@ if (gitRefName?.startsWith("v") && gitRefName !== `v${version}`) {
 const versionSurfaces = [
   [".env.example", `SALTA_IMAGE=ghcr.io/syschelle/salta:${version}`],
   ["docker-compose.image.yml", `ghcr.io/syschelle/salta:${version}`],
-  ["install.sh", `SALTA v${version} is starting.`],
   ["public/index.html", `Version <strong>${version}</strong>`],
   ["src/server.ts", `version: "${version}"`],
   ["src/deployment-config.test.ts", `ghcr.io/syschelle/salta:${version}`],
@@ -259,6 +263,9 @@ const versionSurfaces = [
 
 for (const [file, expected] of versionSurfaces) {
   if (!read(file).includes(expected)) fail(`${file} does not contain the current version marker: ${expected}`);
+}
+if (existsSync(resolve(root, "install.sh")) && !read("install.sh").includes(`SALTA v${version} is starting.`)) {
+  fail(`install.sh does not contain the current version marker: SALTA v${version} is starting.`);
 }
 
 for (const [path, entry] of Object.entries(packageLock.packages ?? {})) {

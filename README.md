@@ -61,32 +61,23 @@ A Raspberry Pi 5 or an Intel N100/N150 mini PC also works, but it is not necessa
 
 ## Installation
 
-Clone the repository and run the installer:
+The supported production deployment contract is the standalone `docker-compose.image.yml` file together with `.env`. Clone the repository, create `.env` from the example and set the required secrets before starting SALTA:
 
 ```bash
 git clone https://github.com/syschelle/SALTA.git
 cd SALTA
-chmod +x install.sh update.sh backup.sh restore.sh
-./install.sh
+cp .env.example .env
+# Edit .env and set POSTGRES_PASSWORD, ADMIN_PASSWORD, SALTA_ENCRYPTION_KEY and SALTA_HEALTH_TOKEN.
+docker compose --env-file .env -f docker-compose.image.yml pull
+docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans
 ```
 
-`install.sh` performs the complete installation in one run:
-
-- creates `.env` when it does not exist;
-- generates the PostgreSQL password, administrator password, health token and encryption key;
-- validates the standalone production Compose configuration;
-- pulls the container image configured by `SALTA_IMAGE`;
-- starts PostgreSQL and SALTA;
-- prints the generated administrator login once.
-
-The generated `.env` publishes SALTA to the local network by default:
+The generated/example configuration publishes SALTA to the local network by default:
 
 ```env
 WEB_PORT=8099
 SALTA_BIND_ADDRESS=0.0.0.0
 ```
-
-The repository's `.env.example` pins `SALTA_IMAGE` to the matching release. Keep a fixed image tag for predictable deployments, or deliberately change it when updating.
 
 Open SALTA at:
 
@@ -96,23 +87,39 @@ http://IP-OF-THE-SALTA-HOST:8099
 
 Authentication cannot be disabled.
 
-## Reset or reinstall
+### Optional convenience scripts
 
-A reset permanently deletes the SALTA PostgreSQL volume and all SALTA configuration stored in it. Shelly devices themselves are not modified.
-
-For a completely fresh installation, including a new database and newly generated secrets:
+Source archives may also contain `install.sh`, `update.sh`, `backup.sh` and `restore.sh`. These are convenience helpers around the same standalone Compose deployment, but they are **not required for CI, release validation or production operation**. When present, they can be enabled with:
 
 ```bash
-./install.sh --fresh
+chmod +x install.sh update.sh backup.sh restore.sh
 ```
 
-To reset only the database while retaining the existing `.env` values:
+`install.sh --fresh` creates a fresh `.env` with generated secrets and removes an incompatible existing SALTA data volume. `install.sh --reset` keeps the current `.env` but resets the database.
+
+## Updating
+
+The supported update path does not depend on a repository helper script:
 
 ```bash
-./install.sh --reset
+git pull --ff-only
+docker compose --env-file .env -f docker-compose.image.yml pull
+docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans
+docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-Use `--fresh` when the existing installation should be discarded completely. Use `--reset` when the current passwords, encryption key and other environment settings should remain unchanged.
+If `update.sh` is present, it performs the same source/image update as a convenience wrapper.
+
+## Backup and restore
+
+When the optional helper scripts are present:
+
+```bash
+./backup.sh
+./restore.sh backups/salta-YYYYMMDD-HHMMSS.dump
+```
+
+They are not part of the mandatory CI/release contract. Restore only backups created with a compatible SALTA database schema and keep backups outside the SALTA system disk whenever possible.
 
 ## Manual image deployment
 

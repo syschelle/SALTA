@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -27,7 +27,6 @@ const versionFiles = [
   ".env.example",
   "docker-compose.image.yml",
   "docs-ghcr.md",
-  "install.sh",
   "public/index.html",
   "src/server.ts",
   "src/deployment-config.test.ts",
@@ -45,6 +44,14 @@ for (const file of versionFiles) {
     throw new Error(`Refusing to bump: ${file} does not contain ${previousVersion}`);
   }
   updates.set(file, source.replaceAll(previousVersion, nextVersion));
+}
+
+// Convenience deployment helpers are optional in the repository. Update their
+// embedded version marker when present without making releases depend on them.
+for (const file of ["install.sh"]) {
+  if (!existsSync(pathFor(file))) continue;
+  const source = read(file);
+  if (source.includes(previousVersion)) updates.set(file, source.replaceAll(previousVersion, nextVersion));
 }
 
 packageJson.version = nextVersion;
