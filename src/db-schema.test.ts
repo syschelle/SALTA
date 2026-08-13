@@ -80,6 +80,17 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("LEFT JOIN rooms hkr ON hkr.id=hk.room_id");
   });
 
+  it("stores climate mode and notification throttling additively", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS climate_mode_settings");
+    expect(databaseSource).toContain("CHECK(mode IN ('summer','winter'))");
+    expect(databaseSource).toContain("CHECK(winter_mode IN ('manual','auto'))");
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS notification_settings");
+    expect(databaseSource).toContain("encrypted_user_key text NOT NULL DEFAULT ''");
+    expect(databaseSource).toContain("encrypted_api_token text NOT NULL DEFAULT ''");
+    expect(databaseSource).toContain("battery_threshold integer NOT NULL DEFAULT 20");
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS notification_state");
+  });
+
   it("stores a bounded persistent system log", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS system_logs");
     expect(databaseSource).toContain("CHECK(level IN ('info','warning','error'))");

@@ -39,7 +39,9 @@ vi.mock("./db.js", () => ({
   deletePresenceTarget: vi.fn(),
   updateFritzBoxPresenceSettings: vi.fn(),
   getShellySettings: vi.fn(),
-  inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", phosconCredential: "not-configured", openCcuCredential: "not-configured", invalidDeviceIds: [] })),
+  getPushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20 })),
+  updatePushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20 })),
+  inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", phosconCredential: "not-configured", openCcuCredential: "not-configured", pushoverCredential: "not-configured", invalidDeviceIds: [] })),
   listRooms: vi.fn(async () => []),
   pool: { query: vi.fn() },
   reorderRooms: vi.fn(),
@@ -703,7 +705,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.30" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.31" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {

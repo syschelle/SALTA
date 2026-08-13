@@ -118,6 +118,17 @@ describe("detectRpcShelly", () => {
     expect(result.state).toMatchObject({ on: true, power: 51.3, voltage: 229.9, current: 0.23 });
   });
 
+  it("imports DevicePower battery percentage for Gen2+ devices", () => {
+    const result = detectRpcShelly(
+      { app: "Plus1", gen: 2 },
+      {
+        "switch:0": { id: 0, output: false },
+        "devicepower:0": { id: 0, battery: { V: 4.87, percent: 18 } }
+      }
+    );
+    expect(result.state).toEqual({ on: false, battery: 18 });
+  });
+
   it("does not invent unavailable measurements", () => {
     const result = detectRpcShelly({ app: "Plus1" }, { "switch:0": { id: 0, output: false } });
     expect(result.state).toEqual({ on: false });

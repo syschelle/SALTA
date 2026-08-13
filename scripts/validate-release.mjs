@@ -16,6 +16,11 @@ const requiredReleaseFiles = [
   "src/phoscon-adapter.ts",
   "src/phoscon-core.ts",
   "src/fritzbox-presence.ts",
+  "src/climate-mode.ts",
+  "src/battery-monitor.ts",
+  "src/climate-mode.test.ts",
+  "src/battery-monitor.test.ts",
+  "src/frontend-system-controls.test.ts",
   "src/frontend-presence.test.ts",
   "src/frontend-overview-summary.test.ts",
   "public/automation-ui.js",
@@ -55,6 +60,18 @@ if (shellyAdapterSource.includes("reachable: false, lastSeen: now()")) fail("Fai
 if (!shellyAdapterSource.includes("const next = { ...device, reachable: false };")) fail("Shelly offline refresh path does not preserve the previous lastSeen timestamp");
 if (!virtualFrontend.includes("add('Sensor-Ressourcen',adapter.sensorResourceIds,{copy:true})") || !virtualFrontend.includes("add('OpenCCU-Kanalname',adapter.channelName)")) fail("Source-specific device information is incomplete");
 if (!serverSource.includes('"/api/adapters/virtual/devices"')) fail("Virtual device creation API route is missing");
+const climateModeSource = read("src/climate-mode.ts");
+const batteryMonitorSource = read("src/battery-monitor.ts");
+const climateDbSource = read("src/db.ts");
+if (!publicIndex.includes('id="climateSummerButton"') || !publicIndex.includes('id="climateWinterButton"') || !publicIndex.includes('id="climateWinterMode"')) fail("Global summer/winter thermostat controls are missing");
+if (!publicIndex.includes("Dieser Schalter wird nicht an HomeKit übergeben")) fail("Climate mode must remain explicitly SALTA-only");
+if (!serverSource.includes('"/api/system/climate-mode"')) fail("Climate mode API is missing");
+if (!climateModeSource.includes('value: targetMode') || !climateModeSource.includes('source: "system"')) fail("Climate mode does not route thermostat mode commands through SALTA system commands");
+if (!batteryMonitorSource.includes("7 * 24 * 60 * 60 * 1000")) fail("Battery warning does not enforce the seven-day notification interval");
+if (!batteryMonitorSource.includes("https://api.pushover.net/1/messages.json")) fail("Pushover message endpoint is missing");
+if (!publicIndex.includes('data-settings-panel="notifications"') || !publicIndex.includes('id="notificationBatteryThreshold"')) fail("Pushover battery warning settings are missing");
+if (!climateDbSource.includes("CREATE TABLE IF NOT EXISTS climate_mode_settings") || !climateDbSource.includes("CREATE TABLE IF NOT EXISTS notification_settings") || !climateDbSource.includes("CREATE TABLE IF NOT EXISTS notification_state")) fail("Climate and notification persistence tables are missing");
+if (!climateDbSource.includes("encrypted_user_key") || !climateDbSource.includes("encrypted_api_token")) fail("Pushover credentials are not stored in encrypted fields");
 const automationFrontend = read("public/automation-ui.js");
 const publicStyles = read("public/styles.css");
 if (!publicStyles.includes("--layout-page-max:1680px") || !publicStyles.includes("--layout-side-md:380px") || !publicStyles.includes("--dialog-device-width:860px")) fail("Shared layout width tokens are missing");

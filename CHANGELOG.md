@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.8.31
+
+- Added a persistent SALTA-only global **Summer / Winter** heating mode that is never exposed as a HomeKit accessory.
+- Summer mode sets all compatible thermostats to `OFF`; Winter mode can apply either manual (`Hand`) or automatic operation to all compatible thermostats.
+- Added a compact Overview control with thermostat counts and the result of the last global mode application.
+- Added central battery monitoring across all device states that expose a battery percentage or explicit `lowBattery` flag.
+- Added encrypted Pushover User Key and Application API Token settings plus a test-notification action.
+- Added one aggregated battery warning via Pushover with a strict seven-day global cooldown.
+- Added an Overview battery-warning status and a detailed warning list in Settings.
+- Added Shelly Gen2+ `DevicePower` battery-percentage parsing.
+- Added additive persistence tables for climate mode, notification credentials/settings and notification throttling.
+- Added regression coverage for climate-mode commands, battery detection, weekly Pushover throttling, Shelly DevicePower parsing and the new frontend controls.
+- No npm dependency was added or intentionally changed.
+
 ## v0.8.30
 
 - Fixed two frontend regression tests that still expected the pre-v0.8.29 device configuration payload.

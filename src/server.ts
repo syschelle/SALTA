@@ -12,7 +12,9 @@ import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import { normalizeFritzBoxBaseUrl, normalizePresenceMac, type FritzBoxPresenceAdapter } from "./fritzbox-presence.js";
 import type { DeviceCommandRouter } from "./device-command-router.js";
 import type { AutomationEngine } from "./automations.js";
-import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateFritzBoxPresenceSettings, updatePresenceTarget, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
+import type { ClimateModeManager } from "./climate-mode.js";
+import type { BatteryMonitor } from "./battery-monitor.js";
+import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateFritzBoxPresenceSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
 import { isHomeKitSupportedDevice, supportsPresentationOverride } from "./device-presentation.js";
 import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
@@ -80,6 +82,14 @@ const systemLogQuerySchema = z.object({
   level: z.enum(["info", "warning", "error"]).optional()
 }).strict();
 const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
+const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]), winterMode: z.enum(["manual", "auto"]) }).strict();
+const pushoverSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  userKey: z.string().trim().max(120).optional(),
+  apiToken: z.string().trim().max(120).optional(),
+  batteryThreshold: z.number().int().min(1).max(100).default(20)
+}).strict();
+
 
 const STATIC_CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".css": "text/css; charset=utf-8",
@@ -293,7 +303,7 @@ async function automationRoomExists(roomId: string | null | undefined): Promise<
   return (await listRooms()).some(room => room.id === roomId);
 }
 
-export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine, presenceAdapter?: FritzBoxPresenceAdapter) {
+export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine, presenceAdapter?: FritzBoxPresenceAdapter, climateMode?: ClimateModeManager, batteryMonitor?: BatteryMonitor) {
   const trustedProxyEntries = config.TRUSTED_PROXIES.split(",").map(value => value.trim()).filter(Boolean);
   const trustedProxies = trustedProxyEntries.length ? trustedProxyEntries : false;
   const localNetworks = config.LOCAL_NETWORKS.split(",").map(value => value.trim()).filter(Boolean);
@@ -502,9 +512,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.30" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.31" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.30", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.31", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -886,6 +896,53 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     } catch (error) {
       const response = openCcuRequestError(error);
       return reply.code(response.status).send({ error: { code: response.code, message: response.message, details: response.details, requestId: request.id } });
+    }
+  });
+
+  app.get("/api/system/climate-mode", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "climate-mode-read" } }
+  }, async (_request, reply) => {
+    if (!climateMode) return reply.code(503).send({ error: { code: "CLIMATE_MODE_UNAVAILABLE", message: "Climate mode is not available" } });
+    return climateMode.status();
+  });
+  app.put<{ Body: unknown }>("/api/system/climate-mode", {
+    config: { rateLimit: { max: 12, timeWindow: rateWindowMs, groupId: "climate-mode-write" } }
+  }, async (request, reply) => {
+    const parsed = climateModeSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    if (!climateMode) return reply.code(503).send({ error: { code: "CLIMATE_MODE_UNAVAILABLE", message: "Climate mode is not available", requestId: request.id } });
+    return climateMode.apply(parsed.data.mode, parsed.data.winterMode);
+  });
+
+  app.get("/api/settings/notifications", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "notification-settings-read" } }
+  }, async () => ({ ...(await getPushoverSettings()), ...(batteryMonitor ? await batteryMonitor.status() : { warnings: [] }) }));
+  app.put<{ Body: unknown }>("/api/settings/notifications", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "notification-settings-write" } }
+  }, async (request, reply) => {
+    const parsed = pushoverSettingsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    try {
+      const settings = await updatePushoverSettings(parsed.data);
+      const status = batteryMonitor ? await batteryMonitor.evaluate() : { warnings: [] };
+      return { ...settings, ...status };
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "NOTIFICATION_SETTINGS_FAILED";
+      const status = code === "ENCRYPTION_KEY_MISMATCH" ? 409 : 500;
+      return reply.code(status).send({ error: { code, message: code === "ENCRYPTION_KEY_MISMATCH" ? "Stored Pushover credentials cannot be decrypted with the current SALTA encryption key." : "Notification settings could not be saved", requestId: request.id } });
+    }
+  });
+  app.post("/api/settings/notifications/test", {
+    config: { rateLimit: { max: 6, timeWindow: rateWindowMs, groupId: "notification-test" } }
+  }, async (request, reply) => {
+    if (!batteryMonitor) return reply.code(503).send({ error: { code: "NOTIFICATION_SERVICE_UNAVAILABLE", message: "Notification service is not available", requestId: request.id } });
+    try {
+      await batteryMonitor.test();
+      return { status: "ok" };
+    } catch (error) {
+      const code = error instanceof Error ? error.message.split(":", 1)[0] : "PUSHOVER_REQUEST_FAILED";
+      const status = code === "PUSHOVER_NOT_CONFIGURED" ? 409 : 502;
+      return reply.code(status).send({ error: { code, message: code === "PUSHOVER_NOT_CONFIGURED" ? "Configure and save the Pushover user key and API token first." : "Pushover test notification failed.", requestId: request.id } });
     }
   });
 

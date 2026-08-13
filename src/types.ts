@@ -58,7 +58,7 @@ export interface DeviceCommand {
   deviceId: string;
   capability: string;
   value?: string | number | boolean;
-  source: "api" | "homekit" | "automation";
+  source: "api" | "homekit" | "automation" | "system";
 }
 
 export interface DeviceEvent {
@@ -177,6 +177,32 @@ export interface OpenCcuGatewayStatus {
 }
 
 export type SystemLogLevel = "info" | "warning" | "error";
+
+export type ClimateMode = "summer" | "winter";
+export type WinterThermostatMode = "manual" | "auto";
+
+export interface ClimateModeSettings {
+  mode: ClimateMode;
+  winterMode: WinterThermostatMode;
+  lastAppliedAt?: string;
+  lastResult?: { total: number; succeeded: number; failed: number };
+}
+
+export interface PushoverSettings {
+  enabled: boolean;
+  userKeyConfigured: boolean;
+  apiTokenConfigured: boolean;
+  encryptionStatus: "ok" | "invalid";
+  batteryThreshold: number;
+}
+
+export interface BatteryWarningDevice {
+  deviceId: string;
+  name: string;
+  room?: string;
+  battery?: number;
+  lowBattery: boolean;
+}
 
 export interface SystemLogEntry {
   id: string;

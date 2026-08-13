@@ -250,6 +250,18 @@ function detectionForComponent(
   };
 }
 
+
+function rpcBatteryState(status: unknown): DeviceState {
+  const state: DeviceState = {};
+  for (const [key, rawValue] of Object.entries(record(status))) {
+    if (!/^devicepower:\d+$/i.test(key)) continue;
+    const battery = record(record(rawValue).battery);
+    setNumber(state, "battery", battery.percent);
+    if (state.battery !== undefined) break;
+  }
+  return state;
+}
+
 /**
  * Detect every independently controllable logical device exposed by a Gen2+
  * Shelly. Multi-profile two-channel devices expose one cover in cover profile
@@ -271,28 +283,30 @@ export function detectRpcShellyComponents(info: unknown, status: unknown): Shell
   // The active component set is the most reliable fallback when older firmware
   // omits profile from Shelly.GetDeviceInfo or /shelly.
   const profile = declaredProfile ?? (covers.length > 0 ? "cover" : switches.length > 1 ? "switch" : undefined);
+  const commonBatteryState = rpcBatteryState(status);
+  const withBattery = (detections: ShellyDetection[]): ShellyDetection[] => detections.map(detection => ({ ...detection, state: { ...detection.state, ...commonBatteryState } }));
 
   if ((profile === "cover" || covers.length > 0) && covers.length > 0) {
-    return [detectionForComponent("windowCovering", covers[0]!, entries, "cover", 1, inputSupport)];
+    return withBattery([detectionForComponent("windowCovering", covers[0]!, entries, "cover", 1, inputSupport)]);
   }
 
   if (lights.length > 0 || isLight(identity)) {
     const primary = lights[0];
     if (!primary) throw new Error("UNSUPPORTED_SHELLY_DEVICE");
-    return [detectionForComponent("light", primary, entries, profile, lights.length, inputSupport)];
+    return withBattery([detectionForComponent("light", primary, entries, profile, lights.length, inputSupport)]);
   }
 
   if (isDedicatedEnergyMeter(identity) && energyMeters.length > 0) {
-    return [detectionForComponent("energyMeter", energyMeters[0]!, entries, profile, energyMeters.length, inputSupport)];
+    return withBattery([detectionForComponent("energyMeter", energyMeters[0]!, entries, profile, energyMeters.length, inputSupport)]);
   }
 
   if (switches.length > 0) {
     const type: DeviceType = isOutlet(identity) ? "outlet" : "switch";
-    return switches.map(primary => detectionForComponent(type, primary, entries, profile ?? "switch", switches.length, inputSupport));
+    return withBattery(switches.map(primary => detectionForComponent(type, primary, entries, profile ?? "switch", switches.length, inputSupport)));
   }
 
   if (energyMeters.length > 0) {
-    return [detectionForComponent("energyMeter", energyMeters[0]!, entries, profile, energyMeters.length, inputSupport)];
+    return withBattery([detectionForComponent("energyMeter", energyMeters[0]!, entries, profile, energyMeters.length, inputSupport)]);
   }
 
   throw new Error("UNSUPPORTED_SHELLY_DEVICE");

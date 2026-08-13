@@ -1,4 +1,4 @@
-let all=[],rooms=[],systemLogs=[],selectedDevice=null,shellySettingsStatus=null,phosconSettingsStatus=null,openCcuSettingsStatus=null,presenceData=null,editingPresenceTargetId=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null,activeBrightnessSliderId=null,activeTemperatureSliderId=null,presenceSettingsDirty=false,csrfToken="";
+let all=[],rooms=[],systemLogs=[],selectedDevice=null,shellySettingsStatus=null,phosconSettingsStatus=null,openCcuSettingsStatus=null,presenceData=null,climateModeData=null,notificationData=null,editingPresenceTargetId=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null,activeBrightnessSliderId=null,activeTemperatureSliderId=null,presenceSettingsDirty=false,csrfToken="";
 const coverSliderDrafts=new Map();
 
 const themeToggleElement=document.getElementById('themeToggle');
@@ -57,6 +57,72 @@ function homeKitSupportedDevice(d){const type=resolvedPresentationType(d);if(typ
 function homeKitTargetRoomName(d){if(d.homekitUseSaltaRoom===false)return d.homekitRoom||rooms.find(room=>room.id===d.homekitRoomId)?.name||'Nicht zugeordnet';return d.room||rooms.find(room=>room.id===d.roomId)?.name||'Nicht zugeordnet'}
 function syncDeviceHomeKitRoomControls(){const useSaltaRoom=deviceHomeKitUseSaltaRoom.checked;deviceHomeKitRoom.disabled=useSaltaRoom;deviceHomeKitRoomField.classList.toggle('disabled',useSaltaRoom);if(useSaltaRoom)deviceHomeKitRoom.value=deviceRoom.value||''}
 function renderDeviceHomeKitCompatibility(){if(!selectedDevice)return;const candidate={...selectedDevice,presentationType:devicePresentationSection.hidden?(selectedDevice.presentationType||'auto'):devicePresentationType.value};const supported=homeKitSupportedDevice(candidate);const hidden=selectedDevice.source==='phoscon'&&deviceHidden.checked;deviceHomeKitEnabled.disabled=!supported;deviceHomeKitEnabledRow.classList.toggle('disabled',!supported);if(!supported){deviceHomeKitEnabled.checked=false;deviceHomeKitCompatibility.className='homekit-compatibility unsupported';deviceHomeKitCompatibility.innerHTML=`<span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span><div><strong>Noch nicht unterstützt</strong><small>${escapeHtml(typeLabels[resolvedPresentationType(candidate)]||resolvedPresentationType(candidate))} kann von der aktuellen SALTA-HomeKit-Bridge noch nicht veröffentlicht werden.</small></div>`;return}deviceHomeKitCompatibility.className=`homekit-compatibility ${hidden?'warning':'supported'}`;deviceHomeKitCompatibility.innerHTML=hidden?'<span class="mdi mdi-eye-off-outline" aria-hidden="true"></span><div><strong>HomeKit-kompatibel, aber ausgeblendet</strong><small>Das Zigbee-Gerät wird erst veröffentlicht, wenn „Gerät ausblenden“ deaktiviert ist.</small></div>':`<span class="mdi mdi-check-circle-outline" aria-hidden="true"></span><div><strong>HomeKit-kompatibel</strong><small>${escapeHtml(typeLabels[resolvedPresentationType(candidate)]||resolvedPresentationType(candidate))} wird von der SALTA-HomeKit-Bridge unterstützt.</small></div>`}
+
+function renderClimateMode(){
+  if(!climateModeData)return;
+  climateWinterMode.value=climateModeData.winterMode||'auto';
+  const summer=climateModeData.mode==='summer';
+  climateSummerButton.classList.toggle('active',summer);
+  climateWinterButton.classList.toggle('active',!summer);
+  climateSummerButton.setAttribute('aria-pressed',String(summer));
+  climateWinterButton.setAttribute('aria-pressed',String(!summer));
+  const applied=climateModeData.lastAppliedAt?new Date(climateModeData.lastAppliedAt).toLocaleString('de-DE'):'noch nicht angewendet';
+  const result=climateModeData.lastResult;
+  const resultText=result?` · ${result.succeeded} erfolgreich${result.failed?` · ${result.failed} fehlgeschlagen`:''}`:'';
+  climateModeStatus.textContent=`${climateModeData.supportedThermostats||0} von ${climateModeData.thermostats||0} Thermostaten unterstützt · ${applied}${resultText}`;
+}
+function renderBatteryOverview(){
+  if(!notificationData)return;
+  const warnings=notificationData.warnings||[];
+  batteryOverviewStatus.className=`battery-overview-status ${warnings.length?'warning':'ok'}`;
+  if(!warnings.length){batteryOverviewStatus.innerHTML='<span class="mdi mdi-battery-check" aria-hidden="true"></span><div><strong>Keine Batteriewarnung</strong><small>Alle gemeldeten Batteriestände liegen über dem Grenzwert.</small></div>';return}
+  const names=warnings.slice(0,3).map(item=>`${escapeHtml(item.name)}${item.battery!==undefined?` · ${Number(item.battery)} %`:''}`).join('<br>');
+  batteryOverviewStatus.innerHTML=`<span class="mdi mdi-battery-alert-variant-outline" aria-hidden="true"></span><div><strong>${warnings.length} ${warnings.length===1?'Batteriewarnung':'Batteriewarnungen'}</strong><small>${names}${warnings.length>3?`<br>+ ${warnings.length-3} weitere`:''}</small></div>`;
+}
+async function loadSystemControls(){
+  try{
+    [climateModeData,notificationData]=await Promise.all([api('/api/system/climate-mode'),api('/api/settings/notifications')]);
+    renderClimateMode();renderBatteryOverview();
+  }catch(error){console.warn('System controls could not be loaded',error)}
+}
+async function applyClimateMode(mode){
+  const summer=mode==='summer';const button=summer?climateSummerButton:climateWinterButton;const original=button.innerHTML;
+  climateSummerButton.disabled=true;climateWinterButton.disabled=true;climateWinterMode.disabled=true;button.textContent='Wird angewendet …';
+  try{
+    climateModeData=await api('/api/system/climate-mode',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({mode,winterMode:climateWinterMode.value})});
+    renderClimateMode();
+    const result=climateModeData.lastResult||{};
+    notify(`${summer?'Sommer':'Winter'}modus angewendet: ${Number(result.succeeded||0)} Thermostate erfolgreich${Number(result.failed||0)?`, ${Number(result.failed)} fehlgeschlagen`:''}.`,Number(result.failed||0)>0);
+  }catch(error){notify(error.message,true)}finally{climateSummerButton.disabled=false;climateWinterButton.disabled=false;climateWinterMode.disabled=false;button.innerHTML=original;renderClimateMode()}
+}
+function renderNotificationSettings(){
+  if(!notificationData)return;
+  notificationEnabled.checked=Boolean(notificationData.enabled);
+  notificationUserKey.value='';notificationApiToken.value='';
+  notificationUserKeyState.textContent=notificationData.userKeyConfigured?'User Key ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.':'Noch kein User Key gespeichert.';
+  notificationApiTokenState.textContent=notificationData.apiTokenConfigured?'API Token ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.':'Noch kein API Token gespeichert.';
+  notificationBatteryThreshold.value=String(notificationData.batteryThreshold||20);
+  notificationCredentialWarning.hidden=notificationData.encryptionStatus!=='invalid';
+  notificationCredentialWarning.textContent=notificationData.encryptionStatus==='invalid'?'Die gespeicherten Pushover-Zugangsdaten können mit dem aktuellen SALTA_ENCRYPTION_KEY nicht entschlüsselt werden. Bitte User Key und API Token neu eingeben.':'';
+  const warnings=notificationData.warnings||[];
+  const configured=Boolean(notificationData.configured);
+  notificationStatus.className=`gateway-status ${configured?'connected':'disconnected'}`;
+  const last=notificationData.lastSentAt?`Letzte Batteriewarnung ${new Date(notificationData.lastSentAt).toLocaleString('de-DE')}`:'Noch keine Batteriewarnung gesendet';
+  const next=notificationData.nextEligibleAt?` · frühestens wieder ${new Date(notificationData.nextEligibleAt).toLocaleString('de-DE')}`:'';
+  notificationStatus.innerHTML=`<span class="gateway-status-dot" aria-hidden="true"></span><div><strong>${configured?'Pushover konfiguriert':'Pushover nicht vollständig konfiguriert'}</strong><small>${escapeHtml(last+next)}</small></div>`;
+  notificationWarningList.innerHTML=warnings.length?`<strong>Aktuelle Warnungen</strong>${warnings.map(item=>`<div><span>${escapeHtml(item.name)}${item.room?` · ${escapeHtml(item.room)}`:''}</span><b>${item.battery!==undefined?`${Number(item.battery)} %`:'Low Battery'}</b></div>`).join('')}`:'<p class="setting-note">Aktuell meldet kein Gerät einen niedrigen Batteriestand.</p>';
+}
+async function loadNotificationSettings(){notificationData=await api('/api/settings/notifications');renderNotificationSettings();renderBatteryOverview();return notificationData}
+async function saveNotificationSettings(){
+  try{
+    notificationData=await api('/api/settings/notifications',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:notificationEnabled.checked,userKey:notificationUserKey.value.trim()||undefined,apiToken:notificationApiToken.value.trim()||undefined,batteryThreshold:Number(notificationBatteryThreshold.value)})});
+    renderNotificationSettings();renderBatteryOverview();notify('Pushover- und Batteriewarnungs-Einstellungen wurden gespeichert.');
+  }catch(error){notify(error.message,true)}
+}
+async function testPushover(){
+  const original=notificationTestButton.innerHTML;notificationTestButton.disabled=true;notificationTestButton.textContent='Test wird gesendet …';
+  try{await api('/api/settings/notifications/test',{method:'POST'});notify('Pushover-Testnachricht wurde gesendet.')}catch(error){notify(error.message,true)}finally{notificationTestButton.disabled=false;notificationTestButton.innerHTML=original}
+}
 
 async function initializeSession(){
   const response=await fetch('/auth/session',{credentials:'same-origin',headers:{accept:'application/json'}});
@@ -121,6 +187,7 @@ async function load(){
     renderDevices();
     renderRooms();
     updateDashboardSummary();
+    await loadSystemControls();
     renderPhosconConnectionNotice();
     renderOpenCcuConnectionNotice();
     await loadAutomations();
@@ -282,7 +349,7 @@ async function loadOpenCcuSettings(){const settings=await api('/api/settings/ope
 async function saveOpenCcu(){clearOpenCcuError();try{const settings=await api('/api/settings/openccu',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({baseUrl:openCcuBaseUrl.value.trim(),username:openCcuUsername.value.trim(),password:openCcuPassword.value||undefined})});openCcuSettingsStatus=settings;await load();await loadOpenCcuSettings();if(settings.gateway?.lastError){const error={code:settings.gateway.lastError,details:{method:settings.gateway.lastErrorMethod,remoteCode:settings.gateway.lastErrorRemoteCode,remoteMessage:settings.gateway.lastErrorMessage}};showOpenCcuError(error);notify('OpenCCU wurde gespeichert, die Gerätesynchronisierung enthält aber einen Fehler.',true)}else if(settings.gateway?.lastDiagnostic?.steps?.some(step=>step.status==='warning'))notify('OpenCCU wurde gespeichert. Die Diagnose enthält Warnungen; Details stehen im Bericht und im Systemprotokoll.',true);else notify('OpenCCU-Verbindung wurde gespeichert und geprüft.')}catch(error){showOpenCcuError(error);notify(friendlyOpenCcuError(error),true)}}
 async function diagnoseOpenCcu(){const original=openCcuDiagnoseButton.textContent;openCcuDiagnoseButton.disabled=true;openCcuDiagnoseButton.textContent='Diagnose läuft …';clearOpenCcuError();try{const result=await api('/api/settings/openccu/diagnose',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({baseUrl:openCcuBaseUrl.value.trim()||undefined,username:openCcuUsername.value.trim()||undefined,password:openCcuPassword.value||undefined})});renderOpenCcuDiagnosticReport(result.report);await loadOpenCcuSettings();if(result.report.ok&&result.report.steps.some(step=>step.status==='warning'))notify('OpenCCU-Diagnose abgeschlossen. Es gibt Warnungen im Bericht.',true);else if(result.report.ok)notify('OpenCCU-Diagnose erfolgreich abgeschlossen.');else{const failed=result.report.steps.find(step=>step.status==='error');showOpenCcuError({code:failed?.code||'OPENCCU_REQUEST_FAILED',details:{method:failed?.method,remoteCode:failed?.remoteCode,remoteMessage:failed?.message}});notify('Die OpenCCU-Diagnose hat einen Fehler gefunden.',true)}}catch(error){showOpenCcuError(error);notify(friendlyOpenCcuError(error),true)}finally{openCcuDiagnoseButton.disabled=false;openCcuDiagnoseButton.textContent=original}}
 async function disconnectOpenCcu(){if(!confirm('OpenCCU-Verbindung trennen? Die synchronisierten HomeMatic-Geräte werden aus SALTA entfernt, aber nicht aus OpenCCU gelöscht.'))return;await api('/api/settings/openccu',{method:'DELETE'});openCcuSettingsStatus=null;clearOpenCcuError();renderOpenCcuDiagnosticReport(null);await load();await loadOpenCcuSettings();notify('OpenCCU-Verbindung wurde getrennt.')}
-async function showSettingsPanel(panel){const target=['phoscon','openccu'].includes(panel)?panel:'shelly';document.querySelectorAll('[data-settings-content]').forEach(content=>content.hidden=content.dataset.settingsContent!==target);document.querySelectorAll('[data-settings-panel]').forEach(button=>{const active=button.dataset.settingsPanel===target;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});if(target==='phoscon')await loadPhosconSettings();else if(target==='openccu')await loadOpenCcuSettings();else await loadShellySettings()}
+async function showSettingsPanel(panel){const target=['phoscon','openccu','notifications'].includes(panel)?panel:'shelly';document.querySelectorAll('[data-settings-content]').forEach(content=>content.hidden=content.dataset.settingsContent!==target);document.querySelectorAll('[data-settings-panel]').forEach(button=>{const active=button.dataset.settingsPanel===target;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});if(target==='phoscon')await loadPhosconSettings();else if(target==='openccu')await loadOpenCcuSettings();else if(target==='notifications')await loadNotificationSettings();else await loadShellySettings()}
 function openAddVirtualDevice(){addVirtualDeviceForm.reset();virtualDeviceRoom.innerHTML='<option value="">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');addVirtualDeviceDialog.showModal();virtualDeviceName.focus()}
 async function addVirtualDevice(){const name=virtualDeviceName.value.trim();if(!name){virtualDeviceName.focus();return}const original=addVirtualDeviceButton.textContent;addVirtualDeviceButton.disabled=true;addVirtualDeviceButton.textContent='Schalter wird angelegt …';try{await api('/api/adapters/virtual/devices',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,type:'switch',roomId:virtualDeviceRoom.value||null})});addVirtualDeviceDialog.close();await load();notify('Virtueller Schalter wurde angelegt und an HomeKit übergeben.')}catch(error){notify(error.message,true)}finally{addVirtualDeviceButton.disabled=false;addVirtualDeviceButton.textContent=original}}
 function deviceInfoTimestamp(value){if(!value)return '–';const date=new Date(value);return Number.isNaN(date.getTime())?'–':date.toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'})}
@@ -435,6 +502,7 @@ roomForm.addEventListener('submit',event=>{event.preventDefault();createRoom().c
 shellyForm.addEventListener('submit',event=>{event.preventDefault();saveShelly().catch(e=>notify(e.message,true))});
 phosconForm.addEventListener('submit',event=>{event.preventDefault();savePhoscon().catch(e=>notify(friendlyPhosconError(e),true))});
 openCcuForm.addEventListener('submit',event=>{event.preventDefault();saveOpenCcu().catch(e=>notify(friendlyOpenCcuError(e),true))});
+notificationForm.addEventListener('submit',event=>{event.preventDefault();saveNotificationSettings().catch(e=>notify(e.message,true))});
 presenceSettingsForm.addEventListener('submit',event=>{event.preventDefault();savePresenceSettings().catch(e=>notify(presenceFriendlyError(e),true))});
 presenceSettingsForm.addEventListener('input',()=>{presenceSettingsDirty=true});
 presenceSettingsForm.addEventListener('change',()=>{presenceSettingsDirty=true});
@@ -448,6 +516,7 @@ deviceHomeKitUseSaltaRoom.addEventListener('change',syncDeviceHomeKitRoomControl
 deviceRoom.addEventListener('change',syncDeviceHomeKitRoomControls);
 devicePresentationType.addEventListener('change',renderDeviceHomeKitCompatibility);
 deviceHidden.addEventListener('change',renderDeviceHomeKitCompatibility);
+climateWinterMode.addEventListener('change',()=>{if(climateModeData?.mode==='winter')applyClimateMode('winter')});
 window.addEventListener('hashchange',navigate);
 menuToggle.addEventListener('click',openMenu);
 menuClose.addEventListener('click',()=>closeMenu({restoreFocus:true}));

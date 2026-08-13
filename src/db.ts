@@ -2,7 +2,7 @@ import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { CredentialMode, Device, FritzBoxPresenceSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, Room, ShellySettings, SystemLogEntry, SystemLogLevel } from "./types.js";
+import type { ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemLogEntry, SystemLogLevel } from "./types.js";
 import type { AutomationInput, AutomationRule } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
@@ -176,6 +176,30 @@ export async function initializeDatabaseSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS automation_triggers_device_idx ON automation_triggers(trigger_device_id,automation_id);
     CREATE INDEX IF NOT EXISTS automations_trigger_idx ON automations(trigger_device_id, enabled);
     CREATE INDEX IF NOT EXISTS automations_action_idx ON automations(action_device_id);
+    CREATE TABLE IF NOT EXISTS climate_mode_settings (
+      id text PRIMARY KEY DEFAULT 'global',
+      mode text NOT NULL DEFAULT 'winter' CHECK(mode IN ('summer','winter')),
+      winter_mode text NOT NULL DEFAULT 'auto' CHECK(winter_mode IN ('manual','auto')),
+      last_applied_at timestamptz,
+      last_result jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    INSERT INTO climate_mode_settings(id) VALUES('global') ON CONFLICT(id) DO NOTHING;
+    CREATE TABLE IF NOT EXISTS notification_settings (
+      channel text PRIMARY KEY DEFAULT 'pushover',
+      enabled boolean NOT NULL DEFAULT false,
+      encrypted_user_key text NOT NULL DEFAULT '',
+      encrypted_api_token text NOT NULL DEFAULT '',
+      battery_threshold integer NOT NULL DEFAULT 20 CHECK(battery_threshold BETWEEN 1 AND 100),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    INSERT INTO notification_settings(channel) VALUES('pushover') ON CONFLICT(channel) DO NOTHING;
+    CREATE TABLE IF NOT EXISTS notification_state (
+      key text PRIMARY KEY,
+      last_sent_at timestamptz,
+      details jsonb NOT NULL DEFAULT '{}'::jsonb,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS system_logs (
       id uuid PRIMARY KEY,
       level text NOT NULL CHECK(level IN ('info','warning','error')),
@@ -434,6 +458,7 @@ interface CredentialEncryptionStatus {
   globalCredential: "ok" | "invalid" | "not-configured";
   phosconCredential: "ok" | "invalid" | "not-configured";
   openCcuCredential: "ok" | "invalid" | "not-configured";
+  pushoverCredential: "ok" | "invalid" | "not-configured";
   invalidDeviceIds: string[];
 }
 
@@ -449,24 +474,30 @@ function secretIsReadable(value: string): boolean {
 
 
 export async function inspectCredentialEncryption(): Promise<CredentialEncryptionStatus> {
-  const [globalResult, phosconResult, openCcuResult, deviceResult] = await Promise.all([
+  const [globalResult, phosconResult, openCcuResult, pushoverResult, deviceResult] = await Promise.all([
     pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='shelly'"),
     pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='phoscon'"),
     pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM openccu_settings WHERE adapter_id='openccu'"),
+    pool.query<{ encrypted_user_key: string; encrypted_api_token: string }>("SELECT encrypted_user_key,encrypted_api_token FROM notification_settings WHERE channel='pushover'"),
     pool.query<{ id: string; credential_password: string }>("SELECT id,credential_password FROM devices WHERE credential_mode='custom' AND credential_password IS NOT NULL AND credential_password <> ''")
   ]);
   const globalSecret = globalResult.rows[0]?.encrypted_password ?? "";
   const phosconSecret = phosconResult.rows[0]?.encrypted_password ?? "";
   const openCcuSecret = openCcuResult.rows[0]?.encrypted_password ?? "";
+  const pushoverUserSecret = pushoverResult.rows[0]?.encrypted_user_key ?? "";
+  const pushoverTokenSecret = pushoverResult.rows[0]?.encrypted_api_token ?? "";
   const globalCredential = !globalSecret ? "not-configured" : secretIsReadable(globalSecret) ? "ok" : "invalid";
   const phosconCredential = !phosconSecret ? "not-configured" : secretIsReadable(phosconSecret) ? "ok" : "invalid";
   const openCcuCredential = !openCcuSecret ? "not-configured" : secretIsReadable(openCcuSecret) ? "ok" : "invalid";
+  const pushoverConfigured = Boolean(pushoverUserSecret || pushoverTokenSecret);
+  const pushoverCredential = !pushoverConfigured ? "not-configured" : secretIsReadable(pushoverUserSecret) && secretIsReadable(pushoverTokenSecret) ? "ok" : "invalid";
   const invalidDeviceIds = deviceResult.rows.filter(row => !secretIsReadable(row.credential_password)).map(row => row.id);
   return {
-    status: globalCredential === "invalid" || phosconCredential === "invalid" || openCcuCredential === "invalid" || invalidDeviceIds.length > 0 ? "invalid" : "ok",
+    status: globalCredential === "invalid" || phosconCredential === "invalid" || openCcuCredential === "invalid" || pushoverCredential === "invalid" || invalidDeviceIds.length > 0 ? "invalid" : "ok",
     globalCredential,
     phosconCredential,
     openCcuCredential,
+    pushoverCredential,
     invalidDeviceIds
   };
 }
@@ -675,6 +706,89 @@ export async function deletePresenceTarget(id: string): Promise<boolean> {
   return result.rowCount === 1;
 }
 
+
+export async function getClimateModeSettings(): Promise<ClimateModeSettings> {
+  const result = await pool.query<{ mode: "summer" | "winter"; winter_mode: "manual" | "auto"; last_applied_at: Date | string | null; last_result: unknown }>(
+    "SELECT mode,winter_mode,last_applied_at,last_result FROM climate_mode_settings WHERE id='global'"
+  );
+  const row = result.rows[0];
+  const rawResult = row?.last_result && typeof row.last_result === "object" ? row.last_result as Record<string, unknown> : {};
+  const total = Number(rawResult.total);
+  const succeeded = Number(rawResult.succeeded);
+  const failed = Number(rawResult.failed);
+  return {
+    mode: row?.mode ?? "winter",
+    winterMode: row?.winter_mode ?? "auto",
+    ...(row?.last_applied_at ? { lastAppliedAt: row.last_applied_at instanceof Date ? row.last_applied_at.toISOString() : String(row.last_applied_at) } : {}),
+    ...(Number.isFinite(total) && Number.isFinite(succeeded) && Number.isFinite(failed) ? { lastResult: { total, succeeded, failed } } : {})
+  };
+}
+
+export async function updateClimateModeSettings(input: { mode: "summer" | "winter"; winterMode: "manual" | "auto"; lastAppliedAt?: string; lastResult?: { total: number; succeeded: number; failed: number } }): Promise<ClimateModeSettings> {
+  await pool.query(`INSERT INTO climate_mode_settings(id,mode,winter_mode,last_applied_at,last_result,updated_at)
+    VALUES('global',$1,$2,$3,$4::jsonb,now())
+    ON CONFLICT(id) DO UPDATE SET mode=EXCLUDED.mode,winter_mode=EXCLUDED.winter_mode,last_applied_at=EXCLUDED.last_applied_at,last_result=EXCLUDED.last_result,updated_at=now()`,
+    [input.mode,input.winterMode,input.lastAppliedAt??null,JSON.stringify(input.lastResult??{})]);
+  return getClimateModeSettings();
+}
+
+export async function getPushoverSettings(): Promise<PushoverSettings> {
+  const result = await pool.query<{ enabled: boolean; encrypted_user_key: string; encrypted_api_token: string; battery_threshold: number }>(
+    "SELECT enabled,encrypted_user_key,encrypted_api_token,battery_threshold FROM notification_settings WHERE channel='pushover'"
+  );
+  const row = result.rows[0];
+  const userSecret = row?.encrypted_user_key ?? "";
+  const tokenSecret = row?.encrypted_api_token ?? "";
+  return {
+    enabled: row?.enabled ?? false,
+    userKeyConfigured: Boolean(userSecret),
+    apiTokenConfigured: Boolean(tokenSecret),
+    encryptionStatus: (userSecret && !secretIsReadable(userSecret)) || (tokenSecret && !secretIsReadable(tokenSecret)) ? "invalid" : "ok",
+    batteryThreshold: row?.battery_threshold ?? 20
+  };
+}
+
+export async function getPushoverConnection(): Promise<{ enabled: boolean; userKey: string; apiToken: string; batteryThreshold: number }> {
+  const result = await pool.query<{ enabled: boolean; encrypted_user_key: string; encrypted_api_token: string; battery_threshold: number }>(
+    "SELECT enabled,encrypted_user_key,encrypted_api_token,battery_threshold FROM notification_settings WHERE channel='pushover'"
+  );
+  const row = result.rows[0];
+  return {
+    enabled: row?.enabled ?? false,
+    userKey: decryptStoredSecret(row?.encrypted_user_key),
+    apiToken: decryptStoredSecret(row?.encrypted_api_token),
+    batteryThreshold: row?.battery_threshold ?? 20
+  };
+}
+
+export async function updatePushoverSettings(input: { enabled: boolean; userKey?: string; apiToken?: string; batteryThreshold: number }): Promise<PushoverSettings> {
+  const current = await pool.query<{ encrypted_user_key: string; encrypted_api_token: string }>(
+    "SELECT encrypted_user_key,encrypted_api_token FROM notification_settings WHERE channel='pushover'"
+  );
+  const currentUser = current.rows[0]?.encrypted_user_key ?? "";
+  const currentToken = current.rows[0]?.encrypted_api_token ?? "";
+  if (input.userKey === undefined && currentUser && !secretIsReadable(currentUser)) throw new Error("ENCRYPTION_KEY_MISMATCH");
+  if (input.apiToken === undefined && currentToken && !secretIsReadable(currentToken)) throw new Error("ENCRYPTION_KEY_MISMATCH");
+  const encryptedUser = input.userKey === undefined ? currentUser : (input.userKey ? encryptSecret(input.userKey) : "");
+  const encryptedToken = input.apiToken === undefined ? currentToken : (input.apiToken ? encryptSecret(input.apiToken) : "");
+  await pool.query(`INSERT INTO notification_settings(channel,enabled,encrypted_user_key,encrypted_api_token,battery_threshold,updated_at)
+    VALUES('pushover',$1,$2,$3,$4,now())
+    ON CONFLICT(channel) DO UPDATE SET enabled=EXCLUDED.enabled,encrypted_user_key=EXCLUDED.encrypted_user_key,encrypted_api_token=EXCLUDED.encrypted_api_token,battery_threshold=EXCLUDED.battery_threshold,updated_at=now()`,
+    [input.enabled,encryptedUser,encryptedToken,input.batteryThreshold]);
+  return getPushoverSettings();
+}
+
+export async function getNotificationLastSent(key: string): Promise<string | undefined> {
+  const result = await pool.query<{ last_sent_at: Date | string | null }>("SELECT last_sent_at FROM notification_state WHERE key=$1",[key]);
+  const value = result.rows[0]?.last_sent_at;
+  if (!value) return undefined;
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
+export async function setNotificationLastSent(key: string, at: string, details: Record<string, unknown> = {}): Promise<void> {
+  await pool.query(`INSERT INTO notification_state(key,last_sent_at,details,updated_at) VALUES($1,$2,$3::jsonb,now())
+    ON CONFLICT(key) DO UPDATE SET last_sent_at=EXCLUDED.last_sent_at,details=EXCLUDED.details,updated_at=now()`,[key,at,JSON.stringify(details)]);
+}
 
 export async function writeSystemLog(
   level: SystemLogLevel,

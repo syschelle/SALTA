@@ -499,3 +499,16 @@ html[data-theme="dark"] .homekit-compatibility.warning{border-color:#6c592d;back
 @media(max-width:1180px){.overview-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:700px){.overview-header{align-items:flex-start;flex-direction:row}.overview-header .overview-sync-button{margin-left:auto}.overview-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:14px 0 16px}.overview-presence-stat{grid-column:span 2}.overview-section-head{margin-top:14px}}
 @media(max-width:460px){.overview-header{align-items:stretch;flex-direction:column;gap:10px}.overview-header .overview-sync-button{margin-left:0;align-self:flex-start}.overview-heading h1{font-size:25px}.overview-stats article{min-height:70px;padding:10px 11px}.overview-stats strong{font-size:20px}}
+
+/* Global climate mode and battery warning controls */
+.overview-system-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.85fr);gap:var(--layout-gap);margin:0 0 18px}
+.overview-system-card{padding:16px 18px}
+.overview-system-card .panel-head{margin-bottom:12px}.overview-system-card .panel-head>span.mdi{font-size:24px;color:var(--muted)}
+.climate-mode-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.climate-mode-controls button{justify-content:center}.climate-mode-controls button.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.climate-winter-mode{display:grid;grid-template-columns:auto minmax(160px,220px);align-items:center;gap:12px;font-size:12px;font-weight:700}.climate-winter-mode select{margin:0}
+.system-control-status{margin-top:10px;font-size:11px;color:var(--muted)}
+.battery-overview-status{display:flex;gap:11px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--subtle-bg)}.battery-overview-status>span{font-size:22px}.battery-overview-status strong,.battery-overview-status small{display:block}.battery-overview-status small{margin-top:3px;color:var(--muted);line-height:1.45}.battery-overview-status.warning{border-color:rgba(210,143,0,.35)}.battery-overview-status.warning>span{color:#c58200}.battery-overview-status.ok>span{color:#29945f}
+.compact-link{display:inline-flex;margin-top:10px;font-size:11px;padding:7px 10px}
+.battery-warning-list{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--subtle-bg)}.battery-warning-list>strong{font-size:12px}.battery-warning-list>div{display:flex;justify-content:space-between;gap:12px;font-size:12px}.battery-warning-list>div span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.battery-warning-list>div b{white-space:nowrap}
+@media(max-width:900px){.overview-system-grid{grid-template-columns:1fr}.climate-winter-mode{grid-template-columns:1fr}.climate-mode-controls{grid-template-columns:1fr 1fr}}
+@media(max-width:460px){.climate-mode-controls{grid-template-columns:1fr}}

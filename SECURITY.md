@@ -28,6 +28,12 @@ For direct LAN access without a reverse proxy, `SALTA_BIND_ADDRESS=0.0.0.0` publ
 
 SALTA may connect to local Phoscon/deCONZ and OpenCCU services over HTTP. Their API credentials are protected at rest but are not encrypted while crossing the network over HTTP. Keep adapter traffic inside a trusted LAN or IoT VLAN, or use endpoints with certificates trusted by the SALTA container. TLS certificate validation remains enabled by default. The FRITZ!Box Presence adapter has one explicit per-adapter exception: for HTTPS connections, an administrator may disable certificate verification to allow a trusted local self-signed FRITZ!Box certificate. This setting is request-scoped to FRITZ!Box Presence traffic and never changes Node.js global TLS verification or the behavior of other SALTA integrations.
 
+### Pushover notification credentials
+
+The Pushover User Key and Application API Token are treated as secrets. SALTA stores both values encrypted with the same AES-256-GCM secret-storage mechanism protected by `SALTA_ENCRYPTION_KEY`. The values are never returned by the settings API and must not be written to the system log.
+
+Pushover delivery uses the fixed `https://api.pushover.net/1/messages.json` endpoint. The endpoint is not administrator-configurable, which prevents the notification feature from becoming a generic outbound request facility. Battery notifications are additionally rate-limited by persistent SALTA state to at most one aggregated warning every seven days. Test notifications are separate and do not alter the battery-warning throttle.
+
 ### Protocol-mandated MD5 in FRITZ!Box authentication
 
 The FRITZ! TR-064 SOAP content-level authentication protocol mandates two MD5 operations for its challenge-response calculation. SALTA implements those two operations only inside `contentAuthDigest()` in `src/fritzbox-presence.ts` so it can interoperate with FRITZ!OS. They are not used to store SALTA passwords, derive encryption keys, protect sessions, or hash administrator credentials.

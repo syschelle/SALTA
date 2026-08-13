@@ -17,6 +17,12 @@ SALTA uses pre-1.0 semantic versioning while the architecture is still evolving.
 
 The v0.8.0 milestone introduces the first persistent automation rules and is intentionally a minor-version step rather than another v0.7.x patch release.
 
+## Global heating mode and battery notifications
+
+SALTA provides a global Summer/Winter heating mode on the Overview. It is an internal SALTA system control and is not published to HomeKit. Summer mode sets compatible thermostats to `OFF`; Winter mode applies either manual or automatic operation to all compatible thermostats.
+
+SALTA also monitors devices that report a battery percentage or a `lowBattery` state. Pushover can be configured under **Settings → Benachrichtigungen**. Battery warnings are aggregated and sent no more than once every seven days. The Pushover User Key and Application API Token are stored encrypted with `SALTA_ENCRYPTION_KEY`.
+
 ## Supported architectures
 
 The GitHub release workflow publishes one multi-architecture image for:
