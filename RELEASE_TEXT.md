@@ -1,38 +1,59 @@
-# SALTA v0.8.50
+# SALTA v0.8.51
 
-SALTA v0.8.50 replaces the unsuccessful PostgreSQL bridge-network workaround from v0.8.49 with a deterministic host-network topology for both SALTA and PostgreSQL. This removes Docker NAT and host-port publishing from the database connection path while keeping PostgreSQL strictly bound to host loopback.
+SALTA v0.8.51 provides a clean production Docker topology for HomeKit and PostgreSQL after the previous deployment experiments. SALTA alone uses host networking for reliable HAP/mDNS discovery, while PostgreSQL stays on Docker's standard bridge and is published only to host loopback.
 
-## Production networking fix
+## Clean production Compose topology
 
-- SALTA continues to use `network_mode: host` so HomeKit HAP/mDNS advertisements can reach the Raspberry Pi LAN directly.
-- PostgreSQL now also uses `network_mode: host`.
-- PostgreSQL is started explicitly with `listen_addresses=127.0.0.1`.
-- PostgreSQL listens on `${POSTGRES_HOST_PORT:-5433}` instead of relying on Docker port publishing.
-- SALTA continues to connect to PostgreSQL through `127.0.0.1:${POSTGRES_HOST_PORT:-5433}`.
-- No PostgreSQL socket is exposed on a LAN-facing address.
-- Docker NAT, `ports:` mappings and custom bridge networking are no longer part of the production database path.
+- SALTA uses `network_mode: host` for HomeKit HAP/mDNS discovery.
+- PostgreSQL uses Docker's normal bridge network.
+- PostgreSQL is published only as `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`.
+- SALTA connects to PostgreSQL through `127.0.0.1:${POSTGRES_HOST_PORT:-5433}`.
+- PostgreSQL is not published on `0.0.0.0` or a LAN-facing address.
+- Removed custom production `frontend` / `backend` networks.
+- Removed the retired `internal: true` network workaround.
+- PostgreSQL no longer uses host networking or custom `listen_addresses` / `port` server overrides.
+- The PostgreSQL healthcheck targets its normal container-local endpoint at `127.0.0.1:5432`.
 
-## Healthcheck and regression protection
+## Deployment regression protection
 
-- Updated the PostgreSQL healthcheck to use `127.0.0.1:${POSTGRES_HOST_PORT:-5433}`.
-- Updated deployment tests to require host networking for both SALTA and PostgreSQL.
-- Extended release validation to reject PostgreSQL port publishing or reintroduction of the retired internal backend bridge.
-- Documented the loopback-only PostgreSQL host-network topology in README and SECURITY documentation.
+- Deployment tests require exactly one `network_mode: host` declaration in the production Compose file.
+- Release validation requires loopback-only PostgreSQL publishing and the matching SALTA `DATABASE_URL`.
+- Release validation rejects the retired PostgreSQL host-network workaround and custom internal networks.
+
+## HomeKit migration path
+
+No HomeKit storage migration is required for installations already running v0.8.41 or newer.
+
+For an installation that was already paired with HomeKit before v0.8.41, the one-time migration helper is:
+
+```text
+/opt/SALTA/migrate-homekit-storage.sh
+```
+
+Run it before recreating the old SALTA container:
+
+```bash
+cd /opt/SALTA
+./migrate-homekit-storage.sh
+```
+
+The helper migrates legacy HomeKit HAP state from `/app/persist` in the old container to the persistent `salta_runtime_data` volume mounted at `/var/lib/salta/homekit`. Runtime settings are stored at `/var/lib/salta/runtime/settings.json`.
 
 ## Compatibility
 
-- Supersedes the unsuccessful SALTA v0.8.49 bridge-network workaround.
+- Supersedes the unreleased v0.8.49/v0.8.50 deployment candidates.
 - No database migration is required.
-- No HomeKit storage migration is required.
-- Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible and must not be deleted during the update.
+- Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
+- Do not use `down -v` during the update.
 - No new mandatory environment variable is required.
 - No new npm dependency is introduced.
 
 ## Production update
 
-Use the updated `docker-compose.image.yml` from this release, then recreate the stack without deleting volumes:
+Use the updated `docker-compose.image.yml` from this release:
 
 ```bash
+cd /opt/SALTA
 git pull --ff-only origin main
 docker compose --env-file .env -f docker-compose.image.yml config
 docker compose --env-file .env -f docker-compose.image.yml pull
@@ -40,4 +61,4 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-After recreation, both containers use host networking and therefore show no Docker port mappings. PostgreSQL must be visible on host loopback at `127.0.0.1:${POSTGRES_HOST_PORT:-5433}` when checked with `ss`, while SALTA should start normally and connect through the same loopback endpoint.
+After recreation, `salta` should use host networking and show no Docker port mappings. `salta-postgres` should show a loopback-only mapping similar to `127.0.0.1:5433->5432/tcp`.

@@ -14,6 +14,7 @@ const updater = readProjectFile("update.sh");
 const backupScript = readProjectFile("backup.sh");
 const restoreScript = readProjectFile("restore.sh");
 const homeKitMigrationScript = readProjectFile("migrate-homekit-storage.sh");
+const migrationPathDoc = readProjectFile("MIGRATION_PATH.md");
 
 const requiredDeploymentFiles = ["docker-compose.image.yml", ".env.example"];
 const productionScripts = [installer, updater, backupScript, restoreScript].filter(Boolean);
@@ -30,7 +31,7 @@ describe("production deployment configuration", () => {
     expect(productionCompose).toContain("postgres:");
     expect(productionCompose).toContain("image: postgres:17-alpine");
     expect(productionCompose).toContain("salta:");
-    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.50}");
+    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.51}");
     expect(productionCompose).toContain("salta_postgres_data:");
     expect(productionCompose).toContain("salta_runtime_data:");
     expect(productionCompose).toContain("name: salta_runtime_data");
@@ -77,23 +78,25 @@ describe("production deployment configuration", () => {
     expect(environmentExample).not.toContain("MOCK_EVENT_INTERVAL_MS");
   });
 
-  it("uses host networking for HomeKit while keeping PostgreSQL reachable only through host loopback", () => {
-    expect(productionCompose).toContain("network_mode: host");
+  it("uses host networking only for SALTA and publishes PostgreSQL on host loopback only", () => {
     expect(productionCompose).not.toContain("HOMEKIT_BIND_ADDRESS");
     expect(productionCompose).not.toContain('${HOMEKIT_PORT:-51826}:${HOMEKIT_PORT:-51826}/tcp');
-    expect((productionCompose.match(/network_mode: host/g) ?? [])).toHaveLength(2);
-    expect(productionCompose).toContain("listen_addresses=127.0.0.1");
-    expect(productionCompose).toContain("port=${POSTGRES_HOST_PORT:-5433}");
-    expect(productionCompose).toContain("pg_isready -h 127.0.0.1 -p ${POSTGRES_HOST_PORT:-5433}");
-    expect(productionCompose).not.toContain('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432');
+    expect((productionCompose.match(/network_mode: host/g) ?? [])).toHaveLength(1);
+    expect(productionCompose).toContain('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432');
+    expect(productionCompose).toContain("pg_isready -h 127.0.0.1 -p 5432");
+    expect(productionCompose).toContain("DATABASE_URL: postgres://${POSTGRES_USER:-salta}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_HOST_PORT:-5433}/${POSTGRES_DB:-salta}");
     expect(productionCompose).not.toContain("internal: true");
-    expect(productionCompose).not.toMatch(/postgres:[\s\S]*?ports:/);
+    expect(productionCompose).not.toContain("listen_addresses=127.0.0.1");
+    expect(productionCompose).not.toContain("networks:\n");
   });
 
-  it("ships a one-time migration helper for pre-v0.8.41 HomeKit pairing state", () => {
+  it("ships and documents the one-time migration helper for pre-v0.8.41 HomeKit pairing state", () => {
     expect(homeKitMigrationScript).toContain('LEGACY_PATH="/app/persist"');
     expect(homeKitMigrationScript).toContain('VOLUME_NAME="${SALTA_RUNTIME_VOLUME:-salta_runtime_data}"');
     expect(homeKitMigrationScript).toContain('docker cp "$CONTAINER_NAME:$LEGACY_PATH/."');
+    expect(migrationPathDoc).toContain("/opt/SALTA/migrate-homekit-storage.sh");
+    expect(migrationPathDoc).toContain("/app/persist");
+    expect(migrationPathDoc).toContain("/var/lib/salta/homekit");
   });
 
   it("does not execute .env as shell code in optional backup and restore helpers", () => {

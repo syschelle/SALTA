@@ -24,6 +24,7 @@ const requiredReleaseFiles = [
   "src/disaster-recovery-backup.ts",
   "src/runtime-settings.ts",
   "migrate-homekit-storage.sh",
+  "MIGRATION_PATH.md",
   "test-utils/source-inspection.ts",
   "test-utils/style-inspection.ts",
   "public/automation-ui.js",
@@ -114,7 +115,9 @@ if (!configSource.includes('loadPersistedRuntimeSettings()') || !configSource.in
 if (!homeKitRecoverySource.includes('HAPStorage.setCustomStoragePath(config.HOMEKIT_STORAGE_PATH)')) fail("HomeKit storage is not pinned to persistent SALTA storage");
 if (!productionCompose.includes('name: salta_runtime_data') || !productionCompose.includes('salta_runtime_data:/var/lib/salta') || !productionCompose.includes('HOMEKIT_STORAGE_PATH: /var/lib/salta/homekit') || !productionCompose.includes('SALTA_RUNTIME_SETTINGS_PATH: /var/lib/salta/runtime/settings.json')) fail("Production Compose does not persist disaster-recovery/HomeKit runtime state");
 const homeKitMigrationSource = read("migrate-homekit-storage.sh");
+const migrationPathDoc = read("MIGRATION_PATH.md");
 if (!homeKitMigrationSource.includes('LEGACY_PATH="/app/persist"') || !homeKitMigrationSource.includes('salta_runtime_data')) fail("Legacy HomeKit pairing migration helper is incomplete");
+if (!migrationPathDoc.includes("/opt/SALTA/migrate-homekit-storage.sh") || !migrationPathDoc.includes("/app/persist") || !migrationPathDoc.includes("/var/lib/salta/homekit")) fail("Documented HomeKit migration path is incomplete");
 if (!configurationBackupSource.includes('notification_state: "SELECT * FROM notification_state ORDER BY key"') || !configurationBackupSource.includes('notification_state: "INSERT INTO notification_state SELECT * FROM jsonb_populate_recordset')) fail("Disaster recovery must preserve notification cooldown state");
 if (configurationBackupSource.includes('decryptSecret(') || configurationBackupSource.includes('getGlobalShellyCredentials(') || configurationBackupSource.includes('getOpenCcuConnection(')) fail("Configuration snapshot export must not decrypt stored integration credentials");
 
@@ -266,11 +269,12 @@ if ((serverSource.split("setupUri:").length - 1) < 3) fail("HomeKit settings API
 if (!publicIndex.includes('id="deviceHomeKitEnabled"') || !publicIndex.includes('id="deviceHomeKitUseSaltaRoom"') || !publicIndex.includes('id="deviceHomeKitRoom"')) fail("Device HomeKit configuration controls are incomplete");
 if (!virtualFrontend.includes("function homeKitSupportedDevice(d)") || !virtualFrontend.includes("function loadHomeKitSettings()") || !virtualFrontend.includes("function saveHomeKitSettings()") || !virtualFrontend.includes("function resetHomeKitPairing()")) fail("HomeKit frontend runtime controls are incomplete");
 const hostNetworkCount = (productionCompose.match(/network_mode: host/g) ?? []).length;
-if (hostNetworkCount < 2 || !productionCompose.includes("listen_addresses=127.0.0.1") || !productionCompose.includes("port=${POSTGRES_HOST_PORT:-5433}")) fail("Production Compose must run SALTA and PostgreSQL in host networking with PostgreSQL bound to loopback only");
-if (!productionCompose.includes("pg_isready -h 127.0.0.1 -p ${POSTGRES_HOST_PORT:-5433}")) fail("Production PostgreSQL healthcheck must target the loopback-only host-network port");
-if (productionCompose.includes('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432')) fail("Production Compose must not depend on Docker port publishing for PostgreSQL when SALTA uses host networking");
-if (productionCompose.includes("internal: true")) fail("Production Compose must not define the retired internal PostgreSQL bridge");
-if (/postgres:[\s\S]*?ports:/.test(productionCompose)) fail("Production PostgreSQL must bind directly to loopback in host networking instead of relying on Docker port publishing");
+if (hostNetworkCount !== 1) fail("Production Compose must use host networking for SALTA only");
+if (!productionCompose.includes('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432')) fail("Production PostgreSQL must be published on host loopback only");
+if (!productionCompose.includes("pg_isready -h 127.0.0.1 -p 5432")) fail("Production PostgreSQL healthcheck must target the container-local PostgreSQL port");
+if (!productionCompose.includes("DATABASE_URL: postgres://${POSTGRES_USER:-salta}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_HOST_PORT:-5433}/${POSTGRES_DB:-salta}")) fail("Host-network SALTA must reach PostgreSQL through the loopback-only published port");
+if (productionCompose.includes("internal: true") || productionCompose.includes("listen_addresses=127.0.0.1")) fail("Production Compose contains a retired PostgreSQL network workaround");
+if (productionCompose.includes("networks:\n")) fail("Production Compose must not define custom Docker networks");
 
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");

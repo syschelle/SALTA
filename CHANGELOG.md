@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.51
+
+- Replaced the experimental PostgreSQL host-network deployment with a simpler production topology: SALTA alone uses host networking for HomeKit/mDNS, while PostgreSQL remains on Docker's standard bridge network.
+- PostgreSQL is published only on host loopback as `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`; SALTA reaches it through the same loopback endpoint.
+- Removed all custom production `frontend` / `backend` networks and the retired `internal: true` workaround.
+- Restored the PostgreSQL healthcheck to the container-local `127.0.0.1:5432` endpoint.
+- Added release-validation and deployment-test contracts that require exactly one host-network service and loopback-only PostgreSQL publication.
+- Documented the one-time legacy HomeKit migration path `/opt/SALTA/migrate-homekit-storage.sh`, including source `/app/persist` and target `/var/lib/salta/homekit`.
+- No database migration is required; legacy HomeKit migration is required only for installations already paired before v0.8.41.
+
 ## v0.8.50
 
 - Reworked the HomeKit production networking topology so both SALTA and PostgreSQL use host networking, eliminating Docker NAT/port-publishing from the database path.
