@@ -273,7 +273,7 @@ if (!virtualFrontend.includes("function homeKitSupportedDevice(d)") || !virtualF
 if (!publicIndex.includes('id="homeKitDeviceList"') || !publicIndex.includes('id="homeKitDeviceCount"') || !publicIndex.includes('class="homekit-info-note"')) fail("Central HomeKit device management UI is incomplete");
 if (!virtualFrontend.includes("function renderHomeKitDeviceList()") || !virtualFrontend.includes("async function setHomeKitDeviceEnabled(")) fail("Central HomeKit device publication controls are not wired");
 if (!publicStyles.includes(".homekit-pairing-box[hidden]{display:none}") || !publicStyles.includes(".homekit-device-toggle input:checked+span")) fail("HomeKit settings layout does not protect paired-state hiding or publication toggles");
-if (!publicStyles.includes(".settings-layout{display:grid;grid-template-columns:220px minmax(0,1fr)") || !publicStyles.includes(".settings-card{min-width:0;max-width:var(--settings-content-max);width:100%}")) fail("Settings layout is not protected against horizontal overflow");
+if (!publicStyles.includes(".settings-layout{display:grid;grid-template-columns:220px minmax(0,var(--settings-content-max))") || !publicStyles.includes(".settings-card{min-width:0;max-width:var(--settings-content-max);width:100%}")) fail("Settings layout is not protected against horizontal overflow");
 const hostNetworkCount = (productionCompose.match(/network_mode: host/g) ?? []).length;
 if (hostNetworkCount !== 1) fail("Production Compose must use host networking for SALTA only");
 if (!productionCompose.includes('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432')) fail("Production PostgreSQL must be published on host loopback only");
