@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -25,6 +26,7 @@ const requiredReleaseFiles = [
   "src/runtime-settings.ts",
   "migrate-homekit-storage.sh",
   "MIGRATION_PATH.md",
+  "RELEASE_MANIFEST.md",
   "test-utils/source-inspection.ts",
   "test-utils/style-inspection.ts",
   "public/automation-ui.js",
@@ -117,7 +119,7 @@ if (!productionCompose.includes('name: salta_runtime_data') || !productionCompos
 const homeKitMigrationSource = read("migrate-homekit-storage.sh");
 const migrationPathDoc = read("MIGRATION_PATH.md");
 if (!homeKitMigrationSource.includes('LEGACY_PATH="/app/persist"') || !homeKitMigrationSource.includes('salta_runtime_data')) fail("Legacy HomeKit pairing migration helper is incomplete");
-if (!migrationPathDoc.includes("/opt/SALTA/migrate-homekit-storage.sh") || !migrationPathDoc.includes("/app/persist") || !migrationPathDoc.includes("/var/lib/salta/homekit")) fail("Documented HomeKit migration path is incomplete");
+if (!migrationPathDoc.includes("/opt/SALTA/migrate-homekit-storage.sh") || !migrationPathDoc.includes("pre-v0.8.41") || !migrationPathDoc.includes("/app/persist") || !migrationPathDoc.includes("/var/lib/salta/homekit")) fail("Documented HomeKit migration path is incomplete");
 if (!configurationBackupSource.includes('notification_state: "SELECT * FROM notification_state ORDER BY key"') || !configurationBackupSource.includes('notification_state: "INSERT INTO notification_state SELECT * FROM jsonb_populate_recordset')) fail("Disaster recovery must preserve notification cooldown state");
 if (configurationBackupSource.includes('decryptSecret(') || configurationBackupSource.includes('getGlobalShellyCredentials(') || configurationBackupSource.includes('getOpenCcuConnection(')) fail("Configuration snapshot export must not decrypt stored integration credentials");
 
@@ -276,6 +278,14 @@ if (!productionCompose.includes("DATABASE_URL: postgres://${POSTGRES_USER:-salta
 if (productionCompose.includes("internal: true") || productionCompose.includes("listen_addresses=127.0.0.1")) fail("Production Compose contains a retired PostgreSQL network workaround");
 if (productionCompose.includes("networks:\n")) fail("Production Compose must not define custom Docker networks");
 
+const sha256Text = (value) => createHash("sha256").update(value).digest("hex");
+const releaseManifest = read("RELEASE_MANIFEST.md");
+const composeSha256 = sha256Text(productionCompose);
+const migrationScriptSha256 = createHash("sha256").update(readFileSync(resolve(root, "migrate-homekit-storage.sh"))).digest("hex");
+if (!releaseManifest.includes(`docker-compose.image.yml  SHA-256  ${composeSha256}`)) fail("Release manifest does not match docker-compose.image.yml");
+if (!releaseManifest.includes(`migrate-homekit-storage.sh  SHA-256  ${migrationScriptSha256}`)) fail("Release manifest does not match migrate-homekit-storage.sh");
+if (!releaseManifest.includes("/opt/SALTA/migrate-homekit-storage.sh")) fail("Release manifest is missing the production HomeKit migration path");
+
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");
 const checkScript = String(packageJson.scripts?.check ?? "");
@@ -320,6 +330,7 @@ const versionSurfaces = [
   ["src/deployment-config.test.ts", `ghcr.io/syschelle/salta:${version}`],
   ["src/server.test.ts", `version: "${version}"`],
   ["RELEASE_TEXT.md", `# SALTA v${version}`],
+  ["RELEASE_MANIFEST.md", `# SALTA v${version} release manifest`],
   ["GIT_COMMANDS.md", `# SALTA v${version}`],
   ["docs-ghcr.md", `v${version}`],
 ];

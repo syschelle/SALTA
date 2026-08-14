@@ -1,6 +1,6 @@
-# SALTA v0.8.51
+# SALTA v0.8.52
 
-SALTA v0.8.51 provides a clean production Docker topology for HomeKit and PostgreSQL after the previous deployment experiments. SALTA alone uses host networking for reliable HAP/mDNS discovery, while PostgreSQL stays on Docker's standard bridge and is published only to host loopback.
+SALTA v0.8.52 provides a release-consistent production deployment package after the unreleased v0.8.51 candidate. The production Compose topology, deployment tests, release validator, migration documentation and release metadata are aligned to the same verified state before the repository is tagged.
 
 ## Clean production Compose topology
 
@@ -9,17 +9,17 @@ SALTA v0.8.51 provides a clean production Docker topology for HomeKit and Postgr
 - PostgreSQL is published only as `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`.
 - SALTA connects to PostgreSQL through `127.0.0.1:${POSTGRES_HOST_PORT:-5433}`.
 - PostgreSQL is not published on `0.0.0.0` or a LAN-facing address.
-- Removed custom production `frontend` / `backend` networks.
-- Removed the retired `internal: true` network workaround.
-- PostgreSQL no longer uses host networking or custom `listen_addresses` / `port` server overrides.
+- No custom production `frontend` / `backend` networks are defined.
+- No `internal: true` network workaround is used.
+- PostgreSQL does not use host networking or custom `listen_addresses` / `port` server overrides.
 - The PostgreSQL healthcheck targets its normal container-local endpoint at `127.0.0.1:5432`.
 
-## Deployment regression protection
+## Release consistency and verification
 
-- Removed stale v0.8.50 PostgreSQL host-network assertions from the deployment test so CI validates the actual v0.8.51 topology.
-- Deployment tests require exactly one `network_mode: host` declaration in the production Compose file.
-- Release validation requires loopback-only PostgreSQL publishing and the matching SALTA `DATABASE_URL`.
-- Release validation rejects the retired PostgreSQL host-network workaround and custom internal networks.
+- Added `RELEASE_MANIFEST.md` with SHA-256 fingerprints for the exact production Compose file and HomeKit migration helper.
+- Release validation checks the manifest against the files in the release tree.
+- Deployment tests validate the same topology as the production Compose file.
+- The release is intended to be pushed first, verified against `origin/main`, and only then tagged.
 
 ## HomeKit migration path
 
@@ -42,7 +42,7 @@ The helper migrates legacy HomeKit HAP state from `/app/persist` in the old cont
 
 ## Compatibility
 
-- Supersedes the unreleased v0.8.49/v0.8.50 deployment candidates.
+- Supersedes the unreleased v0.8.51 deployment candidate.
 - No database migration is required.
 - Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
 - Do not use `down -v` during the update.

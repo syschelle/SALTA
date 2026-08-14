@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
@@ -66,6 +67,9 @@ stageReplace("docs-ghcr.md", [
 stageReplace("RELEASE_TEXT.md", [
   { from: `# SALTA v${previousVersion}`, to: `# SALTA v${nextVersion}` },
 ]);
+stageReplace("MIGRATION_PATH.md", [
+  { from: `## Current v${previousVersion} update`, to: `## Current v${nextVersion} update` },
+]);
 stageReplace("GIT_COMMANDS.md", [
   { from: `# SALTA v${previousVersion} Git commands`, to: `# SALTA v${nextVersion} Git commands` },
   { from: `Release validator contract: SALTA v${previousVersion} / test-config-from-tsconfig.json`, to: `Release validator contract: SALTA v${nextVersion} / test-config-from-tsconfig.json` },
@@ -85,6 +89,14 @@ packageLock.version = nextVersion;
 packageLock.packages[""].version = nextVersion;
 updates.set("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
 updates.set("package-lock.json", `${JSON.stringify(packageLock, null, 2)}\n`);
+
+if (existsSync(pathFor("RELEASE_MANIFEST.md"))) {
+  const composeContent = updates.get("docker-compose.image.yml") ?? read("docker-compose.image.yml");
+  const migrationBytes = readFileSync(pathFor("migrate-homekit-storage.sh"));
+  const composeHash = createHash("sha256").update(composeContent).digest("hex");
+  const migrationHash = createHash("sha256").update(migrationBytes).digest("hex");
+  updates.set("RELEASE_MANIFEST.md", `# SALTA v${nextVersion} release manifest\n\nThis manifest is intended for post-push verification before tagging the release.\n\n## Production deployment file\n\n\`\`\`text\ndocker-compose.image.yml  SHA-256  ${composeHash}\n\`\`\`\n\nRequired topology:\n\n- SALTA uses \`network_mode: host\`.\n- PostgreSQL uses Docker's normal bridge network.\n- PostgreSQL is published only on \`127.0.0.1:\${POSTGRES_HOST_PORT:-5433}:5432\`.\n- No custom \`networks:\` section or \`internal: true\` network exists in the production Compose file.\n\n## Legacy HomeKit migration helper\n\n\`\`\`text\nmigrate-homekit-storage.sh  SHA-256  ${migrationHash}\n\`\`\`\n\nProduction host path:\n\n\`\`\`text\n/opt/SALTA/migrate-homekit-storage.sh\n\`\`\`\n\nThis helper is only required for HomeKit pairing state created before v0.8.41.\n`);
+}
 
 for (const [file, content] of updates) writeFileSync(pathFor(file), content, "utf8");
 

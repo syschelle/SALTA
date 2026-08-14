@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.52
+
+- Consolidated the production Docker topology into a release-consistent candidate: SALTA uses host networking for HomeKit/mDNS, while PostgreSQL stays on the default Docker bridge and is published only on host loopback.
+- Added `RELEASE_MANIFEST.md` with SHA-256 fingerprints for `docker-compose.image.yml` and `migrate-homekit-storage.sh` so the pushed repository can be verified before tagging.
+- Aligned deployment tests, release validation, migration documentation and release instructions with the same production topology.
+- Explicitly documented the legacy HomeKit migration path as `/opt/SALTA/migrate-homekit-storage.sh`; it remains required only for pairing data created before v0.8.41.
+- No database migration, new mandatory environment variable or new npm dependency is required.
+
 ## v0.8.51
 
 - Simplified the production Docker topology: SALTA alone uses host networking for HomeKit/mDNS, while PostgreSQL uses the default Docker bridge and is published only on `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`.
