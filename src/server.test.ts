@@ -7,6 +7,7 @@ import type { OpenCcuAdapter } from "./openccu-adapter.js";
 import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import type { AutomationEngine } from "./automations.js";
 import type { ClimateModeManager } from "./climate-mode.js";
+import type { HomeKitBridge } from "./homekit.js";
 
 vi.mock("./config.js", () => ({
   config: {
@@ -86,7 +87,8 @@ function createServer(
   virtualOverrides: Partial<VirtualDeviceAdapter> = {},
   automationOverrides: Partial<AutomationEngine> = {},
   climateMode?: ClimateModeManager,
-  restartAfterConfigurationImport?: () => void
+  restartAfterConfigurationImport?: () => void,
+  homeKitBridge?: HomeKitBridge
 ) {
   const registry = {
     all: () => [],
@@ -132,7 +134,7 @@ function createServer(
     clearRoomAssignment: vi.fn(),
     ...automationOverrides
   } as unknown as AutomationEngine;
-  const server = buildServer(registry, adapter, phoscon, openCcu, virtual, undefined, automation, undefined, climateMode, undefined, restartAfterConfigurationImport);
+  const server = buildServer(registry, adapter, phoscon, openCcu, virtual, undefined, automation, undefined, climateMode, undefined, restartAfterConfigurationImport, homeKitBridge);
   openServers.push(server);
   return server;
 }
@@ -149,6 +151,45 @@ function authenticatedInject(server: ReturnType<typeof buildServer>, options: In
   });
 }
 
+
+describe("HomeKit settings API", () => {
+  function homeKitStatus(overrides: Record<string, unknown> = {}) {
+    return {
+      enabled: false, name: "SALTA Bridge", pin: "031-45-154", username: "02:42:53:41:4C:54", networkInterface: "", encryptionStatus: "ok",
+      running: false, paired: false, advertised: false, port: 51826, supportedDevices: 4, publishedDevices: 2, networkInterfaces: [{ name: "eth0", addresses: ["192.168.178.10"] }],
+      ...overrides
+    };
+  }
+
+  it("returns authenticated HomeKit status without exposing a pairing code after pairing", async () => {
+    const status = vi.fn(async () => homeKitStatus({ enabled: true, running: true, paired: true, advertised: true, listeningPort: 51826 }));
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, undefined, { status } as unknown as HomeKitBridge);
+    const response = await authenticatedInject(server, { method: "GET", url: "/api/settings/homekit" });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ enabled: true, running: true, paired: true, advertised: true, listeningPort: 51826, port: 51826 });
+    expect(response.json()).not.toHaveProperty("pairingCode");
+    expect(response.json()).not.toHaveProperty("pin");
+  });
+
+  it("applies HomeKit configuration live and returns the pairing code only while unpaired", async () => {
+    const configure = vi.fn(async () => homeKitStatus({ enabled: true, running: true, paired: false, advertised: true, listeningPort: 51826 }));
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, undefined, { configure } as unknown as HomeKitBridge);
+    const response = await authenticatedInject(server, { method: "PUT", url: "/api/settings/homekit", payload: { enabled: true, name: "SALTA Zuhause", networkInterface: "eth0" } });
+    expect(response.statusCode).toBe(200);
+    expect(configure).toHaveBeenCalledWith({ enabled: true, name: "SALTA Zuhause", networkInterface: "eth0" });
+    expect(response.json()).toMatchObject({ enabled: true, pairingCode: "031-45-154" });
+    expect(response.json()).not.toHaveProperty("pin");
+  });
+
+  it("resets HomeKit pairing through a separately rate-limited endpoint", async () => {
+    const resetPairing = vi.fn(async () => homeKitStatus({ enabled: true, running: true, paired: false, advertised: true, pin: "123-45-678" }));
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, undefined, { resetPairing } as unknown as HomeKitBridge);
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/settings/homekit/reset" });
+    expect(response.statusCode).toBe(200);
+    expect(resetPairing).toHaveBeenCalledTimes(1);
+    expect(response.json()).toMatchObject({ paired: false, pairingCode: "123-45-678" });
+  });
+});
 
 describe("PUT /api/rooms/:id", () => {
   it("synchronizes a renamed room into the in-memory device registry", async () => {
@@ -786,7 +827,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.43" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.44" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -883,7 +924,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.43", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.44", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -894,7 +935,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.43", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.44", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {

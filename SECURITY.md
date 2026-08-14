@@ -117,7 +117,7 @@ The Docker health endpoint requires `SALTA_HEALTH_TOKEN`. Invalid requests recei
 
 ## Docker isolation
 
-PostgreSQL is connected only to the internal `backend` Docker network and does not publish port 5432 to the host. Do not add a PostgreSQL `ports:` entry unless external database access is deliberately required and separately secured.
+In the production image stack, SALTA uses host networking for HomeKit mDNS/HAP discovery. PostgreSQL remains on the internal `backend` Docker network and its container port is published only to host loopback as `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`; it is not exposed on the LAN. Do not change that binding to `0.0.0.0` or a LAN address unless external database access is deliberately required and separately secured.
 
 The SALTA container:
 

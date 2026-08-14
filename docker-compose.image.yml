@@ -16,15 +16,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
-    expose:
-      - "5432"
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
     networks:
       - backend
     security_opt:
       - no-new-privileges:true
 
   salta:
-    image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.43}
+    image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.44}
     container_name: salta
     restart: unless-stopped
     depends_on:
@@ -32,10 +32,10 @@ services:
         condition: service_healthy
     environment:
       TZ: ${TZ:-Europe/Berlin}
-      WEB_HOST: 0.0.0.0
-      WEB_PORT: 8099
+      WEB_HOST: ${SALTA_BIND_ADDRESS:-0.0.0.0}
+      WEB_PORT: ${WEB_PORT:-8099}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      DATABASE_URL: postgres://${POSTGRES_USER:-salta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-salta}
+      DATABASE_URL: postgres://${POSTGRES_USER:-salta}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_HOST_PORT:-5433}/${POSTGRES_DB:-salta}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
       SESSION_TTL_MINUTES: ${SESSION_TTL_MINUTES:-720}
@@ -58,12 +58,7 @@ services:
       SALTA_ENCRYPTION_KEY: ${SALTA_ENCRYPTION_KEY:?Set SALTA_ENCRYPTION_KEY in .env}
     volumes:
       - salta_runtime_data:/var/lib/salta
-    ports:
-      - "${SALTA_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8099}:8099"
-      - "${HOMEKIT_BIND_ADDRESS:-0.0.0.0}:${HOMEKIT_PORT:-51826}:${HOMEKIT_PORT:-51826}/tcp"
-    networks:
-      - frontend
-      - backend
+    network_mode: host
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -73,7 +68,7 @@ services:
     pids_limit: 200
     init: true
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8099/internal/health',{headers:{'x-salta-health-token':process.env.SALTA_HEALTH_TOKEN}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+String(process.env.WEB_PORT||8099)+'/internal/health',{headers:{'x-salta-health-token':process.env.SALTA_HEALTH_TOKEN}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 20s
       timeout: 5s
       retries: 5
@@ -89,6 +84,5 @@ volumes:
       com.syschelle.salta.purpose: "runtime-and-homekit-recovery"
 
 networks:
-  frontend:
   backend:
     internal: true

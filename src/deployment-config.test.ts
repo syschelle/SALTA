@@ -30,14 +30,16 @@ describe("production deployment configuration", () => {
     expect(productionCompose).toContain("postgres:");
     expect(productionCompose).toContain("image: postgres:17-alpine");
     expect(productionCompose).toContain("salta:");
-    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.43}");
+    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.44}");
     expect(productionCompose).toContain("salta_postgres_data:");
     expect(productionCompose).toContain("salta_runtime_data:");
     expect(productionCompose).toContain("name: salta_runtime_data");
     expect(productionCompose).toContain("salta_runtime_data:/var/lib/salta");
     expect(productionCompose).toContain("HOMEKIT_STORAGE_PATH: /var/lib/salta/homekit");
     expect(productionCompose).toContain("SALTA_RUNTIME_SETTINGS_PATH: /var/lib/salta/runtime/settings.json");
-    expect(productionCompose).toContain("frontend:");
+    expect(productionCompose).toContain("network_mode: host");
+    expect(productionCompose).toContain('"127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"');
+    expect(productionCompose).toContain("DATABASE_URL: postgres://${POSTGRES_USER:-salta}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_HOST_PORT:-5433}/${POSTGRES_DB:-salta}");
     expect(productionCompose).toContain("backend:");
     expect(productionCompose).toContain("condition: service_healthy");
     expect(productionCompose).toContain("internal: true");
@@ -69,9 +71,17 @@ describe("production deployment configuration", () => {
       expect(installer).toContain("rm -f .env");
       expect(installer).toContain("docker volume rm salta_runtime_data");
     }
-    expect(productionCompose).not.toContain("POSTGRES_HOST_PORT");
-    expect(environmentExample).not.toContain("POSTGRES_HOST_PORT");
+    expect(productionCompose).toContain("POSTGRES_HOST_PORT");
+    expect(environmentExample).toContain("POSTGRES_HOST_PORT=5433");
+    expect(environmentExample).not.toContain("HOMEKIT_BIND_ADDRESS");
     expect(environmentExample).not.toContain("MOCK_EVENT_INTERVAL_MS");
+  });
+
+  it("uses host networking for HomeKit discovery without exposing PostgreSQL to the LAN", () => {
+    expect(productionCompose).toContain("network_mode: host");
+    expect(productionCompose).not.toContain("HOMEKIT_BIND_ADDRESS");
+    expect(productionCompose).not.toContain('${HOMEKIT_PORT:-51826}:${HOMEKIT_PORT:-51826}/tcp');
+    expect(productionCompose).toContain('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432');
   });
 
   it("ships a one-time migration helper for pre-v0.8.41 HomeKit pairing state", () => {

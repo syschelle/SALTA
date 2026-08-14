@@ -246,12 +246,21 @@ for (const variable of ["DATABASE_URL", "ADMIN_PASSWORD", "SALTA_HEALTH_TOKEN", 
 }
 if (testRunnerSource.includes("vitest.config.ts") || testRunnerSource.includes("test-setup.ts")) fail("test runner must not depend on optional standalone Vitest bootstrap files");
 const homeKitSource = read("src/homekit.ts");
-if (!homeKitSource.includes("this.commander.command({deviceId:d.id")) fail("HomeKit does not use the shared device command dispatcher");
-if (!homeKitSource.includes("!isHomeKitSupportedDevice(d)") || !homeKitSource.includes("homeKitAccessoryName(d)")) fail("HomeKit bridge does not enforce supported-device publication and optional HomeKit names");
+if (!homeKitSource.includes("export class HomeKitBridge") || !homeKitSource.includes("bridge.publish(") || !homeKitSource.includes("bridge.unpublish(")) fail("HomeKit bridge runtime lifecycle is incomplete");
+for (const method of ["async start()", "async stop()", "async configure(", "async resetPairing()", "async status()"]) {
+  if (!homeKitSource.includes(method)) fail(`HomeKit bridge is missing runtime method ${method}`);
+}
+if (!homeKitSource.includes('source: "homekit"') || !homeKitSource.includes("isHomeKitSupportedDevice(device)") || !homeKitSource.includes("homeKitAccessoryName(device)")) fail("HomeKit bridge does not use the shared command path and supported-device publication rules");
+for (const route of ["/api/settings/homekit", "/api/settings/homekit/reset"]) {
+  if (!serverSource.includes(route)) fail(`HomeKit settings API is missing ${route}`);
+}
 if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS device_homekit_settings") || !databaseSource.includes("use_salta_room boolean NOT NULL DEFAULT true")) fail("Additive per-device HomeKit settings are missing");
+if (!databaseSource.includes("key='homekit-runtime'") || !databaseSource.includes("encryptedPin")) fail("Runtime HomeKit settings are not persisted with encrypted pairing data");
 if (!databaseSource.includes('COALESCE(hk.use_salta_room,true) as "homekitUseSaltaRoom"') || !databaseSource.includes('as "homekitRoom"')) fail("HomeKit SALTA-room inheritance is not exposed by the device query");
+if (!publicIndex.includes('data-settings-panel="homekit"') || !publicIndex.includes('id="homeKitEnabled"') || !publicIndex.includes('id="homeKitPairingCode"') || !publicIndex.includes('id="homeKitResetButton"')) fail("Global HomeKit configuration controls are incomplete");
 if (!publicIndex.includes('id="deviceHomeKitEnabled"') || !publicIndex.includes('id="deviceHomeKitUseSaltaRoom"') || !publicIndex.includes('id="deviceHomeKitRoom"')) fail("Device HomeKit configuration controls are incomplete");
-if (!virtualFrontend.includes("function homeKitSupportedDevice(d)") || !virtualFrontend.includes("homekitUseSaltaRoom:useSaltaRoom") || !virtualFrontend.includes("homekitRoomId:useSaltaRoom?null:")) fail("Device HomeKit configuration is not wired to the API payload");
+if (!virtualFrontend.includes("function homeKitSupportedDevice(d)") || !virtualFrontend.includes("function loadHomeKitSettings()") || !virtualFrontend.includes("function saveHomeKitSettings()") || !virtualFrontend.includes("function resetHomeKitPairing()")) fail("HomeKit frontend runtime controls are incomplete");
+if (!productionCompose.includes("network_mode: host") || !productionCompose.includes('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432')) fail("Production Compose is not configured for HomeKit mDNS host networking with loopback-only PostgreSQL");
 
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");
@@ -275,6 +284,8 @@ const testSymbolPreflight = read("scripts/check-test-symbols.mjs");
 if (!testSymbolPreflight.includes('include: ["src/**/*.ts", "test-utils/**/*.ts"]') || !testSymbolPreflight.includes("exclude: []")) fail("test symbol preflight must derive a test-inclusive config from tsconfig.json");
 if (!testSymbolPreflight.includes("diagnostic.code === 2304 || diagnostic.code === 2552")) fail("test symbol preflight must reject unresolved TypeScript identifiers");
 const version = String(packageJson.version ?? "");
+const serverVersionSurface = `version: "${version}"`;
+if ((serverSource.split(serverVersionSurface).length - 1) !== 2) fail("Both SALTA health endpoints must report the current release version");
 
 if (!/^\d+\.\d+\.\d+$/.test(version)) fail(`invalid package version ${version}`);
 if (packageLock.version !== version) fail("package-lock.json top-level version differs from package.json");
@@ -290,6 +301,7 @@ const versionSurfaces = [
   ["docker-compose.image.yml", `ghcr.io/syschelle/salta:${version}`],
   ["public/index.html", `Version <strong>${version}</strong>`],
   ["src/server.ts", `version: "${version}"`],
+  ["src/homekit.ts", `FirmwareRevision, "${version}"`],
   ["src/deployment-config.test.ts", `ghcr.io/syschelle/salta:${version}`],
   ["src/server.test.ts", `version: "${version}"`],
   ["RELEASE_TEXT.md", `# SALTA v${version}`],

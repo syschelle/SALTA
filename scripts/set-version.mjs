@@ -27,7 +27,7 @@ const stageReplace = (file, replacements) => {
     if (occurrences !== count) {
       throw new Error(`Refusing to bump: ${file} expected ${count} occurrence(s) of ${JSON.stringify(from)}, found ${occurrences}`);
     }
-    source = source.replace(from, to);
+    source = source.split(from).join(to);
   }
   updates.set(file, source);
 };
@@ -45,6 +45,10 @@ stageReplace("public/index.html", [
 stageReplace("src/server.ts", [
   { from: `version: "${previousVersion}"`, to: `version: "${nextVersion}"`, count: 2 },
   { from: `createDisasterRecoveryBackup("${previousVersion}"`, to: `createDisasterRecoveryBackup("${nextVersion}"` },
+]);
+stageReplace("src/homekit.ts", [
+  { from: `FirmwareRevision, "${previousVersion}"`, to: `FirmwareRevision, "${nextVersion}"` },
+  { from: `device.firmwareVersion || "${previousVersion}"`, to: `device.firmwareVersion || "${nextVersion}"` },
 ]);
 stageReplace("src/deployment-config.test.ts", [
   { from: `ghcr.io/syschelle/salta:${previousVersion}`, to: `ghcr.io/syschelle/salta:${nextVersion}` },

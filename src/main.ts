@@ -38,12 +38,13 @@ async function main(): Promise<void> {
   climate.start();
 
   const homekit = new HomeKitBridge(registry, commands);
-  homekit.start();
+  let homeKitStatus = await homekit.start().catch(async () => homekit.status());
 
-  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"));
+  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"), homekit);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
-  server.log.info({ port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED, trustedProxiesConfigured: Boolean(config.TRUSTED_PROXIES.trim()) }, "SALTA started with mandatory authentication");
-  await writeSystemLog("info", "system", "SALTA_STARTED", "SALTA started", { port: config.WEB_PORT, homekit: config.HOMEKIT_ENABLED }).catch(() => undefined);
+  homeKitStatus = await homekit.status();
+  server.log.info({ port: config.WEB_PORT, homekit: { enabled: homeKitStatus.enabled, running: homeKitStatus.running, paired: homeKitStatus.paired }, trustedProxiesConfigured: Boolean(config.TRUSTED_PROXIES.trim()) }, "SALTA started with mandatory authentication");
+  await writeSystemLog("info", "system", "SALTA_STARTED", "SALTA started", { port: config.WEB_PORT, homekitEnabled: homeKitStatus.enabled, homekitRunning: homeKitStatus.running, homekitPaired: homeKitStatus.paired }).catch(() => undefined);
   const credentialEncryption = await inspectCredentialEncryption();
   if (credentialEncryption.status === "invalid") {
     server.log.error({
@@ -62,7 +63,7 @@ async function main(): Promise<void> {
     server.log.info({ signal }, "Shutting down SALTA");
     await writeSystemLog("info", "system", "SALTA_STOPPING", "SALTA is shutting down", { signal }).catch(() => undefined);
     await server.close();
-    homekit.stop();
+    await homekit.stop();
     automations.stop();
     climate.stop();
     batteryMonitor.stop();

@@ -2,7 +2,7 @@ import pg from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel } from "./types.js";
+import type { ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel } from "./types.js";
 import type { AutomationInput, AutomationRule } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
@@ -758,6 +758,67 @@ export async function updateGeneralSettings(input: GeneralSettings): Promise<Gen
   await pool.query(`INSERT INTO notification_state(key,details,updated_at) VALUES('debug-mode',$1::jsonb,now())
     ON CONFLICT(key) DO UPDATE SET details=EXCLUDED.details,updated_at=now()`, [JSON.stringify({ level: input.debugLevel })]);
   return getGeneralSettings();
+}
+
+type HomeKitStateDetails = {
+  enabled?: unknown;
+  name?: unknown;
+  username?: unknown;
+  encryptedPin?: unknown;
+  networkInterface?: unknown;
+};
+
+function homeKitStateDefaults(): HomeKitSettings {
+  return {
+    enabled: config.HOMEKIT_ENABLED,
+    name: config.HOMEKIT_NAME,
+    pin: config.HOMEKIT_PIN,
+    username: config.HOMEKIT_USERNAME.toUpperCase(),
+    networkInterface: "",
+    encryptionStatus: "ok"
+  };
+}
+
+export async function getHomeKitSettings(): Promise<HomeKitSettings> {
+  const result = await pool.query<{ details: HomeKitStateDetails }>(
+    "SELECT details FROM notification_state WHERE key='homekit-runtime'"
+  );
+  const details = result.rows[0]?.details;
+  if (!details) return homeKitStateDefaults();
+  const defaults = homeKitStateDefaults();
+  const encryptedPin = typeof details.encryptedPin === "string" ? details.encryptedPin : "";
+  let pin = defaults.pin;
+  let encryptionStatus: "ok" | "invalid" = "ok";
+  if (encryptedPin) {
+    try { pin = decryptSecret(encryptedPin); }
+    catch { encryptionStatus = "invalid"; pin = ""; }
+  }
+  const username = typeof details.username === "string" && /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(details.username)
+    ? details.username.toUpperCase()
+    : defaults.username;
+  return {
+    enabled: typeof details.enabled === "boolean" ? details.enabled : defaults.enabled,
+    name: typeof details.name === "string" && details.name.trim() ? details.name.trim().slice(0, 120) : defaults.name,
+    pin,
+    username,
+    networkInterface: typeof details.networkInterface === "string" ? details.networkInterface.trim().slice(0, 64) : "",
+    encryptionStatus
+  };
+}
+
+export async function updateHomeKitSettings(input: { enabled: boolean; name: string; pin: string; username: string; networkInterface?: string }): Promise<HomeKitSettings> {
+  if (!/^\d{3}-\d{2}-\d{3}$/.test(input.pin)) throw new Error("HOMEKIT_PIN_INVALID");
+  if (!/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(input.username)) throw new Error("HOMEKIT_USERNAME_INVALID");
+  const details = {
+    enabled: input.enabled,
+    name: input.name.trim().slice(0, 120),
+    username: input.username.toUpperCase(),
+    encryptedPin: encryptSecret(input.pin),
+    networkInterface: input.networkInterface?.trim().slice(0, 64) ?? ""
+  };
+  await pool.query(`INSERT INTO notification_state(key,details,updated_at) VALUES('homekit-runtime',$1::jsonb,now())
+    ON CONFLICT(key) DO UPDATE SET details=EXCLUDED.details,updated_at=now()`, [JSON.stringify(details)]);
+  return getHomeKitSettings();
 }
 
 export async function getPushoverSettings(): Promise<PushoverSettings> {

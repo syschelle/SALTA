@@ -14,6 +14,7 @@ import type { DeviceCommandRouter } from "./device-command-router.js";
 import type { AutomationEngine } from "./automations.js";
 import type { ClimateModeManager } from "./climate-mode.js";
 import type { BatteryMonitor } from "./battery-monitor.js";
+import type { HomeKitBridge } from "./homekit.js";
 import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
 import { isHomeKitSupportedDevice, supportsPresentationOverride } from "./device-presentation.js";
@@ -86,6 +87,11 @@ const loginSchema = z.object({ username: z.string().max(64), password: z.string(
 const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]), winterMode: z.enum(["manual", "auto"]).optional() }).strict();
 const climateModeSettingsSchema = z.object({ winterMode: z.enum(["manual", "auto"]) }).strict();
 const generalSettingsSchema = z.object({ debugLevel: z.enum(["off", "errors", "verbose"]) }).strict();
+const homeKitSettingsSchema = z.object({
+  enabled: z.boolean(),
+  name: z.string().trim().min(1).max(120),
+  networkInterface: z.string().trim().max(64).default("")
+}).strict();
 const disasterRecoveryExportSchema = z.object({ password: z.string().min(12).max(256) }).strict();
 const disasterRecoveryImportSchema = z.object({ password: z.string().min(12).max(256), backup: z.unknown() }).strict();
 const pushoverSettingsSchema = z.object({
@@ -308,7 +314,7 @@ async function automationRoomExists(roomId: string | null | undefined): Promise<
   return (await listRooms()).some(room => room.id === roomId);
 }
 
-export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine, presenceAdapter?: FritzBoxPresenceAdapter, climateMode?: ClimateModeManager, batteryMonitor?: BatteryMonitor, restartAfterConfigurationImport?: () => void) {
+export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine, presenceAdapter?: FritzBoxPresenceAdapter, climateMode?: ClimateModeManager, batteryMonitor?: BatteryMonitor, restartAfterConfigurationImport?: () => void, homeKitBridge?: HomeKitBridge) {
   const trustedProxyEntries = config.TRUSTED_PROXIES.split(",").map(value => value.trim()).filter(Boolean);
   const trustedProxies = trustedProxyEntries.length ? trustedProxyEntries : false;
   const localNetworks = config.LOCAL_NETWORKS.split(",").map(value => value.trim()).filter(Boolean);
@@ -517,9 +523,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.43" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.44" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.43", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.44", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -945,6 +951,76 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return updateGeneralSettings(parsed.data);
   });
 
+  app.get("/api/settings/homekit", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "homekit-settings-read" } }
+  }, async (request, reply) => {
+    if (!homeKitBridge) return reply.code(503).send({ error: { code: "HOMEKIT_SERVICE_UNAVAILABLE", message: "HomeKit service is not available", requestId: request.id } });
+    const status = await homeKitBridge.status();
+    return {
+      enabled: status.enabled,
+      name: status.name,
+      username: status.username,
+      networkInterface: status.networkInterface,
+      encryptionStatus: status.encryptionStatus,
+      running: status.running,
+      paired: status.paired,
+      advertised: status.advertised,
+      listeningAddress: status.listeningAddress,
+      listeningPort: status.listeningPort,
+      port: status.port,
+      pairingCode: status.paired ? undefined : status.pin,
+      lastError: status.lastError,
+      supportedDevices: status.supportedDevices,
+      publishedDevices: status.publishedDevices,
+      networkInterfaces: status.networkInterfaces
+    };
+  });
+  app.put<{ Body: unknown }>("/api/settings/homekit", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "homekit-settings-write" } }
+  }, async (request, reply) => {
+    if (!homeKitBridge) return reply.code(503).send({ error: { code: "HOMEKIT_SERVICE_UNAVAILABLE", message: "HomeKit service is not available", requestId: request.id } });
+    const parsed = homeKitSettingsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    try {
+      const status = await homeKitBridge.configure(parsed.data);
+      return {
+        enabled: status.enabled, name: status.name, username: status.username, networkInterface: status.networkInterface, encryptionStatus: status.encryptionStatus,
+        running: status.running, paired: status.paired, advertised: status.advertised, listeningAddress: status.listeningAddress, listeningPort: status.listeningPort, port: status.port,
+        pairingCode: status.paired ? undefined : status.pin, lastError: status.lastError, supportedDevices: status.supportedDevices,
+        publishedDevices: status.publishedDevices, networkInterfaces: status.networkInterfaces
+      };
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "HOMEKIT_CONFIGURATION_FAILED";
+      const status = code === "HOMEKIT_ENCRYPTION_KEY_MISMATCH" ? 409 : code === "HOMEKIT_NETWORK_INTERFACE_INVALID" ? 400 : 502;
+      const message = code === "HOMEKIT_ENCRYPTION_KEY_MISMATCH"
+        ? "Stored HomeKit settings cannot be decrypted with the current SALTA encryption key. Reset HomeKit pairing or restore the matching recovery backup."
+        : code === "HOMEKIT_NETWORK_INTERFACE_INVALID"
+          ? "Select a network interface that is currently available on the SALTA host."
+          : "The HomeKit bridge could not apply the requested configuration.";
+      if (status >= 500) request.log.error({ err: error }, "HomeKit configuration failed");
+      return reply.code(status).send({ error: { code, message, requestId: request.id } });
+    }
+  });
+  app.post("/api/settings/homekit/reset", {
+    config: { rateLimit: { max: 3, timeWindow: rateWindowMs, groupId: "homekit-pairing-reset" } }
+  }, async (request, reply) => {
+    if (!homeKitBridge) return reply.code(503).send({ error: { code: "HOMEKIT_SERVICE_UNAVAILABLE", message: "HomeKit service is not available", requestId: request.id } });
+    try {
+      const status = await homeKitBridge.resetPairing();
+      return {
+        enabled: status.enabled, name: status.name, username: status.username, networkInterface: status.networkInterface, encryptionStatus: status.encryptionStatus,
+        running: status.running, paired: status.paired, advertised: status.advertised, listeningAddress: status.listeningAddress, listeningPort: status.listeningPort, port: status.port,
+        pairingCode: status.pin, lastError: status.lastError, supportedDevices: status.supportedDevices,
+        publishedDevices: status.publishedDevices, networkInterfaces: status.networkInterfaces
+      };
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "HOMEKIT_PAIRING_RESET_FAILED";
+      const status = code === "HOMEKIT_ENCRYPTION_KEY_MISMATCH" ? 409 : 500;
+      if (status >= 500) request.log.error({ err: error }, "HomeKit pairing reset failed");
+      return reply.code(status).send({ error: { code, message: code === "HOMEKIT_ENCRYPTION_KEY_MISMATCH" ? "Stored HomeKit settings cannot be decrypted with the current SALTA encryption key." : "HomeKit pairing data could not be reset.", requestId: request.id } });
+    }
+  });
+
   app.get("/api/settings/notifications", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "notification-settings-read" } }
   }, async () => ({ ...(await getPushoverSettings()), ...(batteryMonitor ? await batteryMonitor.status() : { warnings: [] }) }));
@@ -984,7 +1060,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.43", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.44", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

@@ -525,3 +525,12 @@ html[data-theme="dark"] .configuration-backup-file-state.error{background:#2a171
 
 /* Global runtime DEBUG indicator */
 .debug-mode-indicator{position:sticky;top:12px;z-index:45;display:inline-flex;align-items:center;gap:7px;width:max-content;min-height:34px;margin:0 0 12px auto;padding:7px 11px;border:1px solid #e5b95e;border-radius:999px;background:#fff7df;color:#7a5200;box-shadow:var(--shadow-card);font-size:11px;letter-spacing:.04em}.debug-mode-indicator[hidden]{display:none}.debug-mode-indicator .mdi{font-size:16px}.debug-mode-indicator[data-level="verbose"]{border-color:#e59c5e;background:#fff0df;color:#874200}.debug-mode-indicator strong{font-size:11px;font-weight:850;white-space:nowrap}html[data-theme="dark"] .debug-mode-indicator{border-color:#745b25;background:#2c2515;color:#f4cc72}html[data-theme="dark"] .debug-mode-indicator[data-level="verbose"]{border-color:#764a28;background:#2e2015;color:#f4ae72}@media(max-width:620px){.debug-mode-indicator{top:10px;max-width:calc(100vw - 36px)}}
+
+/* HomeKit settings */
+.homekit-runtime-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.65rem}
+.homekit-runtime-grid>div{display:flex;flex-direction:column;gap:.2rem;padding:.7rem .8rem;border:1px solid var(--line);border-radius:10px;background:var(--subtle-bg)}
+.homekit-runtime-grid span{font-size:.78rem;color:var(--muted)}
+.homekit-runtime-grid strong{font-size:.92rem;overflow-wrap:anywhere}
+.homekit-pairing-box{display:flex;flex-direction:column;align-items:flex-start;gap:.55rem}
+.homekit-pairing-code{font:700 1.45rem/1.1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em;padding:.65rem .85rem;border:1px solid var(--line);border-radius:10px;background:var(--card);user-select:all}
+@media(max-width:700px){.homekit-runtime-grid{grid-template-columns:1fr 1fr}.homekit-pairing-code{font-size:1.2rem}}

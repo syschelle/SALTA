@@ -49,6 +49,23 @@ describe("device presentation types", () => {
     expect(isHomeKitSupportedDevice(device({ type: "windowCovering", capabilities: ["setTargetPosition"] }))).toBe(true);
   });
 
+  it("requires complete thermostat control before publishing a thermostat", () => {
+    const thermostat = device({ type: "thermostat", state: { temperature: 21, targetTemperature: 22, controlMode: "auto" } });
+    expect(isHomeKitSupportedDevice({ ...thermostat, capabilities: ["setTargetTemperature"] })).toBe(false);
+    expect(isHomeKitSupportedDevice({ ...thermostat, capabilities: ["setTargetTemperature", "setThermostatMode"] })).toBe(true);
+  });
+
+  it("publishes supported read-only sensors only when their primary state is available", () => {
+    expect(isHomeKitSupportedDevice(device({ type: "motionSensor", capabilities: [], state: { motion: false } }))).toBe(true);
+    expect(isHomeKitSupportedDevice(device({ type: "contactSensor", capabilities: [], state: { open: true } }))).toBe(true);
+    expect(isHomeKitSupportedDevice(device({ type: "temperatureSensor", capabilities: [], state: { temperature: 20.5 } }))).toBe(true);
+    expect(isHomeKitSupportedDevice(device({ type: "humiditySensor", capabilities: [], state: { humidity: 52 } }))).toBe(true);
+    expect(isHomeKitSupportedDevice(device({ type: "lightSensor", capabilities: [], state: { lux: 120 } }))).toBe(true);
+    expect(isHomeKitSupportedDevice(device({ type: "waterLeakSensor", capabilities: [], state: { water: false } }))).toBe(true);
+    expect(isHomeKitSupportedDevice(device({ type: "smokeSensor", capabilities: [], state: { fire: false } }))).toBe(true);
+    expect(isHomeKitSupportedDevice(device({ type: "motionSensor", capabilities: [], state: {} }))).toBe(false);
+  });
+
   it("uses an optional HomeKit name override without changing the SALTA device name", () => {
     expect(homeKitAccessoryName(device())).toBe("Test");
     expect(homeKitAccessoryName(device({ homekitName: "Fernseher" }))).toBe("Fernseher");

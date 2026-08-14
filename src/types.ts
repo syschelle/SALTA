@@ -193,6 +193,29 @@ export interface GeneralSettings {
   debugLevel: SystemDebugLevel;
 }
 
+export interface HomeKitSettings {
+  enabled: boolean;
+  name: string;
+  pin: string;
+  username: string;
+  networkInterface: string;
+  encryptionStatus: "ok" | "invalid";
+}
+
+export interface HomeKitStatus extends HomeKitSettings {
+  running: boolean;
+  paired: boolean;
+  advertised: boolean;
+  listeningAddress?: string;
+  listeningPort?: number;
+  port: number;
+  setupUri?: string;
+  lastError?: string;
+  supportedDevices: number;
+  publishedDevices: number;
+  networkInterfaces: Array<{ name: string; addresses: string[] }>;
+}
+
 export interface PushoverSettings {
   enabled: boolean;
   userKeyConfigured: boolean;

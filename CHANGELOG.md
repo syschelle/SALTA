@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.8.44
+
+- Added a dedicated **Settings → HomeKit** page with live bridge enable/disable, bridge name and network-interface selection.
+- Added authenticated HomeKit runtime status including running/advertised/pairing state, bridge identity, HAP port and eligible/published device counts.
+- Added secure pairing-code display only while unpaired and an explicit pairing-reset action that generates fresh HomeKit pairing credentials without logging them.
+- Made the HAP bridge start, stop and reconfigure at runtime without restarting the SALTA process.
+- Persisted global HomeKit runtime settings through existing encrypted SALTA state without a destructive database migration.
+- Expanded HomeKit publication to compatible thermostats and read-only motion, contact, temperature, humidity, light, water-leak and smoke sensors; battery information is attached when available.
+- Kept HomeKit commands on the shared SALTA command router and publish thermostats only when both target-temperature and mode commands are supported.
+- Switched the production SALTA container to host networking for reliable LAN mDNS/HAP advertisement while keeping PostgreSQL loopback-only on `127.0.0.1:${POSTGRES_HOST_PORT:-5433}`.
+- Preserved the existing persistent `/var/lib/salta/homekit` HAP storage and Disaster Recovery coverage for HomeKit identity and pairing state.
+- Added API, frontend, device-capability, deployment and release-validator regression coverage for the completed HomeKit integration.
+- No new mandatory environment variable, npm dependency or destructive database migration is required.
+
 ## v0.8.43
 
 - Moved runtime DEBUG configuration from the Pushover notification panel to a dedicated **Settings → General** section.
