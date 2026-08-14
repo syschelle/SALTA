@@ -14,7 +14,7 @@ import type { DeviceCommandRouter } from "./device-command-router.js";
 import type { AutomationEngine } from "./automations.js";
 import type { ClimateModeManager } from "./climate-mode.js";
 import type { BatteryMonitor } from "./battery-monitor.js";
-import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateFritzBoxPresenceSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
+import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
 import { isHomeKitSupportedDevice, supportsPresentationOverride } from "./device-presentation.js";
 import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
@@ -85,14 +85,14 @@ const systemLogQuerySchema = z.object({
 const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
 const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]), winterMode: z.enum(["manual", "auto"]).optional() }).strict();
 const climateModeSettingsSchema = z.object({ winterMode: z.enum(["manual", "auto"]) }).strict();
+const generalSettingsSchema = z.object({ debugLevel: z.enum(["off", "errors", "verbose"]) }).strict();
 const disasterRecoveryExportSchema = z.object({ password: z.string().min(12).max(256) }).strict();
 const disasterRecoveryImportSchema = z.object({ password: z.string().min(12).max(256), backup: z.unknown() }).strict();
 const pushoverSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   userKey: z.string().trim().max(120).optional(),
   apiToken: z.string().trim().max(120).optional(),
-  batteryThreshold: z.number().int().min(1).max(100).default(20),
-  debugEnabled: z.boolean().default(false)
+  batteryThreshold: z.number().int().min(1).max(100).default(20)
 }).strict();
 
 
@@ -932,6 +932,17 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
     if (!climateMode) return reply.code(503).send({ error: { code: "CLIMATE_MODE_UNAVAILABLE", message: "Climate mode is not available", requestId: request.id } });
     return climateMode.setWinterMode(parsed.data.winterMode);
+  });
+
+  app.get("/api/settings/general", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "general-settings-read" } }
+  }, async () => getGeneralSettings());
+  app.put<{ Body: unknown }>("/api/settings/general", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "general-settings-write" } }
+  }, async (request, reply) => {
+    const parsed = generalSettingsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    return updateGeneralSettings(parsed.data);
   });
 
   app.get("/api/settings/notifications", {

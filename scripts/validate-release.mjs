@@ -91,6 +91,11 @@ if (!climateModeSource.includes('async setWinterMode') || !climateModeSource.inc
 if (!batteryMonitorSource.includes("7 * 24 * 60 * 60 * 1000")) fail("Battery warning does not enforce the seven-day notification interval");
 if (!pushoverSource.includes("https://api.pushover.net/1/messages.json")) fail("Pushover message endpoint is missing");
 if (!publicIndex.includes('data-settings-panel="notifications"') || !publicIndex.includes('id="notificationBatteryThreshold"')) fail("Pushover battery warning settings are missing");
+if (!publicIndex.includes('data-settings-panel="general"') || !publicIndex.includes('id="generalDebugLevel"')) fail("General DEBUG-level settings are missing");
+if (!publicIndex.includes('id="debugModeIndicator"') || !virtualFrontend.includes("function renderDebugModeIndicator()")) fail("Global DEBUG header indicator is missing");
+if (!serverSource.includes('"/api/settings/general"') || !climateDbSource.includes("getGeneralSettings") || !climateDbSource.includes("updateGeneralSettings")) fail("General DEBUG settings API or persistence is missing");
+if (!climateModeSource.includes('general.debugLevel === "verbose"') || !climateModeSource.includes('general.debugLevel === "errors"')) fail("Summer thermostat DEBUG notifications do not honor the configured DEBUG level");
+if (publicIndex.includes('id="notificationDebugEnabled"') || virtualFrontend.includes("notificationDebugEnabled")) fail("DEBUG level must be configured under General settings, not Pushover settings");
 if (!climateDbSource.includes("CREATE TABLE IF NOT EXISTS climate_mode_settings") || !climateDbSource.includes("CREATE TABLE IF NOT EXISTS notification_settings") || !climateDbSource.includes("CREATE TABLE IF NOT EXISTS notification_state")) fail("Climate and notification persistence tables are missing");
 if (!climateDbSource.includes("encrypted_user_key") || !climateDbSource.includes("encrypted_api_token")) fail("Pushover credentials are not stored in encrypted fields");
 const configurationBackupSource = read("src/configuration-backup.ts");

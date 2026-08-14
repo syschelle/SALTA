@@ -41,8 +41,10 @@ vi.mock("./db.js", () => ({
   deletePresenceTarget: vi.fn(),
   updateFritzBoxPresenceSettings: vi.fn(),
   getShellySettings: vi.fn(),
-  getPushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20, debugEnabled: false })),
-  updatePushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20, debugEnabled: false })),
+  getGeneralSettings: vi.fn(async () => ({ debugLevel: "off" })),
+  updateGeneralSettings: vi.fn(async (input) => input),
+  getPushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20 })),
+  updatePushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20 })),
   inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", phosconCredential: "not-configured", openCcuCredential: "not-configured", pushoverCredential: "not-configured", invalidDeviceIds: [] })),
   listRooms: vi.fn(async () => []),
   pool: { query: vi.fn() },
@@ -66,7 +68,7 @@ vi.mock("./disaster-recovery-backup.js", () => ({
 }));
 
 import { createDisasterRecoveryBackup, importDisasterRecoveryBackup } from "./disaster-recovery-backup.js";
-import { clearSystemLogs, deleteRoom, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, listRooms, listSystemLogs, reorderRooms, updateRoom } from "./db.js";
+import { clearSystemLogs, deleteRoom, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, listRooms, listSystemLogs, reorderRooms, updateGeneralSettings, updateRoom } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -603,6 +605,28 @@ describe("OpenCCU settings API", () => {
   });
 });
 
+
+describe("general settings API", () => {
+  it("reads and updates the global DEBUG level", async () => {
+    vi.mocked(getGeneralSettings).mockResolvedValueOnce({ debugLevel: "errors" });
+    vi.mocked(updateGeneralSettings).mockResolvedValueOnce({ debugLevel: "verbose" });
+    const server = createServer(vi.fn());
+
+    const readResponse = await authenticatedInject(server, { method: "GET", url: "/api/settings/general" });
+    expect(readResponse.statusCode).toBe(200);
+    expect(readResponse.json()).toEqual({ debugLevel: "errors" });
+
+    const writeResponse = await authenticatedInject(server, { method: "PUT", url: "/api/settings/general", payload: { debugLevel: "verbose" } });
+    expect(writeResponse.statusCode).toBe(200);
+    expect(updateGeneralSettings).toHaveBeenCalledWith({ debugLevel: "verbose" });
+  });
+
+  it("rejects unsupported DEBUG levels", async () => {
+    const server = createServer(vi.fn());
+    const response = await authenticatedInject(server, { method: "PUT", url: "/api/settings/general", payload: { debugLevel: "trace" } });
+    expect(response.statusCode).toBe(400);
+  });
+});
 
 describe("climate mode API", () => {
   it("stores the winter target mode without applying thermostat commands", async () => {

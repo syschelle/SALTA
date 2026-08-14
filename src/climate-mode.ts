@@ -1,6 +1,6 @@
 import type { ClimateMode, ClimateModeSettings, Device, DeviceCommand, WinterThermostatMode } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
-import { getClimateModeSettings, getPushoverConnection, updateClimateModeSettings, updateClimateWinterMode, writeSystemLog } from "./db.js";
+import { getClimateModeSettings, getGeneralSettings, getPushoverConnection, updateClimateModeSettings, updateClimateWinterMode, writeSystemLog } from "./db.js";
 import { sendPushoverMessage, type PushoverSender } from "./pushover.js";
 
 const SUMMER_GUARD_INTERVAL_MS = 12 * 60 * 60 * 1000;
@@ -188,8 +188,9 @@ export class ClimateModeManager {
       ).catch(() => undefined);
 
       try {
-        const pushover = await getPushoverConnection();
-        if (pushover.debugEnabled && pushover.userKey && pushover.apiToken) {
+        const [general, pushover] = await Promise.all([getGeneralSettings(), getPushoverConnection()]);
+        const debugNotification = general.debugLevel === "verbose" || (general.debugLevel === "errors" && failed > 0);
+        if (debugNotification && pushover.userKey && pushover.apiToken) {
           await this.pushoverSender({
             userKey: pushover.userKey,
             apiToken: pushover.apiToken,

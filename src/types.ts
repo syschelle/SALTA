@@ -180,6 +180,7 @@ export type SystemLogLevel = "info" | "warning" | "error";
 
 export type ClimateMode = "summer" | "winter";
 export type WinterThermostatMode = "manual" | "auto";
+export type SystemDebugLevel = "off" | "errors" | "verbose";
 
 export interface ClimateModeSettings {
   mode: ClimateMode;
@@ -188,13 +189,16 @@ export interface ClimateModeSettings {
   lastResult?: { total: number; succeeded: number; failed: number };
 }
 
+export interface GeneralSettings {
+  debugLevel: SystemDebugLevel;
+}
+
 export interface PushoverSettings {
   enabled: boolean;
   userKeyConfigured: boolean;
   apiTokenConfigured: boolean;
   encryptionStatus: "ok" | "invalid";
   batteryThreshold: number;
-  debugEnabled: boolean;
 }
 
 export interface BatteryWarningDevice {

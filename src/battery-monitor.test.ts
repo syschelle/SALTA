@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { Device } from "./types.js";
 
 vi.mock("./db.js", () => ({
-  getPushoverSettings: vi.fn(async () => ({ enabled: true, userKeyConfigured: true, apiTokenConfigured: true, encryptionStatus: "ok", batteryThreshold: 20, debugEnabled: false })),
-  getPushoverConnection: vi.fn(async () => ({ enabled: true, userKey: "user", apiToken: "token", batteryThreshold: 20, debugEnabled: false })),
+  getPushoverSettings: vi.fn(async () => ({ enabled: true, userKeyConfigured: true, apiTokenConfigured: true, encryptionStatus: "ok", batteryThreshold: 20 })),
+  getPushoverConnection: vi.fn(async () => ({ enabled: true, userKey: "user", apiToken: "token", batteryThreshold: 20 })),
   getNotificationLastSent: vi.fn(async () => undefined),
   setNotificationLastSent: vi.fn(async () => undefined),
   writeSystemLog: vi.fn(async () => undefined)

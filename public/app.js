@@ -1,4 +1,4 @@
-let all=[],rooms=[],systemLogs=[],selectedDevice=null,shellySettingsStatus=null,phosconSettingsStatus=null,openCcuSettingsStatus=null,presenceData=null,climateModeData=null,notificationData=null,editingPresenceTargetId=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null,activeBrightnessSliderId=null,activeTemperatureSliderId=null,presenceSettingsDirty=false,selectedRecoveryBackup=null,csrfToken="";
+let all=[],rooms=[],systemLogs=[],selectedDevice=null,shellySettingsStatus=null,phosconSettingsStatus=null,openCcuSettingsStatus=null,presenceData=null,climateModeData=null,notificationData=null,generalData=null,editingPresenceTargetId=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null,activeBrightnessSliderId=null,activeTemperatureSliderId=null,presenceSettingsDirty=false,selectedRecoveryBackup=null,csrfToken="";
 const coverSliderDrafts=new Map();
 
 const themeToggleElement=document.getElementById('themeToggle');
@@ -110,8 +110,8 @@ function renderBatteryOverview(){
 }
 async function loadSystemControls(){
   try{
-    [climateModeData,notificationData]=await Promise.all([api('/api/system/climate-mode'),api('/api/settings/notifications')]);
-    renderClimateMode();renderBatteryOverview();
+    [climateModeData,notificationData,generalData]=await Promise.all([api('/api/system/climate-mode'),api('/api/settings/notifications'),api('/api/settings/general')]);
+    renderClimateMode();renderBatteryOverview();renderDebugModeIndicator();
   }catch(error){console.warn('System controls could not be loaded',error)}
 }
 async function applyClimateMode(mode){
@@ -154,10 +154,35 @@ async function applyClimateSettingsNow(){
     await applyClimateMode(climateModeData?.mode==='summer'?'summer':'winter');
   }catch(error){notify(error.message,true)}finally{climateApplyNowButton.disabled=false;climateApplyNowButton.innerHTML=original}
 }
+function debugLevelLabel(level){return level==='verbose'?'VERBOSE':level==='errors'?'FEHLER':'AUS'}
+function renderDebugModeIndicator(){
+  const level=generalData?.debugLevel||'off';
+  const active=level!=='off';
+  debugModeIndicator.hidden=!active;
+  debugModeIndicator.dataset.level=level;
+  debugModeIndicatorText.textContent=active?`DEBUG · ${debugLevelLabel(level)}`:'DEBUG';
+}
+function renderGeneralSettings(){
+  if(!generalData)return;
+  const level=generalData.debugLevel||'off';
+  generalDebugLevel.value=level;
+  generalSettingsStatus.className=`gateway-status ${level==='off'?'connected':'pending'}`;
+  const title=level==='off'?'Normalbetrieb':'DEBUG aktiv';
+  const detail=level==='verbose'?'Verbose: automatische Korrekturen und Fehler können per Pushover gemeldet werden.':level==='errors'?'Fehler: nur fehlgeschlagene Diagnoseaktionen können per Pushover gemeldet werden.':'Keine zusätzlichen DEBUG-Pushover-Meldungen.';
+  generalSettingsStatus.innerHTML=`<span class="gateway-status-dot" aria-hidden="true"></span><div><strong>${title}</strong><small>${detail}</small></div>`;
+  renderDebugModeIndicator();
+}
+async function loadGeneralSettings(){generalData=await api('/api/settings/general');renderGeneralSettings();return generalData}
+async function saveGeneralSettings(){
+  try{
+    generalData=await api('/api/settings/general',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({debugLevel:generalDebugLevel.value})});
+    renderGeneralSettings();notify('Allgemeine Einstellungen wurden gespeichert.');
+  }catch(error){notify(error.message,true)}
+}
+
 function renderNotificationSettings(){
   if(!notificationData)return;
   notificationEnabled.checked=Boolean(notificationData.enabled);
-  notificationDebugEnabled.checked=Boolean(notificationData.debugEnabled);
   notificationUserKey.value='';notificationApiToken.value='';
   notificationUserKeyState.textContent=notificationData.userKeyConfigured?'User Key ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.':'Noch kein User Key gespeichert.';
   notificationApiTokenState.textContent=notificationData.apiTokenConfigured?'API Token ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.':'Noch kein API Token gespeichert.';
@@ -175,7 +200,7 @@ function renderNotificationSettings(){
 async function loadNotificationSettings(){notificationData=await api('/api/settings/notifications');renderNotificationSettings();renderBatteryOverview();return notificationData}
 async function saveNotificationSettings(){
   try{
-    notificationData=await api('/api/settings/notifications',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:notificationEnabled.checked,debugEnabled:notificationDebugEnabled.checked,userKey:notificationUserKey.value.trim()||undefined,apiToken:notificationApiToken.value.trim()||undefined,batteryThreshold:Number(notificationBatteryThreshold.value)})});
+    notificationData=await api('/api/settings/notifications',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:notificationEnabled.checked,userKey:notificationUserKey.value.trim()||undefined,apiToken:notificationApiToken.value.trim()||undefined,batteryThreshold:Number(notificationBatteryThreshold.value)})});
     renderNotificationSettings();renderBatteryOverview();notify('Pushover- und Batteriewarnungs-Einstellungen wurden gespeichert.');
   }catch(error){notify(error.message,true)}
 }
@@ -451,7 +476,7 @@ async function loadOpenCcuSettings(){const settings=await api('/api/settings/ope
 async function saveOpenCcu(){clearOpenCcuError();try{const settings=await api('/api/settings/openccu',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({baseUrl:openCcuBaseUrl.value.trim(),username:openCcuUsername.value.trim(),password:openCcuPassword.value||undefined})});openCcuSettingsStatus=settings;await load();await loadOpenCcuSettings();if(settings.gateway?.lastError){const error={code:settings.gateway.lastError,details:{method:settings.gateway.lastErrorMethod,remoteCode:settings.gateway.lastErrorRemoteCode,remoteMessage:settings.gateway.lastErrorMessage}};showOpenCcuError(error);notify('OpenCCU wurde gespeichert, die Gerätesynchronisierung enthält aber einen Fehler.',true)}else if(settings.gateway?.lastDiagnostic?.steps?.some(step=>step.status==='warning'))notify('OpenCCU wurde gespeichert. Die Diagnose enthält Warnungen; Details stehen im Bericht und im Systemprotokoll.',true);else notify('OpenCCU-Verbindung wurde gespeichert und geprüft.')}catch(error){showOpenCcuError(error);notify(friendlyOpenCcuError(error),true)}}
 async function diagnoseOpenCcu(){const original=openCcuDiagnoseButton.textContent;openCcuDiagnoseButton.disabled=true;openCcuDiagnoseButton.textContent='Diagnose läuft …';clearOpenCcuError();try{const result=await api('/api/settings/openccu/diagnose',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({baseUrl:openCcuBaseUrl.value.trim()||undefined,username:openCcuUsername.value.trim()||undefined,password:openCcuPassword.value||undefined})});renderOpenCcuDiagnosticReport(result.report);await loadOpenCcuSettings();if(result.report.ok&&result.report.steps.some(step=>step.status==='warning'))notify('OpenCCU-Diagnose abgeschlossen. Es gibt Warnungen im Bericht.',true);else if(result.report.ok)notify('OpenCCU-Diagnose erfolgreich abgeschlossen.');else{const failed=result.report.steps.find(step=>step.status==='error');showOpenCcuError({code:failed?.code||'OPENCCU_REQUEST_FAILED',details:{method:failed?.method,remoteCode:failed?.remoteCode,remoteMessage:failed?.message}});notify('Die OpenCCU-Diagnose hat einen Fehler gefunden.',true)}}catch(error){showOpenCcuError(error);notify(friendlyOpenCcuError(error),true)}finally{openCcuDiagnoseButton.disabled=false;openCcuDiagnoseButton.textContent=original}}
 async function disconnectOpenCcu(){if(!confirm('OpenCCU-Verbindung trennen? Die synchronisierten HomeMatic-Geräte werden aus SALTA entfernt, aber nicht aus OpenCCU gelöscht.'))return;await api('/api/settings/openccu',{method:'DELETE'});openCcuSettingsStatus=null;clearOpenCcuError();renderOpenCcuDiagnosticReport(null);await load();await loadOpenCcuSettings();notify('OpenCCU-Verbindung wurde getrennt.')}
-async function showSettingsPanel(panel){const target=['phoscon','openccu','climate','notifications','backup'].includes(panel)?panel:'shelly';document.querySelectorAll('[data-settings-content]').forEach(content=>content.hidden=content.dataset.settingsContent!==target);document.querySelectorAll('[data-settings-panel]').forEach(button=>{const active=button.dataset.settingsPanel===target;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});if(target==='phoscon')await loadPhosconSettings();else if(target==='openccu')await loadOpenCcuSettings();else if(target==='climate')await loadClimateSettings();else if(target==='notifications')await loadNotificationSettings();else if(target==='shelly')await loadShellySettings()}
+async function showSettingsPanel(panel){const target=['general','shelly','phoscon','openccu','climate','notifications','backup'].includes(panel)?panel:'general';document.querySelectorAll('[data-settings-content]').forEach(content=>content.hidden=content.dataset.settingsContent!==target);document.querySelectorAll('[data-settings-panel]').forEach(button=>{const active=button.dataset.settingsPanel===target;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});if(target==='general')await loadGeneralSettings();else if(target==='phoscon')await loadPhosconSettings();else if(target==='openccu')await loadOpenCcuSettings();else if(target==='climate')await loadClimateSettings();else if(target==='notifications')await loadNotificationSettings();else if(target==='shelly')await loadShellySettings()}
 function openAddVirtualDevice(){addVirtualDeviceForm.reset();virtualDeviceRoom.innerHTML='<option value="">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');addVirtualDeviceDialog.showModal();virtualDeviceName.focus()}
 async function addVirtualDevice(){const name=virtualDeviceName.value.trim();if(!name){virtualDeviceName.focus();return}const original=addVirtualDeviceButton.textContent;addVirtualDeviceButton.disabled=true;addVirtualDeviceButton.textContent='Schalter wird angelegt …';try{await api('/api/adapters/virtual/devices',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,type:'switch',roomId:virtualDeviceRoom.value||null})});addVirtualDeviceDialog.close();await load();notify('Virtueller Schalter wurde angelegt und an HomeKit übergeben.')}catch(error){notify(error.message,true)}finally{addVirtualDeviceButton.disabled=false;addVirtualDeviceButton.textContent=original}}
 function deviceInfoTimestamp(value){if(!value)return '–';const date=new Date(value);return Number.isNaN(date.getTime())?'–':date.toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'})}
@@ -608,6 +633,7 @@ shellyForm.addEventListener('submit',event=>{event.preventDefault();saveShelly()
 phosconForm.addEventListener('submit',event=>{event.preventDefault();savePhoscon().catch(e=>notify(friendlyPhosconError(e),true))});
 openCcuForm.addEventListener('submit',event=>{event.preventDefault();saveOpenCcu().catch(e=>notify(friendlyOpenCcuError(e),true))});
 climateSettingsForm.addEventListener('submit',event=>{event.preventDefault();saveClimateSettings().catch(e=>notify(e.message,true))});
+generalSettingsForm.addEventListener('submit',event=>{event.preventDefault();saveGeneralSettings().catch(e=>notify(e.message,true))});
 notificationForm.addEventListener('submit',event=>{event.preventDefault();saveNotificationSettings().catch(e=>notify(e.message,true))});
 recoveryBackupFile.addEventListener('change',()=>inspectDisasterRecoveryBackupFile(recoveryBackupFile.files?.[0]).catch(e=>notify(e.message,true)));
 presenceSettingsForm.addEventListener('submit',event=>{event.preventDefault();savePresenceSettings().catch(e=>notify(presenceFriendlyError(e),true))});

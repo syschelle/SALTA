@@ -3,13 +3,14 @@ import type { Device } from "./types.js";
 
 vi.mock("./db.js", () => ({
   getClimateModeSettings: vi.fn(async () => ({ mode: "winter", winterMode: "auto" })),
-  getPushoverConnection: vi.fn(async () => ({ enabled: false, userKey: "", apiToken: "", batteryThreshold: 20, debugEnabled: false })),
+  getGeneralSettings: vi.fn(async () => ({ debugLevel: "off" })),
+  getPushoverConnection: vi.fn(async () => ({ enabled: false, userKey: "", apiToken: "", batteryThreshold: 20 })),
   updateClimateModeSettings: vi.fn(async (input) => input),
   updateClimateWinterMode: vi.fn(async (winterMode) => ({ mode: "winter", winterMode })),
   writeSystemLog: vi.fn(async () => undefined)
 }));
 
-import { getClimateModeSettings, getPushoverConnection } from "./db.js";
+import { getClimateModeSettings, getGeneralSettings, getPushoverConnection } from "./db.js";
 import { ClimateModeManager, thermostatSupportsSystemMode } from "./climate-mode.js";
 
 function thermostat(id: string): Device {
@@ -89,7 +90,8 @@ describe("global climate mode", () => {
     const command = vi.fn(async () => drifted);
     const sender = vi.fn(async () => undefined);
     vi.mocked(getClimateModeSettings).mockResolvedValue({ mode: "summer", winterMode: "auto" });
-    vi.mocked(getPushoverConnection).mockResolvedValue({ enabled: false, userKey: "user", apiToken: "token", batteryThreshold: 20, debugEnabled: true });
+    vi.mocked(getGeneralSettings).mockResolvedValue({ debugLevel: "verbose" });
+    vi.mocked(getPushoverConnection).mockResolvedValue({ enabled: false, userKey: "user", apiToken: "token", batteryThreshold: 20 });
     const manager = new ClimateModeManager({ all: () => [drifted] } as never, { command }, sender);
 
     await manager.verifySummerThermostats();
@@ -98,5 +100,36 @@ describe("global climate mode", () => {
     expect(sender.mock.calls[0]?.[0].title).toContain("Sommermodus korrigiert");
     expect(sender.mock.calls[0]?.[0].message).toContain("Wohnzimmer Heizung");
   });
+  it("does not send a correction notification at DEBUG errors level", async () => {
+    const drifted = thermostat("drifted-errors");
+    drifted.state.controlMode = "auto";
+    const command = vi.fn(async () => drifted);
+    const sender = vi.fn(async () => undefined);
+    vi.mocked(getClimateModeSettings).mockResolvedValue({ mode: "summer", winterMode: "auto" });
+    vi.mocked(getGeneralSettings).mockResolvedValue({ debugLevel: "errors" });
+    vi.mocked(getPushoverConnection).mockResolvedValue({ enabled: false, userKey: "user", apiToken: "token", batteryThreshold: 20 });
+    const manager = new ClimateModeManager({ all: () => [drifted] } as never, { command }, sender);
+
+    await manager.verifySummerThermostats();
+
+    expect(sender).not.toHaveBeenCalled();
+  });
+
+  it("sends a failure notification at DEBUG errors level", async () => {
+    const drifted = thermostat("failed-errors");
+    drifted.state.controlMode = "manual";
+    const command = vi.fn(async () => { throw new Error("command failed"); });
+    const sender = vi.fn(async () => undefined);
+    vi.mocked(getClimateModeSettings).mockResolvedValue({ mode: "summer", winterMode: "auto" });
+    vi.mocked(getGeneralSettings).mockResolvedValue({ debugLevel: "errors" });
+    vi.mocked(getPushoverConnection).mockResolvedValue({ enabled: false, userKey: "user", apiToken: "token", batteryThreshold: 20 });
+    const manager = new ClimateModeManager({ all: () => [drifted] } as never, { command }, sender);
+
+    await manager.verifySummerThermostats();
+
+    expect(sender).toHaveBeenCalledTimes(1);
+    expect(sender.mock.calls[0]?.[0].title).toContain("Sommermodus Fehler");
+  });
+
 
 });

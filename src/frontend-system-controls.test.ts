@@ -43,10 +43,16 @@ describe("system overview controls", () => {
     expect(html).toContain('class="system-card-action"');
     expect(html).toContain('data-settings-panel="notifications"');
     expect(html).toContain('id="notificationBatteryThreshold"');
-    expect(html).toContain('id="notificationDebugEnabled"');
     expect(html).toContain('id="notificationTestButton"');
     expect(hasFunction(app, "renderBatteryOverview")).toBe(true);
     expect(functionCallsWithStringArgument(app, "loadSystemControls", "api", "/api/settings/notifications")).toBe(true);
+    expect(html).toContain('data-settings-panel="general"');
+    expect(html).toContain('id="generalDebugLevel"');
+    expect(html).toContain('id="debugModeIndicator"');
+    expect(hasFunction(app, "renderDebugModeIndicator")).toBe(true);
+    expect(functionCallsWithStringArgument(app, "loadSystemControls", "api", "/api/settings/general")).toBe(true);
+    expect(functionCallsWithStringArgument(app, "saveGeneralSettings", "api", "/api/settings/general")).toBe(true);
+    expect(cssRuleContains(styles, ".debug-mode-indicator", "position:sticky")).toBe(true);
     expect(functionCallsWithStringArgument(app, "testPushover", "api", "/api/settings/notifications/test")).toBe(true);
     expect(cssRuleContains(styles, ".battery-overview-status", "min-height:44px")).toBe(true);
   });
