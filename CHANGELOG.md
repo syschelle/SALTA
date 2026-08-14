@@ -10,6 +10,8 @@
 - Extracted the shared Pushover sender into a dedicated module for battery and climate diagnostics.
 - Added regression coverage for Summer-mode drift correction, Winter-mode inactivity and DEBUG notification delivery.
 - No new npm dependency or mandatory environment variable was added.
+- Added a repository-controlled CodeQL Advanced Setup workflow that continues scanning both JavaScript/TypeScript and GitHub Actions.
+- Temporarily pinned the CodeQL analysis bundle to v2.26.2 to avoid the observed v2.26.3 GitHub Actions database-finalization failure without disabling Actions scanning.
 
 ## v0.8.41
 

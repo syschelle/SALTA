@@ -8,9 +8,20 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(climate): add summer thermostat guard and debug notifications"
+git commit -m "feat(climate): add summer thermostat guard and stabilize CodeQL"
 git push origin main
 ```
+
+## Switch GitHub CodeQL to Advanced Setup
+
+After the commit containing `.github/workflows/codeql.yml` is visible on `main`, switch the repository from GitHub-managed Default Setup to Advanced Setup in **Settings → Advanced Security → CodeQL analysis → Switch to advanced**. GitHub labels the confirmation button `Disable CodeQL`; this disables only Default Setup so the repository workflow can take over. Do not remove either language from the workflow matrix.
+
+The Advanced Setup workflow continues to analyze both:
+
+- `javascript-typescript`
+- `actions`
+
+and temporarily uses the official CodeQL Bundle v2.26.2.
 
 ## Verify before release
 

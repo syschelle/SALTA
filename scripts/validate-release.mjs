@@ -26,10 +26,17 @@ const requiredReleaseFiles = [
   "test-utils/source-inspection.ts",
   "test-utils/style-inspection.ts",
   "public/automation-ui.js",
+  ".github/workflows/codeql.yml",
 ];
 for (const file of requiredReleaseFiles) {
   if (!existsSync(resolve(root, file))) fail(`required release file is missing: ${file}`);
 }
+
+const codeQlWorkflow = read(".github/workflows/codeql.yml");
+if (!codeQlWorkflow.includes("javascript-typescript") || !codeQlWorkflow.includes("- actions")) fail("CodeQL advanced setup must analyze both JavaScript/TypeScript and GitHub Actions");
+if (!codeQlWorkflow.includes("github/codeql-action/init@v4") || !codeQlWorkflow.includes("github/codeql-action/analyze@v4")) fail("CodeQL advanced setup must use CodeQL Action v4");
+if (!codeQlWorkflow.includes("codeql-bundle-v2.26.2/codeql-bundle-linux64.tar.gz")) fail("CodeQL advanced setup compatibility pin must use the v2.26.2 Linux bundle");
+if (!codeQlWorkflow.includes("security-events: write")) fail("CodeQL advanced setup is missing permission to upload security results");
 
 const optionalDeploymentScripts = ["install.sh", "update.sh", "backup.sh", "restore.sh"];
 for (const file of optionalDeploymentScripts) {

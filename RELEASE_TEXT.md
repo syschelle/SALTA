@@ -23,6 +23,14 @@ SALTA v0.8.42 adds an automatic Summer-mode thermostat guard and optional Pushov
 - The DEBUG setting is persisted through the existing `notification_state` storage, so no database schema migration is required.
 - Disaster Recovery backups automatically include the DEBUG setting through the existing notification-state backup data.
 
+## CodeQL analysis reliability
+
+- Added an explicit repository-controlled CodeQL Advanced Setup workflow.
+- JavaScript/TypeScript and GitHub Actions remain enabled as separate parallel CodeQL analyses.
+- Temporarily pinned the CodeQL tool bundle to v2.26.2 because the observed GitHub-managed v2.26.3 run fails while finalizing the GitHub Actions database for this repository.
+- The pin uses GitHub's official CodeQL Bundle v2.26.2 release asset and can be removed after v2.26.3 or a later bundle has been revalidated successfully.
+- No security analysis language was disabled.
+
 ## Compatibility
 
 - Builds on the released SALTA v0.8.41 baseline.
