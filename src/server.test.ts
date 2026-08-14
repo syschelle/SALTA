@@ -22,7 +22,8 @@ vi.mock("./config.js", () => ({
     LOGIN_MAX_ATTEMPTS: 5,
     LOGIN_WINDOW_MINUTES: 15,
     LOGIN_BLOCK_MINUTES: 15,
-    SALTA_HEALTH_TOKEN: "test-health-token-12345678901234567890"
+    SALTA_HEALTH_TOKEN: "test-health-token-12345678901234567890",
+    SALTA_ENCRYPTION_KEY: "test-backup-encryption-key-123456"
   }
 }));
 
@@ -59,6 +60,12 @@ vi.mock("./db.js", () => ({
   writeSystemLog: vi.fn(async () => undefined)
 }));
 
+vi.mock("./disaster-recovery-backup.js", () => ({
+  createDisasterRecoveryBackup: vi.fn(),
+  importDisasterRecoveryBackup: vi.fn()
+}));
+
+import { createDisasterRecoveryBackup, importDisasterRecoveryBackup } from "./disaster-recovery-backup.js";
 import { clearSystemLogs, deleteRoom, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, listRooms, listSystemLogs, reorderRooms, updateRoom } from "./db.js";
 import { buildServer } from "./server.js";
 
@@ -76,7 +83,8 @@ function createServer(
   openCcuOverrides: Partial<OpenCcuAdapter> = {},
   virtualOverrides: Partial<VirtualDeviceAdapter> = {},
   automationOverrides: Partial<AutomationEngine> = {},
-  climateMode?: ClimateModeManager
+  climateMode?: ClimateModeManager,
+  restartAfterConfigurationImport?: () => void
 ) {
   const registry = {
     all: () => [],
@@ -122,7 +130,7 @@ function createServer(
     clearRoomAssignment: vi.fn(),
     ...automationOverrides
   } as unknown as AutomationEngine;
-  const server = buildServer(registry, adapter, phoscon, openCcu, virtual, undefined, automation, undefined, climateMode);
+  const server = buildServer(registry, adapter, phoscon, openCcu, virtual, undefined, automation, undefined, climateMode, undefined, restartAfterConfigurationImport);
   openServers.push(server);
   return server;
 }
@@ -754,7 +762,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.39" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.41" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -844,5 +852,40 @@ describe("virtual devices", () => {
     const response = await authenticatedInject(server, { method: "DELETE", url: "/api/devices/virtual%3Atest" });
     expect(response.statusCode).toBe(204);
     expect(remove).toHaveBeenCalledWith("virtual:test");
+  });
+});
+
+
+describe("disaster recovery backup API", () => {
+  it("exports a password encrypted full recovery backup", async () => {
+    vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.41", createdAt: "2026-08-14T07:00:00.000Z",
+      summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
+      encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
+      ciphertext: "encrypted-payload"
+    });
+    const server = createServer(vi.fn());
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/settings/disaster-recovery-backup", payload: { password: "correct horse battery staple" } });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["cache-control"]).toBe("no-store");
+    expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
+    expect(response.json().format).toBe("salta-disaster-recovery-backup");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.41", "correct horse battery staple");
+  });
+
+  it("imports a full recovery backup and schedules a restart", async () => {
+    vi.mocked(importDisasterRecoveryBackup).mockResolvedValueOnce({ importedAt: "2026-08-14T07:01:00.000Z", sourceVersion: "0.8.41", rooms: 7, devices: 49, automations: 4, presenceTargets: 2, containsEncryptedSecrets: true, homeKitFiles: 2, runtimeSettingsRestored: true, deploymentWarnings: [] });
+    const restart = vi.fn();
+    vi.useFakeTimers();
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, restart);
+    const backup = { format: "salta-disaster-recovery-backup" };
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/settings/disaster-recovery-backup/import", payload: { password: "correct horse battery staple", backup } });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ status: "ok", rooms: 7, devices: 49, homeKitFiles: 2, restartScheduled: true });
+    expect(importDisasterRecoveryBackup).toHaveBeenCalledWith(backup, "correct horse battery staple");
+    expect(restart).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(750);
+    expect(restart).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
   });
 });

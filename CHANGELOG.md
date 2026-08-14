@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.41
+
+- Replaced the unreleased v0.8.40 configuration-only backup with a password-encrypted full Disaster Recovery backup.
+- Added AES-256-GCM + scrypt protection for one portable backup file containing persistent SALTA configuration, encrypted integration credentials, restorable application runtime settings and HomeKit/HAP pairing state.
+- Added persistent Docker runtime storage at `/var/lib/salta` and configured HAP-NodeJS to keep its pairing data under `/var/lib/salta/homekit`.
+- Added `migrate-homekit-storage.sh` and integrated it into `update.sh` so pre-v0.8.41 HomeKit pairing data can be copied from the legacy container path before the first v0.8.41 recreate.
+- Restored application identity settings such as the administrator credentials, `SALTA_ENCRYPTION_KEY`, HomeKit identity/PIN and application security/rate-limit settings from the encrypted backup after restart.
+- Kept host/bootstrap-only Docker values such as PostgreSQL credentials, published ports and `SALTA_HEALTH_TOKEN` outside the portable backup; mismatched ports/timezone are reported after restore.
+- Made configuration + runtime/HomeKit restore transactional across PostgreSQL and filesystem state as far as possible, with rollback before database commit on restore failure.
+- Added backend, API, frontend, deployment and release-validation coverage for encrypted Disaster Recovery backups and persistent HomeKit storage.
+
 ## v0.8.39
 
 - Changed the device-card `Energie` display from Wh to kWh while keeping the underlying device/API value unchanged.

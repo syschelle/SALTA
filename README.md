@@ -99,27 +99,59 @@ chmod +x install.sh update.sh backup.sh restore.sh
 
 ## Updating
 
-The supported update path does not depend on a repository helper script:
+The supported update path uses the standalone image Compose file. **When upgrading an installation that already has HomeKit paired from a release before v0.8.41, run the one-time HomeKit migration after pulling the v0.8.41 source but before recreating the SALTA container:**
 
 ```bash
 git pull --ff-only
+./migrate-homekit-storage.sh
 docker compose --env-file .env -f docker-compose.image.yml pull
 docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-If `update.sh` is present, it performs the same source/image update as a convenience wrapper.
+The migration copies legacy HAP pairing files from the still-existing SALTA container into the persistent `salta_runtime_data` volume. It is safe to run when no legacy pairing exists and will not overwrite an already populated persistent HomeKit directory. From v0.8.41 onward the pairing state lives in the named runtime volume and normal future recreates do not require this legacy migration.
+
+If `update.sh` is present, it performs the migration automatically before the first recreate and then runs the same image update steps.
 
 ## Backup and restore
 
-When the optional helper scripts are present:
+SALTA provides two complementary recovery paths.
+
+### Portable Disaster Recovery backup
+
+Use **Settings → Sicherung** to create one password-encrypted `SALTA-full-backup-*.salta-backup.json` file. The backup is intended for a fresh SALTA host and includes the application state required to recreate the old SALTA installation with minimal manual configuration:
+
+- rooms, device configuration and per-device HomeKit publication metadata;
+- automations, presence targets, heating mode and Pushover/battery-warning settings;
+- encrypted Shelly, Phoscon, OpenCCU, FRITZ!Box and Pushover credentials;
+- the original SALTA administrator credentials and `SALTA_ENCRYPTION_KEY`;
+- HomeKit bridge identity/PIN and HAP pairing storage;
+- restorable SALTA application security and rate-limit settings.
+
+The entire payload is encrypted with **AES-256-GCM** using a key derived from the administrator-supplied backup password with **scrypt**. The backup password is never stored by SALTA. Keep the file and password separately; without the password the backup cannot be restored.
+
+A fresh host still needs a minimal working Docker bootstrap `.env` so PostgreSQL and the SALTA container can start. Host-specific values are intentionally not forced from the old host: `POSTGRES_PASSWORD`, `SALTA_HEALTH_TOKEN`, published `WEB_PORT`/`HOMEKIT_PORT` mappings and other Docker-host settings remain part of the fresh installation. After the encrypted backup is imported, SALTA restarts and the recovered application settings override the corresponding bootstrap `.env` values through `/var/lib/salta/runtime/settings.json`.
+
+The import validates the encrypted envelope and database schema before changing persistent data. PostgreSQL configuration and the runtime/HomeKit files are restored together with rollback handling before the database commit. System logs, command history and current physical-device live sensor values are not imported. Physical devices are refreshed from their adapters after restart.
+
+A replacement-host recovery is therefore intentionally short:
+
+1. install/start the same compatible SALTA release with a temporary generated `.env`;
+2. log in with the temporary administrator account;
+3. open **Settings → Sicherung**, select the `.salta-backup.json` file and enter its backup password;
+4. confirm the restore and wait for the automatic SALTA restart;
+5. log in with the administrator credentials from the restored installation and verify any reported host-port/timezone differences.
+
+### Raw PostgreSQL backup
+
+When the optional helper scripts are present, a database-level backup remains available for host administration:
 
 ```bash
 ./backup.sh
 ./restore.sh backups/salta-YYYYMMDD-HHMMSS.dump
 ```
 
-They are not part of the mandatory CI/release contract. Restore only backups created with a compatible SALTA database schema and keep backups outside the SALTA system disk whenever possible.
+These helpers are not part of the mandatory CI/release contract. Keep all backup files outside the SALTA system disk whenever possible.
 
 ## Manual image deployment
 
@@ -164,22 +196,6 @@ docker compose --env-file .env -f docker-compose.image.yml logs -f salta
 
 The internal Docker health endpoint requires the generated `SALTA_HEALTH_TOKEN` and is not publicly accessible without it.
 
-## Updating
-
-```bash
-./update.sh
-```
-
-The update script validates the existing `.env`, pulls repository and image changes and recreates the containers. Review the release notes before updating when a release announces configuration or database compatibility changes.
-
-## Backup and restore
-
-```bash
-./backup.sh
-./restore.sh backups/salta-YYYYMMDD-HHMMSS.dump
-```
-
-Restore only backups created with a compatible SALTA database schema. Keep backups outside the SALTA system disk whenever possible.
 
 ## Security
 

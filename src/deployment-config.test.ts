@@ -13,6 +13,7 @@ const installer = readProjectFile("install.sh");
 const updater = readProjectFile("update.sh");
 const backupScript = readProjectFile("backup.sh");
 const restoreScript = readProjectFile("restore.sh");
+const homeKitMigrationScript = readProjectFile("migrate-homekit-storage.sh");
 
 const requiredDeploymentFiles = ["docker-compose.image.yml", ".env.example"];
 const productionScripts = [installer, updater, backupScript, restoreScript].filter(Boolean);
@@ -29,8 +30,13 @@ describe("production deployment configuration", () => {
     expect(productionCompose).toContain("postgres:");
     expect(productionCompose).toContain("image: postgres:17-alpine");
     expect(productionCompose).toContain("salta:");
-    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.39}");
+    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.41}");
     expect(productionCompose).toContain("salta_postgres_data:");
+    expect(productionCompose).toContain("salta_runtime_data:");
+    expect(productionCompose).toContain("name: salta_runtime_data");
+    expect(productionCompose).toContain("salta_runtime_data:/var/lib/salta");
+    expect(productionCompose).toContain("HOMEKIT_STORAGE_PATH: /var/lib/salta/homekit");
+    expect(productionCompose).toContain("SALTA_RUNTIME_SETTINGS_PATH: /var/lib/salta/runtime/settings.json");
     expect(productionCompose).toContain("frontend:");
     expect(productionCompose).toContain("backend:");
     expect(productionCompose).toContain("condition: service_healthy");
@@ -57,20 +63,29 @@ describe("production deployment configuration", () => {
     }
   });
 
-  it("provides a complete fresh-install mode and omits retired variables", () => {
-    expect(installer).toContain("--fresh");
-    expect(installer).toContain("rm -f .env");
+  it("keeps optional fresh-install helpers complete and omits retired variables", () => {
+    if (installer) {
+      expect(installer).toContain("--fresh");
+      expect(installer).toContain("rm -f .env");
+      expect(installer).toContain("docker volume rm salta_runtime_data");
+    }
     expect(productionCompose).not.toContain("POSTGRES_HOST_PORT");
     expect(environmentExample).not.toContain("POSTGRES_HOST_PORT");
     expect(environmentExample).not.toContain("MOCK_EVENT_INTERVAL_MS");
   });
 
-  it("does not execute .env as shell code in backup and restore scripts", () => {
-    for (const script of [backupScript, restoreScript]) {
+  it("ships a one-time migration helper for pre-v0.8.41 HomeKit pairing state", () => {
+    expect(homeKitMigrationScript).toContain('LEGACY_PATH="/app/persist"');
+    expect(homeKitMigrationScript).toContain('VOLUME_NAME="${SALTA_RUNTIME_VOLUME:-salta_runtime_data}"');
+    expect(homeKitMigrationScript).toContain('docker cp "$CONTAINER_NAME:$LEGACY_PATH/."');
+  });
+
+  it("does not execute .env as shell code in optional backup and restore helpers", () => {
+    for (const script of [backupScript, restoreScript].filter(Boolean)) {
       expect(script).toContain("--env-file .env");
       expect(script).not.toMatch(/(?:^|\n)\s*\.\s+\.\/\.env/);
     }
-    expect(backupScript).toContain('pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"');
-    expect(restoreScript).toContain('pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"');
+    if (backupScript) expect(backupScript).toContain('pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB"');
+    if (restoreScript) expect(restoreScript).toContain('pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"');
   });
 });

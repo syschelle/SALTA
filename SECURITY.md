@@ -140,7 +140,7 @@ Keep `.env` mode `0600`, store backups securely and never commit `.env` to the r
 - `SALTA_HEALTH_TOKEN`; and
 - `SALTA_ENCRYPTION_KEY`.
 
-Keep `SALTA_ENCRYPTION_KEY` stable for the lifetime of the installation and include it in protected backups. Changing or losing it makes stored Shelly credentials, the Phoscon API key and the OpenCCU password unreadable.
+Keep `SALTA_ENCRYPTION_KEY` stable for the lifetime of the installation. From v0.8.41 the authenticated Disaster Recovery export includes this key only inside the password-encrypted recovery payload so encrypted integration credentials can be restored on a replacement host. Never export or copy the key separately into source control or unencrypted notes.
 
 The Phoscon base address and encrypted API key are stored in PostgreSQL. Treat the API key as a password: do not place it in URLs, logs, screenshots or repository files. SALTA connects directly to the configured gateway address, so expose the deCONZ REST API only on trusted local networks and keep the gateway software updated.
 
@@ -159,3 +159,14 @@ System-log entries are retained for at most 30 days and capped at the newest 100
 ## Scope and limitations
 
 SALTA security controls protect the application boundary, but they cannot secure compromised Docker hosts, reverse proxies, local networks, Shelly devices, the Phoscon/deCONZ gateway or the OpenCCU instance. Keep the host operating system, Docker engine, proxy, gateway and device firmware updated, restrict network access and review logs for repeated authentication or rate-limit warnings.
+
+
+## Disaster Recovery backups
+
+The web backup uses a password-protected envelope (`salta-disaster-recovery-backup`) encrypted with AES-256-GCM. The encryption key is derived from the supplied backup password with scrypt and a random salt; the password itself is never persisted by SALTA.
+
+Because the encrypted payload intentionally contains high-value recovery material — including the administrator credentials, `SALTA_ENCRYPTION_KEY`, encrypted adapter credentials and HomeKit/HAP pairing files — treat the backup as a full system secret. Store it outside the SALTA host and keep the backup password in a separate password manager or similarly protected location.
+
+Host/bootstrap secrets required before SALTA can start, especially `POSTGRES_PASSWORD` and `SALTA_HEALTH_TOKEN`, are not restored from the portable backup. Published ports and host networking are also deployment concerns and remain controlled by the replacement host's `.env`/Compose setup.
+
+After a recovery import, the restored application runtime settings are stored with restrictive file permissions under `/var/lib/salta/runtime/settings.json` in the persistent `salta_runtime_data` Docker volume and intentionally override the corresponding bootstrap environment values after restart. HomeKit pairing state is stored under `/var/lib/salta/homekit` in the same persistent volume.

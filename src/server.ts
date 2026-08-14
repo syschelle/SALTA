@@ -18,6 +18,7 @@ import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget
 import { config } from "./config.js";
 import { isHomeKitSupportedDevice, supportsPresentationOverride } from "./device-presentation.js";
 import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
+import { createDisasterRecoveryBackup, importDisasterRecoveryBackup } from "./disaster-recovery-backup.js";
 
 const commandSchema = z.object({ capability: z.string().min(1).max(80), value: z.union([z.string(), z.number(), z.boolean()]).optional() });
 const patchSchema = z.object({
@@ -84,6 +85,8 @@ const systemLogQuerySchema = z.object({
 const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
 const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]), winterMode: z.enum(["manual", "auto"]).optional() }).strict();
 const climateModeSettingsSchema = z.object({ winterMode: z.enum(["manual", "auto"]) }).strict();
+const disasterRecoveryExportSchema = z.object({ password: z.string().min(12).max(256) }).strict();
+const disasterRecoveryImportSchema = z.object({ password: z.string().min(12).max(256), backup: z.unknown() }).strict();
 const pushoverSettingsSchema = z.object({
   enabled: z.boolean().default(false),
   userKey: z.string().trim().max(120).optional(),
@@ -304,7 +307,7 @@ async function automationRoomExists(roomId: string | null | undefined): Promise<
   return (await listRooms()).some(room => room.id === roomId);
 }
 
-export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine, presenceAdapter?: FritzBoxPresenceAdapter, climateMode?: ClimateModeManager, batteryMonitor?: BatteryMonitor) {
+export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine, presenceAdapter?: FritzBoxPresenceAdapter, climateMode?: ClimateModeManager, batteryMonitor?: BatteryMonitor, restartAfterConfigurationImport?: () => void) {
   const trustedProxyEntries = config.TRUSTED_PROXIES.split(",").map(value => value.trim()).filter(Boolean);
   const trustedProxies = trustedProxyEntries.length ? trustedProxyEntries : false;
   const localNetworks = config.LOCAL_NETWORKS.split(",").map(value => value.trim()).filter(Boolean);
@@ -513,9 +516,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.39" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.41" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.39", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.41", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -959,6 +962,63 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       const code = error instanceof Error ? error.message.split(":", 1)[0] : "PUSHOVER_REQUEST_FAILED";
       const status = code === "PUSHOVER_NOT_CONFIGURED" ? 409 : 502;
       return reply.code(status).send({ error: { code, message: code === "PUSHOVER_NOT_CONFIGURED" ? "Configure and save the Pushover user key and API token first." : "Pushover test notification failed.", requestId: request.id } });
+    }
+  });
+
+  app.post<{ Body: unknown }>("/api/settings/disaster-recovery-backup", {
+    bodyLimit: 16 * 1024,
+    config: { rateLimit: { max: 6, timeWindow: rateWindowMs, groupId: "disaster-recovery-export" } }
+  }, async (request, reply) => {
+    const parsed = disasterRecoveryExportSchema.safeParse(request.body);
+    if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
+    try {
+      const backup = await createDisasterRecoveryBackup("0.8.41", parsed.data.password);
+      const stamp = backup.createdAt.replace(/[:.]/g, "-");
+      reply.header("Cache-Control", "no-store");
+      reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);
+      await writeSystemLog("info", "system", "DISASTER_RECOVERY_BACKUP_EXPORTED", "SALTA full recovery backup exported", {
+        rooms: backup.summary.rooms, devices: backup.summary.devices, automations: backup.summary.automations, homeKitFiles: backup.summary.homeKitFiles
+      }).catch(() => undefined);
+      return backup;
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "DISASTER_RECOVERY_EXPORT_FAILED";
+      const status = code === "DISASTER_RECOVERY_PASSWORD_INVALID" ? 400 : 500;
+      if (status >= 500) request.log.error({ err: error }, "Disaster recovery backup export failed");
+      return securityError(reply, request, status, code, status === 400 ? "A backup password with at least 12 characters is required." : "The SALTA full recovery backup could not be created.");
+    }
+  });
+
+  app.post<{ Body: unknown }>("/api/settings/disaster-recovery-backup/import", {
+    bodyLimit: 10 * 1024 * 1024,
+    config: { rateLimit: { max: 3, timeWindow: rateWindowMs, groupId: "disaster-recovery-import" } }
+  }, async (request, reply) => {
+    const parsed = disasterRecoveryImportSchema.safeParse(request.body);
+    if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "Select a valid backup and enter its backup password.");
+    try {
+      const result = await importDisasterRecoveryBackup(parsed.data.backup, parsed.data.password);
+      await writeSystemLog("info", "system", "DISASTER_RECOVERY_BACKUP_IMPORTED", "SALTA full recovery backup imported", {
+        sourceVersion: result.sourceVersion, rooms: result.rooms, devices: result.devices, automations: result.automations, presenceTargets: result.presenceTargets, homeKitFiles: result.homeKitFiles, deploymentWarnings: result.deploymentWarnings.length
+      }).catch(() => undefined);
+      if (restartAfterConfigurationImport) setTimeout(() => restartAfterConfigurationImport(), 750);
+      return { status: "ok", ...result, restartScheduled: Boolean(restartAfterConfigurationImport) };
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "DISASTER_RECOVERY_IMPORT_FAILED";
+      const status = ["DISASTER_RECOVERY_PASSWORD_INVALID", "DISASTER_RECOVERY_INVALID", "DISASTER_RECOVERY_DECRYPT_FAILED", "DISASTER_RECOVERY_HOMEKIT_TOO_LARGE"].includes(code) ? 400
+        : code === "DISASTER_RECOVERY_SCHEMA_MISMATCH" ? 409 : 500;
+      const message = code === "DISASTER_RECOVERY_DECRYPT_FAILED"
+        ? "The backup password is incorrect or the backup file was modified."
+        : code === "DISASTER_RECOVERY_SCHEMA_MISMATCH"
+          ? "The backup uses an incompatible SALTA database schema."
+          : code === "DISASTER_RECOVERY_PASSWORD_INVALID"
+            ? "A backup password with at least 12 characters is required."
+            : code === "DISASTER_RECOVERY_HOMEKIT_TOO_LARGE"
+              ? "The HomeKit recovery data in the backup exceeds the supported size."
+              : code === "DISASTER_RECOVERY_INVALID"
+                ? "The selected file is not a valid SALTA full recovery backup."
+                : "The SALTA full recovery backup could not be imported.";
+      if (status >= 500) request.log.error({ err: error }, "Disaster recovery backup import failed");
+      else request.log.warn({ code }, "Disaster recovery backup import rejected");
+      return securityError(reply, request, status, code, message);
     }
   });
 

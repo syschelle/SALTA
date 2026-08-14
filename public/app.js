@@ -1,4 +1,4 @@
-let all=[],rooms=[],systemLogs=[],selectedDevice=null,shellySettingsStatus=null,phosconSettingsStatus=null,openCcuSettingsStatus=null,presenceData=null,climateModeData=null,notificationData=null,editingPresenceTargetId=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null,activeBrightnessSliderId=null,activeTemperatureSliderId=null,presenceSettingsDirty=false,csrfToken="";
+let all=[],rooms=[],systemLogs=[],selectedDevice=null,shellySettingsStatus=null,phosconSettingsStatus=null,openCcuSettingsStatus=null,presenceData=null,climateModeData=null,notificationData=null,editingPresenceTargetId=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null,activeBrightnessSliderId=null,activeTemperatureSliderId=null,presenceSettingsDirty=false,selectedRecoveryBackup=null,csrfToken="";
 const coverSliderDrafts=new Map();
 
 const themeToggleElement=document.getElementById('themeToggle');
@@ -181,6 +181,47 @@ async function saveNotificationSettings(){
 async function testPushover(){
   const original=notificationTestButton.innerHTML;notificationTestButton.disabled=true;notificationTestButton.textContent='Test wird gesendet …';
   try{await api('/api/settings/notifications/test',{method:'POST'});notify('Pushover-Testnachricht wurde gesendet.')}catch(error){notify(error.message,true)}finally{notificationTestButton.disabled=false;notificationTestButton.innerHTML=original}
+}
+
+function recoveryBackupSummary(backup){
+  const created=backup?.createdAt?new Date(backup.createdAt):null;
+  const date=created&&!Number.isNaN(created.getTime())?created.toLocaleString('de-DE'):'unbekannt';
+  const summary=backup?.summary||{};
+  return `SALTA ${backup?.saltaVersion||'?'} · ${date} · ${Number(summary.rooms||0)} Räume · ${Number(summary.devices||0)} Geräte · ${Number(summary.automations||0)} Automationen · ${Number(summary.homeKitFiles||0)} HomeKit-Dateien`;
+}
+async function exportDisasterRecoveryBackup(){
+  const password=recoveryBackupExportPassword.value;const confirmation=recoveryBackupExportPasswordConfirm.value;
+  if(password.length<12){recoveryBackupExportPassword.focus();notify('Das Backup-Passwort muss mindestens 12 Zeichen lang sein.',true);return}
+  if(password!==confirmation){recoveryBackupExportPasswordConfirm.focus();notify('Die Backup-Passwörter stimmen nicht überein.',true);return}
+  const original=recoveryBackupExportButton.innerHTML;recoveryBackupExportButton.disabled=true;recoveryBackupExportButton.textContent='Vollsicherung wird verschlüsselt …';
+  try{
+    const backup=await api('/api/settings/disaster-recovery-backup',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password})});
+    const blob=new Blob([JSON.stringify(backup,null,2)+'\n'],{type:'application/json'});const url=URL.createObjectURL(blob);
+    const stamp=String(backup.createdAt||new Date().toISOString()).replace(/[:.]/g,'-');const link=document.createElement('a');link.href=url;link.download=`SALTA-full-backup-${stamp}.salta-backup.json`;document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url);
+    recoveryBackupExportPassword.value='';recoveryBackupExportPasswordConfirm.value='';notify('Passwortverschlüsselte SALTA-Vollsicherung wurde erstellt.');
+  }catch(error){notify(error.message,true)}finally{recoveryBackupExportButton.disabled=false;recoveryBackupExportButton.innerHTML=original}
+}
+async function inspectDisasterRecoveryBackupFile(file){
+  selectedRecoveryBackup=null;recoveryBackupImportButton.disabled=true;
+  if(!file){recoveryBackupFileState.className='configuration-backup-file-state';recoveryBackupFileState.textContent='Noch keine Vollsicherung ausgewählt.';return}
+  if(file.size>10*1024*1024){recoveryBackupFileState.className='configuration-backup-file-state error';recoveryBackupFileState.textContent='Die Sicherungsdatei ist größer als 10 MB.';return}
+  try{
+    const backup=JSON.parse(await file.text());
+    if(backup?.format!=='salta-disaster-recovery-backup'||backup?.formatVersion!==1||typeof backup?.ciphertext!=='string'||backup?.encryption?.algorithm!=='aes-256-gcm'||backup?.encryption?.kdf!=='scrypt')throw new Error('INVALID_BACKUP');
+    selectedRecoveryBackup=backup;recoveryBackupImportButton.disabled=false;recoveryBackupFileState.className='configuration-backup-file-state ready';recoveryBackupFileState.textContent=`${file.name} · ${recoveryBackupSummary(backup)}`;
+  }catch{recoveryBackupFileState.className='configuration-backup-file-state error';recoveryBackupFileState.textContent='Die Datei ist keine gültige SALTA-Vollsicherung.'}
+}
+async function importDisasterRecoveryBackupFile(){
+  if(!selectedRecoveryBackup)return;const password=recoveryBackupImportPassword.value;
+  if(password.length<12){recoveryBackupImportPassword.focus();notify('Gib das Backup-Passwort ein.',true);return}
+  if(!confirm('Die aktuelle SALTA-Konfiguration, Laufzeitschlüssel und HomeKit-Pairing-Daten werden durch diese Vollsicherung ersetzt. SALTA startet danach automatisch neu. Fortfahren?'))return;
+  const original=recoveryBackupImportButton.innerHTML;recoveryBackupImportButton.disabled=true;recoveryBackupImportButton.textContent='System wird wiederhergestellt …';
+  try{
+    const result=await api('/api/settings/disaster-recovery-backup/import',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password,backup:selectedRecoveryBackup})});
+    const warning=Array.isArray(result.deploymentWarnings)&&result.deploymentWarnings.length?` · ${result.deploymentWarnings.length} Host-Einstellung(en) prüfen`:'';
+    recoveryBackupFileState.className='configuration-backup-file-state ready';recoveryBackupFileState.textContent=`Wiederherstellung abgeschlossen · ${Number(result.rooms||0)} Räume · ${Number(result.devices||0)} Geräte · ${Number(result.automations||0)} Automationen · ${Number(result.homeKitFiles||0)} HomeKit-Dateien${warning}. SALTA startet neu.`;
+    recoveryBackupImportPassword.value='';notify('SALTA wurde aus der Vollsicherung wiederhergestellt und startet neu.');if(result.restartScheduled)setTimeout(()=>location.reload(),4500);
+  }catch(error){recoveryBackupImportButton.disabled=false;recoveryBackupImportButton.innerHTML=original;recoveryBackupFileState.className='configuration-backup-file-state error';recoveryBackupFileState.textContent=error.message;notify(error.message,true)}
 }
 
 async function initializeSession(){
@@ -409,7 +450,7 @@ async function loadOpenCcuSettings(){const settings=await api('/api/settings/ope
 async function saveOpenCcu(){clearOpenCcuError();try{const settings=await api('/api/settings/openccu',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({baseUrl:openCcuBaseUrl.value.trim(),username:openCcuUsername.value.trim(),password:openCcuPassword.value||undefined})});openCcuSettingsStatus=settings;await load();await loadOpenCcuSettings();if(settings.gateway?.lastError){const error={code:settings.gateway.lastError,details:{method:settings.gateway.lastErrorMethod,remoteCode:settings.gateway.lastErrorRemoteCode,remoteMessage:settings.gateway.lastErrorMessage}};showOpenCcuError(error);notify('OpenCCU wurde gespeichert, die Gerätesynchronisierung enthält aber einen Fehler.',true)}else if(settings.gateway?.lastDiagnostic?.steps?.some(step=>step.status==='warning'))notify('OpenCCU wurde gespeichert. Die Diagnose enthält Warnungen; Details stehen im Bericht und im Systemprotokoll.',true);else notify('OpenCCU-Verbindung wurde gespeichert und geprüft.')}catch(error){showOpenCcuError(error);notify(friendlyOpenCcuError(error),true)}}
 async function diagnoseOpenCcu(){const original=openCcuDiagnoseButton.textContent;openCcuDiagnoseButton.disabled=true;openCcuDiagnoseButton.textContent='Diagnose läuft …';clearOpenCcuError();try{const result=await api('/api/settings/openccu/diagnose',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({baseUrl:openCcuBaseUrl.value.trim()||undefined,username:openCcuUsername.value.trim()||undefined,password:openCcuPassword.value||undefined})});renderOpenCcuDiagnosticReport(result.report);await loadOpenCcuSettings();if(result.report.ok&&result.report.steps.some(step=>step.status==='warning'))notify('OpenCCU-Diagnose abgeschlossen. Es gibt Warnungen im Bericht.',true);else if(result.report.ok)notify('OpenCCU-Diagnose erfolgreich abgeschlossen.');else{const failed=result.report.steps.find(step=>step.status==='error');showOpenCcuError({code:failed?.code||'OPENCCU_REQUEST_FAILED',details:{method:failed?.method,remoteCode:failed?.remoteCode,remoteMessage:failed?.message}});notify('Die OpenCCU-Diagnose hat einen Fehler gefunden.',true)}}catch(error){showOpenCcuError(error);notify(friendlyOpenCcuError(error),true)}finally{openCcuDiagnoseButton.disabled=false;openCcuDiagnoseButton.textContent=original}}
 async function disconnectOpenCcu(){if(!confirm('OpenCCU-Verbindung trennen? Die synchronisierten HomeMatic-Geräte werden aus SALTA entfernt, aber nicht aus OpenCCU gelöscht.'))return;await api('/api/settings/openccu',{method:'DELETE'});openCcuSettingsStatus=null;clearOpenCcuError();renderOpenCcuDiagnosticReport(null);await load();await loadOpenCcuSettings();notify('OpenCCU-Verbindung wurde getrennt.')}
-async function showSettingsPanel(panel){const target=['phoscon','openccu','climate','notifications'].includes(panel)?panel:'shelly';document.querySelectorAll('[data-settings-content]').forEach(content=>content.hidden=content.dataset.settingsContent!==target);document.querySelectorAll('[data-settings-panel]').forEach(button=>{const active=button.dataset.settingsPanel===target;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});if(target==='phoscon')await loadPhosconSettings();else if(target==='openccu')await loadOpenCcuSettings();else if(target==='climate')await loadClimateSettings();else if(target==='notifications')await loadNotificationSettings();else await loadShellySettings()}
+async function showSettingsPanel(panel){const target=['phoscon','openccu','climate','notifications','backup'].includes(panel)?panel:'shelly';document.querySelectorAll('[data-settings-content]').forEach(content=>content.hidden=content.dataset.settingsContent!==target);document.querySelectorAll('[data-settings-panel]').forEach(button=>{const active=button.dataset.settingsPanel===target;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current')});if(target==='phoscon')await loadPhosconSettings();else if(target==='openccu')await loadOpenCcuSettings();else if(target==='climate')await loadClimateSettings();else if(target==='notifications')await loadNotificationSettings();else if(target==='shelly')await loadShellySettings()}
 function openAddVirtualDevice(){addVirtualDeviceForm.reset();virtualDeviceRoom.innerHTML='<option value="">Nicht zugeordnet</option>'+rooms.map(r=>`<option value="${r.id}">${escapeHtml(r.name)}</option>`).join('');addVirtualDeviceDialog.showModal();virtualDeviceName.focus()}
 async function addVirtualDevice(){const name=virtualDeviceName.value.trim();if(!name){virtualDeviceName.focus();return}const original=addVirtualDeviceButton.textContent;addVirtualDeviceButton.disabled=true;addVirtualDeviceButton.textContent='Schalter wird angelegt …';try{await api('/api/adapters/virtual/devices',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({name,type:'switch',roomId:virtualDeviceRoom.value||null})});addVirtualDeviceDialog.close();await load();notify('Virtueller Schalter wurde angelegt und an HomeKit übergeben.')}catch(error){notify(error.message,true)}finally{addVirtualDeviceButton.disabled=false;addVirtualDeviceButton.textContent=original}}
 function deviceInfoTimestamp(value){if(!value)return '–';const date=new Date(value);return Number.isNaN(date.getTime())?'–':date.toLocaleString('de-DE',{dateStyle:'short',timeStyle:'short'})}
@@ -567,6 +608,7 @@ phosconForm.addEventListener('submit',event=>{event.preventDefault();savePhoscon
 openCcuForm.addEventListener('submit',event=>{event.preventDefault();saveOpenCcu().catch(e=>notify(friendlyOpenCcuError(e),true))});
 climateSettingsForm.addEventListener('submit',event=>{event.preventDefault();saveClimateSettings().catch(e=>notify(e.message,true))});
 notificationForm.addEventListener('submit',event=>{event.preventDefault();saveNotificationSettings().catch(e=>notify(e.message,true))});
+recoveryBackupFile.addEventListener('change',()=>inspectDisasterRecoveryBackupFile(recoveryBackupFile.files?.[0]).catch(e=>notify(e.message,true)));
 presenceSettingsForm.addEventListener('submit',event=>{event.preventDefault();savePresenceSettings().catch(e=>notify(presenceFriendlyError(e),true))});
 presenceSettingsForm.addEventListener('input',()=>{presenceSettingsDirty=true});
 presenceSettingsForm.addEventListener('change',()=>{presenceSettingsDirty=true});

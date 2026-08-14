@@ -20,6 +20,10 @@ const requiredReleaseFiles = [
   "src/fritzbox-presence.ts",
   "src/climate-mode.ts",
   "src/battery-monitor.ts",
+  "src/configuration-backup.ts",
+  "src/disaster-recovery-backup.ts",
+  "src/runtime-settings.ts",
+  "migrate-homekit-storage.sh",
   "test-utils/source-inspection.ts",
   "test-utils/style-inspection.ts",
   "public/automation-ui.js",
@@ -82,6 +86,26 @@ if (!batteryMonitorSource.includes("https://api.pushover.net/1/messages.json")) 
 if (!publicIndex.includes('data-settings-panel="notifications"') || !publicIndex.includes('id="notificationBatteryThreshold"')) fail("Pushover battery warning settings are missing");
 if (!climateDbSource.includes("CREATE TABLE IF NOT EXISTS climate_mode_settings") || !climateDbSource.includes("CREATE TABLE IF NOT EXISTS notification_settings") || !climateDbSource.includes("CREATE TABLE IF NOT EXISTS notification_state")) fail("Climate and notification persistence tables are missing");
 if (!climateDbSource.includes("encrypted_user_key") || !climateDbSource.includes("encrypted_api_token")) fail("Pushover credentials are not stored in encrypted fields");
+const configurationBackupSource = read("src/configuration-backup.ts");
+const disasterRecoverySource = read("src/disaster-recovery-backup.ts");
+const runtimeSettingsSource = read("src/runtime-settings.ts");
+const homeKitRecoverySource = read("src/homekit.ts");
+const configSource = read("src/config.ts");
+const productionCompose = read("docker-compose.image.yml");
+if (!publicIndex.includes('data-settings-panel="backup"') || !publicIndex.includes('id="recoveryBackupExportPassword"') || !publicIndex.includes('id="recoveryBackupImportPassword"') || !publicIndex.includes('id="recoveryBackupImportButton"')) fail("Disaster-recovery settings UI is missing");
+if (!serverSource.includes('"/api/settings/disaster-recovery-backup"') || !serverSource.includes('"/api/settings/disaster-recovery-backup/import"')) fail("Disaster-recovery API routes are missing");
+if (!disasterRecoverySource.includes('DISASTER_RECOVERY_BACKUP_FORMAT = "salta-disaster-recovery-backup"') || !disasterRecoverySource.includes('createCipheriv("aes-256-gcm"') || !disasterRecoverySource.includes('scryptSync(')) fail("Password-encrypted disaster-recovery format is incomplete");
+if (!disasterRecoverySource.includes('currentRestorableRuntimeSettings') || !disasterRecoverySource.includes('writePersistedRuntimeSettings') || !disasterRecoverySource.includes('homeKit: { files: homeKitFiles }')) fail("Disaster recovery does not include runtime identity and HomeKit state");
+if (!runtimeSettingsSource.includes('"SALTA_ENCRYPTION_KEY"') || !runtimeSettingsSource.includes('"ADMIN_PASSWORD"') || !runtimeSettingsSource.includes('"HOMEKIT_USERNAME"')) fail("Runtime recovery settings omit required SALTA identity secrets");
+if (!configSource.includes('loadPersistedRuntimeSettings()') || !configSource.includes('{ ...process.env, ...persistedRuntimeSettings }')) fail("Restored runtime settings do not override bootstrap environment values");
+if (!homeKitRecoverySource.includes('HAPStorage.setCustomStoragePath(config.HOMEKIT_STORAGE_PATH)')) fail("HomeKit storage is not pinned to persistent SALTA storage");
+if (!productionCompose.includes('name: salta_runtime_data') || !productionCompose.includes('salta_runtime_data:/var/lib/salta') || !productionCompose.includes('HOMEKIT_STORAGE_PATH: /var/lib/salta/homekit') || !productionCompose.includes('SALTA_RUNTIME_SETTINGS_PATH: /var/lib/salta/runtime/settings.json')) fail("Production Compose does not persist disaster-recovery/HomeKit runtime state");
+const homeKitMigrationSource = read("migrate-homekit-storage.sh");
+if (!homeKitMigrationSource.includes('LEGACY_PATH="/app/persist"') || !homeKitMigrationSource.includes('salta_runtime_data')) fail("Legacy HomeKit pairing migration helper is incomplete");
+if (!configurationBackupSource.includes('notification_state: "SELECT * FROM notification_state ORDER BY key"') || !configurationBackupSource.includes('notification_state: "INSERT INTO notification_state SELECT * FROM jsonb_populate_recordset')) fail("Disaster recovery must preserve notification cooldown state");
+if (configurationBackupSource.includes('decryptSecret(') || configurationBackupSource.includes('getGlobalShellyCredentials(') || configurationBackupSource.includes('getOpenCcuConnection(')) fail("Configuration snapshot export must not decrypt stored integration credentials");
+
+
 const automationFrontend = read("public/automation-ui.js");
 const publicStyles = read("public/styles.css");
 if (!publicStyles.includes("--layout-page-max:1680px") || !publicStyles.includes("--layout-side-md:380px") || !publicStyles.includes("--dialog-device-width:860px")) fail("Shared layout width tokens are missing");

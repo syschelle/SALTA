@@ -7,7 +7,7 @@ import type { AutomationInput, AutomationRule } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
 
-const DATABASE_SCHEMA_VERSION = "0.5";
+export const DATABASE_SCHEMA_VERSION = "0.5";
 
 export async function initializeDatabaseSchema(): Promise<void> {
   const existing = await pool.query<{ devices: string | null; metadata: string | null }>(

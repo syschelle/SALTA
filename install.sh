@@ -52,8 +52,9 @@ if [ "$reset_data" = true ]; then
     docker volume rm "$attached_volume" 2>/dev/null || true
   fi
   docker volume rm salta_salta_postgres_data 2>/dev/null || true
+  docker volume rm salta_runtime_data salta_salta_runtime_data 2>/dev/null || true
   docker network rm salta_frontend salta_backend 2>/dev/null || true
-  echo "Removed the existing SALTA containers, PostgreSQL volume and application networks."
+  echo "Removed the existing SALTA containers, PostgreSQL volume, runtime/HomeKit volume and application networks."
 fi
 if [ "$new_secrets" = true ]; then
   rm -f .env
@@ -95,7 +96,7 @@ compose pull
 compose up -d --force-recreate --remove-orphans
 
 echo
-echo "SALTA v0.8.39 is starting."
+echo "SALTA v0.8.41 is starting."
 bind_address="$(sed -n 's/^SALTA_BIND_ADDRESS=//p' .env | tail -n1)"
 web_port="$(sed -n 's/^WEB_PORT=//p' .env | tail -n1)"
 case "$bind_address" in

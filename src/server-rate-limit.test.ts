@@ -34,6 +34,8 @@ describe("explicit Fastify route rate limiting", () => {
     'app.get("/api/settings/notifications", {',
     'app.put<{ Body: unknown }>("/api/settings/notifications", {',
     'app.post("/api/settings/notifications/test", {',
+    'app.post<{ Body: unknown }>("/api/settings/disaster-recovery-backup", {',
+    'app.post<{ Body: unknown }>("/api/settings/disaster-recovery-backup/import", {',
     'app.get("/api/commands", {',
     'app.get<{ Querystring: unknown }>("/api/logs", {',
     'app.delete("/api/logs", {'

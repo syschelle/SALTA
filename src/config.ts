@@ -1,4 +1,6 @@
+import { resolve } from "node:path";
 import { z } from "zod";
+import { loadPersistedRuntimeSettings } from "./runtime-settings.js";
 
 const booleanFromString = z.string().default("false").transform((value) => value.toLowerCase() === "true");
 const nonPlaceholderSecret = (minimum: number, label: string) => z.string().min(minimum).refine(
@@ -28,7 +30,9 @@ const schema = z.object({
   HOMEKIT_PIN: z.string().regex(/^\d{3}-\d{2}-\d{3}$/).default("031-45-154"),
   HOMEKIT_PORT: z.coerce.number().int().min(1).max(65535).default(51826),
   HOMEKIT_USERNAME: z.string().regex(/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i).default("02:42:53:41:4C:54"),
+  HOMEKIT_STORAGE_PATH: z.string().min(1).default(resolve(process.cwd(), "persist")),
   SALTA_ENCRYPTION_KEY: nonPlaceholderSecret(16, "SALTA_ENCRYPTION_KEY")
 });
 
-export const config = schema.parse(process.env);
+const persistedRuntimeSettings = loadPersistedRuntimeSettings();
+export const config = schema.parse({ ...process.env, ...persistedRuntimeSettings });

@@ -10,8 +10,11 @@ compose() {
   docker compose --env-file .env -f docker-compose.image.yml "$@"
 }
 
-compose config >/dev/null
 git pull --ff-only
+compose config >/dev/null
+if [ -x ./migrate-homekit-storage.sh ]; then
+  ./migrate-homekit-storage.sh
+fi
 compose pull
 compose up -d --force-recreate --remove-orphans
 docker image prune -f

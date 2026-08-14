@@ -25,7 +25,9 @@ RUN npm prune --omit=dev --no-audit --no-fund \
 FROM node:24-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-RUN addgroup -S salta && adduser -S salta -G salta
+RUN addgroup -S salta && adduser -S salta -G salta \
+    && mkdir -p /var/lib/salta/homekit /var/lib/salta/runtime \
+    && chown -R salta:salta /var/lib/salta
 COPY package.json package-lock.json ./
 COPY --from=production-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist

@@ -1,4 +1,4 @@
-import { Accessory, Bridge, Categories, Characteristic, Service, uuid } from "@homebridge/hap-nodejs";
+import { Accessory, Bridge, Categories, Characteristic, HAPStorage, Service, uuid } from "@homebridge/hap-nodejs";
 import type { Device, DeviceCommand } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 import { config } from "./config.js";
@@ -12,6 +12,7 @@ export class HomeKitBridge {
   constructor(private registry:DeviceRegistry, private commander:{ command(command: DeviceCommand): Promise<Device> }){}
   start():void{
     if(!config.HOMEKIT_ENABLED) return;
+    HAPStorage.setCustomStoragePath(config.HOMEKIT_STORAGE_PATH);
     this.bridge=new Bridge(config.HOMEKIT_NAME, uuid.generate("salta:bridge"));
     for(const d of this.registry.all()) this.sync(d);
     this.registry.on("device", (d:Device)=>this.sync(d));
