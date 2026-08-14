@@ -33,7 +33,8 @@ describe("HomeKit setup QR", () => {
     expect(svg).toMatch(/^<svg\b/);
     expect(svg).toContain('aria-label="HomeKit Pairing QR-Code"');
     expect(svg).not.toContain("X-HM://");
-    expect(svg).not.toMatch(/https?:\/\//);
+    expect(svg).toContain('xmlns="http://www.w3.org/2000/svg"');
+    expect(svg).not.toMatch(/\s(?:href|src|xlink:href)\s*=/i);
   });
 
   it("rejects values outside the HomeKit alphanumeric setup URI contract", () => {
