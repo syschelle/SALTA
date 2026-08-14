@@ -31,7 +31,7 @@ describe("HomeKit settings frontend", () => {
   });
 
   it("uses compact sections, a responsive runtime grid and hides pairing after pairing", () => {
-    expect(cssRuleContains(styles, ".settings-layout", "grid-template-columns:220px minmax(0,1fr)")).toBe(true);
+    expect(cssRuleContains(styles, ".settings-layout", "grid-template-columns:220px minmax(0,var(--settings-content-max))")).toBe(true);
     expect(cssRuleContains(styles, ".settings-card", "min-width:0")).toBe(true);
     expect(cssRuleContains(styles, ".homekit-section", "border-radius:14px")).toBe(true);
     expect(cssRuleContains(styles, ".homekit-runtime-grid", "grid-template-columns:repeat(5,minmax(0,1fr))")).toBe(true);
