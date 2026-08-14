@@ -16,15 +16,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    # Keep PostgreSQL on the normal Docker bridge. SALTA uses host networking
+    # and reaches the database only through this loopback-bound host port.
     ports:
       - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
-    networks:
-      - backend
     security_opt:
       - no-new-privileges:true
 
   salta:
-    image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.48}
+    image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.49}
     container_name: salta
     restart: unless-stopped
     depends_on:
@@ -83,6 +83,3 @@ volumes:
     labels:
       com.syschelle.salta.purpose: "runtime-and-homekit-recovery"
 
-networks:
-  backend:
-    internal: true

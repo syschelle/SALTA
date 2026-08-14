@@ -210,7 +210,7 @@ SALTA does not terminate TLS. Direct HTTP access is supported for trusted local 
 
 Direct Basic-authenticated API access is accepted only from `LOCAL_NETWORKS` and only without forwarded proxy headers. Basic authentication is not encrypted by itself, so it should be used through HTTPS and with narrowly configured local networks.
 
-For the production image stack, SALTA uses host networking so HAP/mDNS can advertise on the Raspberry Pi LAN. PostgreSQL remains isolated from the LAN: its container port is published only on host loopback at `127.0.0.1:${POSTGRES_HOST_PORT:-5433}` and the database container also remains on the internal backend network. The SALTA container drops all Linux capabilities, enables `no-new-privileges`, limits its process count and uses a writable, size-limited `/tmp` with `noexec` and `nosuid`. Application rate limits and login blocks are held in process memory, reset on restart and do not replace firewall or reverse-proxy protection.
+For the production image stack, SALTA uses host networking so HAP/mDNS can advertise on the Raspberry Pi LAN. PostgreSQL uses Docker's normal bridge networking and publishes its container port only on host loopback at `127.0.0.1:${POSTGRES_HOST_PORT:-5433}`. This keeps the database unavailable from the LAN while allowing the host-networked SALTA process to reach it reliably through loopback. The SALTA container drops all Linux capabilities, enables `no-new-privileges`, limits its process count and uses a writable, size-limited `/tmp` with `noexec` and `nosuid`. Application rate limits and login blocks are held in process memory, reset on restart and do not replace firewall or reverse-proxy protection.
 
 See `SECURITY.md` for the exact behavior, configuration guidance and limitations.
 

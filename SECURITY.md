@@ -117,7 +117,7 @@ The Docker health endpoint requires `SALTA_HEALTH_TOKEN`. Invalid requests recei
 
 ## Docker isolation
 
-In the production image stack, SALTA uses host networking for HomeKit mDNS/HAP discovery. PostgreSQL remains on the internal `backend` Docker network and its container port is published only to host loopback as `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`; it is not exposed on the LAN. Do not change that binding to `0.0.0.0` or a LAN address unless external database access is deliberately required and separately secured.
+In the production image stack, SALTA uses host networking for HomeKit mDNS/HAP discovery. PostgreSQL uses Docker's normal bridge networking and its container port is published only to host loopback as `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`; it is not exposed on the LAN. The database must not be placed on an `internal: true` bridge while SALTA connects through the host loopback publication, because that topology can leave the configured port binding unavailable to the host-networked SALTA process. Do not change the loopback binding to `0.0.0.0` or a LAN address unless external database access is deliberately required and separately secured.
 
 The SALTA container:
 

@@ -266,6 +266,8 @@ if ((serverSource.split("setupUri:").length - 1) < 3) fail("HomeKit settings API
 if (!publicIndex.includes('id="deviceHomeKitEnabled"') || !publicIndex.includes('id="deviceHomeKitUseSaltaRoom"') || !publicIndex.includes('id="deviceHomeKitRoom"')) fail("Device HomeKit configuration controls are incomplete");
 if (!virtualFrontend.includes("function homeKitSupportedDevice(d)") || !virtualFrontend.includes("function loadHomeKitSettings()") || !virtualFrontend.includes("function saveHomeKitSettings()") || !virtualFrontend.includes("function resetHomeKitPairing()")) fail("HomeKit frontend runtime controls are incomplete");
 if (!productionCompose.includes("network_mode: host") || !productionCompose.includes('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432')) fail("Production Compose is not configured for HomeKit mDNS host networking with loopback-only PostgreSQL");
+if (productionCompose.includes("internal: true")) fail("Production Compose must not isolate PostgreSQL on an internal bridge while SALTA reaches it through the host loopback port");
+if (/postgres:[\s\S]*?networks:\s*\n\s*-\s*backend/.test(productionCompose)) fail("Production PostgreSQL must use a normal bridge network so its loopback-only published port remains reachable from host-networked SALTA");
 
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");

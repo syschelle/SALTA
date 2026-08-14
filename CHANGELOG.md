@@ -1,11 +1,21 @@
 # Changelog
 
+## v0.8.49
+
+- Fixed the production Docker networking topology introduced for HomeKit host networking: PostgreSQL no longer uses the custom `internal: true` backend network.
+- PostgreSQL now uses Docker's normal bridge networking while remaining published only on host loopback at `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`.
+- This keeps PostgreSQL unavailable from the LAN while restoring reliable database connectivity for the host-networked SALTA container.
+- Added deployment regression coverage and release validation that reject the broken combination of host-networked SALTA with PostgreSQL on an internal backend bridge.
+- Updated deployment and security documentation to describe the corrected network topology.
+- No database migration, HomeKit storage migration, new dependency or new mandatory environment variable is required.
+
 ## v0.8.48
 
-- Fixed HomeKit QR-code delivery by registering `/homekit-qr.js` in SALTA's authenticated static-file map. Previously the request fell through to the SPA fallback and returned `index.html` with a `text/html` MIME type, so browsers refused to execute the QR helper.
-- Added a server regression test that requires `/homekit-qr.js` to return HTTP 200, JavaScript content type, `Cache-Control: no-store`, and QR helper source rather than HTML fallback content.
-- Extended release validation to require the HomeKit QR asset in the static-file map.
-- Kept the v0.8.47 runtime pairing-code synchronization and pairing-reset hardening unchanged.
+- Fixed HomeKit QR helper delivery by registering `/homekit-qr.js` in SALTA's authenticated static-file map instead of allowing the SPA fallback to return `index.html`.
+- The HomeKit QR helper is delivered with a JavaScript MIME type and `Cache-Control: no-store`.
+- Added a server regression test that requests `/homekit-qr.js` directly and verifies HTTP 200, JavaScript content, no-store caching and QR helper source rather than HTML fallback content.
+- Extended the release validator so releases fail if the HomeKit QR helper is referenced by the UI but omitted from the static-file map.
+- Kept the v0.8.47 pairing-code synchronization and local-only QR generation behavior.
 - No database migration, HomeKit storage migration, new dependency or new mandatory environment variable is required.
 
 ## v0.8.47
