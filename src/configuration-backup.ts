@@ -220,7 +220,7 @@ export async function importConfigurationBackup(input: unknown, signingKey = con
   if (backup.containsEncryptedSecrets !== encryptedSecretsPresent(backup.data)) throw new Error("CONFIG_BACKUP_INVALID");
 
   const client = await pool.connect();
-  let externalTransaction: ConfigurationImportExternalTransaction | void;
+  let externalTransaction: ConfigurationImportExternalTransaction | void = undefined;
   let committed = false;
   try {
     await client.query("BEGIN");

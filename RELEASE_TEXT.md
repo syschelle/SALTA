@@ -78,6 +78,7 @@ SALTA v0.8.41 replaces the unreleased v0.8.40 configuration-only backup with a p
 
 ## Regression coverage
 
+- Fixed the optional restore filesystem-transaction state initialization so the production TypeScript build passes strict definite-assignment analysis.
 - Added Disaster Recovery tests proving that administrator credentials, `SALTA_ENCRYPTION_KEY` and HomeKit pairing contents are not exposed in the outer JSON backup.
 - Added restore coverage for recovered runtime identity and HomeKit storage.
 - Added wrong-password/tamper rejection before configuration import.

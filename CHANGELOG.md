@@ -2,6 +2,7 @@
 
 ## v0.8.41
 
+- Fixed the Disaster Recovery restore transaction state so TypeScript can prove the optional external rollback/finalize transaction is initialized before use.
 - Replaced the unreleased v0.8.40 configuration-only backup with a password-encrypted full Disaster Recovery backup.
 - Added AES-256-GCM + scrypt protection for one portable backup file containing persistent SALTA configuration, encrypted integration credentials, restorable application runtime settings and HomeKit/HAP pairing state.
 - Added persistent Docker runtime storage at `/var/lib/salta` and configured HAP-NodeJS to keep its pairing data under `/var/lib/salta/homekit`.
