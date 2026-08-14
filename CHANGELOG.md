@@ -2,6 +2,10 @@
 
 ## v0.8.41
 
+- Fixed the Disaster Recovery AES-GCM authenticated-data header so an exported backup can be decrypted and restored with the same password.
+- Fixed Vitest mock hoisting in the configuration-backup transaction tests.
+- Fixed the Disaster Recovery frontend regression test to parse `app.js` before AST inspection.
+- Removed fake timers from the Fastify Disaster Recovery import test so the request lifecycle cannot deadlock in CI.
 - Fixed the Disaster Recovery restore transaction state so TypeScript can prove the optional external rollback/finalize transaction is initialized before use.
 - Replaced the unreleased v0.8.40 configuration-only backup with a password-encrypted full Disaster Recovery backup.
 - Added AES-256-GCM + scrypt protection for one portable backup file containing persistent SALTA configuration, encrypted integration credentials, restorable application runtime settings and HomeKit/HAP pairing state.

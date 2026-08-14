@@ -103,7 +103,8 @@ function keyFromPassword(password: string, salt: Buffer): Buffer {
 }
 
 function aadFor(envelope: Pick<DisasterRecoveryBackup, "format" | "formatVersion" | "saltaVersion" | "createdAt" | "summary">): Buffer {
-  return Buffer.from(JSON.stringify(envelope), "utf8");
+  const { format, formatVersion, saltaVersion, createdAt, summary } = envelope;
+  return Buffer.from(JSON.stringify({ format, formatVersion, saltaVersion, createdAt, summary }), "utf8");
 }
 
 function plainStorageFileName(name: string): boolean {

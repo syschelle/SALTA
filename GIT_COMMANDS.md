@@ -6,7 +6,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(backup): add encrypted disaster recovery"
+git commit -m "fix(backup): stabilize disaster recovery restore and CI"
 git push origin main
 ```
 

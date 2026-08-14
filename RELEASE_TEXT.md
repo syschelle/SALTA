@@ -2,6 +2,14 @@
 
 SALTA v0.8.41 replaces the unreleased v0.8.40 configuration-only backup with a password-encrypted Disaster Recovery workflow designed to rebuild a SALTA host with minimal manual reconfiguration. The full backup contains the persistent SALTA configuration, protected application identity settings and HomeKit/HAP pairing state in one encrypted file.
 
+## CI and restore correctness
+
+- Initialized the optional external restore transaction state explicitly so the strict production TypeScript build can prove rollback/finalize access is safe.
+- Fixed the AES-256-GCM authenticated-data construction so export and import authenticate the same canonical public backup header.
+- Fixed Vitest mock initialization for the transactional configuration-backup tests.
+- Fixed the frontend Disaster Recovery regression test to inspect a parsed JavaScript AST instead of passing raw source text to AST helpers.
+- Removed fake timers from the Fastify recovery-import API test; fake timers could block Fastify request processing and produce a false 5-second timeout.
+
 ## Full Disaster Recovery backup
 
 - Added **Settings → Sicherung** with one password-encrypted full backup file: `SALTA-full-backup-<timestamp>.salta-backup.json`.

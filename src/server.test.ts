@@ -876,16 +876,20 @@ describe("disaster recovery backup API", () => {
   it("imports a full recovery backup and schedules a restart", async () => {
     vi.mocked(importDisasterRecoveryBackup).mockResolvedValueOnce({ importedAt: "2026-08-14T07:01:00.000Z", sourceVersion: "0.8.41", rooms: 7, devices: 49, automations: 4, presenceTargets: 2, containsEncryptedSecrets: true, homeKitFiles: 2, runtimeSettingsRestored: true, deploymentWarnings: [] });
     const restart = vi.fn();
-    vi.useFakeTimers();
-    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, restart);
-    const backup = { format: "salta-disaster-recovery-backup" };
-    const response = await authenticatedInject(server, { method: "POST", url: "/api/settings/disaster-recovery-backup/import", payload: { password: "correct horse battery staple", backup } });
-    expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ status: "ok", rooms: 7, devices: 49, homeKitFiles: 2, restartScheduled: true });
-    expect(importDisasterRecoveryBackup).toHaveBeenCalledWith(backup, "correct horse battery staple");
-    expect(restart).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(750);
-    expect(restart).toHaveBeenCalledTimes(1);
-    vi.useRealTimers();
+    const timeoutSpy = vi.spyOn(globalThis, "setTimeout");
+    try {
+      const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, restart);
+      const backup = { format: "salta-disaster-recovery-backup" };
+      const response = await authenticatedInject(server, { method: "POST", url: "/api/settings/disaster-recovery-backup/import", payload: { password: "correct horse battery staple", backup } });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toMatchObject({ status: "ok", rooms: 7, devices: 49, homeKitFiles: 2, restartScheduled: true });
+      expect(importDisasterRecoveryBackup).toHaveBeenCalledWith(backup, "correct horse battery staple");
+      const scheduledRestart = timeoutSpy.mock.calls.findIndex(([, delay]) => delay === 750);
+      expect(scheduledRestart).toBeGreaterThanOrEqual(0);
+      const timer = timeoutSpy.mock.results[scheduledRestart]?.value as ReturnType<typeof setTimeout> | undefined;
+      if (timer) clearTimeout(timer);
+    } finally {
+      timeoutSpy.mockRestore();
+    }
   });
 });

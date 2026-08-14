@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const clientQuery = vi.fn();
-const release = vi.fn();
-const connect = vi.fn(async () => ({ query: clientQuery, release }));
+const { clientQuery, release, connect } = vi.hoisted(() => {
+  const clientQuery = vi.fn();
+  const release = vi.fn();
+  const connect = vi.fn(async () => ({ query: clientQuery, release }));
+  return { clientQuery, release, connect };
+});
 
 vi.mock("./config.js", () => ({ config: { SALTA_ENCRYPTION_KEY: "test-backup-encryption-key-123456" } }));
 vi.mock("./db.js", () => ({
