@@ -104,14 +104,9 @@ chmod +x install.sh update.sh backup.sh restore.sh
 
 ## Updating
 
-The supported update path uses the standalone image Compose file. SALTA uses host networking for HomeKit/mDNS, while PostgreSQL stays on Docker's normal bridge and is published only to host loopback as `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`. No custom `frontend`/`backend` networks are required.
-
-**HomeKit legacy migration path:** `/opt/SALTA/migrate-homekit-storage.sh`
-
-Run this one-time migration only when upgrading an installation that already had HomeKit paired on a release before v0.8.41. The script must run while the old SALTA container still exists, before the first recreate with the persistent runtime volume:
+The supported update path uses the standalone image Compose file. **When upgrading an installation that already has HomeKit paired from a release before v0.8.41, run the one-time HomeKit migration after pulling the v0.8.41 source but before recreating the SALTA container:**
 
 ```bash
-cd /opt/SALTA
 git pull --ff-only
 ./migrate-homekit-storage.sh
 docker compose --env-file .env -f docker-compose.image.yml pull
@@ -119,7 +114,7 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-The script copies legacy HAP pairing files from `/app/persist` inside the old SALTA container to the persistent `salta_runtime_data` volume mounted at `/var/lib/salta/homekit`. Runtime settings use `/var/lib/salta/runtime/settings.json`. The migration is safe to run when no legacy pairing exists and does not overwrite an already populated persistent HomeKit directory. From v0.8.41 onward normal updates do not require this legacy migration.
+The migration copies legacy HAP pairing files from the still-existing SALTA container into the persistent `salta_runtime_data` volume. It is safe to run when no legacy pairing exists and will not overwrite an already populated persistent HomeKit directory. From v0.8.41 onward the pairing state lives in the named runtime volume and normal future recreates do not require this legacy migration.
 
 If `update.sh` is present, it performs the migration automatically before the first recreate and then runs the same image update steps.
 

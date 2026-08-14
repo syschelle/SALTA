@@ -16,6 +16,7 @@ SALTA v0.8.51 provides a clean production Docker topology for HomeKit and Postgr
 
 ## Deployment regression protection
 
+- Removed stale v0.8.50 PostgreSQL host-network assertions from the deployment test so CI validates the actual v0.8.51 topology.
 - Deployment tests require exactly one `network_mode: host` declaration in the production Compose file.
 - Release validation requires loopback-only PostgreSQL publishing and the matching SALTA `DATABASE_URL`.
 - Release validation rejects the retired PostgreSQL host-network workaround and custom internal networks.

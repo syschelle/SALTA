@@ -39,8 +39,8 @@ describe("production deployment configuration", () => {
     expect(productionCompose).toContain("HOMEKIT_STORAGE_PATH: /var/lib/salta/homekit");
     expect(productionCompose).toContain("SALTA_RUNTIME_SETTINGS_PATH: /var/lib/salta/runtime/settings.json");
     expect(productionCompose).toContain("network_mode: host");
-    expect(productionCompose).toContain("listen_addresses=127.0.0.1");
-    expect(productionCompose).toContain("port=${POSTGRES_HOST_PORT:-5433}");
+    expect(productionCompose).toContain('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432');
+    expect(productionCompose).toContain("pg_isready -h 127.0.0.1 -p 5432");
     expect(productionCompose).toContain("DATABASE_URL: postgres://${POSTGRES_USER:-salta}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_HOST_PORT:-5433}/${POSTGRES_DB:-salta}");
     expect(productionCompose).toContain("condition: service_healthy");
     expect(productionCompose).not.toContain("internal: true");
