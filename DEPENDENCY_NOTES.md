@@ -10,6 +10,7 @@ SALTA removes deprecated code and dependency paths controlled directly by the pr
 - `@homebridge/dbus-native` is pinned to `0.7.7`. SALTA v0.7.8 accidentally changed its lockfile package version and URL to 0.7.8 while retaining the 0.7.7 integrity checksum, causing `npm ci` to stop with `EINTEGRITY`. The v0.7.9 lockfile restores one internally consistent package record.
 - `fast-uri` is resolved to `3.1.5` in the Fastify/AJV path and `4.1.2` below `fast-json-stringify`, remediating GHSA-7p8r-x3mc-p8w7 / CVE-2026-18446.
 - Development-only `postcss` is resolved to `8.5.23` through Vite/Vitest, remediating GHSA-fxqj-rqcc-2cmp / CVE-2026-69153.
+- HomeKit QR-code pairing in v0.8.46 is implemented without a new npm dependency or external QR service; the encoder is restricted to the standardized HomeKit `X-HM://` alphanumeric setup-URI contract.
 
 ## Upstream HomeKit exception
 

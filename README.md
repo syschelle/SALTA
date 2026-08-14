@@ -23,6 +23,11 @@ SALTA provides a global Summer/Winter heating mode on the Overview. It is an int
 
 SALTA also monitors devices that report a battery percentage or a `lowBattery` state. Pushover can be configured under **Settings → Benachrichtigungen**. Battery warnings are aggregated and sent no more than once every seven days. The Pushover User Key and Application API Token are stored encrypted with `SALTA_ENCRYPTION_KEY`.
 
+## HomeKit pairing
+
+HomeKit is managed under **Settings → HomeKit**. When the bridge is enabled and not yet paired, SALTA shows both a scannable Apple Home QR code and the numeric pairing code. QR generation is fully local and uses the HAP setup URI returned by the running SALTA bridge; no pairing data is sent to an external QR service. After pairing, both pairing values are hidden.
+
+
 ## Supported architectures
 
 The GitHub release workflow publishes one multi-architecture image for:

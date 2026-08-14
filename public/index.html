@@ -33,7 +33,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.45</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.46</strong></div>
   </div>
 </aside>
 
@@ -216,8 +216,11 @@
           </div>
           <div id="homeKitPairingBox" class="phoscon-pairing-help homekit-pairing-box" hidden>
             <strong>Mit Apple Home koppeln</strong>
-            <p>Öffne auf iPhone oder iPad die Home-App → „+“ → „Gerät hinzufügen“ → „Weitere Optionen“. Wähle die SALTA-Bridge und gib den folgenden Code ein.</p>
-            <div id="homeKitPairingCode" class="homekit-pairing-code">–</div>
+            <p>Öffne auf iPhone oder iPad die Home-App → „+“ → „Gerät hinzufügen“ und scanne den QR-Code. Alternativ kannst du den numerischen Pairing-Code verwenden.</p>
+            <div class="homekit-pairing-content">
+              <div id="homeKitPairingQr" class="homekit-pairing-qr" aria-live="polite"></div>
+              <div class="homekit-pairing-manual"><span>Pairing-Code</span><div id="homeKitPairingCode" class="homekit-pairing-code">–</div></div>
+            </div>
             <p id="homeKitSetupUriState" class="setting-note"></p>
           </div>
           <div class="settings-warning"><strong>HomeKit-Räume</strong><span>SALTA speichert den gewünschten Zielraum pro Gerät. Apple Home entscheidet die tatsächliche Raumzuordnung beim Pairing; SALTA kann diese Zuordnung über HAP nicht zuverlässig erzwingen.</span></div>
@@ -264,6 +267,7 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="/room-grouping.js"></script>
 <script src="/automation-ui.js"></script>
+<script src="/homekit-qr.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

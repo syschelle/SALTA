@@ -246,6 +246,7 @@ for (const variable of ["DATABASE_URL", "ADMIN_PASSWORD", "SALTA_HEALTH_TOKEN", 
 }
 if (testRunnerSource.includes("vitest.config.ts") || testRunnerSource.includes("test-setup.ts")) fail("test runner must not depend on optional standalone Vitest bootstrap files");
 const homeKitSource = read("src/homekit.ts");
+const homeKitQrSource = read("public/homekit-qr.js");
 if (!homeKitSource.includes("export class HomeKitBridge") || !homeKitSource.includes("bridge.publish(") || !homeKitSource.includes("bridge.unpublish(")) fail("HomeKit bridge runtime lifecycle is incomplete");
 for (const method of ["async start()", "async stop()", "async configure(", "async resetPairing()", "async status()"]) {
   if (!homeKitSource.includes(method)) fail(`HomeKit bridge is missing runtime method ${method}`);
@@ -257,7 +258,10 @@ for (const route of ["/api/settings/homekit", "/api/settings/homekit/reset"]) {
 if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS device_homekit_settings") || !databaseSource.includes("use_salta_room boolean NOT NULL DEFAULT true")) fail("Additive per-device HomeKit settings are missing");
 if (!databaseSource.includes("key='homekit-runtime'") || !databaseSource.includes("encryptedPin")) fail("Runtime HomeKit settings are not persisted with encrypted pairing data");
 if (!databaseSource.includes('COALESCE(hk.use_salta_room,true) as "homekitUseSaltaRoom"') || !databaseSource.includes('as "homekitRoom"')) fail("HomeKit SALTA-room inheritance is not exposed by the device query");
-if (!publicIndex.includes('data-settings-panel="homekit"') || !publicIndex.includes('id="homeKitEnabled"') || !publicIndex.includes('id="homeKitPairingCode"') || !publicIndex.includes('id="homeKitResetButton"')) fail("Global HomeKit configuration controls are incomplete");
+if (!publicIndex.includes('data-settings-panel="homekit"') || !publicIndex.includes('id="homeKitEnabled"') || !publicIndex.includes('id="homeKitPairingQr"') || !publicIndex.includes('id="homeKitPairingCode"') || !publicIndex.includes('id="homeKitResetButton"')) fail("Global HomeKit configuration controls are incomplete");
+if (!publicIndex.includes('<script src="/homekit-qr.js"></script>') || !homeKitQrSource.includes("createHomeKitSetupQrMatrix") || !homeKitQrSource.includes("renderHomeKitSetupQrSvg")) fail("Local HomeKit pairing QR generation is incomplete");
+if (homeKitQrSource.includes("fetch(") || homeKitQrSource.includes("XMLHttpRequest")) fail("HomeKit pairing QR generation must remain fully local");
+if ((serverSource.split("setupUri:").length - 1) < 3) fail("HomeKit settings API does not expose the setup URI for unpaired QR generation");
 if (!publicIndex.includes('id="deviceHomeKitEnabled"') || !publicIndex.includes('id="deviceHomeKitUseSaltaRoom"') || !publicIndex.includes('id="deviceHomeKitRoom"')) fail("Device HomeKit configuration controls are incomplete");
 if (!virtualFrontend.includes("function homeKitSupportedDevice(d)") || !virtualFrontend.includes("function loadHomeKitSettings()") || !virtualFrontend.includes("function saveHomeKitSettings()") || !virtualFrontend.includes("function resetHomeKitPairing()")) fail("HomeKit frontend runtime controls are incomplete");
 if (!productionCompose.includes("network_mode: host") || !productionCompose.includes('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432')) fail("Production Compose is not configured for HomeKit mDNS host networking with loopback-only PostgreSQL");
@@ -270,6 +274,7 @@ for (const command of [
   "npm run test:preflight",
   "node --check public/room-grouping.js",
   "node --check public/automation-ui.js",
+  "node --check public/homekit-qr.js",
   "node --check public/app.js",
   "npm run build",
   "npm run test:vitest",

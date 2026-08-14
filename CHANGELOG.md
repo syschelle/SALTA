@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.46
+
+- Added a fully local HomeKit pairing QR code under **Settings → HomeKit**.
+- The QR code is generated directly from HAP-NodeJS `setupURI()` data and can be scanned with Apple Home; the manual HomeKit pairing code remains available as a fallback.
+- The authenticated HomeKit settings API exposes `setupUri` only while the bridge is unpaired; paired responses omit both the setup URI and pairing code.
+- Added a small dependency-free QR encoder limited to the standardized HomeKit `X-HM://` alphanumeric setup-URI contract. No external QR service or new npm dependency is used.
+- Added an independent QR reference-vector regression test and frontend/API coverage for QR pairing.
+- Extended the release validator and `npm run check` to include the HomeKit QR asset.
+- No database migration, new mandatory environment variable or production-networking change is required.
+
 ## v0.8.45
 
 - Fixed the HomeKit shared-command-dispatcher regression test that still depended on obsolete exact source-text fragments from the pre-refactor bridge implementation.
@@ -7,7 +17,7 @@
 - Kept the production HomeKit implementation unchanged; this release carries forward the complete HomeKit runtime/pairing functionality prepared in the v0.8.44 candidate.
 - No database migration, new dependency, API change or production-networking change is introduced by this CI fix.
 
-## v0.8.44 (unreleased candidate)
+## v0.8.44
 
 - Added a dedicated **Settings → HomeKit** page with live bridge enable/disable, bridge name and network-interface selection.
 - Added authenticated HomeKit runtime status including running/advertised/pairing state, bridge identity, HAP port and eligible/published device counts.

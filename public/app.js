@@ -200,9 +200,14 @@ function renderHomeKitSettings(){
   homeKitCredentialWarning.hidden=homeKitData.encryptionStatus!=='invalid';
   homeKitCredentialWarning.textContent=homeKitData.encryptionStatus==='invalid'?'Die gespeicherten HomeKit-Pairingdaten können mit dem aktuellen SALTA_ENCRYPTION_KEY nicht entschlüsselt werden. Stelle ein passendes Disaster-Recovery-Backup wieder her oder setze die HomeKit-Konfiguration zurück.':'';
   const showPairing=Boolean(homeKitData.enabled&&!homeKitData.paired&&homeKitData.pairingCode);
+  const showQr=Boolean(showPairing&&homeKitData.setupUri);
   homeKitPairingBox.hidden=!showPairing;
   homeKitPairingCode.textContent=showPairing?homeKitData.pairingCode:'–';
-  homeKitSetupUriState.textContent=showPairing?'Der Pairing-Code wird nach erfolgreicher Kopplung nicht mehr angezeigt.':'';
+  if(showQr){
+    try{homeKitPairingQr.innerHTML=renderHomeKitSetupQrSvg(homeKitData.setupUri)}catch{homeKitPairingQr.innerHTML='';}
+  }else homeKitPairingQr.innerHTML='';
+  homeKitPairingQr.hidden=!showQr;
+  homeKitSetupUriState.textContent=showPairing?(showQr?'QR-Code oder Pairing-Code werden nach erfolgreicher Kopplung nicht mehr angezeigt.':'Der QR-Code ist noch nicht verfügbar. Du kannst den Pairing-Code manuell verwenden.') : '';
   homeKitResetButton.disabled=false;
 }
 async function loadHomeKitSettings(){
