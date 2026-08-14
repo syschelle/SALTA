@@ -1,44 +1,45 @@
-# SALTA v0.8.42
+# SALTA v0.8.43
 
-SALTA v0.8.42 adds an automatic Summer-mode thermostat guard and optional Pushover DEBUG notifications. The guard periodically verifies that compatible thermostats remain in SALTA's OFF state and repairs unintended mode drift without requiring manual intervention.
+SALTA v0.8.43 promotes runtime diagnostics to a system-wide DEBUG level under General settings and makes an active DEBUG state immediately visible in the SALTA header. It also hardens the release-version workflow after the initial v0.8.43 tag was created from source metadata that still reported v0.8.42.
 
-## Summer-mode thermostat guard
+## System-wide DEBUG levels
 
-- Added a background thermostat guard that runs every 12 hours while global Summer mode is active.
-- Added a short startup check after SALTA has had time to initialize its device integrations.
-- The guard inspects all thermostats that support SALTA system-mode control.
-- Thermostats already reported as OFF are left untouched.
-- Any thermostat that has drifted back to Manual, Automatic, heating or another non-OFF state is sent the existing `setThermostatMode: off` system command.
-- The correction reuses the existing OpenCCU thermostat-mode implementation. On devices without a native OFF mode, SALTA continues to represent OFF as manual/hand mode at the thermostat's minimum target temperature.
-- The guard is inactive in Winter mode and does not alter the configured Winter operating mode.
-- Automatic corrections and correction failures are recorded in the existing System Log; successful no-op checks do not add log noise.
+- Moved DEBUG configuration from the Pushover notification panel to **Settings → General**.
+- Replaced the previous boolean DEBUG switch with three explicit levels: `Off`, `Errors` and `Verbose`.
+- `Off` keeps normal runtime behavior and suppresses DEBUG Pushover messages.
+- `Errors` sends DEBUG Pushover messages when an automatic diagnostic or corrective action fails.
+- `Verbose` also reports successful automatic corrections that required SALTA intervention.
+- Routine 12-hour Summer-mode checks where every thermostat is already correct remain silent at every DEBUG level.
+- DEBUG notification behavior remains independent from the weekly battery-warning enable switch and still requires valid stored Pushover credentials for delivery.
 
-## Optional Pushover DEBUG mode
+## DEBUG status in the header
 
-- Added a configurable **DEBUG-Pushover** switch under the existing Pushover settings.
-- DEBUG-Pushover is independent of the weekly battery-warning enable switch and only requires valid stored Pushover credentials.
-- When DEBUG-Pushover is enabled, SALTA sends a diagnostic notification when the Summer-mode guard actually corrects thermostat drift or when a correction fails.
-- Routine 12-hour checks where every thermostat is already correct do not send a Pushover message.
-- Diagnostic messages contain thermostat names and correction status but never credentials, tokens or other secrets.
-- The DEBUG setting is persisted through the existing `notification_state` storage, so no database schema migration is required.
-- Disaster Recovery backups automatically include the DEBUG setting through the existing notification-state backup data.
+- Added a persistent header badge whenever DEBUG is active.
+- The badge shows the active level as `DEBUG · ERRORS` or `DEBUG · VERBOSE`.
+- The indicator is loaded from the General settings API and updates immediately after the DEBUG level is saved.
+- The badge disappears completely when DEBUG is set to `Off`.
 
-## CodeQL analysis reliability
+## Backward compatibility
 
-- Added an explicit repository-controlled CodeQL Advanced Setup workflow.
-- JavaScript/TypeScript and GitHub Actions remain enabled as separate parallel CodeQL analyses.
-- Temporarily pinned the CodeQL tool bundle to v2.26.2 because the observed GitHub-managed v2.26.3 run fails while finalizing the GitHub Actions database for this repository.
-- The pin uses GitHub's official CodeQL Bundle v2.26.2 release asset and can be removed after v2.26.3 or a later bundle has been revalidated successfully.
-- No security analysis language was disabled.
+- Existing v0.8.42 installations that stored the former boolean DEBUG flag remain compatible.
+- A legacy enabled DEBUG flag is interpreted as `Verbose`; a disabled or missing value is interpreted as `Off`.
+- DEBUG settings continue to use the existing `notification_state` persistence, so no database schema migration is required.
+- Disaster Recovery backups continue to include the DEBUG state through the existing notification-state data.
+
+## Release and deployment reliability
+
+- Corrected all active SALTA version surfaces to v0.8.43, including package metadata, runtime health responses, backup metadata, frontend version display, GHCR defaults and deployment tests.
+- Hardened `scripts/set-version.mjs` so future version bumps update only current release surfaces instead of blindly rewriting historical compatibility references.
+- Restored HomeKit migration documentation to the actual pre-v0.8.41 compatibility boundary.
+- CodeQL Advanced Setup continues to analyze both JavaScript/TypeScript and GitHub Actions. No CodeQL language is disabled.
 
 ## Compatibility
 
-- Builds on the released SALTA v0.8.41 baseline.
+- Builds on the released SALTA v0.8.42 baseline.
 - No destructive database migration is required.
 - No new mandatory environment variable is required.
 - No new npm dependency is introduced.
 - Existing Shelly, Zigbee/Phoscon, OpenCCU/HomeMatic, FRITZ!Box Presence, automations, rooms, HomeKit preparation, climate mode, battery warning, Daylight and Disaster Recovery behavior remains compatible.
-- Existing v0.8.41 Disaster Recovery backups remain compatible because the new DEBUG setting does not add a required database column.
 
 ## Production update
 
@@ -48,4 +49,4 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-No HomeKit storage migration is required when updating from v0.8.41. Existing installations where HomeKit has never been enabled or paired do not need to run `migrate-homekit-storage.sh`.
+No HomeKit storage migration is required when updating from v0.8.42.

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.43
+
+- Moved runtime DEBUG configuration from the Pushover notification panel to a dedicated **Settings → General** section.
+- Replaced the previous boolean DEBUG switch with explicit `Off`, `Errors` and `Verbose` levels.
+- Added a persistent header badge while DEBUG is active so operators can immediately see `DEBUG · ERRORS` or `DEBUG · VERBOSE`.
+- Limited DEBUG Pushover delivery by level: `Errors` reports failed automatic corrections, while `Verbose` also reports successful corrective intervention.
+- Kept routine all-clear thermostat checks silent to avoid notification noise.
+- Preserved backward compatibility with the v0.8.42 boolean DEBUG setting by mapping an enabled legacy value to `Verbose`.
+- Fixed release-version handling so current release surfaces can be bumped without rewriting historical compatibility documentation.
+- Restored the HomeKit migration documentation contract to the actual pre-v0.8.41 boundary.
+- No database schema migration, new npm dependency or new mandatory environment variable is required.
+
 ## v0.8.42
 
 - Added a Summer-mode thermostat guard that checks compatible thermostats every 12 hours and restores any non-OFF thermostat to SALTA's existing OFF state.

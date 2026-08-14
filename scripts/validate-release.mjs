@@ -12,6 +12,7 @@ const requiredReleaseFiles = [
   "docker-compose.image.yml",
   ".env.example",
   "scripts/check-test-symbols.mjs",
+  "scripts/set-version.mjs",
   "src/automations.ts",
   "src/automation-persistence.ts",
   "src/phoscon-adapter.ts",
@@ -298,6 +299,16 @@ const versionSurfaces = [
 
 for (const [file, expected] of versionSurfaces) {
   if (!read(file).includes(expected)) fail(`${file} does not contain the current version marker: ${expected}`);
+}
+const releaseText = read("RELEASE_TEXT.md");
+if (!releaseText.includes(`\n\nSALTA v${version}`)) fail("RELEASE_TEXT.md introduction does not identify the current release version");
+const ghcrDocs = read("docs-ghcr.md");
+if (!ghcrDocs.includes("pre-v0.8.41 container") || !ghcrDocs.includes("v0.8.41 and later store HomeKit pairing state")) {
+  fail("HomeKit migration documentation must preserve the pre-v0.8.41 compatibility boundary");
+}
+const versionSetterSource = read("scripts/set-version.mjs");
+if (versionSetterSource.includes("replaceAll(previousVersion, nextVersion)")) {
+  fail("version:set must not globally rewrite historical release references");
 }
 if (existsSync(resolve(root, "install.sh")) && !read("install.sh").includes(`SALTA v${version} is starting.`)) {
   fail(`install.sh does not contain the current version marker: SALTA v${version} is starting.`);

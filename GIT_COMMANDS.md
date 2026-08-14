@@ -1,6 +1,8 @@
-# SALTA v0.8.42 Git commands
+# SALTA v0.8.43 Git commands
 
-## Commit and push
+The first v0.8.43 tag was created from source metadata that still reported v0.8.42 and therefore failed release validation. Because v0.8.43 was not successfully released, keep the version at v0.8.43 and replace the failed tag after the corrected commit is green.
+
+## Commit and push the corrected source
 
 ```bash
 git checkout main
@@ -8,22 +10,11 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(climate): add summer thermostat guard and stabilize CodeQL"
+git commit -m "fix(release): align SALTA v0.8.43 version metadata"
 git push origin main
 ```
 
-## Switch GitHub CodeQL to Advanced Setup
-
-After the commit containing `.github/workflows/codeql.yml` is visible on `main`, switch the repository from GitHub-managed Default Setup to Advanced Setup in **Settings → Advanced Security → CodeQL analysis → Switch to advanced**. GitHub labels the confirmation button `Disable CodeQL`; this disables only Default Setup so the repository workflow can take over. Do not remove either language from the workflow matrix.
-
-The Advanced Setup workflow continues to analyze both:
-
-- `javascript-typescript`
-- `actions`
-
-and temporarily uses the official CodeQL Bundle v2.26.2.
-
-## Verify before release
+## Verify before replacing the tag
 
 ```bash
 npm ci
@@ -33,20 +24,29 @@ npm run check
 The validator output must include:
 
 ```text
-Release validator contract: SALTA v0.8.42 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.42.
+Release validator contract: SALTA v0.8.43 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.43.
 ```
 
-Wait for GitHub CI and CodeQL to be completely green before tagging.
+Wait for CI and both CodeQL analyses to be completely green on `main`.
 
-## Tag after CI and CodeQL are green
+## Remove the failed v0.8.43 tag
 
 ```bash
-git tag -a v0.8.42 -m "SALTA v0.8.42"
-git push origin v0.8.42
+git tag -d v0.8.43 2>/dev/null || true
+git push origin :refs/tags/v0.8.43
 ```
 
-## Production update
+If GitHub shows a draft or failed Release object for v0.8.43, remove that failed/draft Release in the GitHub web interface before recreating the tag. Do not delete a successfully published release.
+
+## Recreate v0.8.43 from the corrected commit
+
+```bash
+git tag -a v0.8.43 -m "SALTA v0.8.43"
+git push origin v0.8.43
+```
+
+## Production update after the release image is available
 
 ```bash
 docker compose --env-file .env -f docker-compose.image.yml pull
@@ -54,4 +54,4 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-Updating from v0.8.41 does not require the legacy HomeKit storage migration.
+Updating from v0.8.42 does not require the legacy HomeKit storage migration.

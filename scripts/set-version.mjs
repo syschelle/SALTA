@@ -3,9 +3,7 @@ import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 const nextVersion = process.argv[2];
-if (!/^\d+\.\d+\.\d+$/.test(nextVersion ?? "")) {
-  throw new Error("Usage: npm run version:set -- <major.minor.patch>");
-}
+if (!/^\d+\.\d+\.\d+$/.test(nextVersion ?? "")) throw new Error("Usage: npm run version:set -- <major.minor.patch>");
 
 const pathFor = (file) => resolve(root, file);
 const read = (file) => readFileSync(pathFor(file), "utf8");
@@ -13,45 +11,69 @@ const packageJson = JSON.parse(read("package.json"));
 const packageLock = JSON.parse(read("package-lock.json"));
 const previousVersion = String(packageJson.version);
 
-if (!/^\d+\.\d+\.\d+$/.test(previousVersion)) {
-  throw new Error(`Current package version is invalid: ${previousVersion}`);
-}
-if (previousVersion === nextVersion) {
-  throw new Error(`SALTA is already at version ${nextVersion}`);
-}
+if (!/^\d+\.\d+\.\d+$/.test(previousVersion)) throw new Error(`Current package version is invalid: ${previousVersion}`);
+if (previousVersion === nextVersion) throw new Error(`SALTA is already at version ${nextVersion}`);
 if (packageLock.version !== previousVersion || packageLock.packages?.[""]?.version !== previousVersion) {
   throw new Error("Refusing to bump: package.json and package-lock.json root versions are inconsistent");
 }
 
-const versionFiles = [
-  ".env.example",
-  "docker-compose.image.yml",
-  "docs-ghcr.md",
-  "public/index.html",
-  "src/server.ts",
-  "src/deployment-config.test.ts",
-  "src/server.test.ts",
-  "RELEASE_TEXT.md",
-  "GIT_COMMANDS.md",
-];
-
-// Build every output in memory first. No file is written until all release
-// surfaces have been validated, preventing a partially applied version bump.
+// Update only active release/version surfaces. Historical compatibility text
+// must never be rewritten just because it contains the previous release number.
 const updates = new Map();
-for (const file of versionFiles) {
-  const source = read(file);
-  if (!source.includes(previousVersion)) {
-    throw new Error(`Refusing to bump: ${file} does not contain ${previousVersion}`);
+const stageReplace = (file, replacements) => {
+  let source = updates.get(file) ?? read(file);
+  for (const { from, to, count = 1 } of replacements) {
+    const occurrences = source.split(from).length - 1;
+    if (occurrences !== count) {
+      throw new Error(`Refusing to bump: ${file} expected ${count} occurrence(s) of ${JSON.stringify(from)}, found ${occurrences}`);
+    }
+    source = source.replace(from, to);
   }
-  updates.set(file, source.replaceAll(previousVersion, nextVersion));
-}
+  updates.set(file, source);
+};
 
-// Convenience deployment helpers are optional in the repository. Update their
-// embedded version marker when present without making releases depend on them.
-for (const file of ["install.sh"]) {
-  if (!existsSync(pathFor(file))) continue;
-  const source = read(file);
-  if (source.includes(previousVersion)) updates.set(file, source.replaceAll(previousVersion, nextVersion));
+stageReplace(".env.example", [
+  { from: `# SALTA v${previousVersion}`, to: `# SALTA v${nextVersion}` },
+  { from: `SALTA_IMAGE=ghcr.io/syschelle/salta:${previousVersion}`, to: `SALTA_IMAGE=ghcr.io/syschelle/salta:${nextVersion}` },
+]);
+stageReplace("docker-compose.image.yml", [
+  { from: `ghcr.io/syschelle/salta:${previousVersion}`, to: `ghcr.io/syschelle/salta:${nextVersion}` },
+]);
+stageReplace("public/index.html", [
+  { from: `Version <strong>${previousVersion}</strong>`, to: `Version <strong>${nextVersion}</strong>` },
+]);
+stageReplace("src/server.ts", [
+  { from: `version: "${previousVersion}"`, to: `version: "${nextVersion}"`, count: 2 },
+  { from: `createDisasterRecoveryBackup("${previousVersion}"`, to: `createDisasterRecoveryBackup("${nextVersion}"` },
+]);
+stageReplace("src/deployment-config.test.ts", [
+  { from: `ghcr.io/syschelle/salta:${previousVersion}`, to: `ghcr.io/syschelle/salta:${nextVersion}` },
+]);
+stageReplace("src/server.test.ts", [
+  { from: `version: "${previousVersion}"`, to: `version: "${nextVersion}"` },
+  { from: `saltaVersion: "${previousVersion}"`, to: `saltaVersion: "${nextVersion}"` },
+  { from: `createDisasterRecoveryBackup).toHaveBeenCalledWith("${previousVersion}"`, to: `createDisasterRecoveryBackup).toHaveBeenCalledWith("${nextVersion}"` },
+]);
+stageReplace("docs-ghcr.md", [
+  { from: `git tag -a v${previousVersion} -m "SALTA v${previousVersion}"`, to: `git tag -a v${nextVersion} -m "SALTA v${nextVersion}"` },
+  { from: `git push origin v${previousVersion}`, to: `git push origin v${nextVersion}` },
+  { from: `ghcr.io/syschelle/salta:${previousVersion}`, to: `ghcr.io/syschelle/salta:${nextVersion}` },
+]);
+stageReplace("RELEASE_TEXT.md", [
+  { from: `# SALTA v${previousVersion}`, to: `# SALTA v${nextVersion}` },
+]);
+stageReplace("GIT_COMMANDS.md", [
+  { from: `# SALTA v${previousVersion} Git commands`, to: `# SALTA v${nextVersion} Git commands` },
+  { from: `Release validator contract: SALTA v${previousVersion} / test-config-from-tsconfig.json`, to: `Release validator contract: SALTA v${nextVersion} / test-config-from-tsconfig.json` },
+  { from: `Release validation passed for SALTA v${previousVersion}.`, to: `Release validation passed for SALTA v${nextVersion}.` },
+  { from: `git tag -a v${previousVersion} -m "SALTA v${previousVersion}"`, to: `git tag -a v${nextVersion} -m "SALTA v${nextVersion}"` },
+  { from: `git push origin v${previousVersion}`, to: `git push origin v${nextVersion}` },
+]);
+
+if (existsSync(pathFor("install.sh"))) {
+  stageReplace("install.sh", [
+    { from: `SALTA v${previousVersion} is starting.`, to: `SALTA v${nextVersion} is starting.` },
+  ]);
 }
 
 packageJson.version = nextVersion;
@@ -60,9 +82,9 @@ packageLock.packages[""].version = nextVersion;
 updates.set("package.json", `${JSON.stringify(packageJson, null, 2)}\n`);
 updates.set("package-lock.json", `${JSON.stringify(packageLock, null, 2)}\n`);
 
-for (const [file, content] of updates) {
-  writeFileSync(pathFor(file), content, "utf8");
-}
+for (const [file, content] of updates) writeFileSync(pathFor(file), content, "utf8");
 
 console.log(`Updated SALTA root version ${previousVersion} -> ${nextVersion}.`);
+console.log("Historical compatibility references were intentionally left unchanged.");
+console.log("Review CHANGELOG.md and RELEASE_TEXT.md for the new release before tagging.");
 console.log("No transitive dependency version or integrity field was modified.");

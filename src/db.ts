@@ -743,7 +743,7 @@ export async function updateClimateWinterMode(winterMode: "manual" | "auto"): Pr
 function storedDebugLevel(details: Record<string, unknown> | undefined): SystemDebugLevel {
   const level = details?.level;
   if (level === "off" || level === "errors" || level === "verbose") return level;
-  // Backward compatibility with the v0.8.42 preview that stored a boolean DEBUG flag.
+  // Backward compatibility with v0.8.42 data that stored a boolean DEBUG flag.
   return details?.enabled === true ? "verbose" : "off";
 }
 
