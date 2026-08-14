@@ -1,6 +1,6 @@
-# SALTA v0.8.44
+# SALTA v0.8.45
 
-SALTA v0.8.44 completes the first production-ready HomeKit bridge workflow by making HomeKit controllable from the SALTA web interface, exposing pairing and runtime status safely, expanding supported accessory types and preparing the production Docker networking for reliable local mDNS/HAP discovery.
+SALTA v0.8.45 completes the first production-ready HomeKit bridge workflow and supersedes the unreleased v0.8.44 candidate. It also fixes the CI regression that incorrectly rejected the refactored HomeKit command-dispatch implementation because a test still depended on obsolete exact source-code fragments.
 
 ## HomeKit settings in the web interface
 
@@ -63,6 +63,13 @@ SALTA v0.8.44 completes the first production-ready HomeKit bridge workflow by ma
 - Pairing codes and setup credentials are not logged.
 - Invalid selected network interfaces are rejected rather than silently publishing on an unintended interface.
 - PostgreSQL is not exposed to the LAN by the HomeKit networking change.
+
+## CI regression fix
+
+- Fixed the HomeKit shared-command-dispatcher regression test that still asserted obsolete exact source-code fragments.
+- Replaced the fragile string checks with TypeScript AST inspection.
+- The test now verifies the real architectural contract: `HomeKitBridge` receives a private commander and HomeKit writes are routed through `this.commander.command(...)` with the current device ID and `source: "homekit"`.
+- No production HomeKit behavior was changed by this fix.
 
 ## Quality and regression coverage
 

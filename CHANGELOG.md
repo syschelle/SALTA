@@ -1,6 +1,13 @@
 # Changelog
 
-## v0.8.44
+## v0.8.45
+
+- Fixed the HomeKit shared-command-dispatcher regression test that still depended on obsolete exact source-text fragments from the pre-refactor bridge implementation.
+- Replaced the brittle `private commander:` / minified call-text assertions with TypeScript AST checks that verify the actual contract: `HomeKitBridge` receives a private commander and HomeKit writes call `this.commander.command(...)` with the current device ID and `source: "homekit"`.
+- Kept the production HomeKit implementation unchanged; this release carries forward the complete HomeKit runtime/pairing functionality prepared in the v0.8.44 candidate.
+- No database migration, new dependency, API change or production-networking change is introduced by this CI fix.
+
+## v0.8.44 (unreleased candidate)
 
 - Added a dedicated **Settings → HomeKit** page with live bridge enable/disable, bridge name and network-interface selection.
 - Added authenticated HomeKit runtime status including running/advertised/pairing state, bridge identity, HAP port and eligible/published device counts.
