@@ -260,6 +260,7 @@ if (!databaseSource.includes("key='homekit-runtime'") || !databaseSource.include
 if (!databaseSource.includes('COALESCE(hk.use_salta_room,true) as "homekitUseSaltaRoom"') || !databaseSource.includes('as "homekitRoom"')) fail("HomeKit SALTA-room inheritance is not exposed by the device query");
 if (!publicIndex.includes('data-settings-panel="homekit"') || !publicIndex.includes('id="homeKitEnabled"') || !publicIndex.includes('id="homeKitPairingQr"') || !publicIndex.includes('id="homeKitPairingCode"') || !publicIndex.includes('id="homeKitResetButton"')) fail("Global HomeKit configuration controls are incomplete");
 if (!publicIndex.includes('<script src="/homekit-qr.js"></script>') || !homeKitQrSource.includes("createHomeKitSetupQrMatrix") || !homeKitQrSource.includes("renderHomeKitSetupQrSvg")) fail("Local HomeKit pairing QR generation is incomplete");
+if (!serverSource.includes('["/homekit-qr.js", "homekit-qr.js"]')) fail("HomeKit QR asset is not exposed through the authenticated static-file map");
 if (homeKitQrSource.includes("fetch(") || homeKitQrSource.includes("XMLHttpRequest")) fail("HomeKit pairing QR generation must remain fully local");
 if ((serverSource.split("setupUri:").length - 1) < 3) fail("HomeKit settings API does not expose the setup URI for unpaired QR generation");
 if (!publicIndex.includes('id="deviceHomeKitEnabled"') || !publicIndex.includes('id="deviceHomeKitUseSaltaRoom"') || !publicIndex.includes('id="deviceHomeKitRoom"')) fail("Device HomeKit configuration controls are incomplete");

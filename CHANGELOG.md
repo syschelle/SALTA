@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.48
+
+- Fixed HomeKit QR-code delivery by registering `/homekit-qr.js` in SALTA's authenticated static-file map. Previously the request fell through to the SPA fallback and returned `index.html` with a `text/html` MIME type, so browsers refused to execute the QR helper.
+- Added a server regression test that requires `/homekit-qr.js` to return HTTP 200, JavaScript content type, `Cache-Control: no-store`, and QR helper source rather than HTML fallback content.
+- Extended release validation to require the HomeKit QR asset in the static-file map.
+- Kept the v0.8.47 runtime pairing-code synchronization and pairing-reset hardening unchanged.
+- No database migration, HomeKit storage migration, new dependency or new mandatory environment variable is required.
+
 ## v0.8.47
 
 - Fixed the HomeKit pairing QR code rendering in the web interface by emitting explicit SVG width and height attributes and keeping the pairing panel layout square and stable.

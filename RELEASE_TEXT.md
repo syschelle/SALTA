@@ -1,44 +1,35 @@
-# SALTA v0.8.47
+# SALTA v0.8.48
 
-SALTA v0.8.47 fixes the remaining HomeKit pairing UI/runtime issues found in the real-world validation of the v0.8.46 candidate. The HomeKit QR code is now rendered reliably in the web interface and the displayed manual pairing code is synchronized with the effective runtime bridge pin.
+SALTA v0.8.48 fixes HomeKit QR-code delivery in the authenticated SALTA web interface. The previous build referenced `/homekit-qr.js` from the page but did not register that asset in SALTA's explicit static-file map, so the SPA fallback returned `index.html` with a `text/html` MIME type and browsers correctly refused to execute it.
 
-## HomeKit pairing fixes
+## HomeKit QR asset delivery
 
-- Fixed the HomeKit pairing QR code rendering in the SALTA web interface.
-- The generated QR SVG now includes explicit width and height attributes so it is rendered reliably in browsers instead of collapsing to an empty box.
-- Improved the HomeKit pairing panel styling so the QR area keeps a stable square layout.
-- The displayed numeric pairing code is now synchronized with the effective runtime HomeKit bridge pin instead of trusting only the stored settings value.
-- SALTA now reads the active HomeKit pincode from HAP accessory storage for unpaired bridges and uses that value in the HomeKit settings API response.
-- This prevents mismatches where the web interface could show a pairing code that no longer matches the actively published HomeKit bridge.
+- Added `/homekit-qr.js` to SALTA's authenticated static-file map.
+- The QR helper is now delivered as `text/javascript; charset=utf-8` instead of falling through to `index.html`.
+- The asset keeps `Cache-Control: no-store`, consistent with the other first-party SALTA JavaScript assets.
+- Existing local-only QR generation remains unchanged: no external QR service, CDN or tracking endpoint is used.
 
-## Pairing reset hardening
+## Pairing-code consistency
 
-- Resetting HomeKit pairing now generates both a fresh HomeKit pairing code and a fresh bridge username / bridge identity.
-- Existing pairing storage for the previous bridge username is cleaned up before the bridge is republished.
-- This makes pairing resets more deterministic and avoids stale bridge-state reuse.
+- Keeps the v0.8.47 runtime pairing-code synchronization: while unpaired, SALTA exposes the effective HAP bridge pincode rather than relying only on the stored settings value.
+- Pairing reset continues to generate a fresh bridge username and a fresh pairing code before republishing the bridge.
+- Pairing secrets are not written to application logs.
 
-## Security and API behavior
+## Regression coverage
 
-- The HomeKit setup URI continues to be returned only through the authenticated HomeKit settings API while the bridge is unpaired.
-- Paired HomeKit status responses still omit both `pairingCode` and `setupUri`.
-- Pairing secrets continue to be excluded from application logs.
-- The QR SVG still contains no external `href`, `src` or `xlink:href` resources and no plain-text `X-HM://` setup URI.
-
-## Quality and regression coverage
-
-- Added regression coverage for the explicit QR SVG dimensions.
-- Kept the SVG security regression check while allowing the mandatory W3C SVG namespace.
-- Kept the independent QR reference-vector regression coverage for the HomeKit setup URI encoder.
-- Release validation remains aligned with SALTA v0.8.47.
+- Extended the authenticated static-asset server test to request `/homekit-qr.js` directly.
+- The test now requires HTTP 200, a JavaScript MIME type, `Cache-Control: no-store`, and actual QR helper source instead of HTML fallback content.
+- Extended the release validator so a future release fails if `/homekit-qr.js` is referenced by the UI but missing from the server static-file map.
+- Existing QR matrix, SVG security and frontend HomeKit tests remain in place.
 
 ## Compatibility
 
-- Supersedes the unreleased SALTA v0.8.46 candidate.
+- Builds on SALTA v0.8.47.
 - No database migration is required.
+- No HomeKit storage migration is required.
 - No new mandatory environment variable is required.
 - No new npm dependency is introduced.
-- Existing HomeKit bridge identity, per-device publication settings and Disaster Recovery behavior remain compatible.
-- Updating from v0.8.45 or a local v0.8.46 test deployment does not require a HomeKit storage migration.
+- Existing HomeKit bridge identity, pairing storage, device publication settings and Disaster Recovery behavior remain compatible.
 
 ## Production update
 
