@@ -2,6 +2,9 @@
 
 ## v0.8.41
 
+- Removed the obsolete standalone test-tsconfig release requirement completely and added a CI-visible validator contract marker so checkout state can be verified unambiguously.
+
+- Removed the standalone `tsconfig.tests.json` build dependency; test preflight now derives its test-inclusive configuration directly from `tsconfig.json`.
 - Fixed the Disaster Recovery AES-GCM authenticated-data header so an exported backup can be decrypted and restored with the same password.
 - Fixed Vitest mock hoisting in the configuration-backup transaction tests.
 - Fixed the Disaster Recovery frontend regression test to parse `app.js` before AST inspection.

@@ -12,7 +12,6 @@ const requiredReleaseFiles = [
   "docker-compose.image.yml",
   ".env.example",
   "scripts/check-test-symbols.mjs",
-  "tsconfig.tests.json",
   "src/automations.ts",
   "src/automation-persistence.ts",
   "src/phoscon-adapter.ts",
@@ -258,9 +257,8 @@ if (checkScript.includes("npm run typecheck")) fail("npm run check must not comp
 if (packageJson.scripts?.["test:preflight"] !== "node scripts/check-test-symbols.mjs") fail("test:preflight script is missing or changed");
 if (packageJson.scripts?.["test:vitest"] !== "node scripts/check-test-symbols.mjs --vitest-only") fail("test:vitest script is missing or changed");
 if (packageJson.scripts?.test !== "node scripts/check-test-symbols.mjs --vitest") fail("npm test must keep the standalone preflight-backed Vitest runner");
-const testTypeConfig = json("tsconfig.tests.json");
-if (!Array.isArray(testTypeConfig.exclude) || testTypeConfig.exclude.length !== 0 || !testTypeConfig.include?.includes("test-utils/**/*.ts")) fail("tsconfig.tests.json must include tests and test-only helpers");
 const testSymbolPreflight = read("scripts/check-test-symbols.mjs");
+if (!testSymbolPreflight.includes('include: ["src/**/*.ts", "test-utils/**/*.ts"]') || !testSymbolPreflight.includes("exclude: []")) fail("test symbol preflight must derive a test-inclusive config from tsconfig.json");
 if (!testSymbolPreflight.includes("diagnostic.code === 2304 || diagnostic.code === 2552")) fail("test symbol preflight must reject unresolved TypeScript identifiers");
 const version = String(packageJson.version ?? "");
 
@@ -388,4 +386,5 @@ if (!styleInspectionHelper.includes("cssMediaRuleContains") || !styleInspectionH
   fail("style-inspection.ts must provide media-query-aware CSS inspection helpers");
 }
 
+console.log(`Release validator contract: SALTA v${version} / test-config-from-tsconfig.json`);
 console.log(`Release validation passed for SALTA v${version}.`);

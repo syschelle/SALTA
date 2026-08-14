@@ -8,10 +8,22 @@ const vitestOnly = process.argv.includes("--vitest-only");
 const runVitest = process.argv.includes("--vitest") || vitestOnly;
 
 if (!vitestOnly) {
-  const configPath = resolve(root, "tsconfig.tests.json");
+  const configPath = resolve(root, "tsconfig.json");
   const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
   if (configFile.error) throw new Error(ts.flattenDiagnosticMessageText(configFile.error.messageText, "\n"));
-  const parsed = ts.parseJsonConfigFileContent(configFile.config, ts.sys, root, undefined, configPath);
+  const testConfig = {
+    ...configFile.config,
+    compilerOptions: {
+      ...(configFile.config.compilerOptions ?? {}),
+      noEmit: true,
+      noUnusedLocals: false,
+      noUnusedParameters: false,
+      rootDir: ".",
+    },
+    include: ["src/**/*.ts", "test-utils/**/*.ts"],
+    exclude: [],
+  };
+  const parsed = ts.parseJsonConfigFileContent(testConfig, ts.sys, root, undefined, configPath);
   if (parsed.errors.length) {
     throw new Error(ts.formatDiagnosticsWithColorAndContext(parsed.errors, {
       getCanonicalFileName: (file) => file, getCurrentDirectory: () => root, getNewLine: () => "\n",

@@ -4,6 +4,8 @@ SALTA v0.8.41 replaces the unreleased v0.8.40 configuration-only backup with a p
 
 ## CI and restore correctness
 
+- Removed every remaining runtime/validator reference to the obsolete standalone test TypeScript configuration and added a CI-visible validator contract marker (`test-config-from-tsconfig.json`) so the checked-out validator revision is immediately identifiable in GitHub Actions logs.
+- Removed the standalone `tsconfig.tests.json` release dependency; the test-symbol preflight now derives its test-inclusive compiler configuration directly from the production `tsconfig.json`, preventing checkout/package omissions from aborting release validation.
 - Initialized the optional external restore transaction state explicitly so the strict production TypeScript build can prove rollback/finalize access is safe.
 - Fixed the AES-256-GCM authenticated-data construction so export and import authenticate the same canonical public backup header.
 - Fixed Vitest mock initialization for the transactional configuration-backup tests.

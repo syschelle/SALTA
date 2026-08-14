@@ -10,6 +10,37 @@ git commit -m "fix(backup): stabilize disaster recovery restore and CI"
 git push origin main
 ```
 
+
+Before committing, verify that the obsolete standalone test config is no longer referenced and that the corrected validator is actually in the working tree:
+
+```bash
+if git grep -n "tsconfig.tests.json" -- scripts package.json .github src test-utils; then
+  echo "ERROR: obsolete tsconfig.tests.json reference still exists"
+  exit 1
+else
+  echo "OK: no obsolete tsconfig.tests.json references"
+fi
+
+node scripts/validate-release.mjs
+```
+
+The validator output must contain:
+
+```text
+Release validator contract: SALTA v0.8.41 / test-config-from-tsconfig.json
+```
+
+After pushing, verify the committed remote file instead of only the local working tree:
+
+```bash
+git fetch origin main
+git show origin/main:scripts/validate-release.mjs | grep "test-config-from-tsconfig.json"
+if git show origin/main:scripts/validate-release.mjs | grep -q "tsconfig.tests.json"; then
+  echo "ERROR: origin/main still contains the obsolete validator"
+  exit 1
+fi
+```
+
 After CI and CodeQL are green:
 
 ```bash
