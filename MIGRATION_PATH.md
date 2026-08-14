@@ -1,6 +1,6 @@
 # SALTA migration paths
 
-## Current v0.8.52 update
+## Current v0.8.53 update
 
 No database migration is required. Existing `salta_postgres_data` is reused.
 

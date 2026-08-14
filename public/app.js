@@ -57,6 +57,57 @@ function resolvedPresentationType(d){return d.presentationType&&d.presentationTy
 function homeKitStateValue(d,...keys){return keys.some(key=>d.state?.[key]!==undefined&&d.state?.[key]!==null)}
 function homeKitSupportedDevice(d){const type=resolvedPresentationType(d);if(type==='windowCovering')return d.capabilities.includes('setTargetPosition');if(type==='thermostat')return d.capabilities.includes('setTargetTemperature')&&d.capabilities.includes('setThermostatMode');if(['switch','outlet','light','fan'].includes(type))return d.capabilities.includes('turnOn')&&d.capabilities.includes('turnOff');if(type==='motionSensor')return homeKitStateValue(d,'motion');if(type==='contactSensor')return homeKitStateValue(d,'open');if(type==='temperatureSensor')return homeKitStateValue(d,'temperature');if(type==='humiditySensor')return homeKitStateValue(d,'humidity');if(type==='lightSensor')return homeKitStateValue(d,'lux','lightlevel');if(type==='waterLeakSensor')return homeKitStateValue(d,'water','alarm');if(type==='smokeSensor')return homeKitStateValue(d,'fire','alarm');return false}
 function homeKitTargetRoomName(d){if(d.homekitUseSaltaRoom===false)return d.homekitRoom||rooms.find(room=>room.id===d.homekitRoomId)?.name||'Nicht zugeordnet';return d.room||rooms.find(room=>room.id===d.roomId)?.name||'Nicht zugeordnet'}
+function homeKitDeviceStateMeta(d){
+  const type=resolvedPresentationType(d);const state=d.state||{};
+  if(d.reachable===false)return {label:'Offline',tone:'offline'};
+  if(type==='contactSensor')return {label:state.open===true?'Offen':'Geschlossen',tone:state.open===true?'warning':'ok'};
+  if(type==='thermostat'){
+    const temperature=Number(state.temperature);const target=Number(state.targetTemperature);const parts=[];
+    if(Number.isFinite(temperature))parts.push(fmt('temperature',temperature));
+    if(Number.isFinite(target))parts.push(`Soll ${fmt('targetTemperature',target)}`);
+    if(state.controlMode)parts.push(fmt('controlMode',state.controlMode));
+    return {label:parts.join(' · ')||'Thermostat',tone:String(state.controlMode||'').toLowerCase()==='off'?'muted':'ok'};
+  }
+  if(type==='windowCovering'){const position=boundedPosition(state.currentPosition);return {label:position===null?'Rollladen':`${position} %`,tone:'muted'}}
+  if(['switch','outlet','light','fan'].includes(type))return {label:state.on===true?'Ein':'Aus',tone:state.on===true?'ok':'muted'};
+  if(type==='motionSensor')return {label:state.motion===true?'Bewegung':'Keine Bewegung',tone:state.motion===true?'warning':'ok'};
+  if(type==='temperatureSensor'&&Number.isFinite(Number(state.temperature)))return {label:fmt('temperature',Number(state.temperature)),tone:'muted'};
+  if(type==='humiditySensor'&&Number.isFinite(Number(state.humidity)))return {label:fmt('humidity',Number(state.humidity)),tone:'muted'};
+  if(type==='lightSensor'){const value=state.lux??state.lightlevel;return {label:value!==undefined?fmt(state.lux!==undefined?'lux':'lightlevel',value):'Lichtsensor',tone:'muted'}}
+  if(type==='waterLeakSensor')return {label:(state.water??state.alarm)===true?'Wasser erkannt':'Trocken',tone:(state.water??state.alarm)===true?'warning':'ok'};
+  if(type==='smokeSensor')return {label:(state.fire??state.alarm)===true?'Alarm':'Normal',tone:(state.fire??state.alarm)===true?'warning':'ok'};
+  return {label:d.reachable===false?'Offline':'Bereit',tone:'muted'};
+}
+function homeKitDeviceRoomGroups(devices){
+  const known=new Set(rooms.map(room=>room.id));
+  const groups=rooms.map(room=>({id:room.id,name:room.name,icon:room.icon||'home-outline',devices:devices.filter(device=>device.roomId===room.id)})).filter(group=>group.devices.length);
+  const unassigned=devices.filter(device=>!device.roomId||!known.has(device.roomId));
+  if(unassigned.length)groups.push({id:'unassigned',name:'Nicht zugeordnet',icon:'help-circle-outline',devices:unassigned});
+  return groups;
+}
+function renderHomeKitDeviceList(){
+  if(!globalThis.homeKitDeviceList||!globalThis.homeKitDeviceCount)return;
+  const supported=all.filter(homeKitSupportedDevice);const enabled=supported.filter(device=>device.homekitEnabled&&!(device.source==='phoscon'&&device.hidden)).length;
+  homeKitDeviceCount.textContent=`${enabled} / ${supported.length}`;
+  homeKitDeviceCount.title=`${enabled} von ${supported.length} unterstützten Geräten für HomeKit freigegeben`;
+  if(!supported.length){homeKitDeviceList.innerHTML='<article class="empty-state compact"><strong>Keine unterstützten Geräte</strong><p class="muted">Sobald SALTA kompatible Geräte erkennt, erscheinen sie hier.</p></article>';return}
+  homeKitDeviceList.innerHTML=homeKitDeviceRoomGroups(supported).map(group=>`<section class="homekit-device-room"><div class="homekit-device-room-head"><div><span class="mdi ${mdiIcon(group.icon)}" aria-hidden="true"></span><strong>${escapeHtml(group.name)}</strong></div><span>${group.devices.length} ${group.devices.length===1?'Gerät':'Geräte'}</span></div><div class="homekit-device-room-list">${group.devices.map(device=>{
+    const type=resolvedPresentationType(device);const state=homeKitDeviceStateMeta(device);const hidden=device.source==='phoscon'&&device.hidden;const checked=Boolean(device.homekitEnabled&&!hidden);const disabled=hidden?' disabled':'';const roomTarget=homeKitTargetRoomName(device);const source=sourceLabels[device.source]||device.source;const typeLabel=typeLabels[type]||type;const encodedId=encodeURIComponent(device.id).replace(/'/g,'%27');
+    return `<article class="homekit-device-item ${checked?'enabled':''} ${hidden?'disabled':''}" data-homekit-device-id="${escapeHtml(device.id)}"><div class="homekit-device-main"><span class="homekit-device-icon">${iconMarkup(icons[type]||'home-automation')}</span><div class="homekit-device-copy"><div class="homekit-device-title"><strong>${escapeHtml(device.homekitName||device.name)}</strong><span class="homekit-source-badge">${escapeHtml(source)}</span></div><div class="homekit-device-meta"><span>${escapeHtml(typeLabel)}</span><span>${escapeHtml(roomTarget)}</span>${hidden?'<span>In SALTA ausgeblendet</span>':''}</div></div></div><div class="homekit-device-side"><span class="homekit-device-state ${state.tone}">${escapeHtml(state.label)}</span><label class="homekit-device-toggle${hidden?' disabled':''}" title="${hidden?'Ausgeblendete Zigbee-Geräte werden nicht an HomeKit weitergereicht.':'Gerät in HomeKit veröffentlichen'}"><input type="checkbox" ${checked?'checked ':''}onchange="setHomeKitDeviceEnabled(decodeURIComponent('${encodedId}'),this.checked,this)"${disabled}><span aria-hidden="true"></span><em>HomeKit</em></label></div></article>`;
+  }).join('')}</div></section>`).join('');
+}
+async function setHomeKitDeviceEnabled(id,enabled,input){
+  const device=all.find(item=>item.id===id);if(!device)return;
+  if(!homeKitSupportedDevice(device)){if(input)input.checked=false;notify('Dieses Gerät wird von der SALTA-HomeKit-Bridge nicht unterstützt.',true);return}
+  if(device.source==='phoscon'&&device.hidden){if(input)input.checked=false;notify('Das Zigbee-Gerät ist in SALTA ausgeblendet und kann deshalb nicht in HomeKit veröffentlicht werden.',true);return}
+  const row=input?.closest('.homekit-device-item');if(input)input.disabled=true;row?.classList.add('saving');
+  try{
+    const updated=await api(`/api/devices/${encodeURIComponent(id)}/config`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({homekitEnabled:Boolean(enabled)})});
+    all=all.map(item=>item.id===id?updated:item);renderDevices();renderHomeKitDeviceList();
+    await loadHomeKitSettings();
+    notify(`${updated.name} wird ${enabled?'in HomeKit veröffentlicht':'nicht mehr in HomeKit veröffentlicht'}.`);
+  }catch(error){if(input)input.checked=!enabled;renderHomeKitDeviceList();notify(error.message,true)}finally{row?.classList.remove('saving')}
+}
 function syncDeviceHomeKitRoomControls(){const useSaltaRoom=deviceHomeKitUseSaltaRoom.checked;deviceHomeKitRoom.disabled=useSaltaRoom;deviceHomeKitRoomField.classList.toggle('disabled',useSaltaRoom);if(useSaltaRoom)deviceHomeKitRoom.value=deviceRoom.value||''}
 function renderDeviceHomeKitCompatibility(){if(!selectedDevice)return;const candidate={...selectedDevice,presentationType:devicePresentationSection.hidden?(selectedDevice.presentationType||'auto'):devicePresentationType.value};const supported=homeKitSupportedDevice(candidate);const hidden=selectedDevice.source==='phoscon'&&deviceHidden.checked;deviceHomeKitEnabled.disabled=!supported;deviceHomeKitEnabledRow.classList.toggle('disabled',!supported);if(!supported){deviceHomeKitEnabled.checked=false;deviceHomeKitCompatibility.className='homekit-compatibility unsupported';deviceHomeKitCompatibility.innerHTML=`<span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span><div><strong>Noch nicht unterstützt</strong><small>${escapeHtml(typeLabels[resolvedPresentationType(candidate)]||resolvedPresentationType(candidate))} kann von der aktuellen SALTA-HomeKit-Bridge noch nicht veröffentlicht werden.</small></div>`;return}deviceHomeKitCompatibility.className=`homekit-compatibility ${hidden?'warning':'supported'}`;deviceHomeKitCompatibility.innerHTML=hidden?'<span class="mdi mdi-eye-off-outline" aria-hidden="true"></span><div><strong>HomeKit-kompatibel, aber ausgeblendet</strong><small>Das Zigbee-Gerät wird erst veröffentlicht, wenn „Gerät ausblenden“ deaktiviert ist.</small></div>':`<span class="mdi mdi-check-circle-outline" aria-hidden="true"></span><div><strong>HomeKit-kompatibel</strong><small>${escapeHtml(typeLabels[resolvedPresentationType(candidate)]||resolvedPresentationType(candidate))} wird von der SALTA-HomeKit-Bridge unterstützt.</small></div>`}
 
@@ -209,6 +260,7 @@ function renderHomeKitSettings(){
   homeKitPairingQr.hidden=!showQr;
   homeKitSetupUriState.textContent=showPairing?(showQr?'QR-Code oder Pairing-Code werden nach erfolgreicher Kopplung nicht mehr angezeigt.':'Der QR-Code ist noch nicht verfügbar. Du kannst den Pairing-Code manuell verwenden.') : '';
   homeKitResetButton.disabled=false;
+  renderHomeKitDeviceList();
 }
 async function loadHomeKitSettings(){
   try{homeKitData=await api('/api/settings/homekit');renderHomeKitSettings();return homeKitData}catch(error){notify(error.message,true);throw error}
@@ -423,7 +475,7 @@ function deviceCard(d,showSource=false,instance=''){const visualType=resolvedPre
 function deviceRoomGroup(group,showSource=false,instance=''){return `<section class="device-room-group" data-room-id="${escapeHtml(group.id)}"><div class="device-room-heading"><div class="device-room-title"><span class="device-room-icon" aria-hidden="true">${iconMarkup(group.icon)}</span><div><h2>${escapeHtml(group.name)}</h2><p>${group.devices.length} ${group.devices.length===1?'Gerät':'Geräte'}</p></div></div></div><div class="grid">${group.devices.map(device=>deviceCard(device,showSource,instance)).join('')}</div></section>`}
 function renderOverviewDevices(){const groups=roomGrouping.groupAssignedDevicesByRoom(rooms,all);if(!groups.length){overviewDeviceGridElement.innerHTML='<article class="empty-state"><h3>Noch keine Geräte zugeordnet</h3><p class="muted">Auf der Übersicht werden ausschließlich Geräte mit einer gültigen Raumzuordnung angezeigt.</p></article>';return}overviewDeviceGridElement.innerHTML=groups.map(group=>deviceRoomGroup(group,true,'overview')).join('')}
 function renderDeviceGrid(source,grid,searchInput,roomSelect){const devices=filtered(source,searchInput,roomSelect);if(!devices.length){const adapter=source==='phoscon'?{connected:phosconSettingsStatus?.gateway?.connected,title:'Phoscon ist nicht verbunden',message:'Verbinde unter Einstellungen eine Phoscon-/deCONZ-Instanz.'}:source==='openccu'?{connected:openCcuSettingsStatus?.gateway?.connected,title:'OpenCCU ist nicht verbunden',message:'Verbinde unter Einstellungen eine OpenCCU-Instanz.'}:{connected:true,title:'Keine Geräte gefunden',message:'Passe Suche oder Raumfilter an.'};grid.innerHTML=`<article class="empty-state"><h3>${adapter.connected?'Keine Geräte gefunden':adapter.title}</h3><p class="muted">${adapter.connected?'Passe Suche oder Raumfilter an.':adapter.message}</p></article>`;return}const knownRoomIds=new Set(rooms.map(room=>room.id));const groups=rooms.map(room=>({id:room.id,name:room.name,icon:room.icon||'home-outline',devices:devices.filter(device=>device.roomId===room.id)})).filter(group=>group.devices.length);const unassigned=devices.filter(device=>!device.roomId||!knownRoomIds.has(device.roomId));if(unassigned.length)groups.push({id:'unassigned',name:'Nicht zugeordnet',icon:'help-circle-outline',devices:unassigned});grid.innerHTML=groups.map(group=>deviceRoomGroup(group)).join('')}
-function renderDevices(){renderOverviewDevices();renderDeviceGrid('shelly',deviceGrid,filter,roomFilter);renderDeviceGrid('phoscon',zigbeeGrid,zigbeeFilter,zigbeeRoomFilter);renderDeviceGrid('openccu',openCcuGrid,openCcuFilter,openCcuRoomFilter);renderDeviceGrid('virtual',virtualGrid,virtualFilter,virtualRoomFilter)}
+function renderDevices(){renderOverviewDevices();renderDeviceGrid('shelly',deviceGrid,filter,roomFilter);renderDeviceGrid('phoscon',zigbeeGrid,zigbeeFilter,zigbeeRoomFilter);renderDeviceGrid('openccu',openCcuGrid,openCcuFilter,openCcuRoomFilter);renderDeviceGrid('virtual',virtualGrid,virtualFilter,virtualRoomFilter);renderHomeKitDeviceList()}
 function currentRoomEditDraft(){
   if(!editingRoomId)return null;
   const row=roomRow(editingRoomId);

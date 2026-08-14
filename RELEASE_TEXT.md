@@ -1,57 +1,44 @@
-# SALTA v0.8.52
+# SALTA v0.8.53
 
-SALTA v0.8.52 provides a release-consistent production deployment package after the unreleased v0.8.51 candidate. The production Compose topology, deployment tests, release validator, migration documentation and release metadata are aligned to the same verified state before the repository is tagged.
+SALTA v0.8.53 improves the HomeKit settings experience and adds central per-device publication controls directly to **Settings → HomeKit**. The release keeps the existing HomeKit protocol implementation and production network topology from v0.8.52, while making supported thermostats, contact sensors and other compatible devices much easier to publish and review.
 
-## Clean production Compose topology
+## HomeKit settings redesign
 
-- SALTA uses `network_mode: host` for HomeKit HAP/mDNS discovery.
-- PostgreSQL uses Docker's normal bridge network.
-- PostgreSQL is published only as `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`.
-- SALTA connects to PostgreSQL through `127.0.0.1:${POSTGRES_HOST_PORT:-5433}`.
-- PostgreSQL is not published on `0.0.0.0` or a LAN-facing address.
-- No custom production `frontend` / `backend` networks are defined.
-- No `internal: true` network workaround is used.
-- PostgreSQL does not use host networking or custom `listen_addresses` / `port` server overrides.
-- The PostgreSQL healthcheck targets its normal container-local endpoint at `127.0.0.1:5432`.
+- Reworked the HomeKit settings page into compact, clearly separated sections for bridge configuration, runtime status, pairing and device publication.
+- Fixed the settings-page width calculation so the HomeKit panel and its controls remain inside the available content area instead of overflowing to the right.
+- Added responsive bridge fields and status cards that shrink or wrap cleanly on narrower screens.
+- Replaced the previous warning-style room notice with a neutral informational note.
+- Added compact runtime cards for bridge state, pairing state, Bridge ID, HAP port and published/supported device counts.
+- Added a dedicated `[hidden]` rule for the pairing section so the QR/pairing block is actually removed from the layout after the bridge is paired.
 
-## Release consistency and verification
+## Central HomeKit device management
 
-- Added `RELEASE_MANIFEST.md` with SHA-256 fingerprints for the exact production Compose file and HomeKit migration helper.
-- Release validation checks the manifest against the files in the release tree.
-- Deployment tests validate the same topology as the production Compose file.
-- The release is intended to be pushed first, verified against `origin/main`, and only then tagged.
+- Added a new **Devices in HomeKit** section to the global HomeKit settings page.
+- Lists all currently HomeKit-compatible SALTA devices grouped by SALTA room.
+- Shows device type, integration source, target room and a compact live-state summary.
+- Adds a direct HomeKit publication toggle for each supported device.
+- Existing per-device HomeKit configuration remains available for optional HomeKit-specific names and room overrides.
+- Hidden Zigbee devices remain excluded from HomeKit and their publication control is disabled with an explanatory state.
 
-## HomeKit migration path
+## Thermostats and OpenCCU contact sensors
 
-No HomeKit storage migration is required for installations already running v0.8.41 or newer.
-
-For an installation that was already paired with HomeKit before v0.8.41, the one-time migration helper is:
-
-```text
-/opt/SALTA/migrate-homekit-storage.sh
-```
-
-Run it before recreating the old SALTA container:
-
-```bash
-cd /opt/SALTA
-./migrate-homekit-storage.sh
-```
-
-The helper migrates legacy HomeKit HAP state from `/app/persist` in the old container to the persistent `salta_runtime_data` volume mounted at `/var/lib/salta/homekit`. Runtime settings are stored at `/var/lib/salta/runtime/settings.json`.
+- Compatible OpenCCU thermostats exposing `setTargetTemperature` and `setThermostatMode` are shown in the central HomeKit device list and can be enabled directly there.
+- OpenCCU contact sensors already represented by SALTA as `contactSensor` are shown with their live **Open / Closed** state and can be published directly to HomeKit.
+- Existing HomeKit battery-service behavior remains unchanged for devices that expose battery information.
+- No OpenCCU protocol or device-detection relaxation was required for these devices.
 
 ## Compatibility
 
-- Supersedes the unreleased v0.8.51 deployment candidate.
+- Builds on the released SALTA v0.8.52 production topology.
+- SALTA continues to use `network_mode: host` for HomeKit HAP/mDNS.
+- PostgreSQL remains on Docker's normal bridge network and is published only on host loopback.
 - No database migration is required.
 - Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
-- Do not use `down -v` during the update.
 - No new mandatory environment variable is required.
 - No new npm dependency is introduced.
+- The legacy `/opt/SALTA/migrate-homekit-storage.sh` helper is still required only for HomeKit pairing state created before v0.8.41.
 
 ## Production update
-
-Use the updated `docker-compose.image.yml` from this release:
 
 ```bash
 cd /opt/SALTA
@@ -62,4 +49,4 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-After recreation, `salta` should use host networking and show no Docker port mappings. `salta-postgres` should show a loopback-only mapping similar to `127.0.0.1:5433->5432/tcp`.
+Do not use `down -v` during the update.

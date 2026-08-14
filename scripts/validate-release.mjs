@@ -270,6 +270,10 @@ if (homeKitQrSource.includes("fetch(") || homeKitQrSource.includes("XMLHttpReque
 if ((serverSource.split("setupUri:").length - 1) < 3) fail("HomeKit settings API does not expose the setup URI for unpaired QR generation");
 if (!publicIndex.includes('id="deviceHomeKitEnabled"') || !publicIndex.includes('id="deviceHomeKitUseSaltaRoom"') || !publicIndex.includes('id="deviceHomeKitRoom"')) fail("Device HomeKit configuration controls are incomplete");
 if (!virtualFrontend.includes("function homeKitSupportedDevice(d)") || !virtualFrontend.includes("function loadHomeKitSettings()") || !virtualFrontend.includes("function saveHomeKitSettings()") || !virtualFrontend.includes("function resetHomeKitPairing()")) fail("HomeKit frontend runtime controls are incomplete");
+if (!publicIndex.includes('id="homeKitDeviceList"') || !publicIndex.includes('id="homeKitDeviceCount"') || !publicIndex.includes('class="homekit-info-note"')) fail("Central HomeKit device management UI is incomplete");
+if (!virtualFrontend.includes("function renderHomeKitDeviceList()") || !virtualFrontend.includes("async function setHomeKitDeviceEnabled(")) fail("Central HomeKit device publication controls are not wired");
+if (!publicStyles.includes(".homekit-pairing-box[hidden]{display:none}") || !publicStyles.includes(".homekit-device-toggle input:checked+span")) fail("HomeKit settings layout does not protect paired-state hiding or publication toggles");
+if (!publicStyles.includes(".settings-layout{display:grid;grid-template-columns:220px minmax(0,1fr)") || !publicStyles.includes(".settings-card{min-width:0;max-width:var(--settings-content-max);width:100%}")) fail("Settings layout is not protected against horizontal overflow");
 const hostNetworkCount = (productionCompose.match(/network_mode: host/g) ?? []).length;
 if (hostNetworkCount !== 1) fail("Production Compose must use host networking for SALTA only");
 if (!productionCompose.includes('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432')) fail("Production PostgreSQL must be published on host loopback only");
@@ -277,6 +281,18 @@ if (!productionCompose.includes("pg_isready -h 127.0.0.1 -p 5432")) fail("Produc
 if (!productionCompose.includes("DATABASE_URL: postgres://${POSTGRES_USER:-salta}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_HOST_PORT:-5433}/${POSTGRES_DB:-salta}")) fail("Host-network SALTA must reach PostgreSQL through the loopback-only published port");
 if (productionCompose.includes("internal: true") || productionCompose.includes("listen_addresses=127.0.0.1")) fail("Production Compose contains a retired PostgreSQL network workaround");
 if (productionCompose.includes("networks:\n")) fail("Production Compose must not define custom Docker networks");
+
+const readmeSource = read("README.md");
+const releaseTextSource = read("RELEASE_TEXT.md");
+for (const [name, source] of [["README.md", readmeSource], ["SECURITY.md", securitySource]]) {
+  if (source.includes("both SALTA and PostgreSQL use host networking") || source.includes("shares the host network namespace") || source.includes("listen_addresses=127.0.0.1")) {
+    fail(`${name} still documents the retired PostgreSQL host-network topology`);
+  }
+  if (!source.includes("PostgreSQL") || !source.includes("127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432")) {
+    fail(`${name} does not document the loopback-only PostgreSQL bridge topology`);
+  }
+}
+if (releaseTextSource.includes("unreleased v0.8.51")) fail("RELEASE_TEXT.md incorrectly describes the tagged v0.8.51 release as unreleased");
 
 const sha256Text = (value) => createHash("sha256").update(value).digest("hex");
 const releaseManifest = read("RELEASE_MANIFEST.md");

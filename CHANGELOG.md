@@ -1,10 +1,24 @@
 # Changelog
 
+## v0.8.53
+
+- Redesigned **Settings → HomeKit** into compact bridge, runtime, pairing and device-publication sections with responsive width handling.
+- Fixed settings-page horizontal overflow by allowing the settings content column and HomeKit controls to shrink within the available viewport width.
+- Fixed the paired-state UI so the QR/pairing block is fully removed from the layout after a successful Apple Home pairing.
+- Added a central **Geräte in HomeKit** list grouped by SALTA room with source, type, target-room and live-state information.
+- Added direct per-device HomeKit publication toggles for all currently supported device types, including OpenCCU thermostats and contact sensors.
+- OpenCCU contact sensors show their live **Offen / Geschlossen** state; thermostats show current/target temperature and operating mode when available.
+- Hidden Zigbee devices remain excluded from HomeKit and cannot be enabled from the central list.
+- Replaced the warning-styled HomeKit room notice with a neutral informational note.
+- Added frontend and release-validation regression coverage for the redesigned HomeKit settings page and overflow protection.
+- No database migration, new mandatory environment variable or new npm dependency is required.
+
 ## v0.8.52
 
 - Consolidated the production Docker topology into a release-consistent candidate: SALTA uses host networking for HomeKit/mDNS, while PostgreSQL stays on the default Docker bridge and is published only on host loopback.
 - Added `RELEASE_MANIFEST.md` with SHA-256 fingerprints for `docker-compose.image.yml` and `migrate-homekit-storage.sh` so the pushed repository can be verified before tagging.
 - Aligned deployment tests, release validation, migration documentation and release instructions with the same production topology.
+- Corrected README and SECURITY documentation so they no longer describe the retired PostgreSQL host-network topology; release validation now rejects that documentation drift.
 - Explicitly documented the legacy HomeKit migration path as `/opt/SALTA/migrate-homekit-storage.sh`; it remains required only for pairing data created before v0.8.41.
 - No database migration, new mandatory environment variable or new npm dependency is required.
 

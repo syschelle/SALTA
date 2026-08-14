@@ -33,7 +33,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.52</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.53</strong></div>
   </div>
 </aside>
 
@@ -200,31 +200,45 @@
       <article class="panel settings-card" data-settings-content="shelly" hidden><div class="panel-head"><div><h2>Shelly-Zugangsdaten</h2><p class="muted">Globale Standardwerte. Jedes Gerät kann diese Zugangsdaten überschreiben oder ohne Authentifizierung arbeiten.</p></div><span class="adapter-badge">Shelly</span></div><div id="shellyCredentialWarning" class="settings-warning" role="alert" hidden></div><form id="shellyForm" class="page-form"><label>Benutzername<input id="shellyUsername" autocomplete="username"></label><label>Passwort<input id="shellyPassword" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"></label><p id="shellyPasswordState" class="setting-note"></p><div class="form-actions"><button type="submit">Einstellungen speichern</button></div></form></article>
       <article class="panel settings-card" data-settings-content="phoscon" hidden><div class="panel-head"><div><h2>Phoscon-Instanz</h2><p class="muted">Verbinde SALTA mit der lokalen deCONZ-REST-API deiner Phoscon-Installation.</p></div><span class="adapter-badge">Zigbee</span></div><div id="phosconCredentialWarning" class="settings-warning" role="alert" hidden></div><div id="phosconGatewayStatus" class="gateway-status"></div><form id="phosconForm" class="page-form"><label>Phoscon-/deCONZ-Adresse<input id="phosconBaseUrl" placeholder="z. B. http://192.168.178.20:8080" autocomplete="url" required><small>Trage die Basisadresse ohne <code>/api</code> ein.</small></label><label>API-Schlüssel<input id="phosconApiKey" type="password" autocomplete="new-password" placeholder="Leer lassen, um beizubehalten"><small>Alternativ kann SALTA nach Freigabe in Phoscon automatisch einen Schlüssel anfordern.</small></label><p id="phosconApiKeyState" class="setting-note"></p><div class="phoscon-pairing-help"><strong>Automatisch verbinden</strong><ol><li>Öffne in Phoscon: Einstellungen → Gateway → Erweitert.</li><li>Klicke auf „App verbinden“ bzw. „Authenticate app“.</li><li>Klicke innerhalb von 60 Sekunden hier auf „API-Schlüssel anfordern“.</li></ol></div><div class="form-actions split-actions"><button type="button" class="secondary" id="phosconPairButton" onclick="pairPhoscon()">API-Schlüssel anfordern</button><button type="submit">Speichern und testen</button><button type="button" class="danger" id="phosconDisconnectButton" onclick="disconnectPhoscon()">Verbindung trennen</button></div></form></article>
       <article class="panel settings-card homekit-settings-card" data-settings-content="homekit" hidden>
-        <div class="panel-head"><div><h2>Apple HomeKit</h2><p class="muted">Aktiviere die SALTA-Bridge und kopple freigegebene Geräte mit Apple Home.</p></div><span class="adapter-badge">HomeKit</span></div>
+        <div class="panel-head homekit-panel-head"><div><div class="homekit-title-row"><span class="homekit-title-icon mdi mdi-apple" aria-hidden="true"></span><div><h2>Apple HomeKit</h2><p class="muted">Bridge, Pairing und veröffentlichte Geräte an einem Ort verwalten.</p></div></div></div><span class="adapter-badge">HomeKit</span></div>
         <div id="homeKitCredentialWarning" class="settings-warning" role="alert" hidden></div>
-        <div id="homeKitStatus" class="gateway-status"></div>
-        <form id="homeKitForm" class="page-form">
-          <label class="presence-enabled-row"><span><strong>HomeKit-Bridge aktiv</strong><small>Startet oder stoppt die Bridge direkt, ohne SALTA neu zu starten.</small></span><input id="homeKitEnabled" type="checkbox"></label>
-          <label>Bridge-Name<input id="homeKitName" maxlength="120" placeholder="SALTA" required><small>Dieser Name wird beim Hinzufügen in Apple Home angezeigt.</small></label>
-          <label>Netzwerkschnittstelle<select id="homeKitNetworkInterface"><option value="">Automatisch / alle geeigneten Schnittstellen</option></select><small>Auf dem Raspberry Pi ist normalerweise die LAN-Schnittstelle die beste Wahl. Die Auswahl steuert, über welches lokale Interface HomeKit angekündigt wird.</small></label>
-          <div class="homekit-runtime-grid">
-            <div><span>Status</span><strong id="homeKitRuntimeState">–</strong></div>
-            <div><span>Pairing</span><strong id="homeKitPairingState">–</strong></div>
-            <div><span>Bridge-ID</span><strong id="homeKitUsername">–</strong></div>
-            <div><span>HAP-Port</span><strong id="homeKitPort">–</strong></div>
-            <div><span>Geräte</span><strong id="homeKitDeviceSummary">–</strong></div>
-          </div>
-          <div id="homeKitPairingBox" class="phoscon-pairing-help homekit-pairing-box" hidden>
-            <strong>Mit Apple Home koppeln</strong>
-            <p>Öffne auf iPhone oder iPad die Home-App → „+“ → „Gerät hinzufügen“ und scanne den QR-Code. Alternativ kannst du den numerischen Pairing-Code verwenden.</p>
+        <div id="homeKitStatus" class="gateway-status homekit-gateway-status"></div>
+        <form id="homeKitForm" class="page-form homekit-form">
+          <section class="homekit-section homekit-bridge-section" aria-labelledby="homeKitBridgeHeading">
+            <div class="homekit-section-head"><div><span class="mdi mdi-access-point-network" aria-hidden="true"></span><div><h3 id="homeKitBridgeHeading">Bridge</h3><p>Grundkonfiguration und lokale Netzwerkschnittstelle.</p></div></div></div>
+            <label class="presence-enabled-row homekit-enabled-row"><span><strong>HomeKit-Bridge aktiv</strong><small>Startet oder stoppt die Bridge direkt, ohne SALTA neu zu starten.</small></span><input id="homeKitEnabled" type="checkbox"></label>
+            <div class="homekit-field-grid">
+              <label>Bridge-Name<input id="homeKitName" maxlength="120" placeholder="SALTA" required><small>Dieser Name wird beim Hinzufügen in Apple Home angezeigt.</small></label>
+              <label>Netzwerkschnittstelle<select id="homeKitNetworkInterface"><option value="">Automatisch / alle geeigneten Schnittstellen</option></select><small>Auf dem Raspberry Pi ist normalerweise <b>eth0</b> die beste Wahl. Damit wird die HomeKit-Ankündigung auf das LAN begrenzt.</small></label>
+            </div>
+          </section>
+
+          <section class="homekit-section homekit-runtime-section" aria-labelledby="homeKitRuntimeHeading">
+            <div class="homekit-section-head"><div><span class="mdi mdi-heart-pulse" aria-hidden="true"></span><div><h3 id="homeKitRuntimeHeading">Laufzeitstatus</h3><p>Aktueller Zustand der HAP-Bridge und der Gerätefreigabe.</p></div></div><button type="button" class="secondary homekit-inline-action" id="homeKitRefreshButton" onclick="loadHomeKitSettings()"><span class="mdi mdi-refresh" aria-hidden="true"></span>Aktualisieren</button></div>
+            <div class="homekit-runtime-grid">
+              <div class="homekit-runtime-card"><span class="mdi mdi-access-point-check" aria-hidden="true"></span><div><small>Status</small><strong id="homeKitRuntimeState">–</strong></div></div>
+              <div class="homekit-runtime-card"><span class="mdi mdi-link-variant" aria-hidden="true"></span><div><small>Pairing</small><strong id="homeKitPairingState">–</strong></div></div>
+              <div class="homekit-runtime-card homekit-runtime-card-wide"><span class="mdi mdi-identifier" aria-hidden="true"></span><div><small>Bridge-ID</small><strong id="homeKitUsername">–</strong></div></div>
+              <div class="homekit-runtime-card"><span class="mdi mdi-lan-connect" aria-hidden="true"></span><div><small>HAP-Port</small><strong id="homeKitPort">–</strong></div></div>
+              <div class="homekit-runtime-card homekit-runtime-card-wide"><span class="mdi mdi-home-automation" aria-hidden="true"></span><div><small>Geräte</small><strong id="homeKitDeviceSummary">–</strong></div></div>
+            </div>
+          </section>
+
+          <section id="homeKitPairingBox" class="homekit-section homekit-pairing-box" aria-labelledby="homeKitPairingHeading" hidden>
+            <div class="homekit-section-head"><div><span class="mdi mdi-qrcode-scan" aria-hidden="true"></span><div><h3 id="homeKitPairingHeading">Mit Apple Home koppeln</h3><p>QR-Code scannen oder den numerischen Pairing-Code verwenden.</p></div></div></div>
             <div class="homekit-pairing-content">
               <div id="homeKitPairingQr" class="homekit-pairing-qr" aria-live="polite"></div>
-              <div class="homekit-pairing-manual"><span>Pairing-Code</span><div id="homeKitPairingCode" class="homekit-pairing-code">–</div></div>
+              <div class="homekit-pairing-copy"><p>Öffne auf iPhone oder iPad die Home-App → „+“ → „Gerät hinzufügen“ und scanne den QR-Code.</p><div class="homekit-pairing-manual"><span>Pairing-Code</span><div id="homeKitPairingCode" class="homekit-pairing-code">–</div></div><p id="homeKitSetupUriState" class="setting-note"></p></div>
             </div>
-            <p id="homeKitSetupUriState" class="setting-note"></p>
-          </div>
-          <div class="settings-warning"><strong>HomeKit-Räume</strong><span>SALTA speichert den gewünschten Zielraum pro Gerät. Apple Home entscheidet die tatsächliche Raumzuordnung beim Pairing; SALTA kann diese Zuordnung über HAP nicht zuverlässig erzwingen.</span></div>
-          <div class="form-actions split-actions"><button type="button" class="secondary" id="homeKitRefreshButton" onclick="loadHomeKitSettings()"><span class="mdi mdi-refresh" aria-hidden="true"></span>Status aktualisieren</button><button type="submit">Einstellungen speichern</button><button type="button" class="danger" id="homeKitResetButton" onclick="resetHomeKitPairing()">Pairing zurücksetzen</button></div>
+          </section>
+
+          <section class="homekit-section homekit-devices-section" aria-labelledby="homeKitDevicesHeading">
+            <div class="homekit-section-head"><div><span class="mdi mdi-home-switch-outline" aria-hidden="true"></span><div><h3 id="homeKitDevicesHeading">Geräte in HomeKit</h3><p>Unterstützte SALTA-Geräte direkt für Apple Home freigeben.</p></div></div><span id="homeKitDeviceCount" class="count-badge">0 / 0</span></div>
+            <div id="homeKitDeviceList" class="homekit-device-list"><article class="empty-state compact"><strong>Geräte werden geladen …</strong></article></div>
+          </section>
+
+          <div class="homekit-info-note"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div><strong>HomeKit-Räume</strong><span>SALTA speichert den gewünschten Zielraum pro Gerät. Apple Home entscheidet die tatsächliche Raumzuordnung beim Pairing; SALTA kann diese Zuordnung über HAP nicht zuverlässig erzwingen.</span></div></div>
+          <div class="form-actions split-actions homekit-actions"><button type="submit"><span class="mdi mdi-content-save-outline" aria-hidden="true"></span>Einstellungen speichern</button><button type="button" class="danger" id="homeKitResetButton" onclick="resetHomeKitPairing()"><span class="mdi mdi-link-variant-off" aria-hidden="true"></span>Pairing zurücksetzen</button></div>
         </form>
       </article>
       <article class="panel settings-card" data-settings-content="climate" hidden><div class="panel-head"><div><h2>Heizmodus</h2><p class="muted">Lege fest, in welcher Betriebsart alle kompatiblen Thermostate beim Aktivieren des Wintermodus starten.</p></div><span class="adapter-badge">SALTA</span></div><div id="climateSettingsStatus" class="gateway-status"></div><form id="climateSettingsForm" class="page-form"><label>Winterbetrieb<select id="climateSettingsWinterMode"><option value="manual">Handbetrieb</option><option value="auto">Automatik</option></select><small>Diese Einstellung wird beim nächsten Wechsel auf Winter verwendet. Speichern allein schaltet keine Thermostate um.</small></label><div class="phoscon-pairing-help"><strong>Verhalten</strong><p><b>Sommer</b> setzt alle kompatiblen Thermostate auf Aus. <b>Winter</b> verwendet die hier gespeicherte Betriebsart. Der globale Heizmodus bleibt eine reine SALTA-Funktion und wird nicht an HomeKit übergeben.</p></div><div class="form-actions split-actions"><button type="button" class="secondary" id="climateApplyNowButton" onclick="applyClimateSettingsNow()"><span class="mdi mdi-radiator" aria-hidden="true"></span>Aktuellen Modus jetzt anwenden</button><button type="submit">Einstellungen speichern</button></div></form></article>
