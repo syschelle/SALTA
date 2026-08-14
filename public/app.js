@@ -157,6 +157,7 @@ async function applyClimateSettingsNow(){
 function renderNotificationSettings(){
   if(!notificationData)return;
   notificationEnabled.checked=Boolean(notificationData.enabled);
+  notificationDebugEnabled.checked=Boolean(notificationData.debugEnabled);
   notificationUserKey.value='';notificationApiToken.value='';
   notificationUserKeyState.textContent=notificationData.userKeyConfigured?'User Key ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.':'Noch kein User Key gespeichert.';
   notificationApiTokenState.textContent=notificationData.apiTokenConfigured?'API Token ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.':'Noch kein API Token gespeichert.';
@@ -174,7 +175,7 @@ function renderNotificationSettings(){
 async function loadNotificationSettings(){notificationData=await api('/api/settings/notifications');renderNotificationSettings();renderBatteryOverview();return notificationData}
 async function saveNotificationSettings(){
   try{
-    notificationData=await api('/api/settings/notifications',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:notificationEnabled.checked,userKey:notificationUserKey.value.trim()||undefined,apiToken:notificationApiToken.value.trim()||undefined,batteryThreshold:Number(notificationBatteryThreshold.value)})});
+    notificationData=await api('/api/settings/notifications',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:notificationEnabled.checked,debugEnabled:notificationDebugEnabled.checked,userKey:notificationUserKey.value.trim()||undefined,apiToken:notificationApiToken.value.trim()||undefined,batteryThreshold:Number(notificationBatteryThreshold.value)})});
     renderNotificationSettings();renderBatteryOverview();notify('Pushover- und Batteriewarnungs-Einstellungen wurden gespeichert.');
   }catch(error){notify(error.message,true)}
 }

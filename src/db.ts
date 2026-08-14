@@ -740,6 +740,18 @@ export async function updateClimateWinterMode(winterMode: "manual" | "auto"): Pr
   return getClimateModeSettings();
 }
 
+async function getNotificationDebugEnabled(): Promise<boolean> {
+  const result = await pool.query<{ enabled: boolean }>(
+    "SELECT COALESCE((details->>'enabled')::boolean,false) AS enabled FROM notification_state WHERE key='debug-mode'"
+  );
+  return result.rows[0]?.enabled ?? false;
+}
+
+async function setNotificationDebugEnabled(enabled: boolean): Promise<void> {
+  await pool.query(`INSERT INTO notification_state(key,details,updated_at) VALUES('debug-mode',$1::jsonb,now())
+    ON CONFLICT(key) DO UPDATE SET details=EXCLUDED.details,updated_at=now()`, [JSON.stringify({ enabled })]);
+}
+
 export async function getPushoverSettings(): Promise<PushoverSettings> {
   const result = await pool.query<{ enabled: boolean; encrypted_user_key: string; encrypted_api_token: string; battery_threshold: number }>(
     "SELECT enabled,encrypted_user_key,encrypted_api_token,battery_threshold FROM notification_settings WHERE channel='pushover'"
@@ -752,11 +764,12 @@ export async function getPushoverSettings(): Promise<PushoverSettings> {
     userKeyConfigured: Boolean(userSecret),
     apiTokenConfigured: Boolean(tokenSecret),
     encryptionStatus: (userSecret && !secretIsReadable(userSecret)) || (tokenSecret && !secretIsReadable(tokenSecret)) ? "invalid" : "ok",
-    batteryThreshold: row?.battery_threshold ?? 20
+    batteryThreshold: row?.battery_threshold ?? 20,
+    debugEnabled: await getNotificationDebugEnabled()
   };
 }
 
-export async function getPushoverConnection(): Promise<{ enabled: boolean; userKey: string; apiToken: string; batteryThreshold: number }> {
+export async function getPushoverConnection(): Promise<{ enabled: boolean; userKey: string; apiToken: string; batteryThreshold: number; debugEnabled: boolean }> {
   const result = await pool.query<{ enabled: boolean; encrypted_user_key: string; encrypted_api_token: string; battery_threshold: number }>(
     "SELECT enabled,encrypted_user_key,encrypted_api_token,battery_threshold FROM notification_settings WHERE channel='pushover'"
   );
@@ -765,11 +778,12 @@ export async function getPushoverConnection(): Promise<{ enabled: boolean; userK
     enabled: row?.enabled ?? false,
     userKey: decryptStoredSecret(row?.encrypted_user_key),
     apiToken: decryptStoredSecret(row?.encrypted_api_token),
-    batteryThreshold: row?.battery_threshold ?? 20
+    batteryThreshold: row?.battery_threshold ?? 20,
+    debugEnabled: await getNotificationDebugEnabled()
   };
 }
 
-export async function updatePushoverSettings(input: { enabled: boolean; userKey?: string; apiToken?: string; batteryThreshold: number }): Promise<PushoverSettings> {
+export async function updatePushoverSettings(input: { enabled: boolean; userKey?: string; apiToken?: string; batteryThreshold: number; debugEnabled: boolean }): Promise<PushoverSettings> {
   const current = await pool.query<{ encrypted_user_key: string; encrypted_api_token: string }>(
     "SELECT encrypted_user_key,encrypted_api_token FROM notification_settings WHERE channel='pushover'"
   );
@@ -783,6 +797,7 @@ export async function updatePushoverSettings(input: { enabled: boolean; userKey?
     VALUES('pushover',$1,$2,$3,$4,now())
     ON CONFLICT(channel) DO UPDATE SET enabled=EXCLUDED.enabled,encrypted_user_key=EXCLUDED.encrypted_user_key,encrypted_api_token=EXCLUDED.encrypted_api_token,battery_threshold=EXCLUDED.battery_threshold,updated_at=now()`,
     [input.enabled,encryptedUser,encryptedToken,input.batteryThreshold]);
+  await setNotificationDebugEnabled(input.debugEnabled);
   return getPushoverSettings();
 }
 

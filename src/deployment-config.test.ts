@@ -30,7 +30,7 @@ describe("production deployment configuration", () => {
     expect(productionCompose).toContain("postgres:");
     expect(productionCompose).toContain("image: postgres:17-alpine");
     expect(productionCompose).toContain("salta:");
-    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.41}");
+    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.42}");
     expect(productionCompose).toContain("salta_postgres_data:");
     expect(productionCompose).toContain("salta_runtime_data:");
     expect(productionCompose).toContain("name: salta_runtime_data");
@@ -74,7 +74,7 @@ describe("production deployment configuration", () => {
     expect(environmentExample).not.toContain("MOCK_EVENT_INTERVAL_MS");
   });
 
-  it("ships a one-time migration helper for pre-v0.8.41 HomeKit pairing state", () => {
+  it("ships a one-time migration helper for pre-v0.8.42 HomeKit pairing state", () => {
     expect(homeKitMigrationScript).toContain('LEGACY_PATH="/app/persist"');
     expect(homeKitMigrationScript).toContain('VOLUME_NAME="${SALTA_RUNTIME_VOLUME:-salta_runtime_data}"');
     expect(homeKitMigrationScript).toContain('docker cp "$CONTAINER_NAME:$LEGACY_PATH/."');

@@ -35,6 +35,7 @@ async function main(): Promise<void> {
   openCcu.start();
   presence.start();
   batteryMonitor.start();
+  climate.start();
 
   const homekit = new HomeKitBridge(registry, commands);
   homekit.start();
@@ -63,6 +64,7 @@ async function main(): Promise<void> {
     await server.close();
     homekit.stop();
     automations.stop();
+    climate.stop();
     batteryMonitor.stop();
     presence.stop();
     await openCcu.stop();

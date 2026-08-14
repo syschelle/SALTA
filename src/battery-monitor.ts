@@ -1,6 +1,7 @@
 import type { BatteryWarningDevice, Device } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 import { getNotificationLastSent, getPushoverConnection, getPushoverSettings, setNotificationLastSent, writeSystemLog } from "./db.js";
+import { sendPushoverMessage, type PushoverSender } from "./pushover.js";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const CHECK_INTERVAL_MS = 60 * 60 * 1000;
@@ -14,8 +15,6 @@ export interface BatteryMonitorStatus {
   lastSentAt?: string;
   nextEligibleAt?: string;
 }
-
-type PushoverSender = (input: { userKey: string; apiToken: string; title: string; message: string }) => Promise<void>;
 
 function batteryPercent(device: Device): number | undefined {
   const value = Number(device.state?.battery);
@@ -48,27 +47,6 @@ function batteryMessage(warnings: BatteryWarningDevice[], threshold: number): st
   let message = [heading, ...lines].join("\n");
   if (message.length > 1000) message = `${message.slice(0, 997)}…`;
   return message;
-}
-
-export async function sendPushoverMessage(input: { userKey: string; apiToken: string; title: string; message: string }): Promise<void> {
-  const body = new URLSearchParams({
-    token: input.apiToken,
-    user: input.userKey,
-    title: input.title,
-    message: input.message,
-    priority: "0"
-  });
-  const response = await fetch("https://api.pushover.net/1/messages.json", {
-    method: "POST",
-    headers: {
-      "content-type": "application/x-www-form-urlencoded",
-      "user-agent": "SALTA/0.8"
-    },
-    body,
-    signal: AbortSignal.timeout(10_000)
-  });
-  const payload = await response.json().catch(() => ({})) as { status?: number; errors?: unknown };
-  if (!response.ok || payload.status !== 1) throw new Error(`PUSHOVER_REQUEST_FAILED:${response.status}`);
 }
 
 export class BatteryMonitor {

@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.42
+
+- Added a Summer-mode thermostat guard that checks compatible thermostats every 12 hours and restores any non-OFF thermostat to SALTA's existing OFF state.
+- Added a delayed startup guard check so unintended thermostat mode drift is corrected after integrations initialize.
+- Kept Winter mode untouched and reused the existing OpenCCU OFF mapping, including manual/hand mode at minimum target temperature where no native OFF mode exists.
+- Added optional DEBUG-Pushover notifications for thermostat corrections and failures without sending routine all-clear messages.
+- Persisted the DEBUG switch in the existing notification-state storage, avoiding any database schema migration and preserving v0.8.41 backup compatibility.
+- Extracted the shared Pushover sender into a dedicated module for battery and climate diagnostics.
+- Added regression coverage for Summer-mode drift correction, Winter-mode inactivity and DEBUG notification delivery.
+- No new npm dependency or mandatory environment variable was added.
+
 ## v0.8.41
 
 - Removed the obsolete standalone test-tsconfig release requirement completely and added a CI-visible validator contract marker so checkout state can be verified unambiguously.

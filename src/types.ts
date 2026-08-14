@@ -194,6 +194,7 @@ export interface PushoverSettings {
   apiTokenConfigured: boolean;
   encryptionStatus: "ok" | "invalid";
   batteryThreshold: number;
+  debugEnabled: boolean;
 }
 
 export interface BatteryWarningDevice {

@@ -43,6 +43,7 @@ describe("system overview controls", () => {
     expect(html).toContain('class="system-card-action"');
     expect(html).toContain('data-settings-panel="notifications"');
     expect(html).toContain('id="notificationBatteryThreshold"');
+    expect(html).toContain('id="notificationDebugEnabled"');
     expect(html).toContain('id="notificationTestButton"');
     expect(hasFunction(app, "renderBatteryOverview")).toBe(true);
     expect(functionCallsWithStringArgument(app, "loadSystemControls", "api", "/api/settings/notifications")).toBe(true);

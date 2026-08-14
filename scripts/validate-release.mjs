@@ -73,6 +73,7 @@ if (!virtualFrontend.includes("add('Sensor-Ressourcen',adapter.sensorResourceIds
 if (!serverSource.includes('"/api/adapters/virtual/devices"')) fail("Virtual device creation API route is missing");
 const climateModeSource = read("src/climate-mode.ts");
 const batteryMonitorSource = read("src/battery-monitor.ts");
+const pushoverSource = read("src/pushover.ts");
 const climateDbSource = read("src/db.ts");
 if (!publicIndex.includes('id="climateSummerButton"') || !publicIndex.includes('id="climateWinterButton"') || !publicIndex.includes('id="climateWinterModeDisplay"')) fail("Global summer/winter thermostat controls are missing");
 if (!publicIndex.includes('data-settings-panel="climate"') || !publicIndex.includes('id="climateSettingsWinterMode"') || !publicIndex.includes('id="climateApplyNowButton"')) fail("Climate mode settings are missing");
@@ -81,7 +82,7 @@ if (!serverSource.includes('"/api/system/climate-mode"') || !serverSource.includ
 if (!climateModeSource.includes('value: targetMode') || !climateModeSource.includes('source: "system"')) fail("Climate mode does not route thermostat mode commands through SALTA system commands");
 if (!climateModeSource.includes('async setWinterMode') || !climateModeSource.includes('updateClimateWinterMode')) fail("Winter thermostat mode is not stored separately from mode application");
 if (!batteryMonitorSource.includes("7 * 24 * 60 * 60 * 1000")) fail("Battery warning does not enforce the seven-day notification interval");
-if (!batteryMonitorSource.includes("https://api.pushover.net/1/messages.json")) fail("Pushover message endpoint is missing");
+if (!pushoverSource.includes("https://api.pushover.net/1/messages.json")) fail("Pushover message endpoint is missing");
 if (!publicIndex.includes('data-settings-panel="notifications"') || !publicIndex.includes('id="notificationBatteryThreshold"')) fail("Pushover battery warning settings are missing");
 if (!climateDbSource.includes("CREATE TABLE IF NOT EXISTS climate_mode_settings") || !climateDbSource.includes("CREATE TABLE IF NOT EXISTS notification_settings") || !climateDbSource.includes("CREATE TABLE IF NOT EXISTS notification_state")) fail("Climate and notification persistence tables are missing");
 if (!climateDbSource.includes("encrypted_user_key") || !climateDbSource.includes("encrypted_api_token")) fail("Pushover credentials are not stored in encrypted fields");
