@@ -533,9 +533,9 @@ html[data-theme="dark"] .configuration-backup-file-state.error{background:#2a171
 .homekit-runtime-grid strong{font-size:.92rem;overflow-wrap:anywhere}
 .homekit-pairing-box{display:flex;flex-direction:column;align-items:flex-start;gap:.7rem}
 .homekit-pairing-content{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}
-.homekit-pairing-qr{width:210px;max-width:100%;padding:.55rem;border:1px solid var(--line);border-radius:12px;background:#fff;line-height:0}
+.homekit-pairing-qr{width:210px;max-width:100%;padding:.55rem;border:1px solid var(--line);border-radius:12px;background:#fff;line-height:0;display:flex;align-items:center;justify-content:center;aspect-ratio:1 / 1}
 .homekit-pairing-qr[hidden]{display:none}
-.homekit-pairing-qr-svg{display:block;width:100%;height:auto;image-rendering:pixelated}
+.homekit-pairing-qr-svg{display:block;width:100%;height:auto;image-rendering:pixelated;flex:0 0 auto}
 .homekit-pairing-manual{display:flex;flex-direction:column;align-items:flex-start;gap:.35rem}.homekit-pairing-manual>span{font-size:.78rem;color:var(--muted)}
 .homekit-pairing-code{font:700 1.45rem/1.1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.08em;padding:.65rem .85rem;border:1px solid var(--line);border-radius:10px;background:var(--card);user-select:all}
 @media(max-width:700px){.homekit-runtime-grid{grid-template-columns:1fr 1fr}.homekit-pairing-content{align-items:flex-start}.homekit-pairing-qr{width:min(210px,100%)}.homekit-pairing-code{font-size:1.2rem}}

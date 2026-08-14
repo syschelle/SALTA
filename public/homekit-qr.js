@@ -160,7 +160,7 @@
         }
       }
     }
-    return `<svg class="homekit-pairing-qr-svg" viewBox="0 0 ${viewSize} ${viewSize}" role="img" aria-label="HomeKit Pairing QR-Code" xmlns="http://www.w3.org/2000/svg"><rect width="${viewSize}" height="${viewSize}" fill="#fff"/><path d="${path}" fill="#000"/></svg>`;
+    return `<svg class="homekit-pairing-qr-svg" viewBox="0 0 ${viewSize} ${viewSize}" width="${viewSize}" height="${viewSize}" role="img" aria-label="HomeKit Pairing QR-Code" xmlns="http://www.w3.org/2000/svg"><rect width="${viewSize}" height="${viewSize}" fill="#fff"/><path d="${path}" fill="#000"/></svg>`;
   }
 
   global.createHomeKitSetupQrMatrix=createMatrix;

@@ -1,4 +1,4 @@
-# SALTA v0.8.46 Git commands
+# SALTA v0.8.47 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(homekit): add local QR-code pairing"
+git commit -m "fix(homekit): sync pairing code and render QR reliably"
 git push origin main
 ```
 
@@ -22,8 +22,8 @@ npm run check
 The validator output must include:
 
 ```text
-Release validator contract: SALTA v0.8.46 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.46.
+Release validator contract: SALTA v0.8.47 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.47.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be completely green on `main`.
@@ -34,8 +34,8 @@ Wait for GitHub CI and both CodeQL analyses to be completely green on `main`.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.46 -m "SALTA v0.8.46"
-git push origin v0.8.46
+git tag -a v0.8.47 -m "SALTA v0.8.47"
+git push origin v0.8.47
 ```
 
 ## Production update after the release image is available
@@ -46,4 +46,4 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-Updating from v0.8.45 does not require the legacy HomeKit storage migration.
+Updating from v0.8.45 or a local v0.8.46 test deployment does not require the legacy HomeKit storage migration.

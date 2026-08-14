@@ -120,6 +120,7 @@ export class HomeKitBridge {
   private listeningAddress?: string;
   private listeningPort?: number;
   private setupUri?: string;
+  private activePin?: string;
   private lastError?: string;
 
   private readonly onDevice = (device: Device) => this.sync(device);
@@ -140,6 +141,16 @@ export class HomeKitBridge {
     this.initializeStorage();
     try { return AccessoryInfo.load(username)?.paired() ?? false; }
     catch { return false; }
+  }
+
+  private accessoryInfoPin(username: string): string | undefined {
+    this.initializeStorage();
+    try {
+      const pin = (AccessoryInfo.load(username) as unknown as { pincode?: unknown } | null)?.pincode;
+      return typeof pin === "string" && /^\d{3}-\d{2}-\d{3}$/.test(pin) ? pin : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   async start(): Promise<HomeKitStatus> {
@@ -163,12 +174,13 @@ export class HomeKitBridge {
     this.listeningAddress = undefined;
     this.listeningPort = undefined;
     this.setupUri = undefined;
+    this.activePin = undefined;
 
     const bridge = new Bridge(settings.name, uuid.generate("salta:bridge"));
     bridge.getService(Service.AccessoryInformation)
       ?.setCharacteristic(Characteristic.Manufacturer, "SALTA")
       .setCharacteristic(Characteristic.Model, "SALTA HomeKit Bridge")
-      .setCharacteristic(Characteristic.FirmwareRevision, "0.8.46")
+      .setCharacteristic(Characteristic.FirmwareRevision, "0.8.47")
       .setCharacteristic(Characteristic.SerialNumber, settings.username.replace(/:/g, ""));
     bridge.on("listening", (port, address) => {
       this.listeningPort = port;
@@ -208,6 +220,7 @@ export class HomeKitBridge {
       });
       this.running = true;
       this.paired = this.pairingState(settings.username);
+      this.activePin = this.accessoryInfoPin(settings.username) ?? settings.pin;
       this.setupUri = bridge.setupURI();
       await writeSystemLog("info", "homekit", "HOMEKIT_STARTED", "SALTA HomeKit bridge started", {
         name: settings.name,
@@ -238,6 +251,7 @@ export class HomeKitBridge {
     this.listeningAddress = undefined;
     this.listeningPort = undefined;
     this.setupUri = undefined;
+    this.activePin = undefined;
     this.accessories.clear();
     this.services.clear();
     this.accessoryTypes.clear();
@@ -282,7 +296,7 @@ export class HomeKitBridge {
     const settings = await updateHomeKitSettings({
       enabled: current.enabled,
       name: current.name,
-      username: current.username,
+      username: generatedUsername(),
       pin: generatedPin(),
       networkInterface: current.networkInterface
     });
@@ -296,11 +310,15 @@ export class HomeKitBridge {
   async status(): Promise<HomeKitStatus> {
     const settings = this.settings ?? await getHomeKitSettings();
     this.settings = settings;
-    if (!this.running) this.paired = this.pairingState(settings.username);
+    if (!this.running) {
+      this.paired = this.pairingState(settings.username);
+      this.activePin = !this.paired ? (this.accessoryInfoPin(settings.username) ?? settings.pin) : undefined;
+    }
     const supportedDevices = this.registry.all().filter(isHomeKitSupportedDevice).length;
     const publishedDevices = this.running ? this.accessories.size : 0;
     return {
       ...settings,
+      pin: !this.paired ? (this.activePin ?? settings.pin) : settings.pin,
       running: this.running,
       paired: this.paired,
       advertised: this.advertised,
@@ -348,7 +366,7 @@ export class HomeKitBridge {
         ?.setCharacteristic(Characteristic.Manufacturer, "SALTA")
         .setCharacteristic(Characteristic.Model, device.model || `SALTA ${device.source}`)
         .setCharacteristic(Characteristic.SerialNumber, device.macAddress || device.sourceId)
-        .setCharacteristic(Characteristic.FirmwareRevision, device.firmwareVersion || "0.8.46");
+        .setCharacteristic(Characteristic.FirmwareRevision, device.firmwareVersion || "0.8.47");
       const primary = this.addService(accessory, device, serviceType, accessoryName);
       if (!primary) return;
       this.addBatteryService(accessory, device);

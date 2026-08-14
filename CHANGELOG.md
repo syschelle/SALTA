@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.47
+
+- Fixed the HomeKit pairing QR code rendering in the web interface by emitting explicit SVG width and height attributes and keeping the pairing panel layout square and stable.
+- Fixed the displayed HomeKit manual pairing code so SALTA now exposes the effective runtime bridge pincode for unpaired bridges instead of relying only on the stored settings value.
+- Hardened HomeKit pairing resets by generating both a fresh bridge username and a fresh pairing code before republishing the bridge.
+- Preserved local-only QR generation with no external QR service, no new npm dependency and no plain-text setup URI embedded in the SVG output.
+- No database migration, HomeKit storage migration or new mandatory environment variable is required.
+
 ## v0.8.46
 
 - Added a fully local HomeKit pairing QR code under **Settings → HomeKit**.
