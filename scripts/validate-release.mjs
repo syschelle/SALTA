@@ -265,9 +265,12 @@ if (homeKitQrSource.includes("fetch(") || homeKitQrSource.includes("XMLHttpReque
 if ((serverSource.split("setupUri:").length - 1) < 3) fail("HomeKit settings API does not expose the setup URI for unpaired QR generation");
 if (!publicIndex.includes('id="deviceHomeKitEnabled"') || !publicIndex.includes('id="deviceHomeKitUseSaltaRoom"') || !publicIndex.includes('id="deviceHomeKitRoom"')) fail("Device HomeKit configuration controls are incomplete");
 if (!virtualFrontend.includes("function homeKitSupportedDevice(d)") || !virtualFrontend.includes("function loadHomeKitSettings()") || !virtualFrontend.includes("function saveHomeKitSettings()") || !virtualFrontend.includes("function resetHomeKitPairing()")) fail("HomeKit frontend runtime controls are incomplete");
-if (!productionCompose.includes("network_mode: host") || !productionCompose.includes('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432')) fail("Production Compose is not configured for HomeKit mDNS host networking with loopback-only PostgreSQL");
-if (productionCompose.includes("internal: true")) fail("Production Compose must not isolate PostgreSQL on an internal bridge while SALTA reaches it through the host loopback port");
-if (/postgres:[\s\S]*?networks:\s*\n\s*-\s*backend/.test(productionCompose)) fail("Production PostgreSQL must use a normal bridge network so its loopback-only published port remains reachable from host-networked SALTA");
+const hostNetworkCount = (productionCompose.match(/network_mode: host/g) ?? []).length;
+if (hostNetworkCount < 2 || !productionCompose.includes("listen_addresses=127.0.0.1") || !productionCompose.includes("port=${POSTGRES_HOST_PORT:-5433}")) fail("Production Compose must run SALTA and PostgreSQL in host networking with PostgreSQL bound to loopback only");
+if (!productionCompose.includes("pg_isready -h 127.0.0.1 -p ${POSTGRES_HOST_PORT:-5433}")) fail("Production PostgreSQL healthcheck must target the loopback-only host-network port");
+if (productionCompose.includes('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432')) fail("Production Compose must not depend on Docker port publishing for PostgreSQL when SALTA uses host networking");
+if (productionCompose.includes("internal: true")) fail("Production Compose must not define the retired internal PostgreSQL bridge");
+if (/postgres:[\s\S]*?ports:/.test(productionCompose)) fail("Production PostgreSQL must bind directly to loopback in host networking instead of relying on Docker port publishing");
 
 const packageJson = json("package.json");
 const packageLock = json("package-lock.json");

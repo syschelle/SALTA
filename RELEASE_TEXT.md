@@ -1,29 +1,30 @@
-# SALTA v0.8.49
+# SALTA v0.8.50
 
-SALTA v0.8.49 fixes the production Docker networking topology used by the HomeKit-capable deployment. In v0.8.48, SALTA correctly used host networking for HAP/mDNS, but PostgreSQL was still attached to the custom `internal: true` backend bridge while SALTA tried to reach PostgreSQL through the host-loopback publication on port 5433. On the affected production deployment this resulted in PostgreSQL being healthy while SALTA restarted with `ECONNREFUSED 127.0.0.1:5433`.
+SALTA v0.8.50 replaces the unsuccessful PostgreSQL bridge-network workaround from v0.8.49 with a deterministic host-network topology for both SALTA and PostgreSQL. This removes Docker NAT and host-port publishing from the database connection path while keeping PostgreSQL strictly bound to host loopback.
 
 ## Production networking fix
 
-- Removed the custom `internal: true` backend network from the production `docker-compose.image.yml`.
-- PostgreSQL now uses Docker's normal bridge networking.
-- PostgreSQL remains published **only** on host loopback at `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`.
-- SALTA continues to use `network_mode: host` so HomeKit HAP/mDNS advertisements can reach the local LAN directly.
+- SALTA continues to use `network_mode: host` so HomeKit HAP/mDNS advertisements can reach the Raspberry Pi LAN directly.
+- PostgreSQL now also uses `network_mode: host`.
+- PostgreSQL is started explicitly with `listen_addresses=127.0.0.1`.
+- PostgreSQL listens on `${POSTGRES_HOST_PORT:-5433}` instead of relying on Docker port publishing.
 - SALTA continues to connect to PostgreSQL through `127.0.0.1:${POSTGRES_HOST_PORT:-5433}`.
-- No PostgreSQL port is exposed on a LAN-facing host address.
+- No PostgreSQL socket is exposed on a LAN-facing address.
+- Docker NAT, `ports:` mappings and custom bridge networking are no longer part of the production database path.
 
-## Deployment regression protection
+## Healthcheck and regression protection
 
-- Updated the production deployment test to require HomeKit host networking and loopback-only PostgreSQL without an internal backend bridge.
-- Extended release validation to reject `internal: true` in the production Compose topology used for PostgreSQL.
-- Extended release validation to reject attaching production PostgreSQL to the retired `backend` network while SALTA uses host networking.
-- Updated README and security documentation to describe the corrected topology.
+- Updated the PostgreSQL healthcheck to use `127.0.0.1:${POSTGRES_HOST_PORT:-5433}`.
+- Updated deployment tests to require host networking for both SALTA and PostgreSQL.
+- Extended release validation to reject PostgreSQL port publishing or reintroduction of the retired internal backend bridge.
+- Documented the loopback-only PostgreSQL host-network topology in README and SECURITY documentation.
 
 ## Compatibility
 
-- Builds on SALTA v0.8.48.
+- Supersedes the unsuccessful SALTA v0.8.49 bridge-network workaround.
 - No database migration is required.
 - No HomeKit storage migration is required.
-- Existing PostgreSQL and `salta_runtime_data` volumes remain compatible and must not be deleted during the update.
+- Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible and must not be deleted during the update.
 - No new mandatory environment variable is required.
 - No new npm dependency is introduced.
 
@@ -39,4 +40,4 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-After recreation, PostgreSQL should show a loopback-only mapping similar to `127.0.0.1:5433->5432/tcp`, while the SALTA container should use host networking and therefore show no Docker port mappings of its own.
+After recreation, both containers use host networking and therefore show no Docker port mappings. PostgreSQL must be visible on host loopback at `127.0.0.1:${POSTGRES_HOST_PORT:-5433}` when checked with `ss`, while SALTA should start normally and connect through the same loopback endpoint.

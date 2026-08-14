@@ -30,7 +30,7 @@ describe("production deployment configuration", () => {
     expect(productionCompose).toContain("postgres:");
     expect(productionCompose).toContain("image: postgres:17-alpine");
     expect(productionCompose).toContain("salta:");
-    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.49}");
+    expect(productionCompose).toContain("image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.50}");
     expect(productionCompose).toContain("salta_postgres_data:");
     expect(productionCompose).toContain("salta_runtime_data:");
     expect(productionCompose).toContain("name: salta_runtime_data");
@@ -38,7 +38,8 @@ describe("production deployment configuration", () => {
     expect(productionCompose).toContain("HOMEKIT_STORAGE_PATH: /var/lib/salta/homekit");
     expect(productionCompose).toContain("SALTA_RUNTIME_SETTINGS_PATH: /var/lib/salta/runtime/settings.json");
     expect(productionCompose).toContain("network_mode: host");
-    expect(productionCompose).toContain('"127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"');
+    expect(productionCompose).toContain("listen_addresses=127.0.0.1");
+    expect(productionCompose).toContain("port=${POSTGRES_HOST_PORT:-5433}");
     expect(productionCompose).toContain("DATABASE_URL: postgres://${POSTGRES_USER:-salta}:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_HOST_PORT:-5433}/${POSTGRES_DB:-salta}");
     expect(productionCompose).toContain("condition: service_healthy");
     expect(productionCompose).not.toContain("internal: true");
@@ -80,9 +81,13 @@ describe("production deployment configuration", () => {
     expect(productionCompose).toContain("network_mode: host");
     expect(productionCompose).not.toContain("HOMEKIT_BIND_ADDRESS");
     expect(productionCompose).not.toContain('${HOMEKIT_PORT:-51826}:${HOMEKIT_PORT:-51826}/tcp');
-    expect(productionCompose).toContain('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432');
+    expect((productionCompose.match(/network_mode: host/g) ?? [])).toHaveLength(2);
+    expect(productionCompose).toContain("listen_addresses=127.0.0.1");
+    expect(productionCompose).toContain("port=${POSTGRES_HOST_PORT:-5433}");
+    expect(productionCompose).toContain("pg_isready -h 127.0.0.1 -p ${POSTGRES_HOST_PORT:-5433}");
+    expect(productionCompose).not.toContain('127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432');
     expect(productionCompose).not.toContain("internal: true");
-    expect(productionCompose).not.toMatch(/postgres:[\s\S]*?networks:\s*\n\s*-\s*backend/);
+    expect(productionCompose).not.toMatch(/postgres:[\s\S]*?ports:/);
   });
 
   it("ships a one-time migration helper for pre-v0.8.41 HomeKit pairing state", () => {

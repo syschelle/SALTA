@@ -1,4 +1,4 @@
-# SALTA v0.8.49 Git commands
+# SALTA v0.8.50 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(deploy): restore PostgreSQL access with HomeKit host networking"
+git commit -m "fix(deploy): run PostgreSQL loopback-only in host network"
 git push origin main
 ```
 
@@ -22,8 +22,8 @@ npm run check
 The validator output must include:
 
 ```text
-Release validator contract: SALTA v0.8.49 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.49.
+Release validator contract: SALTA v0.8.50 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.50.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be completely green on `main`.
@@ -34,8 +34,8 @@ Wait for GitHub CI and both CodeQL analyses to be completely green on `main`.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.49 -m "SALTA v0.8.49"
-git push origin v0.8.49
+git tag -a v0.8.50 -m "SALTA v0.8.50"
+git push origin v0.8.50
 ```
 
 ## Production update after the release image is available
