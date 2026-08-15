@@ -128,6 +128,32 @@ describe("automation frontend", () => {
     expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card", "padding:9px")).toBe(true);
     expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card-controls", "gap:4px")).toBe(true);
   });
+  it("allows a virtual on-trigger to select itself only as a safe off reset", () => {
+    const elements: Record<string, any> = {
+      automationTriggerDevice: { value: "virtual-geofence", addEventListener() {} },
+      automationTriggerState: { value: "on", addEventListener() {} },
+      automationTriggerValue: { value: "true", addEventListener() {} },
+      automationActionDevice: { value: "", addEventListener() {} },
+    };
+    const sandbox: Record<string, unknown> = {
+      document: { getElementById: (id: string) => elements[id] ?? null },
+      all: [
+        { id: "virtual-geofence", name: "Geofence", source: "virtual", type: "switch", state: { on: true }, capabilities: ["turnOn", "turnOff", "toggle"] },
+        { id: "physical", name: "Physical", source: "shelly", type: "switch", state: { on: true }, capabilities: ["turnOn", "turnOff", "toggle"] },
+      ],
+      rooms: [], labels: {}, sourceLabels: { virtual: "Virtuell", shelly: "Shelly" }, typeLabels: {}, console,
+    };
+    runInNewContext(`${ui}\nglobalThis.__allowed=automationTargetDeviceAllowed;globalThis.__actions=automationActionsForTargetDevice;`, sandbox);
+    const allowed = sandbox.__allowed as (device: unknown, used?: Set<string>) => boolean;
+    const actions = sandbox.__actions as (id: string) => string[];
+    expect(allowed((sandbox.all as any[])[0])).toBe(true);
+    expect(actions("virtual-geofence")).toEqual(["turnOff"]);
+
+    elements.automationTriggerDevice.value = "physical";
+    expect(allowed((sandbox.all as any[])[1])).toBe(false);
+    expect(actions("physical")).toEqual([]);
+  });
+
   it("supports multiple target devices in the Dann step", () => {
     expect(html).toContain('id="automationAdditionalActions"');
     expect(html).toContain('id="automationAddActionButton"');
@@ -140,6 +166,9 @@ describe("automation frontend", () => {
     expect(ui).toContain("additionalActions:automationAdditionalActionPayload()");
     expect(ui).toContain("automationActionSummaryMarkup(summary.actionItems)");
     expect(ui).toContain("device.source==='virtual'");
+    expect(hasFunction(uiAst, "automationVirtualSelfResetAction")).toBe(true);
+    expect(hasFunction(uiAst, "automationActionsForTargetDevice")).toBe(true);
+    expect(html).toContain("HomeKit-Geofencing");
     expect(ui).toContain("device.source==='openccu'");
     expect(ui).toContain("thermostatOff:'Thermostat Aus'");
     expect(ui).toContain("actions.push('thermostatOff','thermostatAuto','thermostatManual')");

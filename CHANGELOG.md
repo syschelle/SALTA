@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.58
+
+- Added a safe virtual-switch self-reset automation pattern for HomeKit/geofence latch workflows.
+- A SALTA virtual switch triggered by `on=true` can target itself with `turnOff`; an `on=false` trigger can target itself with `turnOn`.
+- Unsafe same-device actions such as `An → An` and `An → Toggle` remain rejected, and non-virtual devices still cannot target themselves.
+- The automation editor now keeps eligible virtual trigger switches in the target selector and restricts their self-target action to the safe opposite-state reset.
+- Safe virtual reset actions execute after all other configured target actions have been attempted, so the latch is consumed last.
+- Cycle detection ignores only the terminating safe self-reset edge while retaining normal cross-device loop protection.
+- Carries forward the v0.8.57 legacy/current virtual target-discovery fix, v0.8.56 edit-refresh protection, and expanded OpenCCU/thermostat target actions.
+- No database migration, new mandatory environment variable or new npm dependency is required.
+
 ## v0.8.57
 
 - Fixed automation target discovery so all existing SALTA virtual devices remain selectable in **3 · Dann**, including legacy persisted virtual records whose type/state/capability metadata is incomplete.

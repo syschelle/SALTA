@@ -193,6 +193,10 @@ if (!automationFrontend.includes("event:buttonEvent:${eventValue}")) fail("Autom
 if (!serverSource.includes('"/api/automations"')) fail("Automation API routes are missing");
 if (!automationEngineSource.includes('source: "automation"')) fail("Automation commands do not use the shared automation source");
 if (!automationEngineSource.includes('AUTOMATION_CYCLE_NOT_ALLOWED')) fail("Automation loop protection is missing");
+if (!automationEngineSource.includes("function virtualSelfResetAction(") || !automationEngineSource.includes('target.action === "turnOff"') || !automationEngineSource.includes('target.action === "turnOn"')) fail("Safe virtual trigger self-reset validation is missing");
+if (!automationEngineSource.includes("const configuredActions = automationRuleActions(rule)") || !automationEngineSource.includes("virtualSelfResetAction(triggers, action")) fail("Virtual trigger reset actions must execute after normal target actions");
+if (!automationFrontend.includes("function automationVirtualSelfResetAction(deviceId)") || !automationFrontend.includes("function automationActionsForTargetDevice(deviceId)")) fail("Automation frontend does not expose safe virtual self-reset targets");
+if (!publicIndex.includes("HomeKit-Geofencing")) fail("Automation editor does not explain the virtual trigger self-reset use case");
 if (!automationEngineSource.includes('this.registry.on("deviceEvent", this.onDeviceEvent)')) fail("Automation engine does not subscribe to device events");
 if (!automationEngineSource.includes("parseAutomationEventTrigger")) fail("Automation event trigger parser is missing");
 if (!mainSource.includes("await automations.start()")) fail("Automation engine is not started during SALTA startup");

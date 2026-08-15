@@ -1,8 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.57 update
+## Current v0.8.58 update
 
-No manual database migration is required. Existing `salta_postgres_data` is reused. The additive canonical `automation_targets` table is created by normal SALTA schema initialization and existing simple automation actions are copied into it automatically.
+No manual database migration is required. Existing `salta_postgres_data` is reused. v0.8.58 changes automation validation/execution and frontend target selection only; it introduces no new database schema. The additive canonical `automation_targets` table from the preceding automation releases remains unchanged.
 
 No HomeKit storage migration is required when the installation already uses the persistent runtime layout introduced in v0.8.41 or newer.
 

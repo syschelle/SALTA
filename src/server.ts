@@ -289,7 +289,7 @@ function automationError(error: unknown): { status: number; code: string; messag
     AUTOMATION_ACTION_DEVICE_NOT_FOUND: "The action device no longer exists.",
     AUTOMATION_ACTION_LIMIT: "An automation can control at most eight target devices.",
     AUTOMATION_ACTION_DUPLICATE_DEVICE: "Each target device can be configured only once per automation.",
-    AUTOMATION_TRIGGER_ACTION_SAME_DEVICE: "Trigger and action must use different devices.",
+    AUTOMATION_TRIGGER_ACTION_SAME_DEVICE: "Trigger and action must use different devices unless a virtual switch is safely reset to the opposite state.",
     AUTOMATION_ACTION_UNSUPPORTED: "The selected action is not supported by the target device.",
     AUTOMATION_CONDITION_DEVICE_NOT_FOUND: "The condition device no longer exists.",
     AUTOMATION_CONDITION_INVALID: "The condition is incomplete.",
@@ -554,9 +554,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.57" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.58" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.57", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.58", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1092,7 +1092,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.57", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.58", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

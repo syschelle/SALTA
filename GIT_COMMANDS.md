@@ -1,4 +1,4 @@
-# SALTA v0.8.57 Git commands
+# SALTA v0.8.58 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(automation): expose legacy virtual targets"
+git commit -m "feat(automation): support safe virtual trigger reset"
 git push origin main
 ```
 
@@ -18,18 +18,26 @@ Wait for CI and both CodeQL jobs to complete successfully before tagging.
 
 ```bash
 git fetch origin
+
 git show origin/main:package.json | grep '"version"'
 git show origin/main:docker-compose.image.yml | sha256sum
 git show origin/main:migrate-homekit-storage.sh | sha256sum
-git show origin/main:public/automation-ui.js | grep -F "const binaryFallback=device.source==='virtual'||"
-git show origin/main:src/automations.ts | grep -F 'if (device.source === "virtual") return true;'
+
+git show origin/main:src/automations.ts \
+  | grep -F 'function virtualSelfResetAction('
+
+git show origin/main:public/automation-ui.js \
+  | grep -F 'function automationVirtualSelfResetAction(deviceId)'
+
+git show origin/main:public/index.html \
+  | grep -F 'HomeKit-Geofencing'
 ```
 
 Expected validator output:
 
 ```text
-Release validator contract: SALTA v0.8.57 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.57.
+Release validator contract: SALTA v0.8.58 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.58.
 ```
 
 ## Tag
@@ -38,15 +46,15 @@ Release validation passed for SALTA v0.8.57.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.57 -m "SALTA v0.8.57"
-git push origin v0.8.57
+git tag -a v0.8.58 -m "SALTA v0.8.58"
+git push origin v0.8.58
 ```
 
 ## Optional GitHub Release
 
 ```bash
-gh release create v0.8.57 \
-  --title "SALTA v0.8.57" \
+gh release create v0.8.58 \
+  --title "SALTA v0.8.58" \
   --notes-file RELEASE_TEXT.md
 ```
 

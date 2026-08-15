@@ -538,3 +538,4 @@ html[data-theme="dark"] .homekit-device-item.enabled{border-color:rgba(93,132,25
 
 /* Automation thermostat target temperature */
 .automation-action-value-field{min-width:0}.automation-action-value-field[hidden]{display:none}.automation-action-value-field input{width:100%;min-width:0}
+.automation-self-reset-hint{display:block;margin-top:2px;color:var(--muted);font-size:11.5px;line-height:1.45}

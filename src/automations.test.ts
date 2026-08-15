@@ -328,9 +328,9 @@ describe("AutomationEngine", () => {
     engine.stop();
   });
 
-  it("rejects duplicate, trigger-equal and excessive target actions", async () => {
+  it("rejects duplicate, unsafe trigger-equal and excessive target actions", async () => {
     const registry = new TestRegistry();
-    registry.devices.set("trigger", device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("trigger", { ...device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]), source: "shelly" });
     for (let index = 1; index <= 9; index += 1) registry.devices.set(`target-${index}`, device(`target-${index}`, { on: false }, ["turnOn", "turnOff", "toggle"]));
     const engine = new AutomationEngine(registry as never, { command: vi.fn(async commandInput => registry.get(commandInput.deviceId)!) }, memoryStore());
     await engine.start();
@@ -347,6 +347,65 @@ describe("AutomationEngine", () => {
       actionDeviceId: "target-1", action: "turnOn",
       additionalActions: Array.from({ length: 8 }, (_, index) => ({ deviceId: `target-${index + 2}`, action: "turnOn" as const }))
     })).rejects.toThrow("AUTOMATION_ACTION_LIMIT");
+    engine.stop();
+  });
+
+  it("allows a virtual latch trigger to reset itself to the opposite state after other targets", async () => {
+    const registry = new TestRegistry();
+    const virtual = { ...device("virtual-geofence", { on: false }, ["turnOn", "turnOff", "toggle"]), source: "virtual" as const, type: "switch" as const };
+    registry.devices.set(virtual.id, virtual);
+    registry.devices.set("lamp", { ...device("lamp", { on: false }, ["turnOn", "turnOff", "toggle"]), source: "shelly" });
+    const calls: string[] = [];
+    const command = vi.fn(async commandInput => {
+      calls.push(`${commandInput.deviceId}:${commandInput.capability}`);
+      const current = registry.get(commandInput.deviceId)!;
+      if (commandInput.deviceId === virtual.id && commandInput.capability === "turnOff") {
+        const updated = { ...current, state: { ...current.state, on: false } };
+        registry.publish(updated);
+        return updated;
+      }
+      return current;
+    });
+    const store = memoryStore();
+    const engine = new AutomationEngine(registry as never, { command }, store);
+    await engine.start();
+    await engine.create({
+      name: "Consume geofence latch", enabled: true,
+      triggerDeviceId: virtual.id, triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: virtual.id, action: "turnOff",
+      additionalActions: [{ deviceId: "lamp", action: "turnOn" }]
+    });
+
+    registry.publish({ ...virtual, state: { on: true } });
+    await tick();
+    await tick();
+    await tick();
+
+    expect(calls).toEqual(["lamp:turnOn", "virtual-geofence:turnOff"]);
+    expect(command).toHaveBeenCalledTimes(2);
+    expect(registry.get(virtual.id)?.state.on).toBe(false);
+    expect(store.markTriggered).toHaveBeenCalledTimes(1);
+    engine.stop();
+  });
+
+  it("rejects unsafe same-device actions for a virtual trigger", async () => {
+    const registry = new TestRegistry();
+    const virtual = { ...device("virtual-geofence", { on: false }, ["turnOn", "turnOff", "toggle"]), source: "virtual" as const, type: "switch" as const };
+    registry.devices.set(virtual.id, virtual);
+    const engine = new AutomationEngine(registry as never, { command: vi.fn(async commandInput => registry.get(commandInput.deviceId)!) }, memoryStore());
+    await engine.start();
+
+    await expect(engine.create({
+      name: "Unsafe keep-on", enabled: true,
+      triggerDeviceId: virtual.id, triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: virtual.id, action: "turnOn"
+    })).rejects.toThrow("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
+
+    await expect(engine.create({
+      name: "Unsafe toggle", enabled: true,
+      triggerDeviceId: virtual.id, triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: virtual.id, action: "toggle"
+    })).rejects.toThrow("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
     engine.stop();
   });
 

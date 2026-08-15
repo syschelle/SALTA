@@ -210,13 +210,28 @@ function triggerIdentity(trigger: AutomationTrigger): string {
   return `${trigger.deviceId}\u0000${trigger.stateKey}\u0000${trigger.value}`;
 }
 
-function assertAcyclic(rules: AutomationRule[], candidate: AutomationRule): void {
+function virtualSelfResetAction(triggers: AutomationTrigger[], target: AutomationTargetAction, device: Device | undefined): boolean {
+  if (!device || device.source !== "virtual" || !["turnOn", "turnOff"].includes(target.action)) return false;
+  const matchingTriggers = triggers.filter(trigger => trigger.deviceId === target.deviceId);
+  if (matchingTriggers.length === 0) return false;
+  if (matchingTriggers.some(trigger => parseAutomationEventTrigger(trigger.stateKey) || trigger.stateKey !== "on")) return false;
+  const values = new Set(matchingTriggers.map(trigger => trigger.value));
+  if (values.size !== 1) return false;
+  const triggerValue = matchingTriggers[0]!.value;
+  return triggerValue ? target.action === "turnOff" : target.action === "turnOn";
+}
+
+function assertAcyclic(rules: AutomationRule[], candidate: AutomationRule, registry: DeviceRegistry): void {
   const active = [...rules.filter(rule => rule.id !== candidate.id && rule.enabled), ...(candidate.enabled ? [candidate] : [])];
   const graph = new Map<string, string[]>();
   for (const rule of active) {
-    for (const trigger of automationRuleTriggers(rule)) {
+    const triggers = automationRuleTriggers(rule);
+    const actions = automationRuleActions(rule);
+    for (const trigger of triggers) {
       const targets = graph.get(trigger.deviceId) ?? [];
-      targets.push(...automationRuleActions(rule).map(action => action.deviceId));
+      targets.push(...actions
+        .filter(action => !(action.deviceId === trigger.deviceId && virtualSelfResetAction(triggers, action, registry.get(action.deviceId))))
+        .map(action => action.deviceId));
       graph.set(trigger.deviceId, targets);
     }
   }
@@ -327,7 +342,9 @@ export class AutomationEngine {
     for (const actionInput of actions) {
       const target = this.registry.get(actionInput.deviceId);
       if (!target) throw new Error("AUTOMATION_ACTION_DEVICE_NOT_FOUND");
-      if (triggers.some(trigger => trigger.deviceId === actionInput.deviceId)) throw new Error("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
+      if (triggers.some(trigger => trigger.deviceId === actionInput.deviceId) && !virtualSelfResetAction(triggers, actionInput, target)) {
+        throw new Error("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
+      }
       if (!actionCapabilitySupported(target, actionInput)) throw new Error(actionInput.action === "setTargetTemperature" ? "AUTOMATION_ACTION_TEMPERATURE_INVALID" : "AUTOMATION_ACTION_UNSUPPORTED");
     }
 
@@ -349,7 +366,7 @@ export class AutomationEngine {
       createdAt,
       updatedAt: createdAt
     };
-    assertAcyclic(this.rules, candidate);
+    assertAcyclic(this.rules, candidate, this.registry);
   }
 
   async create(input: AutomationInput): Promise<AutomationRule> {
@@ -425,7 +442,15 @@ export class AutomationEngine {
 
     let successfulActions = 0;
     let failedActions = 0;
-    const actions = automationRuleActions(rule);
+    const triggers = automationRuleTriggers(rule);
+    const configuredActions = automationRuleActions(rule);
+    // A virtual switch may act as a one-shot/latch trigger (for example a HomeKit
+    // geofence sets it to ON). Execute its safe opposite-state reset only after all
+    // other target actions have been attempted so the trigger is consumed last.
+    const actions = [
+      ...configuredActions.filter(action => !virtualSelfResetAction(triggers, action, this.registry.get(action.deviceId))),
+      ...configuredActions.filter(action => virtualSelfResetAction(triggers, action, this.registry.get(action.deviceId)))
+    ];
     for (const targetAction of actions) {
       const target = this.registry.get(targetAction.deviceId);
       if (!target || !target.reachable || !actionCapabilitySupported(target, targetAction)) {
