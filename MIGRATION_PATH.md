@@ -1,10 +1,10 @@
 # SALTA migration paths
 
-## Current v0.8.62 update
+## Current v0.8.63 update
 
 No manual database migration is required. Existing `salta_postgres_data` and `salta_runtime_data` volumes are reused.
 
-v0.8.62 carries forward the Philips Hue Bridge adapter and only updates stale frontend regression-test expectations. Hue connection metadata and the encrypted bridge application key reuse the existing `adapter_settings` table, so no new table and no destructive `ALTER TABLE` statement are introduced. Existing Shelly, Phoscon, OpenCCU, FRITZ!Box, virtual-device and automation data remain unchanged.
+v0.8.63 only simplifies visible settings-navigation labels and carries forward the Philips Hue Bridge adapter plus the v0.8.62 frontend regression-test maintenance. Hue connection metadata and the encrypted bridge application key reuse the existing `adapter_settings` table, so no new table and no destructive `ALTER TABLE` statement are introduced. Existing Shelly, Phoscon, OpenCCU, FRITZ!Box, virtual-device and automation data remain unchanged.
 
 Hue devices are created during the first successful Hue reconciliation. Local SALTA names, room assignments, presentation metadata and per-device HomeKit choices are preserved on later reconciliations. Disconnecting Hue removes only the synchronized SALTA Hue records and does not alter the Philips Hue Bridge itself.
 

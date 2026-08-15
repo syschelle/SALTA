@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.63
+
+- Simplified the visible settings navigation labels from **Phoscon / Zigbee** to **Phoscon** and from **OpenCCU / HomeMatic** to **OpenCCU**.
+- Updated the matching README settings paths.
+- No adapter identifiers, API behavior, database schema, deployment topology, or configuration contract changed.
+
 ## v0.8.62
 
 - Updated frontend regression tests to match the Philips Hue controls introduced in v0.8.60.

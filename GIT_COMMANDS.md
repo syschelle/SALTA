@@ -1,4 +1,4 @@
-# SALTA v0.8.62 Git commands
+# SALTA v0.8.63 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "test(frontend): align Hue regression expectations"
+git commit -m "ui(settings): simplify Phoscon and OpenCCU labels"
 git push origin main
 ```
 
@@ -33,8 +33,8 @@ git show origin/main:public/index.html | grep -F 'Philips Hue'
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.62 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.62.
+Release validator contract: SALTA v0.8.63 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.63.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -45,14 +45,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.62 -m "SALTA v0.8.62"
-git push origin v0.8.62
+git tag -a v0.8.63 -m "SALTA v0.8.63"
+git push origin v0.8.63
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.62 \
-  --title "SALTA v0.8.62" \
+gh release create v0.8.63 \
+  --title "SALTA v0.8.63" \
   --notes-file RELEASE_TEXT.md
 ```

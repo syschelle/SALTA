@@ -248,7 +248,7 @@ Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt a
 
 ## Phoscon and Zigbee support
 
-SALTA can connect to one local Phoscon/deCONZ instance through its REST API and the deCONZ WebSocket event stream. Configure the connection under **Settings → Phoscon / Zigbee** using the gateway base address and either an existing API key or the guided app-pairing workflow.
+SALTA can connect to one local Phoscon/deCONZ instance through its REST API and the deCONZ WebSocket event stream. Configure the connection under **Settings → Phoscon** using the gateway base address and either an existing API key or the guided app-pairing workflow.
 
 For automatic pairing, temporarily enable third-party app authentication in the Phoscon gateway settings and request the API key from SALTA within the displayed authorization window. The key is encrypted in PostgreSQL with `SALTA_ENCRYPTION_KEY` and is never returned to the browser after it has been stored.
 
@@ -336,7 +336,7 @@ The v0.8.x engine currently supports boolean device-state transitions and deCONZ
 
 ## OpenCCU and HomeMatic support
 
-SALTA can connect to one local OpenCCU instance through the CCU-compatible JSON-RPC endpoint at `/api/homematic.cgi`. Configure the connection under **Settings → OpenCCU / HomeMatic** with the OpenCCU base address and a dedicated username and password.
+SALTA can connect to one local OpenCCU instance through the CCU-compatible JSON-RPC endpoint at `/api/homematic.cgi`. Configure the connection under **Settings → OpenCCU** with the OpenCCU base address and a dedicated username and password.
 
 The password is encrypted in PostgreSQL with `SALTA_ENCRYPTION_KEY` and is never returned to the browser after it has been stored. The OpenCCU firewall must allow the SALTA host to access the OpenCCU web and JSON-RPC service. HTTP is supported inside a trusted local network; use a trusted HTTPS certificate when the connection crosses an untrusted network.
 

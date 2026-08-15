@@ -1,6 +1,14 @@
-# SALTA v0.8.62
+# SALTA v0.8.63
 
-SALTA v0.8.62 is a maintenance release that aligns the frontend regression tests with the Philips Hue functionality already present in SALTA. It carries forward the v0.8.61 TypeScript fixes and the complete Philips Hue integration without changing runtime behavior.
+SALTA v0.8.63 is a small user-interface maintenance release that simplifies two labels in the Settings navigation. It carries forward the v0.8.62 frontend regression-test maintenance, the v0.8.61 TypeScript fixes, and the complete Philips Hue integration introduced in v0.8.60.
+
+## v0.8.63 settings navigation cleanup
+
+- Renamed the visible **Settings → Phoscon / Zigbee** navigation entry to **Settings → Phoscon**.
+- Renamed the visible **Settings → OpenCCU / HomeMatic** navigation entry to **Settings → OpenCCU**.
+- Updated the corresponding README settings paths.
+- Internal adapter identifiers, APIs, device sources, and integration behavior are unchanged.
+- No database schema migration, new mandatory environment variable, new npm dependency, or deployment change is required.
 
 ## v0.8.62 CI test maintenance
 
