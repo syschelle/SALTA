@@ -1,6 +1,13 @@
-# SALTA v0.8.61
+# SALTA v0.8.62
 
-SALTA v0.8.61 is a maintenance release for the Philips Hue integration introduced in v0.8.60. It fixes the TypeScript CI build errors without changing the intended Hue runtime behavior.
+SALTA v0.8.62 is a maintenance release that aligns the frontend regression tests with the Philips Hue functionality already present in SALTA. It carries forward the v0.8.61 TypeScript fixes and the complete Philips Hue integration without changing runtime behavior.
+
+## v0.8.62 CI test maintenance
+
+- Updated the window-covering live-refresh regression test so it also protects active Philips Hue color-temperature and color controls from being re-rendered while the user is interacting with them.
+- Updated the room-grouped overview regression test so its expected device-source description includes Philips Hue.
+- The application code already contained both behaviors; this release corrects the stale test expectations instead of removing or weakening Hue functionality.
+- No database schema migration, new mandatory environment variable, new npm dependency, or deployment change is required.
 
 ## v0.8.61 build fix
 

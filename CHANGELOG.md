@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.62
+
+- Updated frontend regression tests to match the Philips Hue controls introduced in v0.8.60.
+- The live-refresh slider guard test now includes active Hue color-temperature and color controls.
+- The room-grouped overview test now includes Philips Hue in the supported device-source description.
+- No runtime behavior, database schema, deployment topology, or configuration contract changed.
+
 ## v0.8.61
 
 - Fixed the Philips Hue TypeScript build failure reported by CI after v0.8.60.
