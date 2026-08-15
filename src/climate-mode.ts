@@ -1,4 +1,4 @@
-import type { ClimateMode, ClimateModeSettings, Device, DeviceCommand, WinterThermostatMode } from "./types.js";
+import type { ClimateMode, ClimateModeSettings, Device, DeviceCommand, DeviceState, WinterThermostatMode } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 import { CLIMATE_MODE_AUTOMATION_DEVICE_ID } from "./automations.js";
 import { getClimateModeSettings, getGeneralSettings, getPushoverConnection, updateClimateModeSettings, updateClimateWinterMode, writeSystemLog } from "./db.js";
@@ -88,7 +88,7 @@ export class ClimateModeManager {
     return { ...(await getClimateModeSettings()), ...this.thermostatCounts() };
   }
 
-  private async syncAutomationDevice(state: Partial<Device["state"]>, stamp = new Date().toISOString()): Promise<void> {
+  private async syncAutomationDevice(state: DeviceState, stamp = new Date().toISOString()): Promise<void> {
     if (typeof this.registry.get !== "function" || typeof this.registry.set !== "function") return;
     const systemDevice = this.registry.get(CLIMATE_MODE_AUTOMATION_DEVICE_ID);
     if (!systemDevice) return;

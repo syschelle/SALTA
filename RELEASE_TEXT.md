@@ -1,6 +1,15 @@
-# SALTA v0.8.67
+# SALTA v0.8.68
 
-SALTA v0.8.67 is a regression-fix release for the Heating mode automation integration introduced in v0.8.66. It keeps the complete Heating mode target and daily time-trigger functionality while restoring the automated regression-test contract.
+SALTA v0.8.68 fixes the strict TypeScript build regression found after v0.8.67. The Heating mode automation target, daily local-time trigger and all v0.8.67 regression fixes remain unchanged.
+
+## v0.8.68 TypeScript build fix
+
+- Fixed `TS2322` in `src/climate-mode.ts` where `Partial<Device["state"]>` allowed `undefined` values to be introduced when merging the hidden `system:climate-mode` state.
+- `syncAutomationDevice()` now accepts SALTA's existing `DeviceState` type, whose values are restricted to `string | number | boolean | null`.
+- This keeps the helper flexible for partial key sets while preserving the exact `DeviceState` value contract and avoiding `any` or unsafe casts.
+- The optional `registry.get` / `registry.set` behavior introduced in v0.8.67 remains intact for isolated unit-test registries.
+- The global Heating mode automation target and removal of the visible **Nur SALTA** badge remain unchanged.
+- No database migration, new mandatory environment variable, npm dependency or deployment change is required.
 
 ## v0.8.67 regression fixes
 

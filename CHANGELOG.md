@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.68
+
+- Fixed the TypeScript `TS2322` build regression in `ClimateModeManager.syncAutomationDevice`.
+- The helper now accepts the existing `DeviceState` type instead of `Partial<Device["state"]>`, preventing optional state entries from introducing `undefined` into a `DeviceState` record.
+- Keeps the v0.8.67 isolated-registry compatibility fix and the complete v0.8.66 Heating mode automation integration unchanged.
+- No database migration, new mandatory environment variable, npm dependency or deployment change is required.
+
 ## v0.8.67
 
 - Fixed the Climate mode manager regression introduced with the v0.8.66 automation target by making synchronization of the hidden `system:climate-mode` registry representation optional for isolated/unit-test registries while retaining it for the production `DeviceRegistry`.

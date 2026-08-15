@@ -1,8 +1,8 @@
 # SALTA migration paths
 
-v0.8.67 is a regression-fix release for the Heating mode automation integration. It does not add or alter database schema. The additive `automation_system_actions` table and hidden `system:climate-mode` target introduced in v0.8.66 remain unchanged.
+v0.8.68 is a TypeScript build-fix release for the Heating mode automation integration. It does not add or alter database schema. The additive `automation_system_actions` table and hidden `system:climate-mode` target introduced in v0.8.66 remain unchanged.
 
-## Current v0.8.67 update
+## Current v0.8.68 update
 
 No manual database migration is required. Existing `salta_postgres_data` and `salta_runtime_data` volumes are reused.
 
