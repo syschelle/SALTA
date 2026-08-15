@@ -3,14 +3,14 @@
 Create and push the semantic version tag:
 
 ```bash
-git tag -a v0.8.63 -m "SALTA v0.8.63"
-git push origin v0.8.63
+git tag -a v0.8.64 -m "SALTA v0.8.64"
+git push origin v0.8.64
 ```
 
 The workflow publishes:
 
 ```text
-ghcr.io/syschelle/salta:0.8.63
+ghcr.io/syschelle/salta:0.8.64
 ghcr.io/syschelle/salta:0.8
 ghcr.io/syschelle/salta:latest
 ```

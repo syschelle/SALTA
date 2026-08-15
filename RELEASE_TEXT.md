@@ -1,6 +1,16 @@
-# SALTA v0.8.63
+# SALTA v0.8.64
 
-SALTA v0.8.63 is a small user-interface maintenance release that simplifies two labels in the Settings navigation. It carries forward the v0.8.62 frontend regression-test maintenance, the v0.8.61 TypeScript fixes, and the complete Philips Hue integration introduced in v0.8.60.
+SALTA v0.8.64 is a documentation-focused release that explains the motivation behind SALTA more clearly. The README now describes why the project was created, why reliability and long-term compatibility are first-class design goals, and why SALTA deliberately keeps a narrower scope than a general-purpose home-automation platform. Runtime behavior is unchanged.
+
+## v0.8.64 project story and README improvements
+
+- Added a new **Why SALTA exists** section to the README.
+- Documented the practical motivation behind SALTA: keeping proven local hardware useful and maintaining stable smart-home behavior even when surrounding platforms and integrations evolve.
+- Explained the project's origin around continued use of reliable first-generation Shelly 1 devices, Home Assistant integration problems experienced in 2026, and changes to the RaspberryMatic/OpenCCU integration path used by the original installation.
+- Clarified that SALTA is not intended to replace Home Assistant or compete with its broad feature set. Its narrower scope is deliberate.
+- Added explicit project priorities: reliability before novelty, local-first operation, support for existing hardware, understandable integrations, controlled upgrades and household acceptance.
+- Refined the opening description of SALTA to better communicate its reliability-first and long-term-compatibility goals.
+- Documentation-only release: no database schema migration, new mandatory environment variable, new npm dependency, runtime behavior or deployment change is required.
 
 ## v0.8.63 settings navigation cleanup
 

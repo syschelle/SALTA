@@ -2,9 +2,32 @@
 
 > **Smart-home Abstraction & Local Transport Architecture**
 
-SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API, a local automation engine and an optional HomeKit bridge. It integrates Shelly, Phoscon/deCONZ Zigbee, Philips Hue Bridge, OpenCCU/HomeMatic, FRITZ!Box Wi-Fi presence and SALTA-native virtual devices.
+SALTA is a deliberately focused, local-first smart-home control plane for homes where reliability, long-term hardware compatibility and predictable upgrades matter more than feature churn. It combines PostgreSQL persistence, a responsive web interface, a REST API, a local automation engine and an optional HomeKit bridge. SALTA currently integrates Shelly, Phoscon/deCONZ Zigbee, Philips Hue Bridge, OpenCCU/HomeMatic, FRITZ!Box Wi-Fi presence and SALTA-native virtual devices.
 
 > Your home. Your hardware. Your rules.
+
+## Why SALTA exists
+
+SALTA started as a practical response to a reliability problem in my own home. I still run a number of first-generation **Shelly 1** devices. They are old by smart-home standards, but they work extremely well, they are local, and there is no technical reason to replace hardware that continues to do its job reliably.
+
+In 2026, my Home Assistant installation was affected by problems accessing Shelly devices, particularly first-generation devices. Around the same period, the native RaspberryMatic/OpenCCU integration path I had relied on was no longer available to me in the form that had worked for years. At the same time, Home Assistant continued to evolve rapidly, including major changes around ESPHome Builder and new AI-assisted functionality. Those developments may be useful for many users, and it is entirely possible that my own installation did not follow the direction Home Assistant now expects. But that was not the problem I needed to solve.
+
+My requirement was simpler: **a configuration that had worked reliably for roughly three years should keep working**. Existing switches, shutters, thermostats and automations should not become a recurring maintenance project merely because the surrounding platform changes.
+
+A smart home earns acceptance only when it is dependable. The people living with it should not need to know that an upstream integration changed, an API was refactored or a platform shifted its priorities. If a light, shutter, heating rule or presence automation that worked yesterday stops working after an update, household acceptance disappears very quickly. In my house, that is also when I get a very direct reminder from *the boss at home* that reliability matters more than new features.
+
+SALTA is my answer to that problem. It is intentionally narrower than a general-purpose home-automation platform. The goal is not to replace Home Assistant or to compete with its breadth of features. The goal is to provide a small, understandable and testable local control layer for the hardware I actually use, with an emphasis on preserving working devices instead of forcing unnecessary replacement or migration.
+
+That leads to a few deliberate priorities:
+
+- **Reliability before novelty.** A working integration should remain boring and predictable.
+- **Local-first operation.** Core device control and automations should not depend on a cloud service.
+- **Existing hardware matters.** Older devices that still work well should remain useful.
+- **Explicit integrations.** Adapter behavior should be understandable, testable and independently maintainable.
+- **Controlled upgrades.** Releases should be validated, reversible and should avoid unnecessary migrations.
+- **Household acceptance is a feature.** The system must work for the people living with it, not only for the person maintaining it.
+
+SALTA therefore favors a smaller supported surface with clear behavior over trying to support every possible device or ecosystem. That trade-off is intentional.
 
 ## Version roadmap
 

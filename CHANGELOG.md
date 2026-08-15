@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.64
+
+- Expanded the README with a new **Why SALTA exists** section describing the project's reliability-first motivation and its focus on preserving proven local hardware.
+- Clarified that SALTA is intentionally narrower than a general-purpose home-automation platform and is not positioned as a replacement for Home Assistant.
+- Added explicit project priorities covering reliability, local-first operation, existing-hardware support, understandable integrations, controlled upgrades and household acceptance.
+- Refined the README introduction to better communicate SALTA's scope and design philosophy.
+- Documentation-only release: no runtime behavior, database schema, deployment topology, adapter API or configuration contract changed.
+
 ## v0.8.63
 
 - Simplified the visible settings navigation labels from **Phoscon / Zigbee** to **Phoscon** and from **OpenCCU / HomeMatic** to **OpenCCU**.
