@@ -1,6 +1,14 @@
-# SALTA v0.8.71
+# SALTA v0.8.72
 
-SALTA v0.8.71 extends the automation engine with multiple **Only if** conditions. A rule can now require up to eight current device or SALTA-system states, and all configured conditions are combined with logical **AND**. The existing single-condition format remains fully compatible, while conditions 2–8 use an additive persistence table.
+SALTA v0.8.72 is a frontend regression-test maintenance release for the multiple **Only if** conditions introduced in v0.8.71. Runtime behavior is unchanged.
+
+## v0.8.72 frontend regression-test maintenance
+
+- Updated the Heating mode condition regression test to match the generic multi-condition summary implementation introduced in v0.8.71.
+- The previous test expected an obsolete literal source fragment for `Nur wenn Heizmodus = ...`; v0.8.71 now formats Heating mode through `automationConditionSummaryItems()` and composes the complete condition line generically with `Nur wenn ${conditionItems.join(' UND ')}`.
+- The updated test verifies both parts of that behavior instead of depending on the old single-condition implementation detail.
+- The Heating mode remains available under **Only if**, remains excluded from **When**, and can still be combined with up to seven additional AND-linked conditions.
+- No runtime code, database schema, automation persistence, environment variable, npm dependency or deployment topology changed.
 
 ## v0.8.71 multiple AND conditions
 

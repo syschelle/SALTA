@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.72
+
+- Updated the Heating mode frontend regression test to match the generic multi-condition summary introduced in v0.8.71.
+- The test now verifies the dedicated Heating mode condition formatter and the generic `Nur wenn ... UND ...` summary composition instead of depending on the obsolete single-condition source string.
+- No runtime behavior, automation persistence, database schema, UI behavior, environment variable, npm dependency or deployment topology changed.
+
 ## v0.8.71
 
 - Added multiple optional **Nur wenn / Only if** conditions to automations. Up to eight conditions can be configured and every condition is combined with logical **AND**.

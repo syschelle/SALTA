@@ -51,7 +51,8 @@ describe("automation frontend", () => {
     expect(ui).toContain("!automationIsClimateModeDevice(device)");
     expect(ui).toContain("key==='winterActive'?'Heizmodus'");
     expect(ui).toContain("winterActive:['Wintermodus','Sommermodus']");
-    expect(ui).toContain("Nur wenn Heizmodus = ${automationValueLabel");
+    expect(ui).toContain("automationIsClimateModeDevice(device)?`Heizmodus = ${automationValueLabel(condition.stateKey,condition.value)}`");
+    expect(ui).toContain("const conditionText=conditionItems.length?`Nur wenn ${conditionItems.join(' UND ')}`:null;");
     expect(html).toContain('Gerät / SALTA-Funktion');
     expect(html).toContain('aria-label="Bedingung nach Name, Raum, Quelle oder SALTA-Funktion suchen"');
   });
