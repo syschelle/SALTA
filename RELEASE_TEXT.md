@@ -1,49 +1,58 @@
-# SALTA v0.8.58
+# SALTA v0.8.59
 
-SALTA v0.8.58 adds a safe virtual-switch self-reset pattern for automations. A SALTA virtual switch can now act as a one-shot/latch trigger and, after the automation's other target actions have been attempted, reset itself to the opposite state. This directly supports HomeKit geofence workflows where Apple Home sets a virtual switch to **On**, SALTA reacts locally, and the switch must return to **Off** so the next arrival can trigger again.
+SALTA v0.8.59 adds configurable momentary virtual buttons and removes the explanatory virtual self-reset hint from the automation editor. A momentary virtual button is designed for one-shot workflows such as Apple Home geofencing: Apple Home can switch it on, SALTA reacts to the short on pulse, and the virtual button automatically returns to off after 500 ms without requiring an explicit reset action in the automation.
 
-The release also carries forward the v0.8.57 virtual-target discovery fix, which keeps current and legacy SALTA virtual switches visible as automation targets even when older persisted metadata is incomplete.
+The release also carries forward the safe virtual-trigger self-reset support introduced in v0.8.58 for users who prefer persistent virtual switches.
 
-## Safe virtual trigger self-reset
+## Momentary virtual buttons
 
-- A SALTA virtual switch may now be used as both trigger and target of the same automation when the target action safely moves the switch away from the state that fired the rule.
-- `on = true` may reset itself with `turnOff` (**An → Aus**).
-- `on = false` may reset itself with `turnOn` (**Aus → An**).
-- Unsafe same-device actions such as `An → An` or `An → Toggle` remain rejected.
-- Physical devices and non-virtual trigger devices still cannot target themselves.
-- The automation editor now keeps an eligible virtual trigger switch in **3 · Dann → Zielgerät** instead of filtering it out.
-- When the trigger switch is selected as its own target, the action selector exposes only the safe opposite-state reset action.
-- The editor includes an explicit HomeKit-geofencing hint for this behavior.
+- **Virtual Devices → Add virtual device** now offers **Switch** and **Momentary Button**.
+- The momentary button is the default for newly opened create dialogs because it is the simpler choice for one-shot triggers.
+- In SALTA the momentary variant is displayed with a button icon and a **Press** action instead of a persistent on/off switch control.
+- Pressing the button produces a normal `on = true` transition and automatically returns to `on = false` after 500 ms.
+- SALTA automations can therefore use the normal **On** state transition as a trigger without adding a self-reset target action.
+- Existing virtual switches remain unchanged and keep their persistent on/off state.
 
-## Reset runs after the other target actions
+## Existing virtual devices can be converted
 
-- Safe virtual self-reset actions are executed after the automation's other configured target actions have been attempted.
-- This keeps the virtual switch latched while the main automation work runs and consumes/reset the trigger last.
-- A failure of another target does not prevent the virtual reset from being attempted.
-- Resetting the virtual switch does not retrigger the same rule because the reset moves the switch away from the configured trigger value.
-- The cycle detector ignores only this narrowly defined terminating self-reset edge; normal cross-device cycle detection remains active.
+- The device settings dialog now contains a **Virtual type** section for SALTA virtual devices.
+- An existing virtual switch can be changed to **Momentary Button** without deleting or recreating it.
+- Changing the type preserves the SALTA device ID, room assignment, HomeKit publication settings and existing automation references.
+- Converting a currently-on switch to a momentary button safely normalizes it to off.
+- A momentary button can also be changed back to a persistent virtual switch.
 
-## Virtual target discovery carried forward from v0.8.57
+## HomeKit behavior
 
-- SALTA virtual devices are treated as binary automation targets based on their `virtual` adapter source.
-- Existing and legacy persisted virtual switches remain selectable with `An`, `Aus` and `Toggle` even if an older record has incomplete type/state/capability metadata.
-- Frontend target discovery, automation-engine validation and virtual-adapter execution use the same compatibility rule.
-- Read-only OpenCCU contact/window sensors remain trigger/condition-only.
+- Momentary virtual buttons deliberately remain writable HomeKit **Switch** accessories internally.
+- This is intentional: Apple Home automations and geofences can write to a Switch characteristic, while a true stateless HomeKit button is an event source and cannot be used as the writable target of an arrival/departure automation.
+- SALTA presents the device as a button in its own UI and performs the automatic off reset locally.
+- No HomeKit re-pairing is required when an existing SALTA virtual switch is converted to momentary mode because its accessory identity remains unchanged.
 
-## Stable editing and expanded targets carried forward
+## Automation editor cleanup
 
-- The global five-second live refresh remains paused while **Automationen** or **Einstellungen** is open, preventing selectors and forms from being rebuilt during editing.
-- One automation can control up to eight target devices as **UND** actions.
-- Writable OpenCCU/HomeMatic switches and lights support `An`, `Aus` and `Toggle`.
-- OpenCCU/HomeMatic covers support `Öffnen` and `Schließen`.
-- OpenCCU/HomeMatic thermostats support `Thermostat Aus`, `Thermostat Automatik`, `Thermostat Manuell` and `Solltemperatur setzen`.
-- Thermostat target temperatures remain independently configurable per target.
+- Removed the inline hint: `Virtuelle Trigger-Schalter können sich sicher selbst zurücksetzen: An → Aus bzw. Aus → An ...`.
+- The safe self-reset mechanism from v0.8.58 remains available for persistent virtual switches; only the explanatory text was removed.
+- Momentary virtual buttons do not expose the redundant same-device reset target in the automation editor because they reset themselves automatically.
+
+## v0.8.58 behavior carried forward
+
+- Persistent virtual switches can still be both trigger and target of the same automation when the target action safely moves the switch away from the trigger state.
+- `On → Off` and `Off → On` remain the only permitted same-device reset combinations.
+- Safe virtual self-reset actions continue to run after the other configured target actions.
+- Unsafe same-device actions and normal cross-device automation cycles remain blocked.
+
+## Other automation capabilities carried forward
+
+- One automation can control up to eight target devices as **AND** actions.
+- SALTA virtual devices and writable OpenCCU/HomeMatic actors are available as targets.
+- OpenCCU/HomeMatic thermostats support mode changes and explicit target-temperature actions.
+- The global five-second live refresh remains paused on **Automations** and **Settings** so open forms and selectors are not rebuilt while editing.
 
 ## Compatibility
 
-- Builds directly on the released SALTA v0.8.57 baseline.
-- Existing automations remain compatible.
-- No database schema change is required for this release.
+- Builds directly on the SALTA v0.8.58 feature set.
+- Existing virtual switches and automations remain compatible.
+- No database schema change is required.
 - No manual database migration is required.
 - Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
 - SALTA continues to use `network_mode: host` for HomeKit HAP/mDNS.
@@ -51,22 +60,6 @@ The release also carries forward the v0.8.57 virtual-target discovery fix, which
 - No new mandatory environment variable is required.
 - No new npm dependency is introduced.
 - `/opt/SALTA/migrate-homekit-storage.sh` remains necessary only for HomeKit pairing state created before v0.8.41.
-
-## Example geofence flow
-
-```text
-Apple Home geofence
-        ↓
-JanaSylvioAtHome = An
-        ↓
-SALTA automation fires
-        ↓
-other target actions execute
-        ↓
-JanaSylvioAtHome = Aus
-        ↓
-ready for the next geofence arrival
-```
 
 ## Production update
 

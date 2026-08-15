@@ -159,9 +159,8 @@ function actionCapabilitySupported(device: Device, target: AutomationTargetActio
   }
   if (device.capabilities.includes(command.capability)) return true;
   if (["turnOn", "turnOff", "toggle"].includes(action)) {
-    // The current virtual adapter exposes switch devices only. Treat every persisted
-    // virtual device as a binary automation target so older records with incomplete
-    // type/state/capability metadata remain selectable and executable.
+    // Virtual switches and momentary virtual buttons share the same binary command
+    // contract. Keep legacy persisted virtual records executable as well.
     if (device.source === "virtual") return true;
     if (device.source === "openccu" && ["switch", "light", "outlet"].includes(device.type) && typeof device.state.on === "boolean") return true;
   }
@@ -211,7 +210,7 @@ function triggerIdentity(trigger: AutomationTrigger): string {
 }
 
 function virtualSelfResetAction(triggers: AutomationTrigger[], target: AutomationTargetAction, device: Device | undefined): boolean {
-  if (!device || device.source !== "virtual" || !["turnOn", "turnOff"].includes(target.action)) return false;
+  if (!device || device.source !== "virtual" || device.adapterData?.virtualType === "button" || !["turnOn", "turnOff"].includes(target.action)) return false;
   const matchingTriggers = triggers.filter(trigger => trigger.deviceId === target.deviceId);
   if (matchingTriggers.length === 0) return false;
   if (matchingTriggers.some(trigger => parseAutomationEventTrigger(trigger.stateKey) || trigger.stateKey !== "on")) return false;

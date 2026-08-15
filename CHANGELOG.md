@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.59
+
+- Added configurable momentary virtual buttons with a 500 ms automatic off reset.
+- Existing virtual switches can be converted to/from momentary mode without changing their SALTA ID or HomeKit accessory identity.
+- Momentary buttons remain writable HomeKit switch accessories so Apple Home geofences can activate them.
+- Virtual button cards use a dedicated **Drücken** action in SALTA.
+- Removed the virtual self-reset explanatory hint from the automation editor while keeping the v0.8.58 safe self-reset behavior for persistent switches.
+
 ## v0.8.58
 
 - Added a safe virtual-switch self-reset automation pattern for HomeKit/geofence latch workflows.

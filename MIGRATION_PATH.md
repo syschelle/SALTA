@@ -1,8 +1,14 @@
 # SALTA migration paths
 
-## Current v0.8.58 update
+## Current v0.8.59 update
 
-No manual database migration is required. Existing `salta_postgres_data` is reused. v0.8.58 changes automation validation/execution and frontend target selection only; it introduces no new database schema. The additive canonical `automation_targets` table from the preceding automation releases remains unchanged.
+No manual database migration is required. Existing `salta_postgres_data` and `salta_runtime_data` volumes are reused.
+
+v0.8.59 adds momentary-button behavior to the existing virtual-device adapter and stores the selected virtual kind in the already existing `adapterData` JSON metadata. No new table and no destructive `ALTER TABLE` statement are introduced.
+
+Existing virtual switches remain persistent switches. They can be converted in the SALTA device settings to a momentary button while keeping the same device ID, room assignment, HomeKit publication metadata and automation references.
+
+The additive automation persistence tables from the preceding releases remain unchanged.
 
 No HomeKit storage migration is required when the installation already uses the persistent runtime layout introduced in v0.8.41 or newer.
 

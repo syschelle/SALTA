@@ -73,10 +73,18 @@ describe("virtual device frontend", () => {
     expect(html).toContain('id="addVirtualDeviceDialog"');
   });
 
-  it("renders and creates virtual switches through the shared device UI", () => {
+  it("renders virtual switches and momentary buttons through the shared device UI", () => {
     expect(app).toContain("renderDeviceGrid('virtual',virtualGrid,virtualFilter,virtualRoomFilter)");
     expect(app).toContain("api('/api/adapters/virtual/devices'");
     expect(app).toContain("virtual:'Virtuell'");
+    expect(html).toContain('<option value="button" selected>Taster (Impuls)</option>');
+    expect(html).toContain('setzt sich nach dem Auslösen automatisch auf Aus zurück');
+    expect(app).toContain("const type=virtualDeviceType.value==='button'?'button':'switch'");
+    expect(app).toContain("function isVirtualButton(d)");
+    expect(app).toContain("<span>Drücken</span>");
+    expect(html).toContain('id="deviceVirtualType"');
+    expect(app).toContain("deviceVirtualTypeSection.hidden=!virtual");
+    expect(app).toContain("virtualType:deviceVirtualType.value==='button'?'button':'switch'");
   });
 
   it("routes HomeKit writes through the shared command dispatcher", () => {

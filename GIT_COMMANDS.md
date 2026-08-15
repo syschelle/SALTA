@@ -1,4 +1,4 @@
-# SALTA v0.8.58 Git commands
+# SALTA v0.8.59 Git commands
 
 ## Commit and push
 
@@ -8,13 +8,11 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(automation): support safe virtual trigger reset"
+git commit -m "feat(virtual): add momentary button mode"
 git push origin main
 ```
 
-Wait for CI and both CodeQL jobs to complete successfully before tagging.
-
-## Verify pushed release candidate
+## Verify the pushed release candidate
 
 ```bash
 git fetch origin
@@ -23,22 +21,20 @@ git show origin/main:package.json | grep '"version"'
 git show origin/main:docker-compose.image.yml | sha256sum
 git show origin/main:migrate-homekit-storage.sh | sha256sum
 
-git show origin/main:src/automations.ts \
-  | grep -F 'function virtualSelfResetAction('
-
-git show origin/main:public/automation-ui.js \
-  | grep -F 'function automationVirtualSelfResetAction(deviceId)'
-
-git show origin/main:public/index.html \
-  | grep -F 'HomeKit-Geofencing'
+git show origin/main:src/virtual-adapter.ts | grep -F 'MOMENTARY_BUTTON_RESET_MS = 500'
+git show origin/main:src/server.ts | grep -F 'type: z.enum(["switch", "button"]).default("switch")'
+git show origin/main:public/index.html | grep -F 'Taster (Impuls)'
+git show origin/main:public/index.html | grep -F 'id="deviceVirtualType"'
 ```
 
-Expected validator output:
+Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.58 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.58.
+Release validator contract: SALTA v0.8.59 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.59.
 ```
+
+Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 
 ## Tag
 
@@ -46,27 +42,14 @@ Release validation passed for SALTA v0.8.58.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.58 -m "SALTA v0.8.58"
-git push origin v0.8.58
+git tag -a v0.8.59 -m "SALTA v0.8.59"
+git push origin v0.8.59
 ```
 
-## Optional GitHub Release
+## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.58 \
-  --title "SALTA v0.8.58" \
+gh release create v0.8.59 \
+  --title "SALTA v0.8.59" \
   --notes-file RELEASE_TEXT.md
 ```
-
-## Production update
-
-```bash
-cd /opt/SALTA
-git pull --ff-only origin main
-docker compose --env-file .env -f docker-compose.image.yml config
-docker compose --env-file .env -f docker-compose.image.yml pull
-docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans
-docker compose --env-file .env -f docker-compose.image.yml ps
-```
-
-Never use `down -v` for a normal update.

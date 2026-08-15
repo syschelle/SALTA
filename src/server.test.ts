@@ -121,6 +121,8 @@ function createServer(
   } as unknown as OpenCcuAdapter;
   const virtual = {
     createSwitch: vi.fn(),
+    createButton: vi.fn(),
+    updateKind: vi.fn(),
     remove: vi.fn(),
     command: vi.fn(),
     ...virtualOverrides
@@ -834,7 +836,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.58" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.59" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -934,6 +936,28 @@ describe("virtual devices", () => {
     expect(createSwitch).toHaveBeenCalledWith("Guest mode", room.id, room.name);
   });
 
+  it("creates a momentary virtual button for HomeKit/geofence triggers", async () => {
+    const created = { id: "virtual:button", source: "virtual", sourceId: "button", type: "switch", presentationType: "switch", name: "Arrived", reachable: true, state: { on: false }, capabilities: ["toggle", "turnOn", "turnOff"], homekitEnabled: true, hidden: false, credentialMode: "none", passwordConfigured: false, lastSeen: "2026-08-15T00:00:00.000Z", lastEvent: "2026-08-15T00:00:00.000Z", adapterData: { virtualType: "button", momentaryResetMs: 500 } };
+    const createButton = vi.fn(async () => created as never);
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, { createButton });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/adapters/virtual/devices", payload: { name: "Arrived", type: "button" } });
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({ source: "virtual", type: "switch", presentationType: "switch", name: "Arrived", adapterData: { virtualType: "button", momentaryResetMs: 500 } });
+    expect(createButton).toHaveBeenCalledWith("Arrived", undefined, undefined);
+  });
+
+  it("converts an existing virtual switch to a momentary button without replacing its id", async () => {
+    const current = { id: "virtual:test", source: "virtual", sourceId: "test", type: "switch", presentationType: "switch", name: "Arrived", roomId: undefined, room: undefined, reachable: true, state: { on: false }, capabilities: ["toggle", "turnOn", "turnOff"], homekitEnabled: true, hidden: false, credentialMode: "none", passwordConfigured: false, lastSeen: "2026-08-15T00:00:00.000Z", lastEvent: "2026-08-15T00:00:00.000Z", adapterData: { virtualType: "switch" } };
+    const updatedKind = { ...current, model: "SALTA Virtual Button", profile: "button", adapterData: { virtualType: "button", momentaryResetMs: 500 } };
+    const updateKind = vi.fn(async () => updatedKind as never);
+    const patch = vi.fn(async (_id: string, patchValue: Record<string, unknown>) => ({ ...updatedKind, ...patchValue } as never));
+    const server = createServer(vi.fn(), vi.fn(), { get: () => current as never, patch }, {}, {}, { updateKind });
+    const response = await authenticatedInject(server, { method: "PATCH", url: "/api/devices/virtual%3Atest/config", payload: { name: "Arrived", virtualType: "button", presentationType: "switch" } });
+    expect(response.statusCode).toBe(200);
+    expect(updateKind).toHaveBeenCalledWith("virtual:test", "button");
+    expect(patch).toHaveBeenCalled();
+  });
+
   it("routes API commands to the virtual adapter", async () => {
     const current = { id: "virtual:test", source: "virtual", capabilities: ["toggle", "turnOn", "turnOff"] };
     const command = vi.fn(async () => ({ ...current, state: { on: true } } as never));
@@ -957,7 +981,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.58", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.59", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -968,7 +992,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.58", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.59", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {

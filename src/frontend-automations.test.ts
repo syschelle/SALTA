@@ -183,4 +183,10 @@ describe("automation frontend", () => {
     expect(cssRuleContains(styles, ".automation-action-list", "flex-wrap:wrap")).toBe(true);
   });
 
+
+  it("does not show the virtual self-reset explanatory hint in the automation editor", () => {
+    expect(html).not.toContain("Virtuelle Trigger-Schalter können sich sicher selbst zurücksetzen");
+    expect(html).not.toContain("automation-self-reset-hint");
+  });
+
 });

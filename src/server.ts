@@ -30,6 +30,7 @@ const patchSchema = z.object({
   homekitUseSaltaRoom: z.boolean().optional(),
   homekitRoomId: z.string().uuid().nullable().optional(),
   hidden: z.boolean().optional(),
+  virtualType: z.enum(["switch", "button"]).optional(),
   presentationType: z.enum(["auto", "outlet", "switch", "light", "fan"]).optional()
 }).strict();
 const credentialSchema = z.object({
@@ -57,7 +58,11 @@ const fritzBoxPresenceSettingsSchema = z.object({
 const fritzBoxPresenceTestSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), username: z.string().trim().max(120).default(""), password: z.string().max(512).optional(), tlsInsecure: z.boolean().default(false) }).strict();
 const presenceTargetSchema = z.object({ name: z.string().trim().min(1).max(120), macAddress: z.string().trim().min(12).max(32), absenceDelaySeconds: z.number().int().min(0).max(86400).nullable().optional() }).strict();
 const openCcuDiagnosticSchema = z.object({ baseUrl: z.string().trim().min(1).max(512).optional(), username: z.string().trim().min(1).max(120).optional(), password: z.string().max(512).optional() }).strict();
-const virtualDeviceSchema = z.object({ name: z.string().trim().min(1).max(120), type: z.literal("switch").default("switch"), roomId: z.string().uuid().nullable().optional() }).strict();
+const virtualDeviceSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  type: z.enum(["switch", "button"]).default("switch"),
+  roomId: z.string().uuid().nullable().optional()
+}).strict();
 const automationAdditionalTriggerSchema = z.object({
   deviceId: z.string().min(1).max(255),
   stateKey: z.string().trim().min(1).max(80),
@@ -554,9 +559,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.58" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.59" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.58", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.59", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -747,8 +752,10 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const rooms = await listRooms();
     const room = parsed.data.roomId ? rooms.find(item => item.id === parsed.data.roomId) : undefined;
     if (parsed.data.roomId && !room) return reply.code(404).send({ error: { code: "ROOM_NOT_FOUND", message: "Room not found", requestId: request.id } });
-    const device = await virtualAdapter.createSwitch(parsed.data.name, room?.id, room?.name);
-    await writeSystemLog("info", "virtual", "VIRTUAL_DEVICE_CREATED", "Virtual switch created", { deviceId: device.id, name: device.name, roomId: device.roomId ?? null }).catch(() => undefined);
+    const device = parsed.data.type === "button"
+      ? await virtualAdapter.createButton(parsed.data.name, room?.id, room?.name)
+      : await virtualAdapter.createSwitch(parsed.data.name, room?.id, room?.name);
+    await writeSystemLog("info", "virtual", "VIRTUAL_DEVICE_CREATED", parsed.data.type === "button" ? "Virtual button created" : "Virtual switch created", { deviceId: device.id, name: device.name, virtualType: parsed.data.type, roomId: device.roomId ?? null }).catch(() => undefined);
     return reply.code(201).send(device);
   });
 
@@ -807,7 +814,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = patchSchema.safeParse(request.body); if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message ?? "Invalid request", requestId: request.id } });
     try {
       const current = registry.get(request.params.id);
-      if ((parsed.data.presentationType && parsed.data.presentationType !== "auto" || parsed.data.hidden !== undefined) && !current) {
+      if ((parsed.data.presentationType && parsed.data.presentationType !== "auto" || parsed.data.hidden !== undefined || parsed.data.virtualType !== undefined) && !current) {
         return reply.code(404).send({ error: { code: "DEVICE_NOT_FOUND", message: "Device not found", requestId: request.id } });
       }
       if (parsed.data.presentationType && parsed.data.presentationType !== "auto" && current && !supportsPresentationOverride(current)) {
@@ -815,6 +822,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       }
       if (current?.source === "virtual" && parsed.data.presentationType && !["auto", "switch"].includes(parsed.data.presentationType)) {
         return reply.code(409).send({ error: { code: "VIRTUAL_PRESENTATION_TYPE_NOT_SUPPORTED", message: "Virtual devices currently support the switch type only.", requestId: request.id } });
+      }
+      if (parsed.data.virtualType !== undefined && current?.source !== "virtual") {
+        return reply.code(409).send({ error: { code: "VIRTUAL_TYPE_NOT_SUPPORTED", message: "Only virtual devices can change their virtual device type.", requestId: request.id } });
       }
       if (parsed.data.hidden !== undefined && current?.source !== "phoscon") {
         return reply.code(409).send({ error: { code: "VISIBILITY_NOT_SUPPORTED", message: "Only Zigbee devices can be hidden from the Zigbee overview.", requestId: request.id } });
@@ -838,7 +848,8 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
         homekitRoom = rooms.find(item=>item.id===requestedHomeKitRoomId)?.name;
         if (!homekitRoom) return reply.code(404).send({ error: { code: "HOMEKIT_ROOM_NOT_FOUND", message: "The selected HomeKit target room does not exist in SALTA.", requestId: request.id } });
       }
-      const { homekitEnabled: _homekitEnabled, homekitName: _homekitName, homekitUseSaltaRoom: _homekitUseSaltaRoom, homekitRoomId: _homekitRoomId, ...devicePatch } = parsed.data;
+      const { homekitEnabled: _homekitEnabled, homekitName: _homekitName, homekitUseSaltaRoom: _homekitUseSaltaRoom, homekitRoomId: _homekitRoomId, virtualType: _virtualType, ...devicePatch } = parsed.data;
+      if (parsed.data.virtualType !== undefined && virtualAdapter) await virtualAdapter.updateKind(request.params.id, parsed.data.virtualType);
       let updated = await registry.patch(request.params.id,{...devicePatch,roomId:parsed.data.roomId ?? undefined,room});
       if (homekitRequested) {
         updated = await registry.patchHomeKit(request.params.id,{
@@ -1092,7 +1103,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.58", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.59", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

@@ -277,9 +277,9 @@ Disconnecting Phoscon removes the synchronized SALTA records but does not delete
 
 SALTA can create native virtual devices that exist entirely inside SALTA and are persisted in PostgreSQL. Open **Virtual Devices** in the main navigation to create them.
 
-The initial virtual-device implementation supports **switches**. A virtual switch can be assigned to a SALTA room, controlled from its dedicated page or the room overview, renamed later and deleted again. Its on/off state is persisted through the normal SALTA device registry.
+SALTA supports persistent **virtual switches** and **momentary virtual buttons**. Both can be assigned to a SALTA room, renamed later and deleted again. A virtual switch keeps its normal on/off state. A virtual button is presented as a push button in SALTA, emits a short on pulse when pressed and automatically returns to off after 500 ms.
 
-When HomeKit is enabled, virtual switches are exported automatically as HomeKit switch accessories. Commands from the SALTA web interface and HomeKit use the same device command router, so the state remains synchronized in both systems. Deleting a virtual device removes it from the SALTA registry and from the running HomeKit bridge.
+When HomeKit is enabled, both variants are exported as writable HomeKit switch accessories. The momentary button deliberately uses switch semantics in HomeKit so Apple Home automations and geofences can activate it; SALTA then resets it automatically. This makes a virtual button suitable as a one-shot automation trigger without adding an explicit self-reset action to the rule. Commands from the SALTA web interface and HomeKit use the same device command router, so state changes remain synchronized in both systems. Deleting a virtual device removes it from the SALTA registry and from the running HomeKit bridge.
 
 Virtual devices do not require credentials, a physical host or an external adapter. Devices without a room assignment remain visible on the Virtual Devices page but are intentionally excluded from the room-based overview until a room is assigned.
 

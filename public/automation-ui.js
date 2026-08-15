@@ -140,7 +140,7 @@ function automationCurrentTriggerDefinitions(){
   return definitions;
 }
 function automationVirtualSelfResetAction(deviceId){
-  const device=automationDeviceById(deviceId);if(device?.source!=='virtual')return '';const matching=automationCurrentTriggerDefinitions().filter(trigger=>trigger.deviceId===deviceId);
+  const device=automationDeviceById(deviceId);if(device?.source!=='virtual'||device.adapterData?.virtualType==='button')return '';const matching=automationCurrentTriggerDefinitions().filter(trigger=>trigger.deviceId===deviceId);
   if(!matching.length||matching.some(trigger=>trigger.stateKey!=='on'))return '';const values=new Set(matching.map(trigger=>trigger.value));if(values.size!==1)return '';return matching[0].value?'turnOff':'turnOn';
 }
 function automationTargetDeviceAllowed(device,usedActionIds=new Set()){const triggerConflict=automationAllTriggerDeviceIds().has(device.id);return !usedActionIds.has(device.id)&&(!triggerConflict||Boolean(automationVirtualSelfResetAction(device.id)))}
