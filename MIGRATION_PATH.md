@@ -2,7 +2,7 @@
 
 v0.8.69 fixes the startup SQL used to create/update the hidden `system:climate-mode` automation target. The canonical schema is unchanged: `devices.capabilities` remains `jsonb`, and schema initialization now supplies a JSONB array instead of a PostgreSQL `text[]`.
 
-## Current v0.8.72 update
+## Current v0.8.73 update
 
 v0.8.72 changes only a frontend regression-test expectation and requires no migration. The additive `automation_conditions` table introduced in v0.8.71 remains unchanged, as do the v0.8.70 Heating mode condition and the v0.8.69 JSONB startup fix.
 

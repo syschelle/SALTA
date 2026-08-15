@@ -57,4 +57,11 @@ describe("system overview controls", () => {
     expect(functionCallsWithStringArgument(app, "testPushover", "api", "/api/settings/notifications/test")).toBe(true);
     expect(cssRuleContains(styles, ".battery-overview-status", "min-height:44px")).toBe(true);
   });
+
+  it("does not show the Phoscon badge on the daylight overview card", () => {
+    expect(html).toContain('<h2>Tageslicht</h2>');
+    expect(html).not.toContain('<h2>Tageslicht</h2><span class="system-card-badge">Phoscon</span>');
+  });
+
+
 });

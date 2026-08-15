@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.73
+
+- Removed the visible **Phoscon** badge from the Daylight card on the SALTA overview.
+- The Daylight sensor continues to use the existing Phoscon/deCONZ integration internally; only the overview label was simplified.
+- No runtime behavior, database schema, automation logic, environment variable, dependency or deployment change is required.
+
 ## v0.8.72
 
 - Updated the Heating mode frontend regression test to match the generic multi-condition summary introduced in v0.8.71.

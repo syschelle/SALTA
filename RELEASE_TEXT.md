@@ -1,6 +1,12 @@
-# SALTA v0.8.72
+# SALTA v0.8.73
 
-SALTA v0.8.72 is a frontend regression-test maintenance release for the multiple **Only if** conditions introduced in v0.8.71. Runtime behavior is unchanged.
+SALTA v0.8.73 is a small overview UI cleanup release. The visible **Phoscon** badge has been removed from the Daylight card while the underlying Phoscon/deCONZ Daylight integration remains unchanged.
+
+## v0.8.73 overview cleanup
+
+- Removed the visible **Phoscon** badge from the **Daylight** card on the SALTA overview.
+- The Daylight sensor continues to use the existing Phoscon/deCONZ integration internally.
+- No runtime behavior, database schema, automation logic, mandatory environment variable, npm dependency or deployment topology changed.
 
 ## v0.8.72 frontend regression-test maintenance
 
