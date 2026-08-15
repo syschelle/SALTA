@@ -41,4 +41,19 @@ describe("VirtualDeviceAdapter", () => {
     expect(updated.state.on).toBe(true);
     expect(registry.set).toHaveBeenCalledWith(expect.objectContaining({ state: expect.objectContaining({ on: true }) }));
   });
+
+  it("executes binary commands for legacy persisted virtual records with incomplete metadata", async () => {
+    const current = {
+      id: "virtual:legacy", source: "virtual", sourceId: "legacy", type: "legacyVirtual", name: "Legacy virtual",
+      reachable: true, state: {}, capabilities: [],
+      homekitEnabled: false, hidden: false, credentialMode: "none", passwordConfigured: false,
+      lastSeen: new Date().toISOString(), lastEvent: new Date().toISOString()
+    } as Device;
+    registry.get.mockReturnValue(current);
+    const adapter = new VirtualDeviceAdapter(registry as never);
+    const updated = await adapter.command({ deviceId: current.id, capability: "turnOn", source: "automation" });
+    expect(updated.state.on).toBe(true);
+    expect(registry.set).toHaveBeenCalledWith(expect.objectContaining({ state: expect.objectContaining({ on: true }) }));
+  });
+
 });

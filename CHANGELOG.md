@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.57
+
+- Fixed automation target discovery so all existing SALTA virtual devices remain selectable in **3 · Dann**, including legacy persisted virtual records whose type/state/capability metadata is incomplete.
+- Virtual devices now receive the binary automation action set `An`, `Aus` and `Toggle` based on the virtual adapter source, matching the fact that the current virtual adapter exposes switch devices only.
+- Aligned frontend target discovery, automation-engine validation and virtual-adapter command execution so the UI cannot hide a virtual target that the backend can execute.
+- Added frontend, engine and adapter regression coverage for legacy virtual target records while keeping read-only OpenCCU contact sensors out of the target list.
+- Carries forward v0.8.56 route-aware refresh pausing so Automations and Settings are not rebuilt during editing.
+- Carries forward thermostat target-temperature input and expanded OpenCCU target actions from the preceding candidates.
+- No manual database migration, new mandatory environment variable or new npm dependency is required.
+
 ## v0.8.56
 
 - Paused the five-second background live-value refresh while **Automationen** or **Einstellungen** is open so selects, inputs and in-progress edits are no longer rebuilt underneath the user.

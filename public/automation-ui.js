@@ -192,7 +192,7 @@ function updateAutomationPrimaryActionValue(value){
 function automationActionsForDevice(deviceId){
   const device=automationDeviceById(deviceId);if(!device)return [];
   const capabilities=new Set(Array.isArray(device.capabilities)?device.capabilities:[]);const actions=[];
-  const binaryFallback=(device.source==='virtual'&&device.type==='switch'&&typeof device.state?.on==='boolean')||(device.source==='openccu'&&['switch','light','outlet'].includes(device.type)&&typeof device.state?.on==='boolean');
+  const binaryFallback=device.source==='virtual'||(device.source==='openccu'&&['switch','light','outlet'].includes(device.type)&&typeof device.state?.on==='boolean');
   for(const action of ['turnOn','turnOff','toggle'])if(capabilities.has(action)||binaryFallback)actions.push(action);
   if(capabilities.has('open'))actions.push('open');
   if(capabilities.has('close'))actions.push('close');

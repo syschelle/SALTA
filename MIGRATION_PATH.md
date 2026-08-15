@@ -1,6 +1,6 @@
 # SALTA migration paths
 
-## Current v0.8.56 update
+## Current v0.8.57 update
 
 No manual database migration is required. Existing `salta_postgres_data` is reused. The additive canonical `automation_targets` table is created by normal SALTA schema initialization and existing simple automation actions are copied into it automatically.
 

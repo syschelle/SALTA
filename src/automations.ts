@@ -159,7 +159,10 @@ function actionCapabilitySupported(device: Device, target: AutomationTargetActio
   }
   if (device.capabilities.includes(command.capability)) return true;
   if (["turnOn", "turnOff", "toggle"].includes(action)) {
-    if (device.source === "virtual" && device.type === "switch" && typeof device.state.on === "boolean") return true;
+    // The current virtual adapter exposes switch devices only. Treat every persisted
+    // virtual device as a binary automation target so older records with incomplete
+    // type/state/capability metadata remain selectable and executable.
+    if (device.source === "virtual") return true;
     if (device.source === "openccu" && ["switch", "light", "outlet"].includes(device.type) && typeof device.state.on === "boolean") return true;
   }
   return command.capability === "setThermostatMode"

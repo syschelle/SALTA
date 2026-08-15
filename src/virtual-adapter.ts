@@ -45,7 +45,10 @@ export class VirtualDeviceAdapter {
   async command(command: DeviceCommand): Promise<Device> {
     const device = this.registry.get(command.deviceId);
     if (!device || device.source !== "virtual") throw new Error("DEVICE_NOT_FOUND");
-    const binaryVirtualSwitch = device.type === "switch" && typeof device.state.on === "boolean" && ["turnOn", "turnOff", "toggle"].includes(command.capability);
+    // The virtual adapter currently creates switch devices only. Allow the binary
+    // command set for legacy persisted virtual records even when older metadata is
+    // missing or incomplete.
+    const binaryVirtualSwitch = ["turnOn", "turnOff", "toggle"].includes(command.capability);
     if (!device.capabilities.includes(command.capability) && !binaryVirtualSwitch) throw new Error("CAPABILITY_NOT_SUPPORTED");
 
     let on: boolean;

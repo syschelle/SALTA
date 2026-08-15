@@ -354,7 +354,7 @@ describe("AutomationEngine", () => {
   it("accepts virtual switches as automation targets even when an older persisted record lacks binary capability metadata", async () => {
     const registry = new TestRegistry();
     registry.devices.set("trigger", device("trigger", { motion: false }));
-    registry.devices.set("virtual-target", { ...device("virtual-target", { on: false }), source: "virtual", type: "switch", capabilities: [] });
+    registry.devices.set("virtual-target", { ...device("virtual-target", {}), source: "virtual", type: "legacyVirtual", presentationType: "auto", capabilities: [], adapterData: {} });
     const command = vi.fn(async commandInput => registry.get(commandInput.deviceId)!);
     const engine = new AutomationEngine(registry as never, { command }, memoryStore());
     await engine.start();
