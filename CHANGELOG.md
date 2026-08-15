@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.56
+
+- Paused the five-second background live-value refresh while **Automationen** or **Einstellungen** is open so selects, inputs and in-progress edits are no longer rebuilt underneath the user.
+- Removed the periodic `loadAutomations()` call from the live-refresh loop; automation data is still refreshed by explicit save/load actions instead of while a form is being edited.
+- Settings panels continue to load when opened and explicit status/save actions continue to refresh their own data, but the global device poll no longer runs on the Settings page.
+- Live refresh remains enabled on device/overview/presence pages where current values are expected to update automatically.
+- Carries forward v0.8.55 thermostat automation target-temperature input and the expanded virtual/OpenCCU target-device support introduced in the preceding candidate.
+- Added frontend regression coverage and a release-validator guard for the route-aware refresh behavior.
+- No database migration, new mandatory environment variable or new npm dependency is required.
+
 ## v0.8.55
 
 - Added **Solltemperatur setzen** to thermostat automation targets, including a per-target numeric temperature input in step **3 · Dann**.

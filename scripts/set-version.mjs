@@ -76,6 +76,8 @@ stageReplace("GIT_COMMANDS.md", [
   { from: `Release validation passed for SALTA v${previousVersion}.`, to: `Release validation passed for SALTA v${nextVersion}.` },
   { from: `git tag -a v${previousVersion} -m "SALTA v${previousVersion}"`, to: `git tag -a v${nextVersion} -m "SALTA v${nextVersion}"` },
   { from: `git push origin v${previousVersion}`, to: `git push origin v${nextVersion}` },
+  { from: `gh release create v${previousVersion}`, to: `gh release create v${nextVersion}` },
+  { from: `--title "SALTA v${previousVersion}"`, to: `--title "SALTA v${nextVersion}"` },
 ]);
 
 if (existsSync(pathFor("install.sh"))) {

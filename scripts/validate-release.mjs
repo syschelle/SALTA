@@ -66,6 +66,8 @@ if (!serverSource.includes('immutableVendorAsset ? "public, max-age=31536000, im
 
 
 const virtualFrontend = read("public/app.js");
+if (!virtualFrontend.includes("function liveRefreshAllowedForRoute(route){return route!=='automations'&&route!=='settings'}")) fail("Periodic live refresh must be paused on Automations and Settings pages");
+if (/function refreshLiveData\(\)[\s\S]*?loadAutomations\(/.test(virtualFrontend)) fail("Periodic live refresh must not reload the automation editor");
 if (!publicIndex.includes('data-nav="virtual"')) fail("Virtual Devices navigation is missing");
 if (!publicIndex.includes('data-page="virtual"')) fail("Virtual Devices page is missing");
 if (!virtualFrontend.includes("renderDeviceGrid('virtual',virtualGrid,virtualFilter,virtualRoomFilter)")) fail("Virtual Devices page is not wired to the common renderer");

@@ -1,4 +1,4 @@
-# SALTA v0.8.55 Git commands
+# SALTA v0.8.56 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(automation): add thermostat target temperatures"
+git commit -m "fix(ui): pause refresh while editing automations and settings"
 git push origin main
 ```
 
@@ -20,12 +20,10 @@ git fetch origin
 git show origin/main:package.json | grep '"version"'
 git show origin/main:docker-compose.image.yml | sha256sum
 git show origin/main:migrate-homekit-storage.sh | sha256sum
-git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS automation_targets'
-git show origin/main:public/index.html | grep -F 'id="automationActionValue"'
+git show origin/main:public/app.js | grep -F "function liveRefreshAllowedForRoute(route){return route!=='automations'&&route!=='settings'}"
+git show origin/main:src/frontend-live-refresh.test.ts | grep -F 'does not reload automations from the five-second live refresh'
 git show origin/main:public/automation-ui.js | grep -F "setTargetTemperature:'Solltemperatur setzen'"
-git show origin/main:public/automation-ui.js | grep -F "device.source==='virtual'"
-git show origin/main:public/automation-ui.js | grep -F "device.source==='openccu'"
-git show origin/main:src/automations.ts | grep -F 'AUTOMATION_ACTION_TEMPERATURE_INVALID'
+git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS automation_targets'
 ```
 
 Compare the SHA-256 values with `RELEASE_MANIFEST.md` from the same commit.
@@ -40,8 +38,8 @@ npm run check
 The validator output must include:
 
 ```text
-Release validator contract: SALTA v0.8.55 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.55.
+Release validator contract: SALTA v0.8.56 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.56.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be completely green on `main`.
@@ -54,15 +52,15 @@ Only after the repository verification above matches the release candidate:
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.55 -m "SALTA v0.8.55"
-git push origin v0.8.55
+git tag -a v0.8.56 -m "SALTA v0.8.56"
+git push origin v0.8.56
 ```
 
 Optional GitHub release with GitHub CLI:
 
 ```bash
-gh release create v0.8.55 \
-  --title "SALTA v0.8.55" \
+gh release create v0.8.56 \
+  --title "SALTA v0.8.56" \
   --notes-file RELEASE_TEXT.md
 ```
 
@@ -77,4 +75,4 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-Do not use `down -v`. No manual database migration is required; the additive `automation_targets` table is created and populated by normal schema initialization.
+Do not use `down -v`. No manual database migration is required.

@@ -426,15 +426,15 @@ async function load(){
     if(routeFromHash()==='presence')await loadPresence();
   }catch(error){notify(error.message,true)}
 }
+function liveRefreshAllowedForRoute(route){return route!=='automations'&&route!=='settings'}
 async function refreshLiveData(){
-  if(liveRefreshInFlight)return;
+  if(!liveRefreshAllowedForRoute(routeFromHash())||liveRefreshInFlight)return;
   liveRefreshInFlight=true;
   try{
     all=await api('/api/devices');
     if(!activeCoverSliderId&&!activeBrightnessSliderId&&!activeTemperatureSliderId)renderDevices();
     updateDashboardSummary();
     automationDevicesChanged();
-    if(routeFromHash()==='automations')await loadAutomations();
     if(routeFromHash()==='presence')await loadPresence();
   }catch(error){
     console.warn('Live device refresh failed',error);
