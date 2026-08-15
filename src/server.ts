@@ -87,9 +87,11 @@ const automationSchema = z.object({
   name: z.string().trim().min(1).max(120),
   enabled: z.boolean().default(true),
   roomId: z.string().uuid().nullable().optional(),
-  triggerDeviceId: z.string().min(1).max(255),
-  triggerStateKey: z.string().trim().min(1).max(80),
-  triggerValue: z.boolean(),
+  triggerType: z.enum(["device", "time"]).default("device"),
+  triggerTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  triggerDeviceId: z.string().min(1).max(255).optional(),
+  triggerStateKey: z.string().trim().min(1).max(80).optional(),
+  triggerValue: z.boolean().optional(),
   additionalTriggers: z.array(automationAdditionalTriggerSchema).max(7).default([]),
   conditionDeviceId: z.string().min(1).max(255).nullable().optional(),
   conditionStateKey: z.string().trim().min(1).max(80).nullable().optional(),
@@ -99,6 +101,14 @@ const automationSchema = z.object({
   actionValue: z.number().min(4).max(35).optional(),
   additionalActions: z.array(automationAdditionalActionSchema).max(7).default([])
 }).strict().superRefine((automation, ctx) => {
+  if (automation.triggerType === "time") {
+    if (!automation.triggerTime) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["triggerTime"], message: "Time is required." });
+    if (automation.additionalTriggers.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["additionalTriggers"], message: "Time triggers cannot be combined with OR device triggers." });
+  } else {
+    if (!automation.triggerDeviceId) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["triggerDeviceId"], message: "Trigger device is required." });
+    if (!automation.triggerStateKey) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["triggerStateKey"], message: "Trigger state is required." });
+    if (typeof automation.triggerValue !== "boolean") ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["triggerValue"], message: "Trigger value is required." });
+  }
   if (automation.action === "setTargetTemperature" && automation.actionValue === undefined) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["actionValue"], message: "Temperature is required." });
   }
@@ -331,6 +341,8 @@ function automationError(error: unknown): { status: number; code: string; messag
     AUTOMATION_TRIGGER_EVENT_UNSUPPORTED: "The selected trigger event is not available on this device.",
     AUTOMATION_TRIGGER_LIMIT: "An automation can use at most eight OR triggers.",
     AUTOMATION_TRIGGER_DUPLICATE: "The same trigger is configured more than once.",
+    AUTOMATION_TRIGGER_TIME_INVALID: "Enter a valid daily trigger time in HH:MM format.",
+    AUTOMATION_TIME_TRIGGER_OR_NOT_SUPPORTED: "A daily time trigger cannot be combined with OR device triggers in this release.",
     AUTOMATION_ACTION_DEVICE_NOT_FOUND: "The action device no longer exists.",
     AUTOMATION_ACTION_LIMIT: "An automation can control at most eight target devices.",
     AUTOMATION_ACTION_DUPLICATE_DEVICE: "Each target device can be configured only once per automation.",
@@ -346,14 +358,17 @@ function automationError(error: unknown): { status: number; code: string; messag
 }
 
 function normalizeAutomationInput(data: z.infer<typeof automationSchema>) {
+  const timeTrigger = data.triggerType === "time";
   return {
     name: data.name,
     enabled: data.enabled,
     roomId: data.roomId ?? undefined,
-    triggerDeviceId: data.triggerDeviceId,
-    triggerStateKey: data.triggerStateKey,
-    triggerValue: data.triggerValue,
-    additionalTriggers: data.additionalTriggers.map(trigger => ({ deviceId: trigger.deviceId, stateKey: trigger.stateKey, value: trigger.value })),
+    triggerType: timeTrigger ? "time" as const : "device" as const,
+    triggerTime: timeTrigger ? data.triggerTime : undefined,
+    triggerDeviceId: timeTrigger ? data.actionDeviceId : data.triggerDeviceId!,
+    triggerStateKey: timeTrigger ? "__time__" : data.triggerStateKey!,
+    triggerValue: timeTrigger ? true : data.triggerValue!,
+    additionalTriggers: timeTrigger ? [] : data.additionalTriggers.map(trigger => ({ deviceId: trigger.deviceId, stateKey: trigger.stateKey, value: trigger.value })),
     conditionDeviceId: data.conditionDeviceId ?? undefined,
     conditionStateKey: data.conditionStateKey ?? undefined,
     conditionValue: data.conditionValue ?? undefined,
@@ -599,9 +614,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.64" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.65" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.64", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.65", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1218,7 +1233,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.64", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.65", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

@@ -3,6 +3,8 @@ import type { DeviceRegistry } from "./registry.js";
 
 export type AutomationAction = "turnOn" | "turnOff" | "toggle" | "open" | "close" | "thermostatOff" | "thermostatAuto" | "thermostatManual" | "setTargetTemperature";
 
+export type AutomationTriggerType = "device" | "time";
+
 export interface AutomationTargetAction {
   deviceId: string;
   action: AutomationAction;
@@ -20,6 +22,8 @@ export interface AutomationRule {
   name: string;
   enabled: boolean;
   roomId?: string;
+  triggerType?: AutomationTriggerType;
+  triggerTime?: string;
   triggerDeviceId: string;
   triggerStateKey: string;
   triggerValue: boolean;
@@ -40,6 +44,8 @@ export interface AutomationInput {
   name: string;
   enabled: boolean;
   roomId?: string;
+  triggerType?: AutomationTriggerType;
+  triggerTime?: string;
   triggerDeviceId: string;
   triggerStateKey: string;
   triggerValue: boolean;
@@ -171,10 +177,21 @@ function actionCapabilitySupported(device: Device, target: AutomationTargetActio
     && typeof device.state.controlMode === "string";
 }
 
+function normalizeTriggerTime(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  return normalized && /^([01]\d|2[0-3]):[0-5]\d$/.test(normalized) ? normalized : undefined;
+}
+
+function timeAutomation(input: Pick<AutomationInput, "triggerType" | "triggerTime">): boolean {
+  return input.triggerType === "time";
+}
+
 function cloneInput(input: AutomationInput): AutomationInput {
   return {
     ...input,
     name: input.name.trim(),
+    triggerType: timeAutomation(input) ? "time" : "device",
+    triggerTime: timeAutomation(input) ? normalizeTriggerTime(input.triggerTime) : undefined,
     triggerStateKey: input.triggerStateKey.trim(),
     additionalTriggers: (input.additionalTriggers ?? []).map(trigger => ({
       deviceId: trigger.deviceId,
@@ -191,7 +208,8 @@ function cloneInput(input: AutomationInput): AutomationInput {
   };
 }
 
-export function automationRuleTriggers(rule: Pick<AutomationRule, "triggerDeviceId" | "triggerStateKey" | "triggerValue" | "additionalTriggers">): AutomationTrigger[] {
+export function automationRuleTriggers(rule: Pick<AutomationRule, "triggerType" | "triggerTime" | "triggerDeviceId" | "triggerStateKey" | "triggerValue" | "additionalTriggers">): AutomationTrigger[] {
+  if (rule.triggerType === "time") return [];
   return [
     { deviceId: rule.triggerDeviceId, stateKey: rule.triggerStateKey, value: rule.triggerValue },
     ...(rule.additionalTriggers ?? [])
@@ -254,10 +272,40 @@ function assertAcyclic(rules: AutomationRule[], candidate: AutomationRule, regis
   }
 }
 
+export interface AutomationSchedulerOptions {
+  now?: () => Date;
+  intervalMs?: number;
+  timeZone?: string;
+}
+
+interface LocalAutomationTime {
+  dateKey: string;
+  time: string;
+}
+
+export function localAutomationTime(date: Date, timeZone: string): LocalAutomationTime {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  });
+  const parts = Object.fromEntries(formatter.formatToParts(date).map(part => [part.type, part.value]));
+  return { dateKey: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}` };
+}
+
 export class AutomationEngine {
   private rules: AutomationRule[] = [];
   private readonly snapshots = new Map<string, DeviceState>();
   private readonly executionQueues = new Map<string, Promise<void>>();
+  private readonly timeTriggerKeys = new Map<string, string>();
+  private readonly schedulerNow: () => Date;
+  private readonly schedulerIntervalMs: number;
+  private readonly schedulerTimeZone: string;
+  private schedulerTimer?: ReturnType<typeof setInterval>;
   private started = false;
   private readonly onDevice = (device: Device): void => {
     void this.handleDevice(device).catch(error => {
@@ -286,8 +334,13 @@ export class AutomationEngine {
     private readonly registry: DeviceRegistry,
     private readonly commander: { command(command: DeviceCommand): Promise<Device> },
     private readonly store: AutomationStore,
-    private readonly logger: AutomationLogger = noOpLogger
-  ) {}
+    private readonly logger: AutomationLogger = noOpLogger,
+    scheduler: AutomationSchedulerOptions = {}
+  ) {
+    this.schedulerNow = scheduler.now ?? (() => new Date());
+    this.schedulerIntervalMs = Math.max(1_000, scheduler.intervalMs ?? 5_000);
+    this.schedulerTimeZone = scheduler.timeZone?.trim() || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  }
 
   async start(): Promise<void> {
     if (this.started) return;
@@ -298,6 +351,9 @@ export class AutomationEngine {
     this.registry.on("deviceEvent", this.onDeviceEvent);
     this.registry.on("deviceRemoved", this.onDeviceRemoved);
     this.started = true;
+    this.checkTimeTriggers();
+    this.schedulerTimer = setInterval(() => this.checkTimeTriggers(), this.schedulerIntervalMs);
+    this.schedulerTimer.unref?.();
   }
 
   stop(): void {
@@ -305,6 +361,9 @@ export class AutomationEngine {
     this.registry.off("device", this.onDevice);
     this.registry.off("deviceEvent", this.onDeviceEvent);
     this.registry.off("deviceRemoved", this.onDeviceRemoved);
+    if (this.schedulerTimer) clearInterval(this.schedulerTimer);
+    this.schedulerTimer = undefined;
+    this.timeTriggerKeys.clear();
     this.executionQueues.clear();
     this.started = false;
   }
@@ -315,7 +374,14 @@ export class AutomationEngine {
 
   private assertValidInput(input: AutomationInput, currentId?: string): void {
     if (!input.name.trim()) throw new Error("AUTOMATION_NAME_REQUIRED");
+    const isTimeTrigger = timeAutomation(input);
+    if (isTimeTrigger) {
+      if (!normalizeTriggerTime(input.triggerTime)) throw new Error("AUTOMATION_TRIGGER_TIME_INVALID");
+      if ((input.additionalTriggers ?? []).length > 0) throw new Error("AUTOMATION_TIME_TRIGGER_OR_NOT_SUPPORTED");
+    }
     const triggers = automationRuleTriggers({
+      triggerType: input.triggerType,
+      triggerTime: input.triggerTime,
       triggerDeviceId: input.triggerDeviceId,
       triggerStateKey: input.triggerStateKey,
       triggerValue: input.triggerValue,
@@ -393,6 +459,8 @@ export class AutomationEngine {
       name: current.name,
       enabled,
       roomId: current.roomId,
+      triggerType: current.triggerType,
+      triggerTime: current.triggerTime,
       triggerDeviceId: current.triggerDeviceId,
       triggerStateKey: current.triggerStateKey,
       triggerValue: current.triggerValue,
@@ -415,6 +483,7 @@ export class AutomationEngine {
     if (!await this.store.remove(id)) throw new Error("AUTOMATION_NOT_FOUND");
     this.rules = this.rules.filter(rule => rule.id !== id);
     this.executionQueues.delete(id);
+    this.timeTriggerKeys.delete(id);
   }
 
   private conditionAllows(rule: AutomationRule): boolean {
@@ -488,18 +557,43 @@ export class AutomationEngine {
     }
 
     if (successfulActions === 0) return;
-    const triggeredAt = new Date().toISOString();
+    const triggeredAt = this.schedulerNow().toISOString();
     await this.store.markTriggered(rule.id, triggeredAt);
     this.rules = this.rules.map(item => item.id === rule.id ? { ...item, lastTriggeredAt: triggeredAt } : item);
     await this.logger.write("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", {
       automationId: rule.id,
       automationName: rule.name,
-      triggerDeviceId: rule.triggerDeviceId,
+      ...(rule.triggerType === "time" ? { triggerType: "time", triggerTime: rule.triggerTime, timeZone: this.schedulerTimeZone } : { triggerDeviceId: rule.triggerDeviceId }),
       actions: actions.map(action => ({ deviceId: action.deviceId, action: action.action, ...(action.value !== undefined ? { value: action.value } : {}) })),
       successfulActions,
       failedActions,
       ...trigger
     }).catch(() => undefined);
+  }
+
+  private checkTimeTriggers(): void {
+    if (!this.started) return;
+    const now = this.schedulerNow();
+    const local = localAutomationTime(now, this.schedulerTimeZone);
+    for (const rule of this.rules) {
+      if (!rule.enabled || rule.triggerType !== "time" || rule.triggerTime !== local.time) continue;
+      const executionKey = `${local.dateKey}|${local.time}`;
+      if (this.timeTriggerKeys.get(rule.id) === executionKey) continue;
+      if (rule.lastTriggeredAt) {
+        const last = localAutomationTime(new Date(rule.lastTriggeredAt), this.schedulerTimeZone);
+        if (last.dateKey === local.dateKey && last.time === local.time) {
+          this.timeTriggerKeys.set(rule.id, executionKey);
+          continue;
+        }
+      }
+      this.timeTriggerKeys.set(rule.id, executionKey);
+      this.queueRule(rule, {
+        triggerType: "time",
+        triggerTime: rule.triggerTime,
+        triggerDate: local.dateKey,
+        timeZone: this.schedulerTimeZone
+      });
+    }
   }
 
   private async handleDevice(device: Device): Promise<void> {

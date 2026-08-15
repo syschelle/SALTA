@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.65
+
+- Added a first-class **daily time trigger** to the automation editor under **When**, alongside the existing device trigger.
+- Time-triggered rules run once per local calendar day at the selected `HH:MM` time and do not require a trigger device.
+- Automation scheduling uses SALTA's configured `TZ` value (default `Europe/Berlin`) so wall-clock schedules remain stable across daylight-saving changes.
+- Existing optional conditions and up to eight target actions remain available for time-triggered rules.
+- Added additive `automation_time_triggers` persistence without destructive `ALTER TABLE` migration; existing automation records remain compatible.
+- Included time schedules in configuration/disaster-recovery backup and restore, while old backup files without the new table remain importable.
+- Added API, engine, database, frontend and backup regression coverage for the new trigger type.
+- A time trigger is intentionally exclusive in this release and cannot be OR-combined with additional device triggers in the same automation.
+
 ## v0.8.64
 
 - Expanded the README with a new **Why SALTA exists** section describing the project's reliability-first motivation and its focus on preserving proven local hardware.

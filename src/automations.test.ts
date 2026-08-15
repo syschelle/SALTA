@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { AutomationEngine, encodeAutomationEventTrigger, type AutomationInput, type AutomationRule, type AutomationStore } from "./automations.js";
+import { AutomationEngine, encodeAutomationEventTrigger, localAutomationTime, type AutomationInput, type AutomationRule, type AutomationStore } from "./automations.js";
 import type { Device, DeviceState } from "./types.js";
 
 function device(id: string, state: DeviceState, capabilities: string[] = []): Device {
@@ -87,6 +87,50 @@ describe("AutomationEngine", () => {
     await tick();
     expect(command).toHaveBeenCalledTimes(1);
     engine.stop();
+  });
+
+  it("runs a daily time trigger once per local day in the configured timezone", async () => {
+    vi.useFakeTimers();
+    try {
+      const registry = new TestRegistry();
+      registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+      const command = vi.fn(async () => registry.get("target")!);
+      const store = memoryStore();
+      let now = new Date("2026-08-15T05:29:50.000Z");
+      const engine = new AutomationEngine(registry as never, { command }, store, undefined, {
+        now: () => now, intervalMs: 1_000, timeZone: "Europe/Berlin"
+      });
+      await engine.start();
+      await engine.create({
+        name: "Morning light", enabled: true, triggerType: "time", triggerTime: "07:30",
+        triggerDeviceId: "target", triggerStateKey: "__time__", triggerValue: true,
+        actionDeviceId: "target", action: "turnOn"
+      });
+
+      now = new Date("2026-08-15T05:30:00.000Z");
+      await vi.advanceTimersByTimeAsync(1_000);
+      await Promise.resolve();
+      expect(command).toHaveBeenCalledTimes(1);
+      expect(command).toHaveBeenLastCalledWith({ deviceId: "target", capability: "turnOn", source: "automation" });
+
+      now = new Date("2026-08-15T05:30:40.000Z");
+      await vi.advanceTimersByTimeAsync(5_000);
+      await Promise.resolve();
+      expect(command).toHaveBeenCalledTimes(1);
+
+      now = new Date("2026-08-16T05:30:00.000Z");
+      await vi.advanceTimersByTimeAsync(1_000);
+      await Promise.resolve();
+      expect(command).toHaveBeenCalledTimes(2);
+      engine.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps a time trigger tied to local wall-clock time across daylight-saving offsets", () => {
+    expect(localAutomationTime(new Date("2026-01-15T06:30:00.000Z"), "Europe/Berlin")).toEqual({ dateKey: "2026-01-15", time: "07:30" });
+    expect(localAutomationTime(new Date("2026-08-15T05:30:00.000Z"), "Europe/Berlin")).toEqual({ dateKey: "2026-08-15", time: "07:30" });
   });
 
   it("uses Phoscon daylight and dark states as automation triggers and conditions", async () => {

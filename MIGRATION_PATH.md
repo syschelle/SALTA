@@ -1,10 +1,12 @@
 # SALTA migration paths
 
-## Current v0.8.64 update
+## Current v0.8.65 update
 
 No manual database migration is required. Existing `salta_postgres_data` and `salta_runtime_data` volumes are reused.
 
-v0.8.64 is a documentation-focused release. It expands and refines the README to explain why SALTA exists, its reliability-first philosophy and its intentionally focused scope. No runtime behavior, database schema, adapter API, deployment topology or configuration contract changes. The settings-navigation cleanup from v0.8.63 and the Philips Hue Bridge integration remain unchanged. Hue connection metadata and the encrypted bridge application key reuse the existing `adapter_settings` table, so no new table and no destructive `ALTER TABLE` statement are introduced. Existing Shelly, Phoscon, OpenCCU, FRITZ!Box, virtual-device and automation data remain unchanged.
+v0.8.65 adds daily local-time automation triggers. No manual migration command is required: SALTA creates the additive `automation_time_triggers` table during normal schema initialization and leaves the existing `automations` table and its device-trigger records unchanged. Existing device-trigger automations continue to load exactly as before, and old configuration/disaster-recovery backups that do not contain the new table remain importable. The scheduler uses the configured `TZ` value (default `Europe/Berlin`).
+
+The README story and reliability-first project description introduced in v0.8.64 remain unchanged, as do the settings-navigation cleanup from v0.8.63 and the Philips Hue Bridge integration. Existing Shelly, Phoscon, Hue, OpenCCU, FRITZ!Box and virtual-device data remain unchanged.
 
 Hue devices are created during the first successful Hue reconciliation. Local SALTA names, room assignments, presentation metadata and per-device HomeKit choices are preserved on later reconciliations. Disconnecting Hue removes only the synchronized SALTA Hue records and does not alter the Philips Hue Bridge itself.
 

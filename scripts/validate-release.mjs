@@ -158,6 +158,13 @@ if (!databaseSource.includes('as "additionalTriggers"')) fail("Automation OR tri
 if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS automation_actions")) fail("Automation multi-target action table is missing");
 if (!databaseSource.includes('as "additionalActions"')) fail("Automation additional target actions are not loaded with rules");
 if (!databaseSource.includes("INSERT INTO automation_actions(automation_id,position,action_device_id,action)")) fail("Automation additional target actions are not persisted");
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS automation_time_triggers") || !databaseSource.includes('as "triggerTime"')) fail("Automation daily-time persistence is missing");
+if (!databaseSource.includes("writeAutomationTimeTrigger") || !databaseSource.includes("LEFT JOIN automation_time_triggers s ON s.automation_id=a.id")) fail("Automation daily-time schedules are not persisted and loaded");
+if (!publicIndex.includes('id="automationTriggerType"') || !publicIndex.includes('<option value="time">Uhrzeit</option>') || !publicIndex.includes('id="automationTriggerTime" type="time"')) fail("Automation daily-time trigger editor is missing");
+if (!automationFrontend.includes("function automationTimeTriggerActive()") || !automationFrontend.includes("triggerTime:automationElements.triggerTime.value")) fail("Automation daily-time trigger frontend payload is missing");
+if (!automationEngineSource.includes("checkTimeTriggers()") || !automationEngineSource.includes("localAutomationTime") || !automationEngineSource.includes('rule.triggerType !== "time"')) fail("Automation daily-time scheduler is missing");
+if (!mainSource.includes("timeZone: config.TZ") || !configSource.includes('TZ: z.string().trim().min(1).max(120).default("Europe/Berlin")')) fail("Automation scheduler is not wired to the configured SALTA timezone");
+if (!configurationBackupSource.includes("automation_time_triggers: backupRows().optional()") || !configurationBackupSource.includes('automation_time_triggers: "SELECT * FROM automation_time_triggers ORDER BY automation_id"')) fail("Configuration backup does not preserve automation time schedules");
 if (!publicIndex.includes('id="automationAdditionalTriggers"') || !publicIndex.includes('id="automationAddTriggerButton"')) fail("Compact OR-trigger editor controls are missing");
 if (!publicIndex.includes('id="automationAdditionalActions"') || !publicIndex.includes('id="automationAddActionButton"')) fail("Multi-target automation action controls are missing");
 if (!automationFrontend.includes("automationAdditionalTriggerPayload()") || !automationFrontend.includes("additionalTriggers:")) fail("Automation OR triggers are not included in the frontend payload");

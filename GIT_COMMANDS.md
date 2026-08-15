@@ -1,4 +1,4 @@
-# SALTA v0.8.64 Git commands
+# SALTA v0.8.65 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "docs(readme): explain SALTA reliability-first motivation"
+git commit -m "feat(automations): add daily local time triggers"
 git push origin main
 ```
 
@@ -28,13 +28,16 @@ git show origin/main:src/hue-mdns.ts | grep -F '_hue._tcp.local'
 git show origin/main:src/hue-tls.ts | grep -F 'rejectUnauthorized: true'
 git show origin/main:src/hue-tls.ts | grep -F 'HUE_LOCAL_NETWORK_REQUIRED'
 git show origin/main:public/index.html | grep -F 'Philips Hue'
+git show origin/main:public/index.html | grep -F 'option value="time"'
+git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS automation_time_triggers'
+git show origin/main:src/main.ts | grep -F 'timeZone: config.TZ'
 ```
 
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.64 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.64.
+Release validator contract: SALTA v0.8.65 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.65.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -45,14 +48,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.64 -m "SALTA v0.8.64"
-git push origin v0.8.64
+git tag -a v0.8.65 -m "SALTA v0.8.65"
+git push origin v0.8.65
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.64 \
-  --title "SALTA v0.8.64" \
+gh release create v0.8.65 \
+  --title "SALTA v0.8.65" \
   --notes-file RELEASE_TEXT.md
 ```

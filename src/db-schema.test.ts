@@ -12,6 +12,13 @@ describe("clean database schema", () => {
     expect(databaseSource).not.toContain("upgradeCredentialEncryption");
   });
 
+  it("adds daily automation schedules without altering the existing automations table", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_time_triggers");
+    expect(databaseSource).toContain("time_of_day text NOT NULL");
+    expect(databaseSource).toContain("REFERENCES automations(id) ON DELETE CASCADE");
+    expect(databaseSource).toContain("LEFT JOIN automation_time_triggers s ON s.automation_id=a.id");
+  });
+
   it("does not restore the removed duplicate room-name column", () => {
     const devicesTable = databaseSource.match(/CREATE TABLE IF NOT EXISTS devices \(([\s\S]*?)\n    \);/i)?.[1] ?? "";
     expect(devicesTable).toContain("room_id uuid");

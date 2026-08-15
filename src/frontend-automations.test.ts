@@ -19,6 +19,21 @@ describe("automation frontend", () => {
     expect(html).toContain('id="automationRoom"');
   });
 
+  it("offers a daily local-time trigger without requiring a device", () => {
+    expect(html).toContain('id="automationTriggerType"');
+    expect(html).toContain('<option value="time">Uhrzeit</option>');
+    expect(html).toContain('id="automationTriggerTime" type="time"');
+    expect(html).toContain('Täglich in der SALTA-Zeitzone (TZ).');
+    expect(hasFunction(uiAst, "updateAutomationTriggerMode")).toBe(true);
+    expect(hasFunction(uiAst, "automationTimeTriggerActive")).toBe(true);
+    expect(ui).toContain("triggerType:timeTrigger?'time':'device'");
+    expect(ui).toContain("timeTrigger?{triggerTime:automationElements.triggerTime.value}");
+    expect(ui).toContain("Täglich · ${rule.triggerTime||'–'} Uhr");
+    expect(ui).toContain("automationElements.additionalTriggers.hidden=timeTrigger");
+    expect(cssRuleContains(styles, ".automation-trigger-type-row", "grid-template-columns:minmax(0,1fr) minmax(0,1fr)")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-additional-triggers[hidden]", "display:none")).toBe(true);
+  });
+
   it("offers boolean state transitions and deCONZ button-event triggers", () => {
     expect(ui).toContain("turnOn:'An',turnOff:'Aus',toggle:'Toggle'");
     expect(ui).toContain("typeof value==='boolean'");

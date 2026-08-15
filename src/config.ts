@@ -12,6 +12,7 @@ const schema = z.object({
   WEB_HOST: z.string().default("0.0.0.0"),
   WEB_PORT: z.coerce.number().int().min(1).max(65535).default(8099),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
+  TZ: z.string().trim().min(1).max(120).default("Europe/Berlin"),
   DATABASE_URL: z.string().min(1),
   ADMIN_USERNAME: z.string().trim().min(1).max(64).default("admin"),
   ADMIN_PASSWORD: nonPlaceholderSecret(16, "ADMIN_PASSWORD"),

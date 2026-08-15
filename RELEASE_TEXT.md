@@ -1,6 +1,21 @@
-# SALTA v0.8.64
+# SALTA v0.8.65
 
-SALTA v0.8.64 is a documentation-focused release that explains the motivation behind SALTA more clearly. The README now describes why the project was created, why reliability and long-term compatibility are first-class design goals, and why SALTA deliberately keeps a narrower scope than a general-purpose home-automation platform. Runtime behavior is unchanged.
+SALTA v0.8.65 adds a first-class daily wall-clock trigger to the local automation engine. Automations can now start from either a device event/state or a selected local time such as `07:30`, while keeping the existing optional condition and multi-target action model. The implementation is local-first, timezone-aware and persists schedules without a destructive database migration.
+
+## v0.8.65 daily automation time triggers
+
+- Added **Time** as a selectable trigger type in the automation editor's **When** stage, alongside the existing device trigger.
+- A time-triggered automation runs once per local calendar day at the selected `HH:MM` wall-clock time and does not require a trigger device.
+- The scheduler uses SALTA's configured `TZ` value; the existing default remains `Europe/Berlin`. A 07:30 schedule therefore stays at 07:30 across daylight-saving changes.
+- The repeated autumn clock hour is de-duplicated so the same daily time rule is not intentionally executed twice on one local calendar day.
+- Existing **Only if** conditions remain available for time-triggered rules.
+- Existing primary and additional target actions remain available, including Shelly/Zigbee/Hue/OpenCCU/virtual-device actions and thermostat target temperatures.
+- Time schedules are persisted in a new additive `automation_time_triggers` table. SALTA creates the table automatically during normal startup; no manual migration command and no destructive `ALTER TABLE` statement are required.
+- Existing device-trigger automations keep their current persistence and behavior.
+- Configuration and disaster-recovery backups now include time schedules. Older backup files without `automation_time_triggers` remain compatible and restore with no time schedules.
+- Added regression coverage for scheduler behavior, local timezone/DST handling, API normalization, database schema/persistence, frontend editing and backup/restore.
+- In v0.8.65 a time trigger is intentionally exclusive: it cannot be OR-combined with additional device triggers inside the same automation. More advanced calendar/combined scheduling can be added later without changing the simple daily-time contract.
+- No new mandatory environment variable or npm dependency is required.
 
 ## v0.8.64 project story and README improvements
 
@@ -91,8 +106,8 @@ SALTA v0.8.64 is a documentation-focused release that explains the motivation be
 
 ## Compatibility
 
-- No database schema migration is required; Hue credentials reuse SALTA's existing encrypted `adapter_settings` persistence.
-- No manual migration is required.
+- v0.8.65 adds the `automation_time_triggers` table automatically during normal schema initialization; no manual database migration is required.
+- Hue credentials continue to reuse SALTA's existing encrypted `adapter_settings` persistence.
 - Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
 - No new mandatory environment variable is required.
 - No new npm dependency is introduced; the Hue client uses Node.js built-in HTTPS, DNS and networking APIs.
