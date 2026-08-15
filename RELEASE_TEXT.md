@@ -48,6 +48,14 @@ The release also carries forward the safe virtual-trigger self-reset support int
 - OpenCCU/HomeMatic thermostats support mode changes and explicit target-temperature actions.
 - The global five-second live refresh remains paused on **Automations** and **Settings** so open forms and selectors are not rebuilt while editing.
 
+## Build and regression-test correction
+
+- Fixed the v0.8.59 CI failure caused by regression tests that still described the pre-button device dialog and card renderer.
+- Removed the obsolete automation assertion that still required the `HomeKit-Geofencing` hint even though the hint was intentionally removed in this release.
+- Replaced the brittle exact count of device-dialog configuration sections with a structural check that verifies hidden sections are renumbered dynamically.
+- Updated device-card state-color coverage for the new momentary-button presentation so virtual buttons do not receive persistent on/off card coloring and their transient `on` state is not duplicated as a status metric.
+- No production runtime behavior was changed by this correction.
+
 ## Compatibility
 
 - Builds directly on the SALTA v0.8.58 feature set.

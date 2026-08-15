@@ -7,6 +7,7 @@
 - Momentary buttons remain writable HomeKit switch accessories so Apple Home geofences can activate them.
 - Virtual button cards use a dedicated **Drücken** action in SALTA.
 - Removed the virtual self-reset explanatory hint from the automation editor while keeping the v0.8.58 safe self-reset behavior for persistent switches.
+- Corrected outdated frontend regression tests for the removed hint, the new virtual-type configuration section and momentary-button card rendering.
 
 ## v0.8.58
 

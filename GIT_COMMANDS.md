@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(virtual): add momentary button mode"
+git commit -m "fix(test): align v0.8.59 virtual button regressions"
 git push origin main
 ```
 
@@ -25,6 +25,9 @@ git show origin/main:src/virtual-adapter.ts | grep -F 'MOMENTARY_BUTTON_RESET_MS
 git show origin/main:src/server.ts | grep -F 'type: z.enum(["switch", "button"]).default("switch")'
 git show origin/main:public/index.html | grep -F 'Taster (Impuls)'
 git show origin/main:public/index.html | grep -F 'id="deviceVirtualType"'
+git show origin/main:src/frontend-automations.test.ts | grep -F 'does not show the virtual self-reset explanatory hint'
+git show origin/main:src/frontend-device-dialog.test.ts | grep -F 'deviceVirtualTypeSection'
+git show origin/main:src/frontend-device-state-color.test.ts | grep -F 'momentary buttons'
 ```
 
 Expected release-validator output:

@@ -168,7 +168,6 @@ describe("automation frontend", () => {
     expect(ui).toContain("device.source==='virtual'");
     expect(hasFunction(uiAst, "automationVirtualSelfResetAction")).toBe(true);
     expect(hasFunction(uiAst, "automationActionsForTargetDevice")).toBe(true);
-    expect(html).toContain("HomeKit-Geofencing");
     expect(ui).toContain("device.source==='openccu'");
     expect(ui).toContain("thermostatOff:'Thermostat Aus'");
     expect(ui).toContain("actions.push('thermostatOff','thermostatAuto','thermostatManual')");

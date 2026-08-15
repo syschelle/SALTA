@@ -51,9 +51,11 @@ describe("device configuration details", () => {
   });
 
   it("numbers only visible configuration sections", () => {
-    expect(html.match(/data-device-config-section/g)?.length).toBe(7);
+    expect(html).toContain('id="deviceVirtualTypeSection" class="form-section device-config-section" data-device-config-section hidden');
     expect(hasFunction(app, "renumberDeviceConfigSections")).toBe(true);
-    expect(functionSource(app, "renumberDeviceConfigSections")).toContain("section.hidden");
+    const renumber = functionSource(app, "renumberDeviceConfigSections");
+    expect(renumber).toContain("querySelectorAll('[data-device-config-section]')");
+    expect(renumber).toContain("section.hidden");
   });
 
   it("prepares per-device HomeKit publication without duplicating SALTA room maintenance", () => {
