@@ -1,10 +1,10 @@
 # SALTA migration paths
 
-v0.8.68 is a TypeScript build-fix release for the Heating mode automation integration. It does not add or alter database schema. The additive `automation_system_actions` table and hidden `system:climate-mode` target introduced in v0.8.66 remain unchanged.
+v0.8.69 fixes the startup SQL used to create/update the hidden `system:climate-mode` automation target. The canonical schema is unchanged: `devices.capabilities` remains `jsonb`, and schema initialization now supplies a JSONB array instead of a PostgreSQL `text[]`.
 
-## Current v0.8.68 update
+## Current v0.8.69 update
 
-No manual database migration is required. Existing `salta_postgres_data` and `salta_runtime_data` volumes are reused.
+No manual database migration or SQL repair is required. Do not delete the PostgreSQL volume. Starting v0.8.69 is sufficient; the corrected idempotent schema initialization creates or updates the hidden Heating mode target automatically. Existing `salta_postgres_data` and `salta_runtime_data` volumes are reused.
 
 v0.8.65 adds daily local-time automation triggers. No manual migration command is required: SALTA creates the additive `automation_time_triggers` table during normal schema initialization and leaves the existing `automations` table and its device-trigger records unchanged. Existing device-trigger automations continue to load exactly as before, and old configuration/disaster-recovery backups that do not contain the new table remain importable. The scheduler uses the configured `TZ` value (default `Europe/Berlin`).
 

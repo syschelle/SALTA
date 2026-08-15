@@ -1,6 +1,18 @@
-# SALTA v0.8.68
+# SALTA v0.8.69
 
-SALTA v0.8.68 fixes the strict TypeScript build regression found after v0.8.67. The Heating mode automation target, daily local-time trigger and all v0.8.67 regression fixes remain unchanged.
+SALTA v0.8.69 fixes a confirmed production startup regression in the Heating mode automation schema initialization. The hidden `system:climate-mode` device is now created with a JSONB capabilities array that matches the existing `devices.capabilities` column type, preventing PostgreSQL error `42804` and the resulting Docker restart loop.
+
+## v0.8.69 production startup fix
+
+- Fixed the confirmed PostgreSQL startup error `column "capabilities" is of type jsonb but expression is of type text[]`.
+- The hidden `system:climate-mode` device introduced for Heating mode automations now uses `jsonb_build_array('setClimateMode')` for its capabilities instead of `ARRAY['setClimateMode']::text[]`.
+- This matches SALTA's canonical `devices.capabilities jsonb NOT NULL` schema and allows `initializeDatabaseSchema()` to complete successfully.
+- The failure occurred before SALTA completed startup; with `restart: unless-stopped`, Docker consequently restarted the process repeatedly.
+- No database volume reset, destructive cleanup or manual SQL repair is required. The schema initialization remains idempotent and will create or update the hidden system target on the first successful v0.8.69 start.
+- Added regression coverage that requires the Heating mode system-device capability expression to be JSONB and rejects the invalid PostgreSQL `text[]` expression.
+- The v0.8.68 strict TypeScript fix remains unchanged.
+- The v0.8.67 isolated-registry fixes, v0.8.66 Heating mode automation target and v0.8.65 daily local-time trigger remain unchanged.
+- No new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.68 TypeScript build fix
 

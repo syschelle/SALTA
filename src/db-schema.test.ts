@@ -75,6 +75,8 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("INSERT INTO automation_system_actions(automation_id,position,target,action)");
     expect(databaseSource).toContain("DELETE FROM automation_system_actions WHERE automation_id=$1");
     expect(databaseSource).toContain("'system:climate-mode','system','climate-mode'");
+    expect(databaseSource).toContain("jsonb_build_array('setClimateMode')");
+    expect(databaseSource).not.toContain("ARRAY['setClimateMode']::text[]");
     expect(databaseSource).toContain("position smallint NOT NULL CHECK(position BETWEEN 0 AND 7)");
     expect(databaseSource).toContain("setTargetTemperature");
     expect(databaseSource).toContain("value double precision");

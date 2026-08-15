@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.69
+
+- Fixed a production startup regression introduced with the hidden Heating mode automation target in v0.8.66.
+- The `devices.capabilities` column is `jsonb`; schema initialization now inserts the `system:climate-mode` capability with `jsonb_build_array('setClimateMode')` instead of an incompatible PostgreSQL `text[]`.
+- This prevents PostgreSQL error `42804` (`column "capabilities" is of type jsonb but expression is of type text[]`) during `initializeDatabaseSchema()` and stops the resulting Docker restart loop.
+- Added a regression assertion that requires the hidden Heating mode device capability to remain JSONB and explicitly rejects the invalid `text[]` expression.
+- No manual SQL repair or volume migration is required; the corrected schema initialization is idempotent and creates/updates the hidden system target on the next successful SALTA start.
+- Carries forward the v0.8.68 strict TypeScript fix, v0.8.67 regression fixes, v0.8.66 Heating mode automation target and v0.8.65 daily local-time trigger.
+
 ## v0.8.68
 
 - Fixed the TypeScript `TS2322` build regression in `ClimateModeManager.syncAutomationDevice`.
