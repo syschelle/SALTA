@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
 import type { PhosconAdapter } from "./phoscon-adapter.js";
+import type { HueAdapter } from "./hue-adapter.js";
 import type { OpenCcuAdapter } from "./openccu-adapter.js";
 import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import type { AutomationEngine } from "./automations.js";
@@ -33,6 +34,7 @@ vi.mock("./db.js", () => ({
   deleteRoom: vi.fn(),
   getGlobalShellyCredentials: vi.fn(),
   getPhosconSettings: vi.fn(async () => ({ baseUrl: "", apiKeyConfigured: false, encryptionStatus: "ok" })),
+  getHueSettings: vi.fn(async () => ({ baseUrl: "", applicationKeyConfigured: false, encryptionStatus: "ok" })),
   getOpenCcuSettings: vi.fn(async () => ({ baseUrl: "", username: "", passwordConfigured: false, encryptionStatus: "ok" })),
   getFritzBoxPresenceSettings: vi.fn(async () => ({ baseUrl: "http://fritz.box:49000", username: "", passwordConfigured: false, encryptionStatus: "ok", enabled: false, pollIntervalSeconds: 30, absenceDelaySeconds: 300, tlsInsecure: false })),
   getFritzBoxPresenceConnection: vi.fn(async () => ({ baseUrl: "http://fritz.box:49000", username: "", password: "", enabled: false, pollIntervalSeconds: 30, absenceDelaySeconds: 300, tlsInsecure: false })),
@@ -46,7 +48,7 @@ vi.mock("./db.js", () => ({
   updateGeneralSettings: vi.fn(async (input) => input),
   getPushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20 })),
   updatePushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20 })),
-  inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", phosconCredential: "not-configured", openCcuCredential: "not-configured", pushoverCredential: "not-configured", invalidDeviceIds: [] })),
+  inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", phosconCredential: "not-configured", hueCredential: "not-configured", openCcuCredential: "not-configured", pushoverCredential: "not-configured", invalidDeviceIds: [] })),
   listRooms: vi.fn(async () => []),
   pool: { query: vi.fn() },
   reorderRooms: vi.fn(),
@@ -55,6 +57,9 @@ vi.mock("./db.js", () => ({
   getPhosconConnection: vi.fn(),
   updatePhosconSettings: vi.fn(),
   clearPhosconSettings: vi.fn(),
+  getHueConnection: vi.fn(),
+  updateHueSettings: vi.fn(),
+  clearHueSettings: vi.fn(),
   getOpenCcuConnection: vi.fn(),
   updateOpenCcuSettings: vi.fn(),
   clearOpenCcuSettings: vi.fn(),
@@ -69,7 +74,7 @@ vi.mock("./disaster-recovery-backup.js", () => ({
 }));
 
 import { createDisasterRecoveryBackup, importDisasterRecoveryBackup } from "./disaster-recovery-backup.js";
-import { clearSystemLogs, deleteRoom, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, listRooms, listSystemLogs, reorderRooms, updateGeneralSettings, updateRoom } from "./db.js";
+import { clearSystemLogs, deleteRoom, getGeneralSettings, getGlobalShellyCredentials, getHueSettings, getOpenCcuSettings, getPhosconSettings, listRooms, listSystemLogs, reorderRooms, updateGeneralSettings, updateRoom } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -88,7 +93,8 @@ function createServer(
   automationOverrides: Partial<AutomationEngine> = {},
   climateMode?: ClimateModeManager,
   restartAfterConfigurationImport?: () => void,
-  homeKitBridge?: HomeKitBridge
+  homeKitBridge?: HomeKitBridge,
+  hueOverrides: Partial<HueAdapter> = {}
 ) {
   const registry = {
     all: () => [],
@@ -110,6 +116,16 @@ function createServer(
     command: vi.fn(),
     ...phosconOverrides
   } as unknown as PhosconAdapter;
+  const hue = {
+    getStatus: vi.fn(() => ({ connected: false })),
+    configure: vi.fn(),
+    discover: vi.fn(async () => []),
+    pair: vi.fn(),
+    disconnect: vi.fn(),
+    reconcile: vi.fn(),
+    command: vi.fn(),
+    ...hueOverrides
+  } as unknown as HueAdapter;
   const openCcu = {
     getStatus: vi.fn(() => ({ connected: false, interfaces: [], devices: 0 })),
     configure: vi.fn(),
@@ -136,7 +152,7 @@ function createServer(
     clearRoomAssignment: vi.fn(),
     ...automationOverrides
   } as unknown as AutomationEngine;
-  const server = buildServer(registry, adapter, phoscon, openCcu, virtual, undefined, automation, undefined, climateMode, undefined, restartAfterConfigurationImport, homeKitBridge);
+  const server = buildServer(registry, adapter, phoscon, openCcu, virtual, undefined, automation, undefined, climateMode, undefined, restartAfterConfigurationImport, homeKitBridge, hue);
   openServers.push(server);
   return server;
 }
@@ -576,6 +592,78 @@ describe("Phoscon settings API", () => {
   });
 });
 
+describe("Philips Hue settings API", () => {
+  it("returns stored Hue metadata and live bridge status without exposing the application key", async () => {
+    vi.mocked(getHueSettings).mockResolvedValueOnce({
+      baseUrl: "https://192.168.178.25",
+      applicationKeyConfigured: true,
+      encryptionStatus: "ok"
+    });
+    const getStatus = vi.fn(() => ({ connected: true, name: "Hue Bridge", bridgeId: "001788FFFE123456", realtimeConnected: true }));
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, undefined, undefined, { getStatus } as never);
+
+    const response = await authenticatedInject(server, { method: "GET", url: "/api/settings/hue" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      baseUrl: "https://192.168.178.25",
+      applicationKeyConfigured: true,
+      encryptionStatus: "ok",
+      gateway: { connected: true, name: "Hue Bridge", bridgeId: "001788FFFE123456", realtimeConnected: true }
+    });
+    expect(response.json()).not.toHaveProperty("applicationKey");
+  });
+
+  it("discovers local Hue Bridges through the adapter without exposing credentials", async () => {
+    const bridges = [{ address: "192.168.178.25", baseUrl: "https://192.168.178.25", name: "Philips Hue", bridgeId: "001788FFFE123456" }];
+    const discover = vi.fn(async () => bridges);
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, undefined, undefined, { discover } as never);
+
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/settings/hue/discover" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ bridges });
+    expect(discover).toHaveBeenCalledOnce();
+  });
+
+  it("maps the physical-link-button requirement to a readable Hue pairing conflict", async () => {
+    const pair = vi.fn(async () => { throw new Error("HUE_LINK_BUTTON_REQUIRED"); });
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, undefined, undefined, { pair } as never);
+
+    const response = await authenticatedInject(server, {
+      method: "POST",
+      url: "/api/settings/hue/pair",
+      payload: { baseUrl: "https://192.168.178.25" }
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: "HUE_LINK_BUTTON_REQUIRED" } });
+    expect(pair).toHaveBeenCalledWith("https://192.168.178.25");
+  });
+
+  it("rejects manual Hue synchronization before the bridge is configured", async () => {
+    vi.mocked(getHueSettings).mockResolvedValueOnce({ baseUrl: "", applicationKeyConfigured: false, encryptionStatus: "ok" });
+    const reconcile = vi.fn();
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, undefined, undefined, { reconcile } as never);
+
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/adapters/hue/reconcile" });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toMatchObject({ error: { code: "HUE_NOT_CONFIGURED" } });
+    expect(reconcile).not.toHaveBeenCalled();
+  });
+
+  it("disconnects Hue without changing the bridge-side pairing of lights", async () => {
+    const disconnect = vi.fn(async () => undefined);
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, undefined, undefined, undefined, { disconnect } as never);
+
+    const response = await authenticatedInject(server, { method: "DELETE", url: "/api/settings/hue" });
+
+    expect(response.statusCode).toBe(204);
+    expect(disconnect).toHaveBeenCalledOnce();
+  });
+});
+
 describe("OpenCCU settings API", () => {
   it("returns stored connection metadata without exposing the password", async () => {
     vi.mocked(getOpenCcuSettings).mockResolvedValueOnce({
@@ -836,7 +924,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.59" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.60" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -981,7 +1069,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.59", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.60", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -992,7 +1080,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.59", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.60", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {

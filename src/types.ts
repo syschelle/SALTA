@@ -82,6 +82,26 @@ export interface PhosconSettings {
   encryptionStatus: "ok" | "invalid";
 }
 
+export interface HueSettings {
+  baseUrl: string;
+  applicationKeyConfigured: boolean;
+  encryptionStatus: "ok" | "invalid";
+}
+
+export interface HueGatewayStatus {
+  connected: boolean;
+  name?: string;
+  bridgeId?: string;
+  model?: string;
+  softwareVersion?: string;
+  apiVersion?: string;
+  lastSync?: string;
+  lastError?: string;
+  realtimeConnected?: boolean;
+  realtimeLastEvent?: string;
+  realtimeLastError?: string;
+}
+
 export interface PhosconGatewayStatus {
   connected: boolean;
   name?: string;

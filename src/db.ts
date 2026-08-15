@@ -3,7 +3,7 @@ import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel } from "./types.js";
+import type { ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, HueSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel } from "./types.js";
 import type { AutomationInput, AutomationRule, AutomationTargetAction } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
@@ -554,6 +554,7 @@ interface CredentialEncryptionStatus {
   status: "ok" | "invalid";
   globalCredential: "ok" | "invalid" | "not-configured";
   phosconCredential: "ok" | "invalid" | "not-configured";
+  hueCredential: "ok" | "invalid" | "not-configured";
   openCcuCredential: "ok" | "invalid" | "not-configured";
   pushoverCredential: "ok" | "invalid" | "not-configured";
   invalidDeviceIds: string[];
@@ -571,28 +572,32 @@ function secretIsReadable(value: string): boolean {
 
 
 export async function inspectCredentialEncryption(): Promise<CredentialEncryptionStatus> {
-  const [globalResult, phosconResult, openCcuResult, pushoverResult, deviceResult] = await Promise.all([
+  const [globalResult, phosconResult, hueResult, openCcuResult, pushoverResult, deviceResult] = await Promise.all([
     pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='shelly'"),
     pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='phoscon'"),
+    pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM adapter_settings WHERE adapter_id='hue'"),
     pool.query<{ encrypted_password: string }>("SELECT encrypted_password FROM openccu_settings WHERE adapter_id='openccu'"),
     pool.query<{ encrypted_user_key: string; encrypted_api_token: string }>("SELECT encrypted_user_key,encrypted_api_token FROM notification_settings WHERE channel='pushover'"),
     pool.query<{ id: string; credential_password: string }>("SELECT id,credential_password FROM devices WHERE credential_mode='custom' AND credential_password IS NOT NULL AND credential_password <> ''")
   ]);
   const globalSecret = globalResult.rows[0]?.encrypted_password ?? "";
   const phosconSecret = phosconResult.rows[0]?.encrypted_password ?? "";
+  const hueSecret = hueResult.rows[0]?.encrypted_password ?? "";
   const openCcuSecret = openCcuResult.rows[0]?.encrypted_password ?? "";
   const pushoverUserSecret = pushoverResult.rows[0]?.encrypted_user_key ?? "";
   const pushoverTokenSecret = pushoverResult.rows[0]?.encrypted_api_token ?? "";
   const globalCredential = !globalSecret ? "not-configured" : secretIsReadable(globalSecret) ? "ok" : "invalid";
   const phosconCredential = !phosconSecret ? "not-configured" : secretIsReadable(phosconSecret) ? "ok" : "invalid";
+  const hueCredential = !hueSecret ? "not-configured" : secretIsReadable(hueSecret) ? "ok" : "invalid";
   const openCcuCredential = !openCcuSecret ? "not-configured" : secretIsReadable(openCcuSecret) ? "ok" : "invalid";
   const pushoverConfigured = Boolean(pushoverUserSecret || pushoverTokenSecret);
   const pushoverCredential = !pushoverConfigured ? "not-configured" : secretIsReadable(pushoverUserSecret) && secretIsReadable(pushoverTokenSecret) ? "ok" : "invalid";
   const invalidDeviceIds = deviceResult.rows.filter(row => !secretIsReadable(row.credential_password)).map(row => row.id);
   return {
-    status: globalCredential === "invalid" || phosconCredential === "invalid" || openCcuCredential === "invalid" || pushoverCredential === "invalid" || invalidDeviceIds.length > 0 ? "invalid" : "ok",
+    status: globalCredential === "invalid" || phosconCredential === "invalid" || hueCredential === "invalid" || openCcuCredential === "invalid" || pushoverCredential === "invalid" || invalidDeviceIds.length > 0 ? "invalid" : "ok",
     globalCredential,
     phosconCredential,
+    hueCredential,
     openCcuCredential,
     pushoverCredential,
     invalidDeviceIds
@@ -684,6 +689,47 @@ export async function updatePhosconSettings(baseUrl: string, apiKey?: string): P
 
 export async function clearPhosconSettings(): Promise<void> {
   await pool.query("DELETE FROM adapter_settings WHERE adapter_id='phoscon'");
+}
+
+
+export async function getHueSettings(): Promise<HueSettings> {
+  const result = await pool.query<{ username: string; encrypted_password: string }>(
+    "SELECT username,encrypted_password FROM adapter_settings WHERE adapter_id='hue'"
+  );
+  const row = result.rows[0];
+  const secret = row?.encrypted_password ?? "";
+  return {
+    baseUrl: row?.username ?? "",
+    applicationKeyConfigured: Boolean(secret),
+    encryptionStatus: secret && !secretIsReadable(secret) ? "invalid" : "ok"
+  };
+}
+
+export async function getHueConnection(): Promise<{ baseUrl: string; applicationKey: string }> {
+  const result = await pool.query<{ username: string; encrypted_password: string }>(
+    "SELECT username,encrypted_password FROM adapter_settings WHERE adapter_id='hue'"
+  );
+  const row = result.rows[0];
+  return {
+    baseUrl: row?.username ?? "",
+    applicationKey: decryptStoredSecret(row?.encrypted_password)
+  };
+}
+
+export async function updateHueSettings(baseUrl: string, applicationKey?: string): Promise<HueSettings> {
+  const current = await pool.query<{ encrypted_password: string }>(
+    "SELECT encrypted_password FROM adapter_settings WHERE adapter_id='hue'"
+  );
+  const currentSecret = current.rows[0]?.encrypted_password ?? "";
+  if (applicationKey === undefined && currentSecret && !secretIsReadable(currentSecret)) throw new Error("ENCRYPTION_KEY_MISMATCH");
+  const encrypted = applicationKey === undefined ? currentSecret : (applicationKey ? encryptSecret(applicationKey) : "");
+  await pool.query(`INSERT INTO adapter_settings(adapter_id,username,encrypted_password) VALUES('hue',$1,$2)
+    ON CONFLICT(adapter_id) DO UPDATE SET username=EXCLUDED.username,encrypted_password=EXCLUDED.encrypted_password,updated_at=now()`, [baseUrl, encrypted]);
+  return getHueSettings();
+}
+
+export async function clearHueSettings(): Promise<void> {
+  await pool.query("DELETE FROM adapter_settings WHERE adapter_id='hue'");
 }
 
 export async function getOpenCcuSettings(): Promise<OpenCcuSettings> {

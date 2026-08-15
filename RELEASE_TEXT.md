@@ -1,72 +1,71 @@
-# SALTA v0.8.59
+# SALTA v0.8.60
 
-SALTA v0.8.59 adds configurable momentary virtual buttons and removes the explanatory virtual self-reset hint from the automation editor. A momentary virtual button is designed for one-shot workflows such as Apple Home geofencing: Apple Home can switch it on, SALTA reacts to the short on pulse, and the virtual button automatically returns to off after 500 ms without requiring an explicit reset action in the automation.
+SALTA v0.8.60 adds a dedicated local Philips Hue Bridge integration alongside the existing Phoscon/deCONZ adapter. Hue lights and smart plugs can remain paired with their Philips Hue Bridge while SALTA discovers, displays and controls them through the local Hue API v2, receives local realtime state-change events and makes supported Hue devices available to SALTA automations.
 
-The release also carries forward the safe virtual-trigger self-reset support introduced in v0.8.58 for users who prefer persistent virtual switches.
+The release also carries forward the v0.8.59 momentary virtual-button workflow for one-shot HomeKit/geofence triggers.
 
-## Momentary virtual buttons
+## Philips Hue Bridge integration
 
-- **Virtual Devices → Add virtual device** now offers **Switch** and **Momentary Button**.
-- The momentary button is the default for newly opened create dialogs because it is the simpler choice for one-shot triggers.
-- In SALTA the momentary variant is displayed with a button icon and a **Press** action instead of a persistent on/off switch control.
-- Pressing the button produces a normal `on = true` transition and automatically returns to `on = false` after 500 ms.
-- SALTA automations can therefore use the normal **On** state transition as a trigger without adding a self-reset target action.
-- Existing virtual switches remain unchanged and keep their persistent on/off state.
+- Added **Philips Hue** as a first-class SALTA device source parallel to Shelly, Phoscon/Zigbee and OpenCCU/HomeMatic.
+- Added a dedicated **Philips Hue** page with room filtering, search, connection status and manual synchronization.
+- Added **Settings → Philips Hue** with local mDNS bridge discovery, manual IP/hostname fallback, link-button pairing, application-key status and disconnect.
+- SALTA pairs with the bridge using the physical Hue link button and stores the bridge-issued application key encrypted with `SALTA_ENCRYPTION_KEY`.
+- The application key is never returned to the browser after it has been stored.
+- Disconnecting Hue removes synchronized Hue records from SALTA but does not remove lights, accessories or configuration from the Philips Hue Bridge.
 
-## Existing virtual devices can be converted
+## Hue API v2 devices and controls
 
-- The device settings dialog now contains a **Virtual type** section for SALTA virtual devices.
-- An existing virtual switch can be changed to **Momentary Button** without deleting or recreating it.
-- Changing the type preserves the SALTA device ID, room assignment, HomeKit publication settings and existing automation references.
-- Converting a currently-on switch to a momentary button safely normalizes it to off.
-- A momentary button can also be changed back to a persistent virtual switch.
+- Added local Hue API v2 resource discovery for Hue light resources and Hue smart plugs.
+- Hue lights support `On`, `Off` and `Toggle`.
+- Dimmable Hue lights expose brightness control when the bridge reports the capability.
+- Color-temperature lights expose a Kelvin slider derived from the bridge-reported mirek range.
+- Color-capable Hue lights expose a local color picker and SALTA converts HTML colors to Hue xy coordinates for v2 commands.
+- Hue smart plugs are represented as SALTA outlets instead of lights.
+- Reachability is derived from the Hue `zigbee_connectivity` resource.
+- Hue model, firmware, bridge/resource identifiers and Hue archetype metadata are shown in the SALTA device details.
+- Existing SALTA names, room assignments, presentation metadata and HomeKit choices are preserved across Hue reconciliation.
 
-## HomeKit behavior
+## Local realtime updates
 
-- Momentary virtual buttons deliberately remain writable HomeKit **Switch** accessories internally.
-- This is intentional: Apple Home automations and geofences can write to a Switch characteristic, while a true stateless HomeKit button is an event source and cannot be used as the writable target of an arrival/departure automation.
-- SALTA presents the device as a button in its own UI and performs the automatic off reset locally.
-- No HomeKit re-pairing is required when an existing SALTA virtual switch is converted to momentary mode because its accessory identity remains unchanged.
+- Added the Hue API v2 local SSE event stream at `/eventstream/clip/v2` using the bridge-issued application key.
+- Valid Hue event frames trigger a coalesced fast reconciliation so state changes made in the Hue app or by another local Hue client appear in SALTA quickly.
+- A 15-second periodic reconciliation remains active as a fallback when realtime delivery is unavailable.
+- Event-stream reconnects use bounded exponential backoff and do not require restarting SALTA after a temporary Hue Bridge or network interruption.
 
-## Automation editor cleanup
+## HTTPS and local-network security
 
-- Removed the inline hint: `Virtuelle Trigger-Schalter können sich sicher selbst zurücksetzen: An → Aus bzw. Aus → An ...`.
-- The safe self-reset mechanism from v0.8.58 remains available for persistent virtual switches; only the explanatory text was removed.
-- Momentary virtual buttons do not expose the redundant same-device reset target in the automation editor because they reset themselves automatically.
+- Hue communication is HTTPS-only.
+- SALTA bundles the current Signify Hue Bridge CA roots used by updated Hue Bridge generations and keeps TLS certificate-chain verification enabled.
+- After the bridge identity is discovered, authenticated requests and the realtime event stream validate the certificate against the Hue Bridge ID.
+- SALTA does not use a global or Hue-specific `rejectUnauthorized: false` bypass.
+- Hue targets are resolved before connection and must use private, loopback or link-local addresses; public Internet targets and non-standard HTTPS ports are rejected.
+- mDNS discovery, pairing, settings writes, disconnect and manual reconciliation use explicit API rate limits in addition to SALTA's normal authenticated API protection.
+- Hue credential readability is included in SALTA readiness/credential diagnostics without logging the application key.
 
-## v0.8.58 behavior carried forward
+## Automations and HomeKit
 
-- Persistent virtual switches can still be both trigger and target of the same automation when the target action safely moves the switch away from the trigger state.
-- `On → Off` and `Off → On` remain the only permitted same-device reset combinations.
-- Safe virtual self-reset actions continue to run after the other configured target actions.
-- Unsafe same-device actions and normal cross-device automation cycles remain blocked.
+- Hue lights and plugs automatically participate in the existing automation target catalogue through the normal SALTA capability model.
+- Binary Hue targets support `On`, `Off` and `Toggle` in automations.
+- Hue devices are imported with SALTA HomeKit publication disabled by default to avoid creating duplicate Apple Home accessories when the Hue Bridge is already connected directly to Apple Home.
+- HomeKit can still be enabled explicitly per supported Hue device in SALTA device settings.
 
-## Other automation capabilities carried forward
+## v0.8.59 behavior carried forward
 
-- One automation can control up to eight target devices as **AND** actions.
-- SALTA virtual devices and writable OpenCCU/HomeMatic actors are available as targets.
-- OpenCCU/HomeMatic thermostats support mode changes and explicit target-temperature actions.
-- The global five-second live refresh remains paused on **Automations** and **Settings** so open forms and selectors are not rebuilt while editing.
-
-## Build and regression-test correction
-
-- Fixed the v0.8.59 CI failure caused by regression tests that still described the pre-button device dialog and card renderer.
-- Removed the obsolete automation assertion that still required the `HomeKit-Geofencing` hint even though the hint was intentionally removed in this release.
-- Replaced the brittle exact count of device-dialog configuration sections with a structural check that verifies hidden sections are renumbered dynamically.
-- Updated device-card state-color coverage for the new momentary-button presentation so virtual buttons do not receive persistent on/off card coloring and their transient `on` state is not duplicated as a status metric.
-- No production runtime behavior was changed by this correction.
+- Virtual devices can be configured as persistent switches or 500 ms momentary buttons.
+- Momentary virtual buttons remain writable HomeKit switch accessories so Apple Home geofences can activate them while SALTA resets them automatically.
+- Existing virtual switches can be converted without changing their SALTA device ID or existing automation references.
+- The obsolete virtual self-reset explanatory hint remains removed from the automation editor.
+- Persistent virtual switches retain the safe opposite-state self-reset mechanism from v0.8.58.
 
 ## Compatibility
 
-- Builds directly on the SALTA v0.8.58 feature set.
-- Existing virtual switches and automations remain compatible.
-- No database schema change is required.
-- No manual database migration is required.
+- No database schema migration is required; Hue credentials reuse SALTA's existing encrypted `adapter_settings` persistence.
+- No manual migration is required.
 - Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
+- No new mandatory environment variable is required.
+- No new npm dependency is introduced; the Hue client uses Node.js built-in HTTPS, DNS and networking APIs.
 - SALTA continues to use `network_mode: host` for HomeKit HAP/mDNS.
 - PostgreSQL remains on Docker's normal bridge network and is published only on host loopback.
-- No new mandatory environment variable is required.
-- No new npm dependency is introduced.
 - `/opt/SALTA/migrate-homekit-storage.sh` remains necessary only for HomeKit pairing state created before v0.8.41.
 
 ## Production update

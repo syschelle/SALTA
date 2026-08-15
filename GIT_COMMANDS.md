@@ -1,4 +1,4 @@
-# SALTA v0.8.59 Git commands
+# SALTA v0.8.60 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(test): align v0.8.59 virtual button regressions"
+git commit -m "feat(hue): add local Philips Hue Bridge integration"
 git push origin main
 ```
 
@@ -21,20 +21,20 @@ git show origin/main:package.json | grep '"version"'
 git show origin/main:docker-compose.image.yml | sha256sum
 git show origin/main:migrate-homekit-storage.sh | sha256sum
 
-git show origin/main:src/virtual-adapter.ts | grep -F 'MOMENTARY_BUTTON_RESET_MS = 500'
-git show origin/main:src/server.ts | grep -F 'type: z.enum(["switch", "button"]).default("switch")'
-git show origin/main:public/index.html | grep -F 'Taster (Impuls)'
-git show origin/main:public/index.html | grep -F 'id="deviceVirtualType"'
-git show origin/main:src/frontend-automations.test.ts | grep -F 'does not show the virtual self-reset explanatory hint'
-git show origin/main:src/frontend-device-dialog.test.ts | grep -F 'deviceVirtualTypeSection'
-git show origin/main:src/frontend-device-state-color.test.ts | grep -F 'momentary buttons'
+git show origin/main:src/main.ts | grep -F 'new HueAdapter(registry)'
+git show origin/main:src/server.ts | grep -F '/api/settings/hue/pair'
+git show origin/main:src/hue-adapter.ts | grep -F '/eventstream/clip/v2'
+git show origin/main:src/hue-mdns.ts | grep -F '_hue._tcp.local'
+git show origin/main:src/hue-tls.ts | grep -F 'rejectUnauthorized: true'
+git show origin/main:src/hue-tls.ts | grep -F 'HUE_LOCAL_NETWORK_REQUIRED'
+git show origin/main:public/index.html | grep -F 'Philips Hue'
 ```
 
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.59 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.59.
+Release validator contract: SALTA v0.8.60 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.60.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -45,14 +45,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.59 -m "SALTA v0.8.59"
-git push origin v0.8.59
+git tag -a v0.8.60 -m "SALTA v0.8.60"
+git push origin v0.8.60
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.59 \
-  --title "SALTA v0.8.59" \
+gh release create v0.8.60 \
+  --title "SALTA v0.8.60" \
   --notes-file RELEASE_TEXT.md
 ```

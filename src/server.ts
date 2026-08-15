@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { DeviceRegistry } from "./registry.js";
 import type { ShellyAdapter } from "./shelly-adapter.js";
 import type { PhosconAdapter } from "./phoscon-adapter.js";
+import type { HueAdapter } from "./hue-adapter.js";
 import { openCcuErrorInfo, type OpenCcuAdapter } from "./openccu-adapter.js";
 import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import { normalizeFritzBoxBaseUrl, normalizePresenceMac, type FritzBoxPresenceAdapter } from "./fritzbox-presence.js";
@@ -15,7 +16,7 @@ import type { AutomationEngine } from "./automations.js";
 import type { ClimateModeManager } from "./climate-mode.js";
 import type { BatteryMonitor } from "./battery-monitor.js";
 import type { HomeKitBridge } from "./homekit.js";
-import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
+import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getHueSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
 import { isHomeKitSupportedDevice, supportsPresentationOverride } from "./device-presentation.js";
 import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
@@ -45,6 +46,8 @@ const shellyDiscoverySchema = z.object({ subnet:z.string().trim().min(7).max(32)
 const shellySettingsSchema = z.object({ username: z.string().max(120).default(""), password: z.string().max(512).optional() }).strict();
 const phosconSettingsSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), apiKey: z.string().trim().min(1).max(512).optional() }).strict();
 const phosconPairSchema = z.object({ baseUrl: z.string().trim().min(1).max(512) }).strict();
+const hueSettingsSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), applicationKey: z.string().trim().min(1).max(512).optional() }).strict();
+const huePairSchema = z.object({ baseUrl: z.string().trim().min(1).max(512) }).strict();
 const openCcuSettingsSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), username: z.string().trim().min(1).max(120), password: z.string().max(512).optional() }).strict();
 const fritzBoxPresenceSettingsSchema = z.object({
   baseUrl: z.string().trim().min(1).max(512),
@@ -195,6 +198,43 @@ function phosconRequestError(error: unknown): { status: number; code: string; me
       if (rawCode.startsWith("PHOSCON_API_ERROR:")) return { status: 502, code: "PHOSCON_API_ERROR", message: rawCode.slice("PHOSCON_API_ERROR:".length) };
       if (rawCode.startsWith("PHOSCON_HTTP_")) return { status: 502, code: "PHOSCON_HTTP_ERROR", message: `The Phoscon gateway returned ${rawCode.replace("PHOSCON_HTTP_", "HTTP ")}.` };
       return { status: 500, code: "PHOSCON_REQUEST_FAILED", message: "The Phoscon request failed." };
+  }
+}
+
+function hueRequestError(error: unknown): { status: number; code: string; message: string } {
+  const rawCode = error instanceof Error ? error.message : "HUE_REQUEST_FAILED";
+  switch (rawCode) {
+    case "HUE_URL_REQUIRED":
+    case "HUE_URL_INVALID":
+      return { status: 400, code: rawCode, message: "Enter a valid local Philips Hue Bridge address, for example https://192.168.178.25." };
+    case "HUE_APPLICATION_KEY_REQUIRED":
+      return { status: 400, code: rawCode, message: "Enter a Hue application key or pair SALTA with the Hue Bridge." };
+    case "HUE_NOT_CONFIGURED":
+      return { status: 409, code: rawCode, message: "Connect a Philips Hue Bridge before synchronizing Hue devices." };
+    case "HUE_LINK_BUTTON_REQUIRED":
+      return { status: 409, code: rawCode, message: "Press the physical link button on the Hue Bridge and try pairing again." };
+    case "HUE_DISCOVERY_FAILED":
+      return { status: 502, code: rawCode, message: "Local Philips Hue Bridge discovery failed. Enter the bridge address manually or try again." };
+    case "HUE_LOCAL_NETWORK_REQUIRED":
+      return { status: 400, code: rawCode, message: "The Philips Hue Bridge address must resolve to a private or link-local address on the local network." };
+    case "HUE_TLS_CERTIFICATE":
+      return { status: 502, code: rawCode, message: "The Philips Hue Bridge TLS certificate could not be verified against the trusted Signify Hue Bridge CA roots. Update the Hue Bridge firmware and try again." };
+    case "HUE_BRIDGE_ID_REQUIRED":
+    case "HUE_BRIDGE_ID_MISMATCH":
+      return { status: 502, code: rawCode, message: "The Philips Hue Bridge identity did not match the TLS certificate." };
+    case "HUE_UNREACHABLE":
+      return { status: 502, code: rawCode, message: "The Philips Hue Bridge is unreachable at the configured address." };
+    case "HUE_TIMEOUT":
+      return { status: 504, code: rawCode, message: "The Philips Hue Bridge did not respond in time." };
+    case "HUE_PAIRING_FAILED":
+    case "HUE_INVALID_RESPONSE":
+      return { status: 502, code: rawCode, message: "The Philips Hue Bridge returned an invalid pairing or API response." };
+    case "ENCRYPTION_KEY_MISMATCH":
+      return { status: 409, code: rawCode, message: "The stored Hue application key cannot be decrypted with the current SALTA encryption key." };
+    default:
+      if (rawCode === "HUE_HTTP_403") return { status: 422, code: "HUE_AUTHENTICATION_FAILED", message: "The Hue application key was rejected by the bridge." };
+      if (rawCode.startsWith("HUE_HTTP_")) return { status: 502, code: "HUE_HTTP_ERROR", message: `The Philips Hue Bridge returned ${rawCode.replace("HUE_HTTP_", "HTTP ")}.` };
+      return { status: 500, code: "HUE_REQUEST_FAILED", message: "The Philips Hue request failed." };
   }
 }
 
@@ -349,7 +389,7 @@ async function automationRoomExists(roomId: string | null | undefined): Promise<
   return (await listRooms()).some(room => room.id === roomId);
 }
 
-export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine, presenceAdapter?: FritzBoxPresenceAdapter, climateMode?: ClimateModeManager, batteryMonitor?: BatteryMonitor, restartAfterConfigurationImport?: () => void, homeKitBridge?: HomeKitBridge) {
+export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine, presenceAdapter?: FritzBoxPresenceAdapter, climateMode?: ClimateModeManager, batteryMonitor?: BatteryMonitor, restartAfterConfigurationImport?: () => void, homeKitBridge?: HomeKitBridge, hueAdapter?: HueAdapter) {
   const trustedProxyEntries = config.TRUSTED_PROXIES.split(",").map(value => value.trim()).filter(Boolean);
   const trustedProxies = trustedProxyEntries.length ? trustedProxyEntries : false;
   const localNetworks = config.LOCAL_NETWORKS.split(",").map(value => value.trim()).filter(Boolean);
@@ -451,12 +491,12 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       : { allowed: true, retryAfterSeconds: 0, remaining: config.RATE_LIMIT_MUTATIONS_PER_MINUTE };
     const expensiveRouteLimit = path === "/api/adapters/shelly/discover"
       ? security.consumeRateLimit(`discover:${ip}`, 2, rateWindowMs)
-      : path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile" || path === "/api/adapters/openccu/reconcile" || path === "/api/settings/openccu/diagnose" || path === "/api/presence/refresh" || path === "/api/presence/test"
+      : path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile" || path === "/api/adapters/hue/reconcile" || path === "/api/settings/hue/discover" || path === "/api/adapters/openccu/reconcile" || path === "/api/settings/openccu/diagnose" || path === "/api/presence/refresh" || path === "/api/presence/test"
         ? security.consumeRateLimit(`reconcile:${ip}`, 12, rateWindowMs)
         : (path === "/api/adapters/shelly/devices" || path === "/api/adapters/virtual/devices") && request.method === "POST"
           ? security.consumeRateLimit(`onboarding:${ip}`, 10, rateWindowMs)
-          : path === "/api/settings/phoscon/pair" && request.method === "POST"
-            ? security.consumeRateLimit(`phoscon-pairing:${ip}`, 5, rateWindowMs)
+          : (path === "/api/settings/phoscon/pair" || path === "/api/settings/hue/pair") && request.method === "POST"
+            ? security.consumeRateLimit(`bridge-pairing:${ip}`, 5, rateWindowMs)
             : { allowed: true, retryAfterSeconds: 0, remaining: 1 };
     const blocked = !globalLimit.allowed
       ? globalLimit
@@ -559,9 +599,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.59" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.60" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.59", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.60", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -572,10 +612,12 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
         database: "up",
         shellyAdapter: "up",
         phosconAdapter: phosconAdapter.getStatus().connected ? "connected" : "disconnected",
+        hueAdapter: hueAdapter?.getStatus().connected ? "connected" : "disconnected",
         openCcuAdapter: openCcuAdapter.getStatus().connected ? "connected" : "disconnected",
         credentials: credentialEncryption.status,
         shellyCredential: credentialEncryption.globalCredential,
         phosconCredential: credentialEncryption.phosconCredential,
+        hueCredential: credentialEncryption.hueCredential,
         openCcuCredential: credentialEncryption.openCcuCredential,
         invalidDeviceCredentials: credentialEncryption.invalidDeviceIds.length,
         devices: registry.all().length
@@ -703,6 +745,60 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   });
   app.delete("/api/settings/phoscon", async (_request, reply) => {
     await phosconAdapter.disconnect();
+    return reply.code(204).send();
+  });
+
+  app.get("/api/settings/hue", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "hue-settings-read" } }
+  }, async (_request, reply) => {
+    if (!hueAdapter) return reply.code(503).send({ error: { code: "HUE_ADAPTER_UNAVAILABLE", message: "Philips Hue integration is unavailable." } });
+    return { ...(await getHueSettings()), gateway: hueAdapter.getStatus() };
+  });
+  app.post("/api/settings/hue/discover", {
+    config: { rateLimit: { max: 6, timeWindow: rateWindowMs, groupId: "hue-discover" } }
+  }, async (request, reply) => {
+    if (!hueAdapter) return reply.code(503).send({ error: { code: "HUE_ADAPTER_UNAVAILABLE", message: "Philips Hue integration is unavailable.", requestId: request.id } });
+    try {
+      return { bridges: await hueAdapter.discover() };
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "HUE_DISCOVERY_FAILED";
+      return reply.code(502).send({ error: { code, message: "No local Philips Hue Bridge could be discovered by mDNS.", requestId: request.id } });
+    }
+  });
+  app.put<{Body:unknown}>("/api/settings/hue", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "hue-settings-write" } }
+  }, async (request, reply) => {
+    if (!hueAdapter) return reply.code(503).send({ error: { code: "HUE_ADAPTER_UNAVAILABLE", message: "Philips Hue integration is unavailable.", requestId: request.id } });
+    const parsed = hueSettingsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    try {
+      const gateway = await hueAdapter.configure(parsed.data.baseUrl, parsed.data.applicationKey);
+      return { ...(await getHueSettings()), gateway };
+    } catch (error) {
+      const response = hueRequestError(error);
+      await writeSystemLog("error", "hue", response.code, "Philips Hue connection test failed", { requestId: request.id }).catch(() => undefined);
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+    }
+  });
+  app.post<{Body:unknown}>("/api/settings/hue/pair", {
+    config: { rateLimit: { max: 5, timeWindow: rateWindowMs, groupId: "hue-pair" } }
+  }, async (request, reply) => {
+    if (!hueAdapter) return reply.code(503).send({ error: { code: "HUE_ADAPTER_UNAVAILABLE", message: "Philips Hue integration is unavailable.", requestId: request.id } });
+    const parsed = huePairSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    try {
+      const gateway = await hueAdapter.pair(parsed.data.baseUrl);
+      return { ...(await getHueSettings()), gateway };
+    } catch (error) {
+      const response = hueRequestError(error);
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+    }
+  });
+  app.delete("/api/settings/hue", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "hue-settings-delete" } }
+  }, async (_request, reply) => {
+    if (!hueAdapter) return reply.code(503).send({ error: { code: "HUE_ADAPTER_UNAVAILABLE", message: "Philips Hue integration is unavailable." } });
+    await hueAdapter.disconnect();
     return reply.code(204).send();
   });
 
@@ -899,6 +995,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       if (commandRouter) device = await commandRouter.command(command);
       else if (current.source === "shelly") device = await shellyAdapter.command(command);
       else if (current.source === "phoscon") device = await phosconAdapter.command(command);
+      else if (current.source === "hue" && hueAdapter) device = await hueAdapter.command(command);
       else if (current.source === "openccu") device = await openCcuAdapter.command(command);
       else if (current.source === "virtual" && virtualAdapter) device = await virtualAdapter.command(command);
       else throw new Error("ADAPTER_NOT_SUPPORTED");
@@ -910,13 +1007,17 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
         const response = phosconRequestError(error);
         return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
       }
+      if (message.startsWith("HUE_")) {
+        const response = hueRequestError(error);
+        return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+      }
       if (message.startsWith("OPENCCU_")) {
         const response = openCcuRequestError(error);
         return reply.code(response.status).send({ error: { code: response.code, message: response.message, details: response.details, requestId: request.id } });
       }
       if (message === "ENCRYPTION_KEY_MISMATCH") {
         const source = registry.get(request.params.id)?.source;
-        const response = source === "openccu" ? openCcuRequestError(error) : source === "phoscon" ? phosconRequestError(error) : shellyRequestError(error);
+        const response = source === "openccu" ? openCcuRequestError(error) : source === "phoscon" ? phosconRequestError(error) : source === "hue" ? hueRequestError(error) : shellyRequestError(error);
         return reply.code(response.status).send({ error: { code: response.code, message: response.message, details: "details" in response ? response.details : undefined, requestId: request.id } });
       }
       return reply.code(message === "DEVICE_NOT_FOUND" ? 404 : 400).send({ error: { code: message, message, requestId: request.id } });
@@ -935,6 +1036,20 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     }
     catch (error) {
       const response = phosconRequestError(error);
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+    }
+  });
+  app.post("/api/adapters/hue/reconcile", {
+    config: { rateLimit: { max: 12, timeWindow: rateWindowMs, groupId: "hue-reconcile" } }
+  }, async (request, reply) => {
+    if (!hueAdapter) return reply.code(503).send({ error: { code: "HUE_ADAPTER_UNAVAILABLE", message: "Philips Hue integration is unavailable.", requestId: request.id } });
+    try {
+      const settings = await getHueSettings();
+      if (!settings.applicationKeyConfigured) throw new Error("HUE_NOT_CONFIGURED");
+      await hueAdapter.reconcile();
+      return { status: "ok", gateway: hueAdapter.getStatus() };
+    } catch (error) {
+      const response = hueRequestError(error);
       return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
     }
   });
@@ -1103,7 +1218,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.59", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.60", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);
@@ -1195,9 +1310,11 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   app.get("/api/adapters", async () => {
     const phosconStatus = phosconAdapter.getStatus();
     const openCcuStatus = openCcuAdapter.getStatus();
+    const hueStatus = hueAdapter?.getStatus() ?? { connected: false };
     return [
       { id: "shelly", name: "Shelly", status: "connected", devices: registry.all().filter(x => x.source === "shelly").length },
       { id: "phoscon", name: "Phoscon / deCONZ", status: phosconStatus.connected ? "connected" : "disconnected", devices: registry.all().filter(x => x.source === "phoscon").length, gateway: phosconStatus },
+      { id: "hue", name: "Philips Hue", status: hueStatus.connected ? "connected" : "disconnected", devices: registry.all().filter(x => x.source === "hue").length, gateway: hueStatus },
       { id: "openccu", name: "OpenCCU / HomeMatic", status: openCcuStatus.connected ? "connected" : "disconnected", devices: registry.all().filter(x => x.source === "openccu").length, gateway: openCcuStatus }
     ];
   });

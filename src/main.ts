@@ -5,6 +5,7 @@ import { HomeKitBridge } from "./homekit.js";
 import { buildServer } from "./server.js";
 import { ShellyAdapter } from "./shelly-adapter.js";
 import { PhosconAdapter } from "./phoscon-adapter.js";
+import { HueAdapter } from "./hue-adapter.js";
 import { OpenCcuAdapter } from "./openccu-adapter.js";
 import { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import { FritzBoxPresenceAdapter } from "./fritzbox-presence.js";
@@ -21,10 +22,11 @@ async function main(): Promise<void> {
 
   const shelly = new ShellyAdapter(registry);
   const phoscon = new PhosconAdapter(registry);
+  const hue = new HueAdapter(registry);
   const openCcu = new OpenCcuAdapter(registry);
   const virtual = new VirtualDeviceAdapter(registry);
   const presence = new FritzBoxPresenceAdapter(registry);
-  const commands = new DeviceCommandRouter(registry, { shelly, phoscon, openccu: openCcu, virtual });
+  const commands = new DeviceCommandRouter(registry, { shelly, phoscon, hue, openccu: openCcu, virtual });
   const automations = new AutomationEngine(registry, commands, databaseAutomationStore, databaseAutomationLogger);
   await automations.start();
   const climate = new ClimateModeManager(registry, commands);
@@ -32,6 +34,7 @@ async function main(): Promise<void> {
 
   shelly.start();
   phoscon.start();
+  hue.start();
   openCcu.start();
   presence.start();
   batteryMonitor.start();
@@ -40,7 +43,7 @@ async function main(): Promise<void> {
   const homekit = new HomeKitBridge(registry, commands);
   let homeKitStatus = await homekit.start().catch(async () => homekit.status());
 
-  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"), homekit);
+  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"), homekit, hue);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   homeKitStatus = await homekit.status();
   server.log.info({ port: config.WEB_PORT, homekit: { enabled: homeKitStatus.enabled, running: homeKitStatus.running, paired: homeKitStatus.paired }, trustedProxiesConfigured: Boolean(config.TRUSTED_PROXIES.trim()) }, "SALTA started with mandatory authentication");
@@ -50,6 +53,7 @@ async function main(): Promise<void> {
     server.log.error({
       globalCredential: credentialEncryption.globalCredential,
       phosconCredential: credentialEncryption.phosconCredential,
+      hueCredential: credentialEncryption.hueCredential,
       openCcuCredential: credentialEncryption.openCcuCredential,
       pushoverCredential: credentialEncryption.pushoverCredential,
       invalidDeviceCredentials: credentialEncryption.invalidDeviceIds.length
@@ -69,6 +73,7 @@ async function main(): Promise<void> {
     batteryMonitor.stop();
     presence.stop();
     await openCcu.stop();
+    hue.stop();
     phoscon.stop();
     shelly.stop();
     await pool.end();

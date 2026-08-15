@@ -1,14 +1,14 @@
 # SALTA migration paths
 
-## Current v0.8.59 update
+## Current v0.8.60 update
 
 No manual database migration is required. Existing `salta_postgres_data` and `salta_runtime_data` volumes are reused.
 
-v0.8.59 adds momentary-button behavior to the existing virtual-device adapter and stores the selected virtual kind in the already existing `adapterData` JSON metadata. No new table and no destructive `ALTER TABLE` statement are introduced.
+v0.8.60 adds the Philips Hue Bridge as a new adapter source. Hue connection metadata and the encrypted bridge application key reuse the existing `adapter_settings` table, so no new table and no destructive `ALTER TABLE` statement are introduced. Existing Shelly, Phoscon, OpenCCU, FRITZ!Box, virtual-device and automation data remain unchanged.
 
-Existing virtual switches remain persistent switches. They can be converted in the SALTA device settings to a momentary button while keeping the same device ID, room assignment, HomeKit publication metadata and automation references.
+Hue devices are created during the first successful Hue reconciliation. Local SALTA names, room assignments, presentation metadata and per-device HomeKit choices are preserved on later reconciliations. Disconnecting Hue removes only the synchronized SALTA Hue records and does not alter the Philips Hue Bridge itself.
 
-The additive automation persistence tables from the preceding releases remain unchanged.
+The v0.8.59 virtual-device `adapterData.virtualType` metadata remains compatible and requires no migration. The additive automation persistence tables from the preceding releases also remain unchanged.
 
 No HomeKit storage migration is required when the installation already uses the persistent runtime layout introduced in v0.8.41 or newer.
 

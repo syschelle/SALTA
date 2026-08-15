@@ -2,7 +2,7 @@
 
 > **Smart-home Abstraction & Local Transport Architecture**
 
-SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API, a local automation engine and an optional HomeKit bridge. It integrates Shelly, Phoscon/deCONZ Zigbee, OpenCCU/HomeMatic, FRITZ!Box Wi-Fi presence and SALTA-native virtual devices.
+SALTA is a local-first smart-home control plane with PostgreSQL persistence, a responsive web interface, a REST API, a local automation engine and an optional HomeKit bridge. It integrates Shelly, Phoscon/deCONZ Zigbee, Philips Hue Bridge, OpenCCU/HomeMatic, FRITZ!Box Wi-Fi presence and SALTA-native virtual devices.
 
 > Your home. Your hardware. Your rules.
 
@@ -128,7 +128,7 @@ Use **Settings → Sicherung** to create one password-encrypted `SALTA-full-back
 
 - rooms, device configuration and per-device HomeKit publication metadata;
 - automations, presence targets, heating mode and Pushover/battery-warning settings;
-- encrypted Shelly, Phoscon, OpenCCU, FRITZ!Box and Pushover credentials;
+- encrypted Shelly, Phoscon, Philips Hue, OpenCCU, FRITZ!Box and Pushover credentials;
 - the original SALTA administrator credentials and `SALTA_ENCRYPTION_KEY`;
 - HomeKit bridge identity/PIN and HAP pairing storage;
 - restorable SALTA application security and rate-limit settings.
@@ -236,7 +236,7 @@ SALTA supports Shelly Gen1 REST devices and Gen2, Gen3 and Gen4 RPC devices. Det
 
 Compatible multi-channel and 2PM devices are represented according to their active switch or cover profile. Supported on/off devices can be presented as Automatic, Light, Switch, Outlet or Fan without changing the physical command routing.
 
-Shelly authentication is configured only for Shelly devices. Zigbee devices use the single encrypted Phoscon API key, while HomeMatic devices use the centrally configured OpenCCU account. Neither integration exposes per-device credential controls.
+Shelly authentication is configured only for Shelly devices. Zigbee devices use the single encrypted Phoscon API key, Philips Hue devices use the bridge-issued encrypted Hue application key, while HomeMatic devices use the centrally configured OpenCCU account. These integrations do not expose per-device credential controls.
 
 Shelly authentication supports:
 
@@ -273,6 +273,27 @@ Zigbee devices can be marked as hidden in their SALTA device settings. Hidden de
 
 Disconnecting Phoscon removes the synchronized SALTA records but does not delete or reset devices in Phoscon.
 
+## Philips Hue Bridge support
+
+SALTA can connect to one local Philips Hue Bridge in parallel with Phoscon/deCONZ. Hue lights stay paired with the Hue Bridge; SALTA communicates with the bridge locally over HTTPS and the Hue API v2. Under **Settings → Philips Hue**, SALTA can search the local network for Hue Bridges via mDNS, while manual IP/hostname entry remains available. Press the physical link button on the bridge and use **Mit Bridge koppeln** so SALTA can create its own application key. The key is encrypted with `SALTA_ENCRYPTION_KEY` and is never returned to the browser after storage.
+
+The dedicated **Philips Hue** page imports supported Hue v2 `light` resources and maps Hue smart plugs as outlets. Initial controls include:
+
+- on, off and toggle for supported lights and plugs;
+- brightness for dimmable lights;
+- color temperature with a Kelvin control derived from the Hue mirek range; and
+- xy color control through the local SALTA color picker.
+
+SALTA reads Hue `zigbee_connectivity` resources for reachability and keeps model, firmware, bridge/resource and archetype metadata in the device details. Local SALTA names, room assignments, presentation choices and HomeKit publication choices survive normal Hue reconciliation.
+
+Hue API v2 state changes are received from the local `/eventstream/clip/v2` SSE stream. SALTA coalesces incoming events into a fast device reconciliation and also keeps a 15-second periodic reconciliation as a fallback. Temporary bridge or network interruptions trigger bounded realtime reconnect attempts without requiring a SALTA restart.
+
+Hue communication is HTTPS-only. SALTA validates the bridge certificate chain against the bundled Signify Hue Bridge CA roots, validates authenticated connections against the discovered Hue Bridge ID and does not disable TLS certificate verification. The configured bridge address must resolve to a private, loopback or link-local address and only standard HTTPS port 443 is accepted, preventing the Hue adapter from being used as a general outbound HTTP client.
+
+Hue lights and plugs use the normal SALTA capability model, so binary actions are immediately available as automation targets. Hue devices are imported with SALTA HomeKit publication disabled by default to avoid duplicate Apple Home accessories when the Hue Bridge is already linked to Apple Home; HomeKit can still be enabled explicitly per supported Hue device.
+
+Disconnecting Philips Hue removes the synchronized SALTA records and stored SALTA Hue credentials, but it does not remove or reset lights and accessories on the Hue Bridge.
+
 ## Virtual devices
 
 SALTA can create native virtual devices that exist entirely inside SALTA and are persisted in PostgreSQL. Open **Virtual Devices** in the main navigation to create them.
@@ -305,9 +326,9 @@ The first automation rule format contains exactly three stages:
 2. **Only if** — optionally require a second device to have a selected boolean state. Conditions are evaluated from the current reachable device state at execution time.
 3. **Then** — choose one or more controllable target devices. Binary switches/lights, including SALTA virtual switches and writable OpenCCU/HomeMatic actors, offer **On**, **Off** and **Toggle**. Covers offer **Open** and **Close**. OpenCCU/HomeMatic thermostats offer **Off**, **Auto**, **Manual** and target-temperature actions. Read-only sensors remain trigger/condition-only. Up to eight target devices can be controlled by one automation. Normally a trigger device cannot also be a target; the deliberate exception is a SALTA virtual switch used as a one-shot/latch trigger. A virtual `on=true` trigger may reset itself with **Off** (and an `on=false` trigger with **On**), which supports HomeKit geofence patterns where Apple Home sets the virtual switch and SALTA consumes the event. The reset is executed after the other target actions.
 
-The device selectors for trigger, condition and target are searchable. Type any part of the device name, room, source (for example Shelly, Zigbee, HomeMatic, Presence or Virtual), model or logical device type to narrow the list. The editor also shows how many matching devices are currently available.
+The device selectors for trigger, condition and target are searchable. Type any part of the device name, room, source (for example Shelly, Zigbee, Philips Hue, HomeMatic, Presence or Virtual), model or logical device type to narrow the list. The editor also shows how many matching devices are currently available.
 
-The engine works across supported SALTA device sources because actions use the shared device command router. For example, a Zigbee motion sensor can switch a Shelly relay, a HomeMatic contact can toggle a SALTA virtual switch, or a HomeKit geofence can set a SALTA virtual switch to **On**, trigger several local actions and then have SALTA reset that virtual switch to **Off**. Rules can be enabled, disabled, edited and deleted from the web interface.
+The engine works across supported SALTA device sources because actions use the shared device command router. For example, a Zigbee motion sensor can switch a Shelly relay, a HomeMatic contact can toggle a Philips Hue light, or a HomeKit geofence can set a SALTA virtual switch to **On**, trigger several local actions and then have SALTA reset that virtual switch to **Off**. Rules can be enabled, disabled, edited and deleted from the web interface.
 
 Automation rules are stored in PostgreSQL and restored after restart. Extended target actions and values use the additive `automation_targets` persistence while the original action fields remain for compatibility. References to deleted trigger, condition or target devices are removed automatically by the database. SALTA rejects automation graphs that would create a device-to-device cycle across configured targets. The safe virtual self-reset exception is not treated as a cycle because it explicitly changes the trigger away from the value that fired the rule. If one target command fails at runtime, SALTA logs that target failure and continues with the remaining actions, including the final virtual reset.
 

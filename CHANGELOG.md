@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.8.60
+
+- Added a dedicated local Philips Hue Bridge integration alongside Phoscon/deCONZ.
+- Added local mDNS bridge discovery plus guided physical link-button pairing under **Settings → Philips Hue**, with manual address fallback and the bridge application key encrypted by `SALTA_ENCRYPTION_KEY`.
+- Added Hue API v2 discovery for lights and smart plugs with on/off/toggle, brightness, color-temperature and xy color controls according to reported capabilities.
+- Added a dedicated Hue device page, connection diagnostics, system-log source, room filtering and manual reconciliation.
+- Added Hue API v2 local SSE event-stream updates plus a 15-second reconciliation fallback and bounded realtime reconnects.
+- Added verified Hue HTTPS using bundled Signify Hue Bridge CA roots and Hue Bridge ID hostname validation; no TLS-verification bypass is used.
+- Restricted Hue connections to private/loopback/link-local targets on standard HTTPS port 443 and added explicit rate limits for Hue settings/pairing/reconciliation operations.
+- Hue lights and plugs participate in the normal SALTA automation capability model.
+- Hue devices default to SALTA HomeKit publication disabled to avoid duplicate Apple Home accessories, with explicit per-device opt-in still available.
+- Carries forward v0.8.59 momentary virtual buttons and the v0.8.58 safe persistent-switch self-reset behavior.
+- No database schema migration, new mandatory environment variable or new npm dependency is required.
+
 ## v0.8.59
 
 - Added configurable momentary virtual buttons with a 500 ms automatic off reset.

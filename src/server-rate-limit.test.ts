@@ -15,6 +15,11 @@ describe("explicit Fastify route rate limiting", () => {
     'app.get("/api/readiness", {',
     'app.get("/api/rooms", {',
     'app.get("/api/settings/shelly", {',
+    'app.get("/api/settings/hue", {',
+    'app.post("/api/settings/hue/discover", {',
+    'app.put<{Body:unknown}>("/api/settings/hue", {',
+    'app.post<{Body:unknown}>("/api/settings/hue/pair", {',
+    'app.delete("/api/settings/hue", {',
     'app.get("/api/settings/openccu", {',
     'app.put<{ Body: unknown }>("/api/settings/openccu", {',
     'app.post<{ Body: unknown }>("/api/settings/openccu/diagnose", {',
@@ -46,10 +51,17 @@ describe("explicit Fastify route rate limiting", () => {
     expect(start).toBeGreaterThanOrEqual(0);
     expect(source.slice(start, start + 280)).toContain("config: { rateLimit:");
   });
-  it("limits Phoscon pairing and reconciliation as expensive operations", () => {
-    expect(source).toContain('path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile" || path === "/api/adapters/openccu/reconcile" || path === "/api/settings/openccu/diagnose"');
-    expect(source).toContain('path === "/api/settings/phoscon/pair" && request.method === "POST"');
-    expect(source).toContain('security.consumeRateLimit(`phoscon-pairing:${ip}`, 5, rateWindowMs)');
+  it("limits bridge pairing and reconciliation as expensive operations", () => {
+    for (const path of [
+      '/api/adapters/phoscon/reconcile',
+      '/api/adapters/hue/reconcile',
+      '/api/settings/hue/discover',
+      '/api/adapters/openccu/reconcile',
+      '/api/settings/phoscon/pair',
+      '/api/settings/hue/pair',
+    ]) expect(source).toContain(path);
+    expect(source).toContain('security.consumeRateLimit(`reconcile:${ip}`, 12, rateWindowMs)');
+    expect(source).toContain('security.consumeRateLimit(`bridge-pairing:${ip}`, 5, rateWindowMs)');
   });
 
 });

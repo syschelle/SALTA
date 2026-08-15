@@ -1,6 +1,6 @@
 {
   "name": "salta",
-  "version": "0.8.59",
+  "version": "0.8.60",
   "description": "SALTA local-first smart-home control plane",
   "private": true,
   "type": "module",
@@ -41,6 +41,8 @@
     "homekit",
     "shelly",
     "zigbee",
+    "hue-bridge",
+    "philips-hue",
     "phoscon",
     "deconz",
     "openccu",
