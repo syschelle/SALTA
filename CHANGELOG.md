@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.61
+
+- Fixed the Philips Hue TypeScript build failure reported by CI after v0.8.60.
+- Tightened the internal Hue bridge-discovery return type so a successfully discovered bridge carries a guaranteed `bridgeId` after runtime validation.
+- Made private-IPv4 parsing safe under TypeScript `noUncheckedIndexedAccess` by giving destructured octets explicit fallback values.
+- No runtime behavior, database schema, mandatory environment variable or npm dependency is changed by this maintenance release.
+- Carries forward the complete Philips Hue Bridge integration introduced in v0.8.60 and the v0.8.59 momentary virtual-button workflow.
+
 ## v0.8.60
 
 - Added a dedicated local Philips Hue Bridge integration alongside Phoscon/deCONZ.

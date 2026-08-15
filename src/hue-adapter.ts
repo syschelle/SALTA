@@ -7,6 +7,8 @@ import { discoverHueBridges, type DiscoveredHueBridge } from "./hue-mdns.js";
 import type { Device, DeviceCommand } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 
+type DiscoveredHueBridgeInfo = HueBridgeInfo & { bridgeId: string };
+
 const pollIntervalMs = 15_000;
 const reconnectMaxMs = 30_000;
 const now = (): string => new Date().toISOString();
@@ -46,13 +48,13 @@ export class HueAdapter {
     return discoverHueBridges();
   }
 
-  private async discoverBridge(baseUrl: string): Promise<HueBridgeInfo> {
+  private async discoverBridge(baseUrl: string): Promise<DiscoveredHueBridgeInfo> {
     // Bridge discovery deliberately performs CA validation before the bridge id is known.
     // Once the id has been read, all authenticated requests validate the certificate hostname too.
     const payload = await hueRequestJson(`${baseUrl}/api/config`, { allowBridgeDiscovery: true });
     const info = hueBridgeInfo(payload);
     if (!info.bridgeId) throw new Error("HUE_INVALID_RESPONSE");
-    return info;
+    return { ...info, bridgeId: info.bridgeId };
   }
 
   async pair(baseUrlInput: string): Promise<HueBridgeInfo> {

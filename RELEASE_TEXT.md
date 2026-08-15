@@ -1,10 +1,17 @@
-# SALTA v0.8.60
+# SALTA v0.8.61
 
-SALTA v0.8.60 adds a dedicated local Philips Hue Bridge integration alongside the existing Phoscon/deCONZ adapter. Hue lights and smart plugs can remain paired with their Philips Hue Bridge while SALTA discovers, displays and controls them through the local Hue API v2, receives local realtime state-change events and makes supported Hue devices available to SALTA automations.
+SALTA v0.8.61 is a maintenance release for the Philips Hue integration introduced in v0.8.60. It fixes the TypeScript CI build errors without changing the intended Hue runtime behavior.
 
-The release also carries forward the v0.8.59 momentary virtual-button workflow for one-shot HomeKit/geofence triggers.
+## v0.8.61 build fix
 
-## Philips Hue Bridge integration
+- Fixed `TS18048` errors in `src/hue-adapter.ts` by expressing the existing runtime guarantee that a successfully discovered Hue Bridge always has a `bridgeId` in the TypeScript return type.
+- Fixed `TS18048` errors in `src/hue-tls.ts` under `noUncheckedIndexedAccess` by assigning safe fallback values to destructured IPv4 octets.
+- The runtime validation remains unchanged: an invalid Hue discovery response without a bridge ID still fails with `HUE_INVALID_RESPONSE`.
+- No database schema migration, new mandatory environment variable or new npm dependency is required.
+
+## Philips Hue functionality carried forward from v0.8.60
+
+### Philips Hue Bridge integration
 
 - Added **Philips Hue** as a first-class SALTA device source parallel to Shelly, Phoscon/Zigbee and OpenCCU/HomeMatic.
 - Added a dedicated **Philips Hue** page with room filtering, search, connection status and manual synchronization.
