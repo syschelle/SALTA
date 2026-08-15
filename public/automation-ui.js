@@ -63,9 +63,9 @@ function automationBooleanStateKeys(device){
   return keys.sort((a,b)=>{const ai=automationStatePriority.indexOf(a),bi=automationStatePriority.indexOf(b);if(ai>=0||bi>=0){if(ai<0)return 1;if(bi<0)return -1;return ai-bi}return a.localeCompare(b)});
 }
 function automationEventStateKeys(device){return device&&(device.type==='button'||typeof device.state?.buttonEvent==='number'||device.adapterData?.buttonEventProtocol==='deconz')?['buttonEvent']:[]}
-function automationStateLabel(key){return key===automationButtonEventMarker?'Tasterereignis':labels?.[key]||key}
+function automationStateLabel(key){return key===automationButtonEventMarker?'Tasterereignis':key==='winterActive'?'Heizmodus':labels?.[key]||key}
 function automationValueLabel(key,value){
-  const states={on:['An','Aus'],motion:['Bewegung erkannt','Keine Bewegung'],open:['Offen','Geschlossen'],water:['Wasser erkannt','Trocken'],fire:['Alarm','Normal'],alarm:['Alarm','Normal'],vibration:['Erkannt','Ruhe'],lowBattery:['Niedrig','OK'],tampered:['Erkannt','OK'],dark:['Dunkel','Hell'],daylight:['Tageslicht','Kein Tageslicht'],present:['Anwesend','Abwesend'],anyHome:['Jemand zuhause','Niemand zuhause'],nobodyHome:['Niemand zuhause','Jemand zuhause']};
+  const states={on:['An','Aus'],motion:['Bewegung erkannt','Keine Bewegung'],open:['Offen','Geschlossen'],water:['Wasser erkannt','Trocken'],fire:['Alarm','Normal'],alarm:['Alarm','Normal'],vibration:['Erkannt','Ruhe'],lowBattery:['Niedrig','OK'],tampered:['Erkannt','OK'],dark:['Dunkel','Hell'],daylight:['Tageslicht','Kein Tageslicht'],present:['Anwesend','Abwesend'],anyHome:['Jemand zuhause','Niemand zuhause'],nobodyHome:['Niemand zuhause','Jemand zuhause'],winterActive:['Wintermodus','Sommermodus']};
   const pair=states[key]||['Aktiv','Inaktiv'];
   return value?pair[0]:pair[1];
 }
@@ -133,7 +133,8 @@ function renderAutomationPrimaryEventPicker(){
 }
 function automationDeviceLabel(device){return `${device.name} · ${sourceLabels?.[device.source]||device.source}${device.room?` · ${device.room}`:''}`}
 function automationDeviceById(id){return all.find(device=>device.id===id)}
-function automationTriggerDevices(){return all.filter(device=>automationBooleanStateKeys(device).length>0||automationEventStateKeys(device).length>0)}
+function automationIsClimateModeDevice(device){return device?.source==='system'&&device.adapterData?.systemKind==='climateMode'}
+function automationTriggerDevices(){return all.filter(device=>!automationIsClimateModeDevice(device)&&(automationBooleanStateKeys(device).length>0||automationEventStateKeys(device).length>0))}
 function automationConditionDevices(){return all.filter(device=>automationBooleanStateKeys(device).length>0)}
 function automationActionDevices(){return all.filter(device=>automationActionsForDevice(device.id).length>0)}
 function automationAllTriggerDeviceIds(){if(automationTimeTriggerActive())return new Set();return new Set([automationElements.triggerDevice?.value,...automationAdditionalTriggers.map(trigger=>trigger.deviceId)].filter(Boolean))}
@@ -408,7 +409,7 @@ function automationActionSummaryItems(rule){return [{deviceId:rule.actionDeviceI
 function automationSummary(rule){
   const condition=rule.conditionDeviceId?automationDeviceById(rule.conditionDeviceId):null;const triggerItems=automationTriggerSummaryItems(rule);const actionItems=automationActionSummaryItems(rule);
   const triggerText=`Wenn ${triggerItems.join(' ODER ')}`;
-  const conditionText=condition?`Nur wenn ${condition.name} · ${automationStateLabel(rule.conditionStateKey)} = ${automationValueLabel(rule.conditionStateKey,rule.conditionValue)}`:null;
+  const conditionText=condition?(automationIsClimateModeDevice(condition)?`Nur wenn Heizmodus = ${automationValueLabel(rule.conditionStateKey,rule.conditionValue)}`:`Nur wenn ${condition.name} · ${automationStateLabel(rule.conditionStateKey)} = ${automationValueLabel(rule.conditionStateKey,rule.conditionValue)}`):null;
   const actionText=`Dann ${actionItems.join(' UND ')}`;
   return {triggerItems,triggerText,conditionText,actionItems,actionText};
 }

@@ -38,6 +38,20 @@ describe("global climate mode", () => {
     expect(status.supportedThermostats).toBe(2);
   });
 
+  it("synchronizes the boolean winterActive state used by automation conditions", async () => {
+    let systemDevice: Device = {
+      id: "system:climate-mode", source: "system", sourceId: "climate-mode", type: "genericSensor", name: "Heizmodus", reachable: true,
+      state: { mode: "winter", winterMode: "auto", winterActive: true }, capabilities: ["setClimateMode"],
+      homekitEnabled: false, hidden: true, credentialMode: "none", passwordConfigured: false,
+      lastSeen: new Date().toISOString(), lastEvent: new Date().toISOString()
+    };
+    const set = vi.fn(async (next: Device) => { systemDevice = next; });
+    const manager = new ClimateModeManager({ all: () => [systemDevice], get: () => systemDevice, set } as never, { command: vi.fn() as never });
+    vi.mocked(getClimateModeSettings).mockResolvedValue({ mode: "winter", winterMode: "auto" });
+    await manager.apply("summer");
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ state: expect.objectContaining({ mode: "summer", winterActive: false }) }));
+  });
+
   it("stores the configured winter mode without sending thermostat commands", async () => {
     const devices = [thermostat("t1")];
     const command = vi.fn(async () => devices[0]!);

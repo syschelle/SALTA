@@ -155,6 +155,36 @@ describe("AutomationEngine", () => {
     engine.stop();
   });
 
+  it("uses the global heating mode as an optional automation condition", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("system:climate-mode", {
+      ...device("system:climate-mode", { mode: "winter", winterMode: "auto", winterActive: true }),
+      source: "system", type: "genericSensor", capabilities: ["setClimateMode"], adapterData: { systemKind: "climateMode" }
+    });
+    const command = vi.fn(async commandInput => registry.get(commandInput.deviceId)!);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+    await engine.start();
+    await engine.create({
+      name: "Winter-only light", enabled: true,
+      triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      conditionDeviceId: "system:climate-mode", conditionStateKey: "winterActive", conditionValue: true,
+      actionDeviceId: "target", action: "turnOn"
+    });
+    registry.publish(device("trigger", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    expect(command).toHaveBeenCalledTimes(1);
+    const climate = registry.get("system:climate-mode")!;
+    registry.devices.set("system:climate-mode", { ...climate, state: { ...climate.state, mode: "summer", winterActive: false } });
+    registry.publish(device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    registry.publish(device("trigger", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    expect(command).toHaveBeenCalledTimes(1);
+    engine.stop();
+  });
+
   it("keeps a time trigger tied to local wall-clock time across daylight-saving offsets", () => {
     expect(localAutomationTime(new Date("2026-01-15T06:30:00.000Z"), "Europe/Berlin")).toEqual({ dateKey: "2026-01-15", time: "07:30" });
     expect(localAutomationTime(new Date("2026-08-15T05:30:00.000Z"), "Europe/Berlin")).toEqual({ dateKey: "2026-08-15", time: "07:30" });

@@ -41,6 +41,16 @@ describe("automation frontend", () => {
     expect(html).toContain('aria-label="Ziel nach Name, Raum, Quelle oder SALTA-Funktion suchen"');
   });
 
+  it("offers the global SALTA heating mode as an optional condition but not as a device trigger", () => {
+    expect(ui).toContain("function automationIsClimateModeDevice(device)");
+    expect(ui).toContain("!automationIsClimateModeDevice(device)");
+    expect(ui).toContain("key==='winterActive'?'Heizmodus'");
+    expect(ui).toContain("winterActive:['Wintermodus','Sommermodus']");
+    expect(ui).toContain("Nur wenn Heizmodus = ${automationValueLabel");
+    expect(html).toContain('Gerät / SALTA-Funktion');
+    expect(html).toContain('aria-label="Bedingung nach Name, Raum, Quelle oder SALTA-Funktion suchen"');
+  });
+
   it("offers boolean state transitions and deCONZ button-event triggers", () => {
     expect(ui).toContain("turnOn:'An',turnOff:'Aus',toggle:'Toggle'");
     expect(ui).toContain("typeof value==='boolean'");

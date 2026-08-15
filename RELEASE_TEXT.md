@@ -1,6 +1,16 @@
-# SALTA v0.8.69
+# SALTA v0.8.70
 
-SALTA v0.8.69 fixes a confirmed production startup regression in the Heating mode automation schema initialization. The hidden `system:climate-mode` device is now created with a JSONB capabilities array that matches the existing `devices.capabilities` column type, preventing PostgreSQL error `42804` and the resulting Docker restart loop.
+SALTA v0.8.70 extends the global Heating mode integration so Summer/Winter mode can be used as an optional **Only if** condition in automations. It keeps the existing boolean condition persistence model and carries forward the confirmed v0.8.69 PostgreSQL startup fix unchanged.
+
+## v0.8.70 Heating mode automation condition
+
+- Added the global SALTA **Heating mode** to the automation editor's optional **Only if** condition selector.
+- Heating mode conditions are represented by the boolean `winterActive` state: `true` means Winter mode and `false` means Summer mode.
+- The UI presents this as **Heating mode = Winter mode** or **Heating mode = Summer mode**, while the existing automation database schema continues to store a normal boolean condition value.
+- The hidden `system:climate-mode` device persists `winterActive` during schema initialization and keeps it synchronized whenever the global mode changes.
+- Heating mode deliberately remains excluded from the **When** device-trigger list. It is available as an optional condition and as a **Then** system action.
+- Added regression coverage for database initialization, Climate mode state synchronization, automation condition execution and frontend selection/labels.
+- No database schema migration, manual SQL repair, new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.69 production startup fix
 

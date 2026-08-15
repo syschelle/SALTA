@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.70
+
+- Added the global Heating mode to the optional **Nur wenn** condition selector in automations.
+- Heating mode conditions use the existing boolean condition model: `winterActive=true` means Winter mode and `winterActive=false` means Summer mode.
+- The hidden `system:climate-mode` device now persists and synchronizes `winterActive` alongside the existing mode metadata.
+- The automation UI presents the condition as **Heizmodus = Wintermodus/Sommermodus** and keeps the system target out of the **Wenn** device-trigger list.
+- Added regression coverage for database initialization, Climate mode synchronization, automation execution and frontend condition selection.
+- Carries forward the v0.8.69 PostgreSQL startup fix without changing the database schema.
+- No manual migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
+
 ## v0.8.69
 
 - Fixed a production startup regression introduced with the hidden Heating mode automation target in v0.8.66.

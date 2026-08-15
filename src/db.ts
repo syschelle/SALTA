@@ -234,7 +234,7 @@ export async function initializeDatabaseSchema(): Promise<void> {
     INSERT INTO climate_mode_settings(id) VALUES('global') ON CONFLICT(id) DO NOTHING;
     INSERT INTO devices(id,source,source_id,type,presentation_type,name,reachable,state,capabilities,homekit_enabled,credential_mode,last_seen,last_event,updated_at)
       SELECT 'system:climate-mode','system','climate-mode','genericSensor','auto','Heizmodus',true,
-        jsonb_build_object('mode',mode,'winterMode',winter_mode),jsonb_build_array('setClimateMode'),false,'none',now(),now(),now()
+        jsonb_build_object('mode',mode,'winterMode',winter_mode,'winterActive',(mode='winter')),jsonb_build_array('setClimateMode'),false,'none',now(),now(),now()
       FROM climate_mode_settings WHERE id='global'
       ON CONFLICT(id) DO UPDATE SET source=EXCLUDED.source,source_id=EXCLUDED.source_id,type=EXCLUDED.type,presentation_type=EXCLUDED.presentation_type,name=EXCLUDED.name,reachable=true,state=EXCLUDED.state,capabilities=EXCLUDED.capabilities,homekit_enabled=false,credential_mode='none',updated_at=now();
     INSERT INTO device_preferences(device_id,hidden) VALUES('system:climate-mode',true)

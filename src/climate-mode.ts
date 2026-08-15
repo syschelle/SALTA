@@ -145,7 +145,7 @@ export class ClimateModeManager {
     const appliedAt = new Date().toISOString();
     const lastResult = { total: thermostats.length, succeeded, failed };
     const settings = await updateClimateModeSettings({ mode, winterMode, lastAppliedAt: appliedAt, lastResult });
-    await this.syncAutomationDevice({ mode: settings.mode, winterMode: settings.winterMode }, appliedAt);
+    await this.syncAutomationDevice({ mode: settings.mode, winterMode: settings.winterMode, winterActive: settings.mode === "winter" }, appliedAt);
     await writeSystemLog(
       failed ? "warning" : "info",
       "system",

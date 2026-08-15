@@ -1,4 +1,4 @@
-# SALTA v0.8.69 Git commands
+# SALTA v0.8.70 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(db): store climate automation capabilities as jsonb"
+git commit -m "feat(automations): add heating mode conditions"
 git push origin main
 ```
 
@@ -42,8 +42,8 @@ git show origin/main:public/automation-ui.js | grep -F "climateWinter:'Wintermod
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.69 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.69.
+Release validator contract: SALTA v0.8.70 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.70.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -54,14 +54,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.69 -m "SALTA v0.8.69"
-git push origin v0.8.69
+git tag -a v0.8.70 -m "SALTA v0.8.70"
+git push origin v0.8.70
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.69 \
-  --title "SALTA v0.8.69" \
+gh release create v0.8.70 \
+  --title "SALTA v0.8.70" \
   --notes-file RELEASE_TEXT.md
 ```

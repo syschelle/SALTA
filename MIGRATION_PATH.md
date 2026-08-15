@@ -2,7 +2,10 @@
 
 v0.8.69 fixes the startup SQL used to create/update the hidden `system:climate-mode` automation target. The canonical schema is unchanged: `devices.capabilities` remains `jsonb`, and schema initialization now supplies a JSONB array instead of a PostgreSQL `text[]`.
 
-## Current v0.8.69 update
+## Current v0.8.70 update
+
+v0.8.70 adds the boolean `winterActive` state to the existing hidden Heating mode system device so Summer/Winter mode can use SALTA's existing boolean automation-condition model. The v0.8.69 JSONB startup fix remains unchanged. No schema migration, volume reset or manual database command is required.
+
 
 No manual database migration or SQL repair is required. Do not delete the PostgreSQL volume. Starting v0.8.69 is sufficient; the corrected idempotent schema initialization creates or updates the hidden Heating mode target automatically. Existing `salta_postgres_data` and `salta_runtime_data` volumes are reused.
 
