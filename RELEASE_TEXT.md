@@ -1,6 +1,16 @@
-# SALTA v0.8.66
+# SALTA v0.8.67
 
-SALTA v0.8.66 integrates the global Heating mode into the local automation engine and simplifies the Heating mode card on the overview. Automations can now switch the complete thermostat group to Summer or Winter mode as a normal target action, including from the daily time trigger introduced in v0.8.65.
+SALTA v0.8.67 is a regression-fix release for the Heating mode automation integration introduced in v0.8.66. It keeps the complete Heating mode target and daily time-trigger functionality while restoring the automated regression-test contract.
+
+## v0.8.67 regression fixes
+
+- Fixed the `ClimateModeManager` regression that caused isolated climate-mode tests to fail with `this.registry.get is not a function`. Synchronization of the hidden `system:climate-mode` registry representation is now optional for lightweight registry implementations while the production `DeviceRegistry` continues to keep the system target state synchronized.
+- Updated the automation-isolation regression test so it verifies the database automation store, logger and injected Climate mode callback independently of source-code line formatting.
+- Updated the frontend automation regression test to match the intentional generic **Weiteres Ziel hinzufügen** label. The wording changed because automation targets can now be either physical/virtual devices or SALTA system functions such as Heating mode.
+- Updated the compact overview regression test to verify that both `presence` and hidden `system` devices are excluded from normal device, reachability and power counters.
+- The visible **Nur SALTA** badge remains removed from the Heating mode overview card as requested.
+- Carries forward the complete v0.8.66 Heating mode automation target and the v0.8.65 daily local-time trigger.
+- No database migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.66 heating-mode automation target
 

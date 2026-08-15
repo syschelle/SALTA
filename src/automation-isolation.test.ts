@@ -15,7 +15,9 @@ describe("automation test isolation", () => {
     expect(automationCore).toContain("private readonly store: AutomationStore");
     expect(automationCore).toContain("private readonly logger: AutomationLogger");
     expect(persistence).toContain('from "./db.js"');
-    expect(main).toContain("databaseAutomationStore, databaseAutomationLogger");
+    expect(main).toContain("databaseAutomationStore");
+    expect(main).toContain("databaseAutomationLogger");
+    expect(main).toContain("applyClimateMode: async mode");
   });
 
   it("starts Vitest through the existing preflight runner with deterministic test configuration", () => {

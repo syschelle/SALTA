@@ -179,7 +179,7 @@ describe("automation frontend", () => {
   it("supports multiple target devices in the Dann step", () => {
     expect(html).toContain('id="automationAdditionalActions"');
     expect(html).toContain('id="automationAddActionButton"');
-    expect(html).toContain("Weiteres Zielgerät hinzufügen");
+    expect(html).toContain("Weiteres Ziel hinzufügen");
     expect(ui).toContain("automationAdditionalActions");
     expect(hasFunction(uiAst, "addAutomationAdditionalAction")).toBe(true);
     expect(hasFunction(uiAst, "renderAutomationAdditionalActions")).toBe(true);

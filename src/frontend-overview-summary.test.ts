@@ -33,7 +33,8 @@ describe("compact overview summary", () => {
 
   it("keeps presence devices out of normal device/reachability/power counters", () => {
     const summary = functionSource(appAst, "updateDashboardSummary");
-    expect(summary).toContain("all.filter(device=>device.source!=='presence')");
+    expect(summary).toContain("all.filter(device=>device.source!=='presence'&&device.source!=='system')");
+    expect(summary).toContain("device.source!=='system'");
   });
 
   it("keeps the overview summary compact and responsive on narrow screens", () => {

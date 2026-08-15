@@ -21,6 +21,7 @@ export interface SummerGuardResult {
 }
 
 type Commander = { command(command: DeviceCommand): Promise<Device> };
+type ClimateRegistry = Pick<DeviceRegistry, "all"> & Partial<Pick<DeviceRegistry, "get" | "set">>;
 
 export function thermostatSupportsSystemMode(device: Device): boolean {
   if (device.type !== "thermostat") return false;
@@ -52,7 +53,7 @@ export class ClimateModeManager {
   private guardStarted = false;
 
   constructor(
-    private readonly registry: DeviceRegistry,
+    private readonly registry: ClimateRegistry,
     private readonly commander: Commander,
     private readonly pushoverSender: PushoverSender = sendPushoverMessage
   ) {}
@@ -87,13 +88,22 @@ export class ClimateModeManager {
     return { ...(await getClimateModeSettings()), ...this.thermostatCounts() };
   }
 
+  private async syncAutomationDevice(state: Partial<Device["state"]>, stamp = new Date().toISOString()): Promise<void> {
+    if (typeof this.registry.get !== "function" || typeof this.registry.set !== "function") return;
+    const systemDevice = this.registry.get(CLIMATE_MODE_AUTOMATION_DEVICE_ID);
+    if (!systemDevice) return;
+    await this.registry.set({
+      ...systemDevice,
+      reachable: true,
+      state: { ...systemDevice.state, ...state },
+      lastSeen: stamp,
+      lastEvent: stamp
+    });
+  }
+
   async setWinterMode(winterMode: WinterThermostatMode): Promise<ClimateModeStatus> {
     const settings = await updateClimateWinterMode(winterMode);
-    const systemDevice = this.registry.get(CLIMATE_MODE_AUTOMATION_DEVICE_ID);
-    if (systemDevice) {
-      const stamp = new Date().toISOString();
-      await this.registry.set({ ...systemDevice, state: { ...systemDevice.state, winterMode: settings.winterMode }, lastSeen: stamp, lastEvent: stamp });
-    }
+    await this.syncAutomationDevice({ winterMode: settings.winterMode });
     await writeSystemLog(
       "info",
       "system",
@@ -135,16 +145,7 @@ export class ClimateModeManager {
     const appliedAt = new Date().toISOString();
     const lastResult = { total: thermostats.length, succeeded, failed };
     const settings = await updateClimateModeSettings({ mode, winterMode, lastAppliedAt: appliedAt, lastResult });
-    const systemDevice = this.registry.get(CLIMATE_MODE_AUTOMATION_DEVICE_ID);
-    if (systemDevice) {
-      await this.registry.set({
-        ...systemDevice,
-        reachable: true,
-        state: { ...systemDevice.state, mode: settings.mode, winterMode: settings.winterMode },
-        lastSeen: appliedAt,
-        lastEvent: appliedAt
-      });
-    }
+    await this.syncAutomationDevice({ mode: settings.mode, winterMode: settings.winterMode }, appliedAt);
     await writeSystemLog(
       failed ? "warning" : "info",
       "system",

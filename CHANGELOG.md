@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.67
+
+- Fixed the Climate mode manager regression introduced with the v0.8.66 automation target by making synchronization of the hidden `system:climate-mode` registry representation optional for isolated/unit-test registries while retaining it for the production `DeviceRegistry`.
+- Updated the automation-isolation regression test to validate the injected automation store/logger and Climate mode callback without depending on constructor argument formatting.
+- Updated the automation frontend regression test to match the intentional generic **Weiteres Ziel hinzufügen** label used now that SALTA system functions can be targets in addition to devices.
+- Updated the overview-summary regression test so both presence and hidden SALTA system targets are explicitly excluded from device, reachability and power counters.
+- Carries forward the complete v0.8.66 Heating mode automation target and the v0.8.65 daily local-time trigger.
+- No database migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
+
 ## v0.8.66
 
 - Added the global SALTA **Heating mode** as a first-class automation target under **Then**. Rules can now switch the complete heating system to **Summer mode** or **Winter mode** without a dummy device.

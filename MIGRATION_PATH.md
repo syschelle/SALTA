@@ -1,8 +1,8 @@
 # SALTA migration paths
 
-v0.8.66 adds SALTA system-level automation actions for the global Heating mode. No manual migration command is required: SALTA creates the additive `automation_system_actions` table and an internal hidden `system:climate-mode` target during normal schema initialization. Existing device and time-trigger automations remain unchanged. Configuration/disaster-recovery backups created before v0.8.66 remain importable; the missing system-action table is normalized to an empty set.
+v0.8.67 is a regression-fix release for the Heating mode automation integration. It does not add or alter database schema. The additive `automation_system_actions` table and hidden `system:climate-mode` target introduced in v0.8.66 remain unchanged.
 
-## Current v0.8.66 update
+## Current v0.8.67 update
 
 No manual database migration is required. Existing `salta_postgres_data` and `salta_runtime_data` volumes are reused.
 
