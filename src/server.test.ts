@@ -924,7 +924,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.70" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.71" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -958,12 +958,12 @@ describe("automations", () => {
   it("creates a device-state automation with a room, optional condition and toggle action", async () => {
     const room = { id: "22222222-2222-4222-8222-222222222222", name: "Hallway", icon: "door-open", sortOrder: 0, createdAt: "2026-08-09T00:00:00.000Z", updatedAt: "2026-08-09T00:00:00.000Z" };
     vi.mocked(listRooms).mockResolvedValueOnce([room]);
-    const created = { id: "11111111-1111-4111-8111-111111111111", name: "Motion light", enabled: true, roomId: room.id, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, additionalTriggers: [{ deviceId: "wall-switch", stateKey: "on", value: true }], conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, actionDeviceId: "light", action: "toggle", additionalActions: [{ deviceId: "fan", action: "turnOn" }], createdAt: "2026-08-09T00:00:00.000Z", updatedAt: "2026-08-09T00:00:00.000Z" };
+    const created = { id: "11111111-1111-4111-8111-111111111111", name: "Motion light", enabled: true, roomId: room.id, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, additionalTriggers: [{ deviceId: "wall-switch", stateKey: "on", value: true }], conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, additionalConditions: [{ deviceId: "door", stateKey: "open", value: false }], actionDeviceId: "light", action: "toggle", additionalActions: [{ deviceId: "fan", action: "turnOn" }], createdAt: "2026-08-09T00:00:00.000Z", updatedAt: "2026-08-09T00:00:00.000Z" };
     const create = vi.fn(async () => created as never);
     const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, { create });
-    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "Motion light", enabled: true, roomId: room.id, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, additionalTriggers: [{ deviceId: "wall-switch", stateKey: "on", value: true }], conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, actionDeviceId: "light", action: "toggle", additionalActions: [{ deviceId: "fan", action: "turnOn" }] } });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "Motion light", enabled: true, roomId: room.id, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, additionalTriggers: [{ deviceId: "wall-switch", stateKey: "on", value: true }], conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, additionalConditions: [{ deviceId: "door", stateKey: "open", value: false }], actionDeviceId: "light", action: "toggle", additionalActions: [{ deviceId: "fan", action: "turnOn" }] } });
     expect(response.statusCode).toBe(201);
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({ roomId: room.id, triggerValue: true, additionalTriggers: [{ deviceId: "wall-switch", stateKey: "on", value: true }], conditionValue: false, action: "toggle", additionalActions: [{ deviceId: "fan", action: "turnOn" }] }));
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ roomId: room.id, triggerValue: true, additionalTriggers: [{ deviceId: "wall-switch", stateKey: "on", value: true }], conditionValue: false, additionalConditions: [{ deviceId: "door", stateKey: "open", value: false }], action: "toggle", additionalActions: [{ deviceId: "fan", action: "turnOn" }] }));
   });
 
   it("accepts a daily local-time automation trigger without a trigger device", async () => {
@@ -1087,7 +1087,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.70", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.71", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -1098,7 +1098,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.70", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.71", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {

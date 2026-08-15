@@ -171,6 +171,15 @@ export async function initializeDatabaseSchema(): Promise<void> {
       time_of_day text NOT NULL CHECK(time_of_day ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS automation_conditions (
+      automation_id uuid NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+      position smallint NOT NULL CHECK(position BETWEEN 1 AND 7),
+      condition_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+      condition_state_key text NOT NULL,
+      condition_value boolean NOT NULL,
+      PRIMARY KEY(automation_id,position)
+    );
+    CREATE INDEX IF NOT EXISTS automation_conditions_device_idx ON automation_conditions(condition_device_id,automation_id);
     CREATE TABLE IF NOT EXISTS automation_triggers (
       automation_id uuid NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
       position smallint NOT NULL CHECK(position BETWEEN 1 AND 7),
@@ -303,6 +312,10 @@ export async function upsertDevice(d: Device): Promise<void> {
 }
 
 export async function deleteDevice(id: string): Promise<boolean> {
+  // Removing an additional AND-condition must never silently weaken a rule.
+  // Delete every automation that depends on the device as an additional condition
+  // before the condition row itself is cascaded away with the device.
+  await pool.query("DELETE FROM automations WHERE id IN (SELECT automation_id FROM automation_conditions WHERE condition_device_id=$1)", [id]);
   const result = await pool.query("DELETE FROM devices WHERE id=$1", [id]);
   return result.rowCount === 1;
 }
@@ -442,6 +455,14 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
     : [];
   const primaryTarget: AutomationTargetAction = parsedTargets[0] ?? { deviceId: String(row.actionDeviceId), action: row.action as AutomationRule["action"] };
   const additionalActions = parsedTargets.length ? parsedTargets.slice(1) : legacyAdditionalActions;
+  const additionalConditions = Array.isArray(row.additionalConditions)
+    ? row.additionalConditions.flatMap(value => {
+        if (!value || typeof value !== "object") return [];
+        const condition = value as Record<string, unknown>;
+        if (!condition.deviceId || !condition.stateKey || typeof condition.value !== "boolean") return [];
+        return [{ deviceId: String(condition.deviceId), stateKey: String(condition.stateKey), value: condition.value }];
+      })
+    : [];
   return {
     id: String(row.id),
     name: String(row.name),
@@ -456,6 +477,7 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
     conditionDeviceId: row.conditionDeviceId ? String(row.conditionDeviceId) : undefined,
     conditionStateKey: row.conditionStateKey ? String(row.conditionStateKey) : undefined,
     conditionValue: typeof row.conditionValue === "boolean" ? row.conditionValue : undefined,
+    additionalConditions,
     actionDeviceId: primaryTarget.deviceId,
     action: primaryTarget.action,
     actionValue: primaryTarget.value,
@@ -469,6 +491,7 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
 const automationColumns = `a.id,a.name,a.enabled,p.room_id as "roomId",CASE WHEN s.automation_id IS NULL THEN 'device' ELSE 'time' END as "triggerType",s.time_of_day as "triggerTime",a.trigger_device_id as "triggerDeviceId",a.trigger_state_key as "triggerStateKey",a.trigger_value as "triggerValue",
   COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',t.trigger_device_id,'stateKey',t.trigger_state_key,'value',t.trigger_value) ORDER BY t.position) FROM automation_triggers t WHERE t.automation_id=a.id),'[]'::jsonb) as "additionalTriggers",
   a.condition_device_id as "conditionDeviceId",a.condition_state_key as "conditionStateKey",a.condition_value as "conditionValue",
+  COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',c.condition_device_id,'stateKey',c.condition_state_key,'value',c.condition_value) ORDER BY c.position) FROM automation_conditions c WHERE c.automation_id=a.id),'[]'::jsonb) as "additionalConditions",
   a.action_device_id as "actionDeviceId",a.action,
   COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',x.action_device_id,'action',x.action) ORDER BY x.position) FROM automation_actions x WHERE x.automation_id=a.id),'[]'::jsonb) as "additionalActions",
   COALESCE((SELECT jsonb_agg(jsonb_build_object('position',x.position,'deviceId',x.action_device_id,'action',x.action,'value',x.value) ORDER BY x.position) FROM automation_targets x WHERE x.automation_id=a.id),'[]'::jsonb) as "targetActions",
@@ -523,6 +546,16 @@ async function writeAutomationTargets(client: PoolClient, automationId: string, 
   }
 }
 
+async function writeAutomationConditions(client: PoolClient, automationId: string, input: AutomationInput): Promise<void> {
+  await client.query("DELETE FROM automation_conditions WHERE automation_id=$1", [automationId]);
+  for (const [index, condition] of (input.additionalConditions ?? []).entries()) {
+    await client.query(
+      `INSERT INTO automation_conditions(automation_id,position,condition_device_id,condition_state_key,condition_value) VALUES($1,$2,$3,$4,$5)`,
+      [automationId,index+1,condition.deviceId,condition.stateKey,condition.value]
+    );
+  }
+}
+
 async function writeAutomationTimeTrigger(client: PoolClient, automationId: string, input: AutomationInput): Promise<void> {
   if (input.triggerType === "time" && input.triggerTime) {
     await client.query(`INSERT INTO automation_time_triggers(automation_id,time_of_day,updated_at) VALUES($1,$2,now())
@@ -555,6 +588,7 @@ export async function createAutomation(input: AutomationInput): Promise<Automati
     await client.query(`INSERT INTO automation_preferences(automation_id,room_id) VALUES($1,$2)
       ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()`, [id,input.roomId??null]);
     await writeAutomationTimeTrigger(client, id, input);
+    await writeAutomationConditions(client, id, input);
     for (const [index, trigger] of (input.additionalTriggers ?? []).entries()) {
       await client.query(`INSERT INTO automation_triggers(automation_id,position,trigger_device_id,trigger_state_key,trigger_value) VALUES($1,$2,$3,$4,$5)`,
         [id,index+1,trigger.deviceId,trigger.stateKey,trigger.value]);
@@ -587,6 +621,7 @@ export async function updateAutomation(id: string, input: AutomationInput): Prom
     await client.query(`INSERT INTO automation_preferences(automation_id,room_id) VALUES($1,$2)
       ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()`, [id,input.roomId??null]);
     await writeAutomationTimeTrigger(client, id, input);
+    await writeAutomationConditions(client, id, input);
     await client.query("DELETE FROM automation_triggers WHERE automation_id=$1", [id]);
     for (const [index, trigger] of (input.additionalTriggers ?? []).entries()) {
       await client.query(`INSERT INTO automation_triggers(automation_id,position,trigger_device_id,trigger_state_key,trigger_value) VALUES($1,$2,$3,$4,$5)`,

@@ -23,6 +23,12 @@ export interface AutomationTrigger {
   value: boolean;
 }
 
+export interface AutomationCondition {
+  deviceId: string;
+  stateKey: string;
+  value: boolean;
+}
+
 export interface AutomationRule {
   id: string;
   name: string;
@@ -37,6 +43,7 @@ export interface AutomationRule {
   conditionDeviceId?: string;
   conditionStateKey?: string;
   conditionValue?: boolean;
+  additionalConditions?: AutomationCondition[];
   actionDeviceId: string;
   action: AutomationAction;
   actionValue?: number;
@@ -59,6 +66,7 @@ export interface AutomationInput {
   conditionDeviceId?: string;
   conditionStateKey?: string;
   conditionValue?: boolean;
+  additionalConditions?: AutomationCondition[];
   actionDeviceId: string;
   action: AutomationAction;
   actionValue?: number;
@@ -216,6 +224,11 @@ function cloneInput(input: AutomationInput): AutomationInput {
       value: trigger.value
     })),
     conditionStateKey: input.conditionStateKey?.trim() || undefined,
+    additionalConditions: (input.additionalConditions ?? []).map(condition => ({
+      deviceId: condition.deviceId,
+      stateKey: condition.stateKey.trim(),
+      value: condition.value
+    })),
     actionValue: input.action === "setTargetTemperature" ? Number(input.actionValue) : undefined,
     additionalActions: (input.additionalActions ?? []).map(target => ({
       deviceId: target.deviceId,
@@ -238,6 +251,13 @@ export function automationRuleActions(rule: Pick<AutomationRule, "actionDeviceId
     { deviceId: rule.actionDeviceId, action: rule.action, ...(rule.actionValue !== undefined ? { value: rule.actionValue } : {}) },
     ...(rule.additionalActions ?? [])
   ];
+}
+
+export function automationRuleConditions(rule: Pick<AutomationRule, "conditionDeviceId" | "conditionStateKey" | "conditionValue" | "additionalConditions">): AutomationCondition[] {
+  const primary = rule.conditionDeviceId && rule.conditionStateKey && typeof rule.conditionValue === "boolean"
+    ? [{ deviceId: rule.conditionDeviceId, stateKey: rule.conditionStateKey, value: rule.conditionValue }]
+    : [];
+  return [...primary, ...(rule.additionalConditions ?? [])];
 }
 
 function triggerIdentity(trigger: AutomationTrigger): string {
@@ -340,7 +360,7 @@ export class AutomationEngine {
   private readonly onDeviceRemoved = (device: Device): void => {
     this.snapshots.delete(device.id);
     this.rules = this.rules.flatMap(rule => {
-      if (rule.triggerDeviceId === device.id || rule.conditionDeviceId === device.id || rule.actionDeviceId === device.id) return [];
+      if (rule.triggerDeviceId === device.id || rule.conditionDeviceId === device.id || rule.additionalConditions?.some(condition => condition.deviceId === device.id) || rule.actionDeviceId === device.id) return [];
       const additionalTriggers = (rule.additionalTriggers ?? []).filter(trigger => trigger.deviceId !== device.id);
       const additionalActions = (rule.additionalActions ?? []).filter(action => action.deviceId !== device.id);
       return [{ ...rule, additionalTriggers, additionalActions }];
@@ -432,14 +452,20 @@ export class AutomationEngine {
       if (!actionCapabilitySupported(target, actionInput)) throw new Error(actionInput.action === "setTargetTemperature" ? "AUTOMATION_ACTION_TEMPERATURE_INVALID" : "AUTOMATION_ACTION_UNSUPPORTED");
     }
 
-    const hasCondition = Boolean(input.conditionDeviceId);
-    if (hasCondition) {
-      if (triggers.some(trigger => trigger.deviceId === input.conditionDeviceId)) throw new Error("AUTOMATION_CONDITION_TRIGGER_SAME_DEVICE");
-      const condition = this.registry.get(input.conditionDeviceId!);
+    const conditions = automationRuleConditions(input);
+    if (conditions.length > 8) throw new Error("AUTOMATION_CONDITION_LIMIT");
+    if ((input.additionalConditions?.length ?? 0) > 0 && !input.conditionDeviceId) throw new Error("AUTOMATION_CONDITION_INVALID");
+    if (new Set(conditions.map(condition => `${condition.deviceId}\u0000${condition.stateKey}\u0000${condition.value}`)).size !== conditions.length) {
+      throw new Error("AUTOMATION_CONDITION_DUPLICATE");
+    }
+    for (const conditionInput of conditions) {
+      if (triggers.some(trigger => trigger.deviceId === conditionInput.deviceId)) throw new Error("AUTOMATION_CONDITION_TRIGGER_SAME_DEVICE");
+      const condition = this.registry.get(conditionInput.deviceId);
       if (!condition) throw new Error("AUTOMATION_CONDITION_DEVICE_NOT_FOUND");
-      if (!input.conditionStateKey || typeof input.conditionValue !== "boolean") throw new Error("AUTOMATION_CONDITION_INVALID");
-      if (!booleanStateKeys(condition).includes(input.conditionStateKey)) throw new Error("AUTOMATION_CONDITION_STATE_UNSUPPORTED");
-    } else if (input.conditionStateKey !== undefined || input.conditionValue !== undefined) {
+      if (!conditionInput.stateKey || typeof conditionInput.value !== "boolean") throw new Error("AUTOMATION_CONDITION_INVALID");
+      if (!booleanStateKeys(condition).includes(conditionInput.stateKey)) throw new Error("AUTOMATION_CONDITION_STATE_UNSUPPORTED");
+    }
+    if (!input.conditionDeviceId && (input.conditionStateKey !== undefined || input.conditionValue !== undefined)) {
       throw new Error("AUTOMATION_CONDITION_INVALID");
     }
 
@@ -487,6 +513,7 @@ export class AutomationEngine {
       conditionDeviceId: current.conditionDeviceId,
       conditionStateKey: current.conditionStateKey,
       conditionValue: current.conditionValue,
+      additionalConditions: current.additionalConditions,
       actionDeviceId: current.actionDeviceId,
       action: current.action,
       actionValue: current.actionValue,
@@ -506,10 +533,11 @@ export class AutomationEngine {
   }
 
   private conditionAllows(rule: AutomationRule): boolean {
-    if (!rule.conditionDeviceId) return true;
-    const conditionDevice = this.registry.get(rule.conditionDeviceId);
-    if (!conditionDevice || !conditionDevice.reachable) return false;
-    return booleanState(conditionDevice.state, rule.conditionStateKey!) === rule.conditionValue;
+    const conditions = automationRuleConditions(rule);
+    return conditions.every(condition => {
+      const device = this.registry.get(condition.deviceId);
+      return Boolean(device?.reachable) && booleanState(device!.state, condition.stateKey) === condition.value;
+    });
   }
 
   private queueRule(rule: AutomationRule, trigger: Record<string, unknown>): void {

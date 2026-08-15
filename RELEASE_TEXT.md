@@ -1,6 +1,20 @@
-# SALTA v0.8.70
+# SALTA v0.8.71
 
-SALTA v0.8.70 extends the global Heating mode integration so Summer/Winter mode can be used as an optional **Only if** condition in automations. It keeps the existing boolean condition persistence model and carries forward the confirmed v0.8.69 PostgreSQL startup fix unchanged.
+SALTA v0.8.71 extends the automation engine with multiple **Only if** conditions. A rule can now require up to eight current device or SALTA-system states, and all configured conditions are combined with logical **AND**. The existing single-condition format remains fully compatible, while conditions 2–8 use an additive persistence table.
+
+## v0.8.71 multiple AND conditions
+
+- Added multiple optional **Only if** conditions to the automation editor. Up to eight conditions can be configured per rule.
+- Every configured condition is combined with logical **AND**: the rule executes only when all condition devices are reachable and all expected boolean states match.
+- Added compact additional-condition cards with explicit **AND** badges, searchable device/SALTA-function selectors, state selectors and expected-value selectors.
+- The global SALTA **Heating mode** from v0.8.70 can be combined with normal device conditions, Presence, Phoscon Daylight and other boolean states.
+- Existing automations with one condition remain unchanged. The original `condition_device_id`, `condition_state_key` and `condition_value` fields continue to represent the first condition.
+- Added the additive `automation_conditions` table for conditions 2–8. SALTA creates it automatically during normal schema initialization; no `ALTER TABLE` or manual SQL migration is required.
+- Removing a device that is used by an additional AND condition removes the dependent automation instead of silently dropping the condition and making the rule less restrictive.
+- Configuration and disaster-recovery backups now include `automation_conditions`. Older signed format-v1 backups without the table remain importable and normalize to no additional conditions.
+- Added regression coverage for AND execution semantics, schema/persistence, backup/restore and the frontend editor.
+- Carries forward the v0.8.70 Heating mode condition and the confirmed v0.8.69 PostgreSQL JSONB startup fix unchanged.
+- No new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.70 Heating mode automation condition
 

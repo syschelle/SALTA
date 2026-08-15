@@ -89,6 +89,36 @@ describe("AutomationEngine", () => {
     engine.stop();
   });
 
+  it("requires every configured condition to match with AND semantics", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("presence", device("presence", { present: true }));
+    registry.devices.set("window", device("window", { open: true }));
+    registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const command = vi.fn(async () => registry.get("target")!);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+    await engine.start();
+    await engine.create({
+      name: "All conditions", enabled: true,
+      triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      conditionDeviceId: "presence", conditionStateKey: "present", conditionValue: true,
+      additionalConditions: [{ deviceId: "window", stateKey: "open", value: false }],
+      actionDeviceId: "target", action: "turnOn"
+    });
+
+    registry.publish(device("trigger", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    expect(command).not.toHaveBeenCalled();
+
+    registry.devices.set("window", device("window", { open: false }));
+    registry.publish(device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    registry.publish(device("trigger", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    expect(command).toHaveBeenCalledTimes(1);
+    engine.stop();
+  });
+
   it("runs a daily time trigger once per local day in the configured timezone", async () => {
     vi.useFakeTimers();
     try {

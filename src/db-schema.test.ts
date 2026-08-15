@@ -47,6 +47,8 @@ describe("clean database schema", () => {
     const automationsTable = databaseSource.match(/CREATE TABLE IF NOT EXISTS automations \(([\s\S]*?)\n    \);/i)?.[1] ?? "";
     expect(automationsTable).toContain("trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
     expect(automationsTable).toContain("condition_device_id text REFERENCES devices(id) ON DELETE CASCADE");
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_conditions");
+    expect(databaseSource).toContain("condition_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
     expect(automationsTable).toContain("action_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
     expect(automationsTable).not.toContain("room_id");
     expect(automationsTable).toContain("CHECK(action IN ('turnOn','turnOff','toggle'))");
@@ -63,6 +65,8 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("position smallint NOT NULL CHECK(position BETWEEN 1 AND 7)");
     expect(databaseSource).toContain("trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
     expect(databaseSource).toContain("PRIMARY KEY(automation_id,position)");
+    expect(databaseSource).toContain('as "additionalConditions"');
+    expect(databaseSource).toContain("DELETE FROM automation_conditions WHERE automation_id=$1");
     expect(databaseSource).toContain('as "additionalTriggers"');
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_actions");
     expect(databaseSource).toContain("action_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");

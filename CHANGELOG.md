@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.71
+
+- Added multiple optional **Nur wenn / Only if** conditions to automations. Up to eight conditions can be configured and every condition is combined with logical **AND**.
+- Preserved the existing primary condition fields for backwards compatibility and added the canonical additive `automation_conditions` table for conditions 2–8.
+- Added compact additional-condition cards in the automation editor with device/SALTA-function search, state selection, value selection and explicit **UND** badges.
+- Heating mode remains available as a condition and can be combined with device, presence, daylight and other boolean conditions.
+- The automation engine now executes a rule only when every configured condition device is reachable and every expected boolean state matches.
+- Removing a device used by an additional condition deletes the dependent automation instead of silently weakening the rule.
+- Configuration/disaster-recovery backups include `automation_conditions`; older backups without the additive table remain compatible.
+- Carries forward the v0.8.70 Heating mode condition and the v0.8.69 PostgreSQL startup fix unchanged.
+- No manual database migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
+
 ## v0.8.70
 
 - Added the global Heating mode to the optional **Nur wenn** condition selector in automations.

@@ -15,6 +15,11 @@ describe("automation frontend", () => {
     expect(html).toContain('data-page="automations"');
     expect(html).toContain('id="automationTriggerDevice"');
     expect(html).toContain('id="automationConditionEnabled"');
+    expect(html).toContain('id="automationAdditionalConditions"');
+    expect(html).toContain('id="automationAddConditionButton"');
+    expect(html).toContain("Weitere UND-Bedingung hinzufügen");
+    expect(hasFunction(uiAst, "addAutomationAdditionalCondition")).toBe(true);
+    expect(hasFunction(uiAst, "automationAdditionalConditionPayload")).toBe(true);
     expect(html).toContain('id="automationAction"');
     expect(html).toContain('id="automationRoom"');
   });
@@ -83,6 +88,13 @@ describe("automation frontend", () => {
     expect(cssRuleContains(styles, ".automation-field-row", "grid-template-columns:minmax(0,1fr) minmax(0,1fr)")).toBe(true);
     expect(cssRuleContains(styles, ".automation-form select", "font-size:13px")).toBe(true);
     expect(cssRuleContains(styles, ".automation-device-field>label", "font-size:11.5px")).toBe(true);
+  });
+
+  it("supports multiple Nur-wenn conditions with AND semantics", () => {
+    expect(ui).toContain("additionalConditions:useCondition?automationAdditionalConditionPayload():[]");
+    expect(ui).toContain("conditionItems.join(' UND ')");
+    expect(ui).toContain("Maximal acht UND-Bedingungen pro Automation.");
+    expect(styles).toContain(".automation-additional-conditions");
   });
 
   it("allows multiple button event values on primary and additional OR triggers", () => {

@@ -1,4 +1,4 @@
-# SALTA v0.8.70 Git commands
+# SALTA v0.8.71 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(automations): add heating mode conditions"
+git commit -m "feat(automations): add AND-linked conditions"
 git push origin main
 ```
 
@@ -31,6 +31,9 @@ git show origin/main:public/index.html | grep -F 'Philips Hue'
 git show origin/main:public/index.html | grep -F 'option value="time"'
 git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS automation_time_triggers'
 git show origin/main:src/main.ts | grep -F 'timeZone: config.TZ'
+git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS automation_conditions'
+git show origin/main:src/automations.ts | grep -F 'automationRuleConditions'
+git show origin/main:public/index.html | grep -F 'Weitere UND-Bedingung hinzufügen'
 git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS automation_system_actions'
 git show origin/main:src/db.ts | grep -F "jsonb_build_array('setClimateMode')"
 ! git show origin/main:src/db.ts | grep -F "ARRAY['setClimateMode']::text[]"
@@ -42,8 +45,8 @@ git show origin/main:public/automation-ui.js | grep -F "climateWinter:'Wintermod
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.70 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.70.
+Release validator contract: SALTA v0.8.71 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.71.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -54,14 +57,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.70 -m "SALTA v0.8.70"
-git push origin v0.8.70
+git tag -a v0.8.71 -m "SALTA v0.8.71"
+git push origin v0.8.71
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.70 \
-  --title "SALTA v0.8.70" \
+gh release create v0.8.71 \
+  --title "SALTA v0.8.71" \
   --notes-file RELEASE_TEXT.md
 ```
