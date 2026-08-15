@@ -731,14 +731,18 @@ export class OpenCcuAdapter {
   async command(command: DeviceCommand): Promise<Device> {
     const device = this.registry.get(command.deviceId);
     if (!device || device.source !== "openccu") throw new Error("DEVICE_NOT_FOUND");
+    const metadata = record({ ...(device.adapterData ?? {}), model: device.model });
     const inferredThermostatModeCapability = command.capability === "setThermostatMode"
       && device.type === "thermostat"
       && device.capabilities.includes("setTargetTemperature")
       && typeof device.state.controlMode === "string";
-    if (!device.capabilities.includes(command.capability) && !inferredThermostatModeCapability) {
+    const inferredBinaryCapability = ["turnOn", "turnOff", "toggle"].includes(command.capability)
+      && ["switch", "light", "outlet"].includes(device.type)
+      && typeof device.state.on === "boolean"
+      && Boolean(metadata.stateParameter || metadata.levelParameter);
+    if (!device.capabilities.includes(command.capability) && !inferredThermostatModeCapability && !inferredBinaryCapability) {
       throw new Error("CAPABILITY_NOT_SUPPORTED");
     }
-    const metadata = record({ ...(device.adapterData ?? {}), model: device.model });
     const interfaceName = String(metadata.interfaceName ?? "");
     const channelAddress = String(metadata.channelAddress ?? "");
     if (!interfaceName || !channelAddress) throw new Error("OPENCCU_DEVICE_METADATA_MISSING");

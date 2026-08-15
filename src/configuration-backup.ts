@@ -25,6 +25,7 @@ const backupDataSchema = z.object({
   automation_preferences: backupRows(),
   automation_triggers: backupRows(),
   automation_actions: backupRows().optional(),
+  automation_targets: backupRows().optional(),
   climate_mode_settings: backupRows(10),
   notification_settings: backupRows(10),
   notification_state: backupRows(100)
@@ -44,7 +45,7 @@ const backupSchema = z.object({
 export type ConfigurationBackup = z.infer<typeof backupSchema>;
 
 type BackupData = z.infer<typeof backupDataSchema>;
-type NormalizedBackupData = Omit<BackupData, "automation_actions"> & { automation_actions: Record<string, unknown>[] };
+type NormalizedBackupData = Omit<BackupData, "automation_actions" | "automation_targets"> & { automation_actions: Record<string, unknown>[]; automation_targets: Record<string, unknown>[] };
 type BackupRow = Record<string, unknown>;
 
 const exportQueries: Readonly<Record<keyof NormalizedBackupData, string>> = {
@@ -62,6 +63,7 @@ const exportQueries: Readonly<Record<keyof NormalizedBackupData, string>> = {
   automation_preferences: "SELECT * FROM automation_preferences ORDER BY automation_id",
   automation_triggers: "SELECT * FROM automation_triggers ORDER BY automation_id,position",
   automation_actions: "SELECT * FROM automation_actions ORDER BY automation_id,position",
+  automation_targets: "SELECT * FROM automation_targets ORDER BY automation_id,position",
   climate_mode_settings: "SELECT * FROM climate_mode_settings ORDER BY id",
   notification_settings: "SELECT * FROM notification_settings ORDER BY channel",
   notification_state: "SELECT * FROM notification_state ORDER BY key"
@@ -82,6 +84,7 @@ const insertStatements: Readonly<Record<keyof NormalizedBackupData, string>> = {
   automation_preferences: "INSERT INTO automation_preferences SELECT * FROM jsonb_populate_recordset(NULL::automation_preferences, $1::jsonb)",
   automation_triggers: "INSERT INTO automation_triggers SELECT * FROM jsonb_populate_recordset(NULL::automation_triggers, $1::jsonb)",
   automation_actions: "INSERT INTO automation_actions SELECT * FROM jsonb_populate_recordset(NULL::automation_actions, $1::jsonb)",
+  automation_targets: "INSERT INTO automation_targets SELECT * FROM jsonb_populate_recordset(NULL::automation_targets, $1::jsonb)",
   climate_mode_settings: "INSERT INTO climate_mode_settings SELECT * FROM jsonb_populate_recordset(NULL::climate_mode_settings, $1::jsonb)",
   notification_settings: "INSERT INTO notification_settings SELECT * FROM jsonb_populate_recordset(NULL::notification_settings, $1::jsonb)",
   notification_state: "INSERT INTO notification_state SELECT * FROM jsonb_populate_recordset(NULL::notification_state, $1::jsonb)"
@@ -90,11 +93,12 @@ const insertStatements: Readonly<Record<keyof NormalizedBackupData, string>> = {
 const insertOrder: readonly (keyof NormalizedBackupData)[] = [
   "rooms", "devices", "device_preferences", "device_homekit_settings", "adapter_settings", "openccu_settings",
   "fritzbox_presence_settings", "fritzbox_presence_transport_settings", "presence_targets", "device_adapter_data",
-  "automations", "automation_preferences", "automation_triggers", "automation_actions", "climate_mode_settings", "notification_settings", "notification_state"
+  "automations", "automation_preferences", "automation_triggers", "automation_actions", "automation_targets", "climate_mode_settings", "notification_settings", "notification_state"
 ];
 
 const deleteStatements = [
   "DELETE FROM notification_state",
+  "DELETE FROM automation_targets",
   "DELETE FROM automation_actions",
   "DELETE FROM automation_triggers",
   "DELETE FROM automation_preferences",
@@ -223,16 +227,20 @@ export async function importConfigurationBackup(input: unknown, signingKey = con
   if (!signaturesMatch(expectedSignature, backup.signature)) throw new Error("CONFIG_BACKUP_SIGNATURE_INVALID");
   validateEncryptedSecretShapes(backup.data);
   if (backup.containsEncryptedSecrets !== encryptedSecretsPresent(backup.data)) throw new Error("CONFIG_BACKUP_INVALID");
-  // v0.8.53 and older format-v1 backups do not contain automation_actions.
+  // Older format-v1 backups may not contain the additive automation action tables.
   // Keep the signed input untouched for verification, then normalize it for restore.
-  const restoreData: NormalizedBackupData = { ...backup.data, automation_actions: backup.data.automation_actions ?? [] };
+  const restoreData: NormalizedBackupData = {
+    ...backup.data,
+    automation_actions: backup.data.automation_actions ?? [],
+    automation_targets: backup.data.automation_targets ?? []
+  };
 
   const client = await pool.connect();
   let externalTransaction: ConfigurationImportExternalTransaction | void = undefined;
   let committed = false;
   try {
     await client.query("BEGIN");
-    await client.query("LOCK TABLE rooms, devices, device_preferences, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, device_adapter_data, automations, automation_preferences, automation_triggers, automation_actions, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
+    await client.query("LOCK TABLE rooms, devices, device_preferences, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, device_adapter_data, automations, automation_preferences, automation_triggers, automation_actions, automation_targets, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
     for (const statement of deleteStatements) await client.query(statement);
     for (const table of insertOrder) {
       const rows = restoreData[table];

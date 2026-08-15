@@ -1,11 +1,12 @@
 import type { Device, DeviceCommand, DeviceEvent, DeviceState } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 
-export type AutomationAction = "turnOn" | "turnOff" | "toggle";
+export type AutomationAction = "turnOn" | "turnOff" | "toggle" | "open" | "close" | "thermostatOff" | "thermostatAuto" | "thermostatManual" | "setTargetTemperature";
 
 export interface AutomationTargetAction {
   deviceId: string;
   action: AutomationAction;
+  value?: number;
 }
 
 export interface AutomationTrigger {
@@ -28,6 +29,7 @@ export interface AutomationRule {
   conditionValue?: boolean;
   actionDeviceId: string;
   action: AutomationAction;
+  actionValue?: number;
   additionalActions?: AutomationTargetAction[];
   lastTriggeredAt?: string;
   createdAt: string;
@@ -47,6 +49,7 @@ export interface AutomationInput {
   conditionValue?: boolean;
   actionDeviceId: string;
   action: AutomationAction;
+  actionValue?: number;
   additionalActions?: AutomationTargetAction[];
 }
 
@@ -127,8 +130,43 @@ function booleanState(state: DeviceState, key: string): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
 }
 
-function actionCapabilitySupported(device: Device, action: AutomationAction): boolean {
-  return device.capabilities.includes(action);
+function actionCommand(target: Pick<AutomationTargetAction, "action" | "value">): { capability: string; value?: string | number } {
+  if (target.action === "thermostatOff") return { capability: "setThermostatMode", value: "off" };
+  if (target.action === "thermostatAuto") return { capability: "setThermostatMode", value: "auto" };
+  if (target.action === "thermostatManual") return { capability: "setThermostatMode", value: "manual" };
+  if (target.action === "setTargetTemperature") return { capability: "setTargetTemperature", value: target.value };
+  return { capability: target.action };
+}
+
+function thermostatTemperatureRange(device: Device): { min: number; max: number } {
+  const metadata = device.adapterData ?? {};
+  const min = Number(metadata.targetTemperatureMin ?? 4.5);
+  const max = Number(metadata.targetTemperatureMax ?? 30);
+  return {
+    min: Number.isFinite(min) ? min : 4.5,
+    max: Number.isFinite(max) ? max : 30
+  };
+}
+
+function actionCapabilitySupported(device: Device, target: AutomationTargetAction): boolean {
+  const action = target.action;
+  const command = actionCommand(target);
+  if (action === "setTargetTemperature") {
+    if (!device.capabilities.includes("setTargetTemperature")) return false;
+    const value = Number(target.value);
+    const range = thermostatTemperatureRange(device);
+    return Number.isFinite(value) && value >= range.min && value <= range.max;
+  }
+  if (device.capabilities.includes(command.capability)) return true;
+  if (["turnOn", "turnOff", "toggle"].includes(action)) {
+    if (device.source === "virtual" && device.type === "switch" && typeof device.state.on === "boolean") return true;
+    if (device.source === "openccu" && ["switch", "light", "outlet"].includes(device.type) && typeof device.state.on === "boolean") return true;
+  }
+  return command.capability === "setThermostatMode"
+    && device.source === "openccu"
+    && device.type === "thermostat"
+    && device.capabilities.includes("setTargetTemperature")
+    && typeof device.state.controlMode === "string";
 }
 
 function cloneInput(input: AutomationInput): AutomationInput {
@@ -142,9 +180,11 @@ function cloneInput(input: AutomationInput): AutomationInput {
       value: trigger.value
     })),
     conditionStateKey: input.conditionStateKey?.trim() || undefined,
+    actionValue: input.action === "setTargetTemperature" ? Number(input.actionValue) : undefined,
     additionalActions: (input.additionalActions ?? []).map(target => ({
       deviceId: target.deviceId,
-      action: target.action
+      action: target.action,
+      value: target.action === "setTargetTemperature" ? Number(target.value) : undefined
     }))
   };
 }
@@ -156,9 +196,9 @@ export function automationRuleTriggers(rule: Pick<AutomationRule, "triggerDevice
   ];
 }
 
-export function automationRuleActions(rule: Pick<AutomationRule, "actionDeviceId" | "action" | "additionalActions">): AutomationTargetAction[] {
+export function automationRuleActions(rule: Pick<AutomationRule, "actionDeviceId" | "action" | "actionValue" | "additionalActions">): AutomationTargetAction[] {
   return [
-    { deviceId: rule.actionDeviceId, action: rule.action },
+    { deviceId: rule.actionDeviceId, action: rule.action, ...(rule.actionValue !== undefined ? { value: rule.actionValue } : {}) },
     ...(rule.additionalActions ?? [])
   ];
 }
@@ -285,7 +325,7 @@ export class AutomationEngine {
       const target = this.registry.get(actionInput.deviceId);
       if (!target) throw new Error("AUTOMATION_ACTION_DEVICE_NOT_FOUND");
       if (triggers.some(trigger => trigger.deviceId === actionInput.deviceId)) throw new Error("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
-      if (!actionCapabilitySupported(target, actionInput.action)) throw new Error("AUTOMATION_ACTION_UNSUPPORTED");
+      if (!actionCapabilitySupported(target, actionInput)) throw new Error(actionInput.action === "setTargetTemperature" ? "AUTOMATION_ACTION_TEMPERATURE_INVALID" : "AUTOMATION_ACTION_UNSUPPORTED");
     }
 
     const hasCondition = Boolean(input.conditionDeviceId);
@@ -343,6 +383,7 @@ export class AutomationEngine {
       conditionValue: current.conditionValue,
       actionDeviceId: current.actionDeviceId,
       action: current.action,
+      actionValue: current.actionValue,
       additionalActions: current.additionalActions
     });
   }
@@ -384,7 +425,7 @@ export class AutomationEngine {
     const actions = automationRuleActions(rule);
     for (const targetAction of actions) {
       const target = this.registry.get(targetAction.deviceId);
-      if (!target || !target.reachable || !actionCapabilitySupported(target, targetAction.action)) {
+      if (!target || !target.reachable || !actionCapabilitySupported(target, targetAction)) {
         failedActions += 1;
         await this.logger.write("warning", "automation", "AUTOMATION_ACTION_SKIPPED", "Automation target action was skipped", {
           automationId: rule.id,
@@ -398,9 +439,11 @@ export class AutomationEngine {
       }
 
       try {
+        const command = actionCommand(targetAction);
         await this.commander.command({
           deviceId: targetAction.deviceId,
-          capability: targetAction.action,
+          capability: command.capability,
+          ...(command.value !== undefined ? { value: command.value } : {}),
           source: "automation"
         });
         successfulActions += 1;
@@ -425,7 +468,7 @@ export class AutomationEngine {
       automationId: rule.id,
       automationName: rule.name,
       triggerDeviceId: rule.triggerDeviceId,
-      actions: actions.map(action => ({ deviceId: action.deviceId, action: action.action })),
+      actions: actions.map(action => ({ deviceId: action.deviceId, action: action.action, ...(action.value !== undefined ? { value: action.value } : {}) })),
       successfulActions,
       failedActions,
       ...trigger

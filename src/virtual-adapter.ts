@@ -45,7 +45,8 @@ export class VirtualDeviceAdapter {
   async command(command: DeviceCommand): Promise<Device> {
     const device = this.registry.get(command.deviceId);
     if (!device || device.source !== "virtual") throw new Error("DEVICE_NOT_FOUND");
-    if (!device.capabilities.includes(command.capability)) throw new Error("CAPABILITY_NOT_SUPPORTED");
+    const binaryVirtualSwitch = device.type === "switch" && typeof device.state.on === "boolean" && ["turnOn", "turnOff", "toggle"].includes(command.capability);
+    if (!device.capabilities.includes(command.capability) && !binaryVirtualSwitch) throw new Error("CAPABILITY_NOT_SUPPORTED");
 
     let on: boolean;
     if (command.capability === "toggle") on = !Boolean(device.state.on);

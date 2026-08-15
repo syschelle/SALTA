@@ -132,7 +132,7 @@ const automationEngineSource = read("src/automations.ts");
 const mainSource = read("src/main.ts");
 if (!publicIndex.includes('data-nav="automations"')) fail("Automations navigation is missing");
 if (!publicIndex.includes('data-page="automations"')) fail("Automations page is missing");
-if (!automationFrontend.includes("turnOn:'An',turnOff:'Aus',toggle:'Toggle'")) fail("Automation action choices are incomplete");
+if (!automationFrontend.includes("turnOn:'An',turnOff:'Aus',toggle:'Toggle',open:'Öffnen',close:'Schließen',thermostatOff:'Thermostat Aus',thermostatAuto:'Thermostat Automatik',thermostatManual:'Thermostat Manuell',setTargetTemperature:'Solltemperatur setzen'")) fail("Automation action choices are incomplete");
 if (!automationFrontend.includes("conditionDeviceId")) fail("Automation condition UI is missing");
 if (!publicIndex.includes('id="automationTriggerDeviceSearch"') || !publicIndex.includes('id="automationConditionDeviceSearch"') || !publicIndex.includes('id="automationActionDeviceSearch"')) fail("Automation searchable device selectors are incomplete");
 if (!automationFrontend.includes("automationDeviceMatchesSearch") || !automationFrontend.includes("automationDeviceSearchText")) fail("Automation device search implementation is missing");
@@ -175,9 +175,14 @@ if (!automationFrontend.includes('id="automationExtraEventPicker-${trigger.id}"'
 if (!publicIndex.includes('id="automationTriggerEventPicker"') || !publicIndex.includes('id="automationTriggerEventOptions"')) fail("Automation multi-event picker markup is missing");
 if (!automationEngineSource.includes("automationRuleTriggers") || !automationEngineSource.includes("AUTOMATION_TRIGGER_LIMIT")) fail("Automation engine does not validate multiple OR triggers");
 if (!automationEngineSource.includes("automationRuleActions") || !automationEngineSource.includes("AUTOMATION_ACTION_LIMIT") || !automationEngineSource.includes("AUTOMATION_ACTION_DUPLICATE_DEVICE")) fail("Automation engine does not validate multiple target actions");
+if (!automationFrontend.includes("device.source==='virtual'") || !automationFrontend.includes("device.source==='openccu'") || !automationFrontend.includes("thermostatAuto")) fail("Automation target selection does not include virtual/OpenCCU targets");
+if (!automationFrontend.includes("setTargetTemperature:'Solltemperatur setzen'") || !publicIndex.includes('id="automationActionValue"')) fail("Automation thermostat target-temperature input is missing");
+if (!automationFrontend.includes("automationNormalizeTemperature") || !automationFrontend.includes("actionValue:automationNormalizeTemperature")) fail("Automation thermostat target temperature is not included in the payload");
+if (!automationEngineSource.includes('capability: "setThermostatMode"') || !automationEngineSource.includes('value: "auto"')) fail("Automation engine does not map thermostat target modes to device commands");
+if (!automationEngineSource.includes('capability: "setTargetTemperature"') || !automationEngineSource.includes("AUTOMATION_ACTION_TEMPERATURE_INVALID")) fail("Automation engine does not validate thermostat target temperatures");
 if (!serverSource.includes("additionalTriggers: z.array(automationAdditionalTriggerSchema).max(7).default([])")) fail("Automation API does not accept bounded additional OR triggers");
 if (!serverSource.includes("additionalActions: z.array(automationAdditionalActionSchema).max(7).default([])")) fail("Automation API does not accept bounded additional target actions");
-if (!configurationBackupSource.includes("automation_actions: backupRows().optional()") || !configurationBackupSource.includes('"automation_actions", "climate_mode_settings"')) fail("Configuration backup does not preserve multi-target automation actions");
+if (!configurationBackupSource.includes("automation_actions: backupRows().optional()") || !configurationBackupSource.includes("automation_targets: backupRows().optional()") || !configurationBackupSource.includes('"automation_actions", "automation_targets", "climate_mode_settings"')) fail("Configuration backup does not preserve canonical multi-target automation actions");
 
 if (!automationFrontend.includes("automationButtonEventMarker='event:buttonEvent'")) fail("Automation button-event trigger UI is missing");
 if (!automationFrontend.includes("event:buttonEvent:${eventValue}")) fail("Automation button events are not persisted through the existing trigger key");

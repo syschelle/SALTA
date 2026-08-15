@@ -834,7 +834,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.54" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.55" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -874,6 +874,32 @@ describe("automations", () => {
     const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "Motion light", enabled: true, roomId: room.id, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, additionalTriggers: [{ deviceId: "wall-switch", stateKey: "on", value: true }], conditionDeviceId: "guard", conditionStateKey: "on", conditionValue: false, actionDeviceId: "light", action: "toggle", additionalActions: [{ deviceId: "fan", action: "turnOn" }] } });
     expect(response.statusCode).toBe(201);
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ roomId: room.id, triggerValue: true, additionalTriggers: [{ deviceId: "wall-switch", stateKey: "on", value: true }], conditionValue: false, action: "toggle", additionalActions: [{ deviceId: "fan", action: "turnOn" }] }));
+  });
+
+  it("accepts OpenCCU cover and thermostat target actions", async () => {
+    const created = { id: "rule-openccu", name: "OpenCCU targets", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "cover", action: "open", additionalActions: [{ deviceId: "thermostat", action: "thermostatAuto" }], createdAt: "2026-08-15T00:00:00.000Z", updatedAt: "2026-08-15T00:00:00.000Z" };
+    const create = vi.fn(async () => created as never);
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, { create });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "OpenCCU targets", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "cover", action: "open", additionalActions: [{ deviceId: "thermostat", action: "thermostatAuto" }] } });
+    expect(response.statusCode).toBe(201);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ action: "open", additionalActions: [{ deviceId: "thermostat", action: "thermostatAuto" }] }));
+  });
+
+  it("accepts thermostat target-temperature values for primary and additional actions", async () => {
+    const created = { id: "rule-temperature", name: "Thermostat temperatures", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "thermostat-a", action: "setTargetTemperature", actionValue: 22.5, additionalActions: [{ deviceId: "thermostat-b", action: "setTargetTemperature", value: 19.5 }], createdAt: "2026-08-15T00:00:00.000Z", updatedAt: "2026-08-15T00:00:00.000Z" };
+    const create = vi.fn(async () => created as never);
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, { create });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "Thermostat temperatures", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "thermostat-a", action: "setTargetTemperature", actionValue: 22.5, additionalActions: [{ deviceId: "thermostat-b", action: "setTargetTemperature", value: 19.5 }] } });
+    expect(response.statusCode).toBe(201);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({ action: "setTargetTemperature", actionValue: 22.5, additionalActions: [{ deviceId: "thermostat-b", action: "setTargetTemperature", value: 19.5 }] }));
+  });
+
+  it("rejects thermostat temperature actions without a temperature", async () => {
+    const create = vi.fn();
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, { create });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "Missing temperature", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "thermostat-a", action: "setTargetTemperature" } });
+    expect(response.statusCode).toBe(400);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects a room assignment that no longer exists", async () => {
@@ -931,7 +957,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.54", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.55", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -942,7 +968,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.54", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.55", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {

@@ -36,6 +36,8 @@ const automationElements={
   actionSearch:document.getElementById('automationActionDeviceSearch'),
   actionCount:document.getElementById('automationActionDeviceCount'),
   action:document.getElementById('automationAction'),
+  actionValueField:document.getElementById('automationActionValueField'),
+  actionValue:document.getElementById('automationActionValue'),
   additionalActions:document.getElementById('automationAdditionalActions'),
   addAction:document.getElementById('automationAddActionButton'),
   cancel:document.getElementById('automationCancelButton'),
@@ -43,7 +45,7 @@ const automationElements={
 };
 
 const automationStatePriority=['on','present','anyHome','nobodyHome','motion','open','water','fire','alarm','vibration','dark','daylight','tampered','lowBattery'];
-const automationActionLabels={turnOn:'An',turnOff:'Aus',toggle:'Toggle'};
+const automationActionLabels={turnOn:'An',turnOff:'Aus',toggle:'Toggle',open:'Öffnen',close:'Schließen',thermostatOff:'Thermostat Aus',thermostatAuto:'Thermostat Automatik',thermostatManual:'Thermostat Manuell',setTargetTemperature:'Solltemperatur setzen'};
 const automationButtonEventMarker='event:buttonEvent';
 const automationCommonButtonEvents=[1000,1001,1002,1003,1004,1005,1006,1007,1010];
 const automationModelButtonEvents={
@@ -128,7 +130,7 @@ function automationDeviceLabel(device){return `${device.name} · ${sourceLabels?
 function automationDeviceById(id){return all.find(device=>device.id===id)}
 function automationTriggerDevices(){return all.filter(device=>automationBooleanStateKeys(device).length>0||automationEventStateKeys(device).length>0)}
 function automationConditionDevices(){return all.filter(device=>automationBooleanStateKeys(device).length>0)}
-function automationActionDevices(){return all.filter(device=>['turnOn','turnOff','toggle'].some(action=>device.capabilities?.includes(action)))}
+function automationActionDevices(){return all.filter(device=>automationActionsForDevice(device.id).length>0)}
 function automationAllTriggerDeviceIds(){return new Set([automationElements.triggerDevice?.value,...automationAdditionalTriggers.map(trigger=>trigger.deviceId)].filter(Boolean))}
 function automationAllActionDeviceIds(excludedId=null){return new Set([automationElements.actionDevice?.value,...automationAdditionalActions.filter(target=>target.id!==excludedId).map(target=>target.deviceId)].filter(Boolean))}
 function normalizedAutomationSearch(value){return String(value||'').trim().toLocaleLowerCase('de-DE')}
@@ -168,7 +170,37 @@ function fillAutomationValueSelect(select,stateKey,selected,deviceId=automationE
   const current=selected===undefined?true:selected===true||selected==='true';
   select.innerHTML=[true,false].map(value=>`<option value="${value}"${value===current?' selected':''}>${escapeHtml(automationValueLabel(stateKey,value))}</option>`).join('');
 }
-function automationActionsForDevice(deviceId){const device=automationDeviceById(deviceId);return ['turnOn','turnOff','toggle'].filter(action=>device?.capabilities?.includes(action))}
+function automationThermostatRange(device){
+  const metadata=device?.adapterData||{};const min=Number(metadata.targetTemperatureMin??4.5);const max=Number(metadata.targetTemperatureMax??30);const step=Number(metadata.targetTemperatureStep??0.5);
+  return {min:Number.isFinite(min)?min:4.5,max:Number.isFinite(max)?max:30,step:Number.isFinite(step)&&step>0?step:0.5};
+}
+function automationDefaultTargetTemperature(device){
+  const range=automationThermostatRange(device);const current=Number(device?.state?.targetTemperature);const fallback=Number.isFinite(current)?current:21;return Math.min(range.max,Math.max(range.min,fallback));
+}
+function automationNormalizeTemperature(device,value){
+  const range=automationThermostatRange(device);const numeric=Number(value);const base=Number.isFinite(numeric)?numeric:automationDefaultTargetTemperature(device);const rounded=Math.round(base/range.step)*range.step;return Math.min(range.max,Math.max(range.min,Number(rounded.toFixed(2))));
+}
+function automationActionValueLabel(target){
+  return target?.action==='setTargetTemperature'&&Number.isFinite(Number(target?.value))?`${Number(target.value).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})} °C`:'';
+}
+function updateAutomationPrimaryActionValue(value){
+  if(!automationElements.actionValueField||!automationElements.actionValue)return;
+  const enabled=automationElements.action.value==='setTargetTemperature';automationElements.actionValueField.hidden=!enabled;
+  if(!enabled)return;
+  const device=automationDeviceById(automationElements.actionDevice.value);const range=automationThermostatRange(device);automationElements.actionValue.min=String(range.min);automationElements.actionValue.max=String(range.max);automationElements.actionValue.step=String(range.step);automationElements.actionValue.value=String(automationNormalizeTemperature(device,value??automationElements.actionValue.value));
+}
+function automationActionsForDevice(deviceId){
+  const device=automationDeviceById(deviceId);if(!device)return [];
+  const capabilities=new Set(Array.isArray(device.capabilities)?device.capabilities:[]);const actions=[];
+  const binaryFallback=(device.source==='virtual'&&device.type==='switch'&&typeof device.state?.on==='boolean')||(device.source==='openccu'&&['switch','light','outlet'].includes(device.type)&&typeof device.state?.on==='boolean');
+  for(const action of ['turnOn','turnOff','toggle'])if(capabilities.has(action)||binaryFallback)actions.push(action);
+  if(capabilities.has('open'))actions.push('open');
+  if(capabilities.has('close'))actions.push('close');
+  const thermostatModes=capabilities.has('setThermostatMode')||(device.source==='openccu'&&device.type==='thermostat'&&capabilities.has('setTargetTemperature')&&typeof device.state?.controlMode==='string');
+  if(thermostatModes)actions.push('thermostatOff','thermostatAuto','thermostatManual');
+  if(capabilities.has('setTargetTemperature'))actions.push('setTargetTemperature');
+  return actions;
+}
 function fillAutomationActionSelectElement(select,deviceId,selected){
   const actions=automationActionsForDevice(deviceId);
   select.innerHTML=actions.length?actions.map(action=>`<option value="${action}"${action===selected?' selected':''}>${automationActionLabels[action]}</option>`).join(''):'<option value="">Keine Schaltaktion verfügbar</option>';
@@ -199,6 +231,7 @@ function updateAutomationFormOptions(values={}){
   fillAutomationSelect(automationElements.actionDevice,automationActionDevices().filter(device=>!triggerIds.has(device.id)&&(!additionalActionIds.has(device.id)||device.id===actionSelected)),actionSelected,'Zielgerät wählen',automationElements.actionSearch?.value,automationElements.actionCount);
   if(actionSelected&&[...automationElements.actionDevice.options].some(option=>option.value===actionSelected))automationElements.actionDevice.value=actionSelected;
   fillAutomationActionSelect(values.action??automationElements.action.value);
+  updateAutomationPrimaryActionValue(values.actionValue);
   renderAutomationAdditionalTriggers();
   renderAutomationAdditionalActions();
 }
@@ -270,12 +303,12 @@ function changeAutomationAdditionalTriggerDevice(id,deviceId){const trigger=auto
 function changeAutomationAdditionalTriggerState(id,stateKey){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.stateKey=stateKey;const device=automationDeviceById(trigger.deviceId);trigger.value=stateKey===automationButtonEventMarker?(automationButtonEventValues(device)[0]??1000):true;trigger.eventValues=stateKey===automationButtonEventMarker?[trigger.value]:[];renderAutomationAdditionalTriggers()}
 function changeAutomationAdditionalTriggerValue(id,value){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.value=trigger.stateKey===automationButtonEventMarker?Number(value):value==='true';if(trigger.stateKey===automationButtonEventMarker)trigger.eventValues=[trigger.value];renderAutomationAdditionalTriggers()}
 function automationAdditionalTriggerPayload(){return automationAdditionalTriggers.flatMap(trigger=>trigger.stateKey===automationButtonEventMarker?automationAdditionalEventValues(trigger).map(value=>({deviceId:trigger.deviceId,stateKey:`event:buttonEvent:${value}`,value:true})):[{deviceId:trigger.deviceId,stateKey:trigger.stateKey,value:trigger.value===true||trigger.value==='true'}])}
-function automationStoredAdditionalActions(actions){return (actions||[]).map(target=>({id:++automationAdditionalActionSequence,deviceId:String(target?.deviceId||''),action:String(target?.action||''),query:'',expanded:false}))}
-function automationAdditionalActionSummary(target){const device=automationDeviceById(target.deviceId);return device?`${device.name} → ${automationActionLabels[target.action]||target.action}`:'Ziel noch nicht vollständig'}
+function automationStoredAdditionalActions(actions){return (actions||[]).map(target=>({id:++automationAdditionalActionSequence,deviceId:String(target?.deviceId||''),action:String(target?.action||''),value:target?.action==='setTargetTemperature'?Number(target?.value):undefined,query:'',expanded:false}))}
+function automationAdditionalActionSummary(target){const device=automationDeviceById(target.deviceId);if(!device)return 'Ziel noch nicht vollständig';const valueLabel=automationActionValueLabel(target);return `${device.name} → ${automationActionLabels[target.action]||target.action}${valueLabel?` · ${valueLabel}`:''}`}
 function refreshAutomationAddActionAvailability(){const limitReached=automationAdditionalActions.length>=7;const noCandidates=automationActionDevices().every(device=>automationAllTriggerDeviceIds().has(device.id)||automationAllActionDeviceIds().has(device.id));if(automationElements.addAction){automationElements.addAction.hidden=limitReached;automationElements.addAction.disabled=limitReached||noCandidates}}
 function renderAutomationAdditionalActions(){
   if(!automationElements.additionalActions)return;
-  automationElements.additionalActions.innerHTML=automationAdditionalActions.map((target,index)=>`<article class="automation-extra-action ${target.expanded?'expanded':''}" data-action-id="${target.id}"><div class="automation-extra-action-head"><button class="automation-extra-action-summary" type="button" onclick="toggleAutomationAdditionalAction(${target.id})" aria-expanded="${target.expanded}"><span class="automation-and-badge">UND</span><span><small>Ziel ${index+2}</small><strong>${escapeHtml(automationAdditionalActionSummary(target))}</strong></span><span class="mdi ${target.expanded?'mdi-chevron-up':'mdi-chevron-down'}" aria-hidden="true"></span></button><button class="automation-extra-action-remove" type="button" onclick="removeAutomationAdditionalAction(${target.id})" aria-label="Ziel ${index+2} entfernen" title="Ziel entfernen"><span class="mdi mdi-close" aria-hidden="true"></span></button></div><div class="automation-extra-action-body" ${target.expanded?'':'hidden'}><div class="automation-device-field"><label for="automationExtraActionDevice-${target.id}">Zielgerät</label><div class="automation-device-picker"><div class="search automation-device-search"><span class="mdi mdi-magnify" aria-hidden="true"></span><input id="automationExtraActionSearch-${target.id}" type="search" value="${escapeHtml(target.query)}" placeholder="Gerät suchen …" autocomplete="off" oninput="searchAutomationAdditionalAction(${target.id},this.value)" aria-label="Weiteres Zielgerät suchen"></div><select id="automationExtraActionDevice-${target.id}" onchange="changeAutomationAdditionalActionDevice(${target.id},this.value)"></select><small id="automationExtraActionCount-${target.id}" class="automation-device-match-count" aria-live="polite"></small></div></div><label>Aktion<select id="automationExtraAction-${target.id}" onchange="changeAutomationAdditionalAction(${target.id},this.value)"></select></label></div></article>`).join('');
+  automationElements.additionalActions.innerHTML=automationAdditionalActions.map((target,index)=>`<article class="automation-extra-action ${target.expanded?'expanded':''}" data-action-id="${target.id}"><div class="automation-extra-action-head"><button class="automation-extra-action-summary" type="button" onclick="toggleAutomationAdditionalAction(${target.id})" aria-expanded="${target.expanded}"><span class="automation-and-badge">UND</span><span><small>Ziel ${index+2}</small><strong>${escapeHtml(automationAdditionalActionSummary(target))}</strong></span><span class="mdi ${target.expanded?'mdi-chevron-up':'mdi-chevron-down'}" aria-hidden="true"></span></button><button class="automation-extra-action-remove" type="button" onclick="removeAutomationAdditionalAction(${target.id})" aria-label="Ziel ${index+2} entfernen" title="Ziel entfernen"><span class="mdi mdi-close" aria-hidden="true"></span></button></div><div class="automation-extra-action-body" ${target.expanded?'':'hidden'}><div class="automation-device-field"><label for="automationExtraActionDevice-${target.id}">Zielgerät</label><div class="automation-device-picker"><div class="search automation-device-search"><span class="mdi mdi-magnify" aria-hidden="true"></span><input id="automationExtraActionSearch-${target.id}" type="search" value="${escapeHtml(target.query)}" placeholder="Gerät suchen …" autocomplete="off" oninput="searchAutomationAdditionalAction(${target.id},this.value)" aria-label="Weiteres Zielgerät suchen"></div><select id="automationExtraActionDevice-${target.id}" onchange="changeAutomationAdditionalActionDevice(${target.id},this.value)"></select><small id="automationExtraActionCount-${target.id}" class="automation-device-match-count" aria-live="polite"></small></div></div><label>Aktion<select id="automationExtraAction-${target.id}" onchange="changeAutomationAdditionalAction(${target.id},this.value)"></select></label><label id="automationExtraActionValueField-${target.id}" class="automation-action-value-field" hidden>Solltemperatur<input id="automationExtraActionValue-${target.id}" type="number" inputmode="decimal" min="4.5" max="30" step="0.5" value="${target.value??21}" onchange="changeAutomationAdditionalActionValue(${target.id},this.value)" aria-label="Solltemperatur für Ziel ${index+2}"></label></div></article>`).join('');
   const triggerIds=automationAllTriggerDeviceIds();
   for(const target of automationAdditionalActions){
     const deviceSelect=document.getElementById(`automationExtraActionDevice-${target.id}`);const actionSelect=document.getElementById(`automationExtraAction-${target.id}`);if(!deviceSelect||!actionSelect)continue;
@@ -283,6 +316,10 @@ function renderAutomationAdditionalActions(){
     fillAutomationSelect(deviceSelect,candidates,target.deviceId,'Zielgerät wählen',target.query,count);
     if(!deviceSelect.value&&candidates.length)deviceSelect.value=candidates[0].id;
     target.deviceId=deviceSelect.value;fillAutomationActionSelectElement(actionSelect,target.deviceId,target.action);target.action=actionSelect.value;
+    const valueField=document.getElementById(`automationExtraActionValueField-${target.id}`);const valueInput=document.getElementById(`automationExtraActionValue-${target.id}`);
+    const needsTemperature=target.action==='setTargetTemperature';if(valueField)valueField.hidden=!needsTemperature;
+    if(needsTemperature&&valueInput){const device=automationDeviceById(target.deviceId);const range=automationThermostatRange(device);target.value=automationNormalizeTemperature(device,target.value);valueInput.min=String(range.min);valueInput.max=String(range.max);valueInput.step=String(range.step);valueInput.value=String(target.value)}
+    else target.value=undefined;
   }
   refreshAutomationAddActionAvailability();
 }
@@ -290,14 +327,15 @@ function addAutomationAdditionalAction(){
   if(automationAdditionalActions.length>=7){notify('Maximal acht Zielgeräte pro Automation.',true);return}
   const triggerIds=automationAllTriggerDeviceIds();const actionIds=automationAllActionDeviceIds();const candidates=automationActionDevices().filter(device=>!triggerIds.has(device.id)&&!actionIds.has(device.id));const first=candidates[0];
   if(!first){notify('Kein weiteres geeignetes Zielgerät verfügbar.',true);return}
-  const action=automationActionsForDevice(first.id)[0]||'';automationAdditionalActions.push({id:++automationAdditionalActionSequence,deviceId:first.id,action,query:'',expanded:true});renderAutomationAdditionalActions();refreshAutomationDeviceSearch('action');
+  const action=automationActionsForDevice(first.id)[0]||'';automationAdditionalActions.push({id:++automationAdditionalActionSequence,deviceId:first.id,action,value:action==='setTargetTemperature'?automationDefaultTargetTemperature(first):undefined,query:'',expanded:true});renderAutomationAdditionalActions();refreshAutomationDeviceSearch('action');
 }
 function removeAutomationAdditionalAction(id){automationAdditionalActions=automationAdditionalActions.filter(target=>target.id!==id);updateAutomationFormOptions()}
 function toggleAutomationAdditionalAction(id){const target=automationAdditionalActions.find(item=>item.id===id);if(!target)return;target.expanded=!target.expanded;renderAutomationAdditionalActions()}
 function searchAutomationAdditionalAction(id,query){const target=automationAdditionalActions.find(item=>item.id===id);if(!target)return;target.query=query;const triggerIds=automationAllTriggerDeviceIds();const actionIds=automationAllActionDeviceIds(id);const candidates=automationActionDevices().filter(device=>!triggerIds.has(device.id)&&!actionIds.has(device.id));const select=document.getElementById(`automationExtraActionDevice-${id}`);const count=document.getElementById(`automationExtraActionCount-${id}`);if(select)fillAutomationSelect(select,candidates,target.deviceId,'Zielgerät wählen',query,count)}
-function changeAutomationAdditionalActionDevice(id,deviceId){const target=automationAdditionalActions.find(item=>item.id===id);if(!target)return;target.deviceId=deviceId;target.query='';target.action=automationActionsForDevice(deviceId)[0]||'';updateAutomationFormOptions()}
-function changeAutomationAdditionalAction(id,action){const target=automationAdditionalActions.find(item=>item.id===id);if(!target)return;target.action=action;renderAutomationAdditionalActions()}
-function automationAdditionalActionPayload(){return automationAdditionalActions.map(target=>({deviceId:target.deviceId,action:target.action}))}
+function changeAutomationAdditionalActionDevice(id,deviceId){const target=automationAdditionalActions.find(item=>item.id===id);if(!target)return;target.deviceId=deviceId;target.query='';target.action=automationActionsForDevice(deviceId)[0]||'';target.value=target.action==='setTargetTemperature'?automationDefaultTargetTemperature(automationDeviceById(deviceId)):undefined;updateAutomationFormOptions()}
+function changeAutomationAdditionalAction(id,action){const target=automationAdditionalActions.find(item=>item.id===id);if(!target)return;target.action=action;target.value=action==='setTargetTemperature'?automationNormalizeTemperature(automationDeviceById(target.deviceId),target.value):undefined;renderAutomationAdditionalActions()}
+function changeAutomationAdditionalActionValue(id,value){const target=automationAdditionalActions.find(item=>item.id===id);if(!target)return;target.value=automationNormalizeTemperature(automationDeviceById(target.deviceId),value);renderAutomationAdditionalActions()}
+function automationAdditionalActionPayload(){return automationAdditionalActions.map(target=>({deviceId:target.deviceId,action:target.action,...(target.action==='setTargetTemperature'?{value:automationNormalizeTemperature(automationDeviceById(target.deviceId),target.value)}:{})}))}
 function automationRoomById(id){return rooms.find(room=>room.id===id)}
 function fillAutomationRoomSelect(selected=''){
   const current=selected||automationElements.room?.value||'';
@@ -329,7 +367,7 @@ function automationTriggerSummaryItems(rule){
   }
   return groups.map(group=>group.kind==='event'?`${group.name} · ${group.values.map(automationButtonEventLabel).join(' / ')}`:`${group.name} · ${automationStateLabel(group.stateKey)} = ${automationValueLabel(group.stateKey,group.value===true||group.value==='true')}`);
 }
-function automationActionSummaryItems(rule){return [{deviceId:rule.actionDeviceId,action:rule.action},...(rule.additionalActions||[])].map(target=>{const device=automationDeviceById(target.deviceId);return `${device?.name||'Unbekannt'} → ${automationActionLabels[target.action]||target.action}`})}
+function automationActionSummaryItems(rule){return [{deviceId:rule.actionDeviceId,action:rule.action,value:rule.actionValue},...(rule.additionalActions||[])].map(target=>{const device=automationDeviceById(target.deviceId);const valueLabel=automationActionValueLabel(target);return `${device?.name||'Unbekannt'} → ${automationActionLabels[target.action]||target.action}${valueLabel?` · ${valueLabel}`:''}`})}
 function automationSummary(rule){
   const condition=rule.conditionDeviceId?automationDeviceById(rule.conditionDeviceId):null;const triggerItems=automationTriggerSummaryItems(rule);const actionItems=automationActionSummaryItems(rule);
   const triggerText=`Wenn ${triggerItems.join(' ODER ')}`;
@@ -354,9 +392,9 @@ function automationPayload(){
   const useCondition=automationElements.conditionEnabled.checked;const eventTrigger=automationElements.triggerState.value===automationButtonEventMarker;
   const eventValues=eventTrigger?(automationPrimaryEventValues.length?automationPrimaryEventValues:[Number(automationElements.triggerValue.value)]):[];
   const eventValue=eventValues[0];const sameDeviceEventTriggers=eventValues.slice(1).map(value=>({deviceId:automationElements.triggerDevice.value,stateKey:`event:buttonEvent:${value}`,value:true}));
-  return {name:automationElements.name.value.trim(),enabled:automationElements.enabled.checked,roomId:automationElements.room?.value||null,triggerDeviceId:automationElements.triggerDevice.value,triggerStateKey:eventTrigger?`event:buttonEvent:${eventValue}`:automationElements.triggerState.value,triggerValue:eventTrigger?true:automationElements.triggerValue.value==='true',additionalTriggers:[...sameDeviceEventTriggers,...automationAdditionalTriggerPayload()],conditionDeviceId:useCondition?automationElements.conditionDevice.value:null,conditionStateKey:useCondition?automationElements.conditionState.value:null,conditionValue:useCondition?automationElements.conditionValue.value==='true':null,actionDeviceId:automationElements.actionDevice.value,action:automationElements.action.value,additionalActions:automationAdditionalActionPayload()};
+  return {name:automationElements.name.value.trim(),enabled:automationElements.enabled.checked,roomId:automationElements.room?.value||null,triggerDeviceId:automationElements.triggerDevice.value,triggerStateKey:eventTrigger?`event:buttonEvent:${eventValue}`:automationElements.triggerState.value,triggerValue:eventTrigger?true:automationElements.triggerValue.value==='true',additionalTriggers:[...sameDeviceEventTriggers,...automationAdditionalTriggerPayload()],conditionDeviceId:useCondition?automationElements.conditionDevice.value:null,conditionStateKey:useCondition?automationElements.conditionState.value:null,conditionValue:useCondition?automationElements.conditionValue.value==='true':null,actionDeviceId:automationElements.actionDevice.value,action:automationElements.action.value,...(automationElements.action.value==='setTargetTemperature'?{actionValue:automationNormalizeTemperature(automationDeviceById(automationElements.actionDevice.value),automationElements.actionValue.value)}:{}),additionalActions:automationAdditionalActionPayload()};
 }
-function friendlyAutomationError(error){const messages={AUTOMATION_ROOM_NOT_FOUND:'Der ausgewählte Raum existiert nicht mehr.',AUTOMATION_CYCLE_NOT_ALLOWED:'Diese Regel würde einen Schaltkreis zwischen Automationen erzeugen. Zyklische Regeln sind nicht erlaubt.',AUTOMATION_TRIGGER_ACTION_SAME_DEVICE:'Trigger- und Zielgerät müssen unterschiedlich sein.',AUTOMATION_CONDITION_TRIGGER_SAME_DEVICE:'Das Bedingungsgerät muss sich vom Triggergerät unterscheiden.',AUTOMATION_TRIGGER_STATE_UNSUPPORTED:'Der ausgewählte Triggerzustand ist für dieses Gerät nicht verfügbar.',AUTOMATION_TRIGGER_EVENT_UNSUPPORTED:'Das ausgewählte Tasterereignis ist für dieses Gerät nicht verfügbar.',AUTOMATION_TRIGGER_LIMIT:'Maximal acht ODER-Auslöser sind pro Automation möglich.',AUTOMATION_TRIGGER_DUPLICATE:'Derselbe Auslöser ist mehrfach eingetragen.',AUTOMATION_CONDITION_STATE_UNSUPPORTED:'Der ausgewählte Bedingungszustand ist für dieses Gerät nicht verfügbar.',AUTOMATION_ACTION_LIMIT:'Maximal acht Zielgeräte sind pro Automation möglich.',AUTOMATION_ACTION_DUPLICATE_DEVICE:'Jedes Zielgerät darf pro Automation nur einmal vorkommen.',AUTOMATION_ACTION_UNSUPPORTED:'Das Zielgerät unterstützt diese Aktion nicht.'};return messages[error?.code]||error?.message||'Automation konnte nicht gespeichert werden.'}
+function friendlyAutomationError(error){const messages={AUTOMATION_ROOM_NOT_FOUND:'Der ausgewählte Raum existiert nicht mehr.',AUTOMATION_CYCLE_NOT_ALLOWED:'Diese Regel würde einen Schaltkreis zwischen Automationen erzeugen. Zyklische Regeln sind nicht erlaubt.',AUTOMATION_TRIGGER_ACTION_SAME_DEVICE:'Trigger- und Zielgerät müssen unterschiedlich sein.',AUTOMATION_CONDITION_TRIGGER_SAME_DEVICE:'Das Bedingungsgerät muss sich vom Triggergerät unterscheiden.',AUTOMATION_TRIGGER_STATE_UNSUPPORTED:'Der ausgewählte Triggerzustand ist für dieses Gerät nicht verfügbar.',AUTOMATION_TRIGGER_EVENT_UNSUPPORTED:'Das ausgewählte Tasterereignis ist für dieses Gerät nicht verfügbar.',AUTOMATION_TRIGGER_LIMIT:'Maximal acht ODER-Auslöser sind pro Automation möglich.',AUTOMATION_TRIGGER_DUPLICATE:'Derselbe Auslöser ist mehrfach eingetragen.',AUTOMATION_CONDITION_STATE_UNSUPPORTED:'Der ausgewählte Bedingungszustand ist für dieses Gerät nicht verfügbar.',AUTOMATION_ACTION_LIMIT:'Maximal acht Zielgeräte sind pro Automation möglich.',AUTOMATION_ACTION_DUPLICATE_DEVICE:'Jedes Zielgerät darf pro Automation nur einmal vorkommen.',AUTOMATION_ACTION_UNSUPPORTED:'Das Zielgerät unterstützt diese Aktion nicht.',AUTOMATION_ACTION_TEMPERATURE_INVALID:'Die Solltemperatur liegt außerhalb des unterstützten Bereichs dieses Thermostats.'};return messages[error?.code]||error?.message||'Automation konnte nicht gespeichert werden.'}
 async function saveAutomation(){const payload=automationPayload();const wasEditing=Boolean(editingAutomationId);const method=wasEditing?'PUT':'POST';const url=wasEditing?`/api/automations/${editingAutomationId}`:'/api/automations';const original=automationElements.save.textContent;automationElements.save.disabled=true;automationElements.save.textContent='Wird gespeichert …';try{await api(url,{method,headers:{'content-type':'application/json'},body:JSON.stringify(payload)});await loadAutomations();resetAutomationForm();notify(wasEditing?'Automation wurde aktualisiert.':'Automation wurde angelegt.')}catch(error){notify(friendlyAutomationError(error),true)}finally{automationElements.save.disabled=false;automationElements.save.textContent=original}}
 async function toggleAutomation(id,enabled){try{await api(`/api/automations/${id}/enabled`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({enabled})});await loadAutomations();notify(enabled?'Automation aktiviert.':'Automation deaktiviert.')}catch(error){notify(friendlyAutomationError(error),true);await loadAutomations().catch(()=>undefined)}}
 async function deleteAutomation(id){const rule=automationRules.find(item=>item.id===id);if(!rule)return;if(!confirm(`Automation „${rule.name}“ wirklich löschen?`))return;try{await api(`/api/automations/${id}`,{method:'DELETE'});if(editingAutomationId===id)resetAutomationForm();await loadAutomations();notify('Automation wurde gelöscht.')}catch(error){notify(friendlyAutomationError(error),true)}}
@@ -371,5 +409,7 @@ automationElements.triggerState?.addEventListener('change',()=>{automationPrimar
 automationElements.conditionEnabled?.addEventListener('change',()=>{automationElements.conditionFields.hidden=!automationElements.conditionEnabled.checked;if(automationElements.conditionEnabled.checked)updateAutomationFormOptions()});
 automationElements.conditionDevice?.addEventListener('change',()=>{if(automationElements.conditionSearch)automationElements.conditionSearch.value='';fillAutomationStateSelect(automationElements.conditionState,automationElements.conditionDevice.value,undefined,false);fillAutomationValueSelect(automationElements.conditionValue,automationElements.conditionState.value)});
 automationElements.conditionState?.addEventListener('change',()=>fillAutomationValueSelect(automationElements.conditionValue,automationElements.conditionState.value));
-automationElements.actionDevice?.addEventListener('change',()=>{if(automationElements.actionSearch)automationElements.actionSearch.value='';fillAutomationActionSelect();updateAutomationFormOptions()});
+automationElements.actionDevice?.addEventListener('change',()=>{if(automationElements.actionSearch)automationElements.actionSearch.value='';fillAutomationActionSelect();updateAutomationPrimaryActionValue();updateAutomationFormOptions()});
+automationElements.action?.addEventListener('change',()=>updateAutomationPrimaryActionValue());
+automationElements.actionValue?.addEventListener('change',()=>updateAutomationPrimaryActionValue(automationElements.actionValue.value));
 automationElements.form?.addEventListener('submit',event=>{event.preventDefault();saveAutomation().catch(error=>notify(friendlyAutomationError(error),true))});

@@ -1,9 +1,10 @@
 import pg from "pg";
+import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
 import type { ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel } from "./types.js";
-import type { AutomationInput, AutomationRule } from "./automations.js";
+import type { AutomationInput, AutomationRule, AutomationTargetAction } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
 
@@ -183,6 +184,30 @@ export async function initializeDatabaseSchema(): Promise<void> {
       UNIQUE(automation_id,action_device_id)
     );
     CREATE INDEX IF NOT EXISTS automation_actions_device_idx ON automation_actions(action_device_id,automation_id);
+
+    -- Canonical automation target storage introduced additively in v0.8.55.
+    CREATE TABLE IF NOT EXISTS automation_targets (
+      automation_id uuid NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+      position smallint NOT NULL CHECK(position BETWEEN 0 AND 7),
+      action_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+      action text NOT NULL CHECK(action IN ('turnOn','turnOff','toggle','open','close','thermostatOff','thermostatAuto','thermostatManual','setTargetTemperature')),
+      value double precision,
+      PRIMARY KEY(automation_id,position),
+      UNIQUE(automation_id,action_device_id),
+      CHECK (
+        (action='setTargetTemperature' AND value IS NOT NULL AND value BETWEEN 4 AND 35)
+        OR
+        (action<>'setTargetTemperature' AND value IS NULL)
+      )
+    );
+    CREATE INDEX IF NOT EXISTS automation_targets_device_idx ON automation_targets(action_device_id,automation_id);
+    INSERT INTO automation_targets(automation_id,position,action_device_id,action,value)
+      SELECT id,0,action_device_id,action,NULL FROM automations
+      ON CONFLICT DO NOTHING;
+    INSERT INTO automation_targets(automation_id,position,action_device_id,action,value)
+      SELECT automation_id,position,action_device_id,action,NULL FROM automation_actions
+      ON CONFLICT DO NOTHING;
+
     CREATE INDEX IF NOT EXISTS automations_trigger_idx ON automations(trigger_device_id, enabled);
     CREATE INDEX IF NOT EXISTS automations_action_idx ON automations(action_device_id);
     CREATE TABLE IF NOT EXISTS climate_mode_settings (
@@ -365,7 +390,22 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
         return [{ deviceId: String(trigger.deviceId), stateKey: String(trigger.stateKey), value: trigger.value }];
       })
     : [];
-  const additionalActions = Array.isArray(row.additionalActions)
+  const parsedTargets = Array.isArray(row.targetActions)
+    ? row.targetActions.flatMap(value => {
+        if (!value || typeof value !== "object") return [];
+        const target = value as Record<string, unknown>;
+        const action = String(target.action ?? "");
+        if (!target.deviceId || !["turnOn", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature"].includes(action)) return [];
+        const numericValue = target.value === null || target.value === undefined ? undefined : Number(target.value);
+        if (action === "setTargetTemperature" && !Number.isFinite(numericValue)) return [];
+        return [{
+          deviceId: String(target.deviceId),
+          action: action as AutomationRule["action"],
+          ...(numericValue !== undefined ? { value: numericValue } : {})
+        }];
+      })
+    : [];
+  const legacyAdditionalActions = Array.isArray(row.additionalActions)
     ? row.additionalActions.flatMap(value => {
         if (!value || typeof value !== "object") return [];
         const target = value as Record<string, unknown>;
@@ -373,6 +413,8 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
         return [{ deviceId: String(target.deviceId), action: target.action as AutomationRule["action"] }];
       })
     : [];
+  const primaryTarget: AutomationTargetAction = parsedTargets[0] ?? { deviceId: String(row.actionDeviceId), action: row.action as AutomationRule["action"] };
+  const additionalActions = parsedTargets.length ? parsedTargets.slice(1) : legacyAdditionalActions;
   return {
     id: String(row.id),
     name: String(row.name),
@@ -385,8 +427,9 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
     conditionDeviceId: row.conditionDeviceId ? String(row.conditionDeviceId) : undefined,
     conditionStateKey: row.conditionStateKey ? String(row.conditionStateKey) : undefined,
     conditionValue: typeof row.conditionValue === "boolean" ? row.conditionValue : undefined,
-    actionDeviceId: String(row.actionDeviceId),
-    action: row.action as AutomationRule["action"],
+    actionDeviceId: primaryTarget.deviceId,
+    action: primaryTarget.action,
+    actionValue: primaryTarget.value,
     additionalActions,
     lastTriggeredAt: row.lastTriggeredAt ? automationDate(row.lastTriggeredAt) : undefined,
     createdAt: automationDate(row.createdAt),
@@ -399,6 +442,7 @@ const automationColumns = `a.id,a.name,a.enabled,p.room_id as "roomId",a.trigger
   a.condition_device_id as "conditionDeviceId",a.condition_state_key as "conditionStateKey",a.condition_value as "conditionValue",
   a.action_device_id as "actionDeviceId",a.action,
   COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',x.action_device_id,'action',x.action) ORDER BY x.position) FROM automation_actions x WHERE x.automation_id=a.id),'[]'::jsonb) as "additionalActions",
+  COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',x.action_device_id,'action',x.action,'value',x.value) ORDER BY x.position) FROM automation_targets x WHERE x.automation_id=a.id),'[]'::jsonb) as "targetActions",
   a.last_triggered_at as "lastTriggeredAt",a.created_at as "createdAt",a.updated_at as "updatedAt"`;
 
 export async function listAutomations(): Promise<AutomationRule[]> {
@@ -409,6 +453,37 @@ export async function listAutomations(): Promise<AutomationRule[]> {
   return result.rows.map(row => automationRow(row));
 }
 
+function legacyAutomationAction(action: AutomationRule["action"]): "turnOn" | "turnOff" | "toggle" {
+  return action === "turnOn" || action === "turnOff" || action === "toggle" ? action : "turnOff";
+}
+
+function canonicalAutomationTargets(input: AutomationInput): AutomationTargetAction[] {
+  return [
+    { deviceId: input.actionDeviceId, action: input.action, ...(input.actionValue !== undefined ? { value: input.actionValue } : {}) },
+    ...(input.additionalActions ?? [])
+  ];
+}
+
+async function writeAutomationTargets(client: PoolClient, automationId: string, input: AutomationInput): Promise<void> {
+  await client.query("DELETE FROM automation_targets WHERE automation_id=$1", [automationId]);
+  for (const [position, target] of canonicalAutomationTargets(input).entries()) {
+    await client.query(
+      `INSERT INTO automation_targets(automation_id,position,action_device_id,action,value) VALUES($1,$2,$3,$4,$5)`,
+      [automationId,position,target.deviceId,target.action,target.action === "setTargetTemperature" ? target.value ?? null : null]
+    );
+  }
+
+  await client.query("DELETE FROM automation_actions WHERE automation_id=$1", [automationId]);
+  let legacyPosition = 1;
+  for (const target of input.additionalActions ?? []) {
+    if (!["turnOn", "turnOff", "toggle"].includes(target.action)) continue;
+    await client.query(
+      `INSERT INTO automation_actions(automation_id,position,action_device_id,action) VALUES($1,$2,$3,$4)`,
+      [automationId,legacyPosition++,target.deviceId,target.action]
+    );
+  }
+}
+
 export async function createAutomation(input: AutomationInput): Promise<AutomationRule> {
   const id = randomUUID();
   const client = await pool.connect();
@@ -416,17 +491,14 @@ export async function createAutomation(input: AutomationInput): Promise<Automati
     await client.query("BEGIN");
     await client.query(`INSERT INTO automations(id,name,enabled,trigger_device_id,trigger_state_key,trigger_value,condition_device_id,condition_state_key,condition_value,action_device_id,action)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
-      [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action]);
+      [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,legacyAutomationAction(input.action)]);
     await client.query(`INSERT INTO automation_preferences(automation_id,room_id) VALUES($1,$2)
       ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()`, [id,input.roomId??null]);
     for (const [index, trigger] of (input.additionalTriggers ?? []).entries()) {
       await client.query(`INSERT INTO automation_triggers(automation_id,position,trigger_device_id,trigger_state_key,trigger_value) VALUES($1,$2,$3,$4,$5)`,
         [id,index+1,trigger.deviceId,trigger.stateKey,trigger.value]);
     }
-    for (const [index, target] of (input.additionalActions ?? []).entries()) {
-      await client.query(`INSERT INTO automation_actions(automation_id,position,action_device_id,action) VALUES($1,$2,$3,$4)`,
-        [id,index+1,target.deviceId,target.action]);
-    }
+    await writeAutomationTargets(client, id, input);
     const result = await client.query(`SELECT ${automationColumns} FROM automations a LEFT JOIN automation_preferences p ON p.automation_id=a.id WHERE a.id=$1`, [id]);
     await client.query("COMMIT");
     return automationRow(result.rows[0]);
@@ -445,7 +517,7 @@ export async function updateAutomation(id: string, input: AutomationInput): Prom
     const changed = await client.query(`UPDATE automations SET name=$2,enabled=$3,trigger_device_id=$4,trigger_state_key=$5,trigger_value=$6,
       condition_device_id=$7,condition_state_key=$8,condition_value=$9,action_device_id=$10,action=$11,updated_at=now()
       WHERE id=$1 RETURNING id`,
-      [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,input.action]);
+      [id,input.name,input.enabled,input.triggerDeviceId,input.triggerStateKey,input.triggerValue,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,legacyAutomationAction(input.action)]);
     if (!changed.rows[0]) {
       await client.query("ROLLBACK");
       return undefined;
@@ -457,11 +529,7 @@ export async function updateAutomation(id: string, input: AutomationInput): Prom
       await client.query(`INSERT INTO automation_triggers(automation_id,position,trigger_device_id,trigger_state_key,trigger_value) VALUES($1,$2,$3,$4,$5)`,
         [id,index+1,trigger.deviceId,trigger.stateKey,trigger.value]);
     }
-    await client.query("DELETE FROM automation_actions WHERE automation_id=$1", [id]);
-    for (const [index, target] of (input.additionalActions ?? []).entries()) {
-      await client.query(`INSERT INTO automation_actions(automation_id,position,action_device_id,action) VALUES($1,$2,$3,$4)`,
-        [id,index+1,target.deviceId,target.action]);
-    }
+    await writeAutomationTargets(client, id, input);
     const result = await client.query(`SELECT ${automationColumns} FROM automations a LEFT JOIN automation_preferences p ON p.automation_id=a.id WHERE a.id=$1`, [id]);
     await client.query("COMMIT");
     return result.rows[0] ? automationRow(result.rows[0]) : undefined;

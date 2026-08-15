@@ -20,7 +20,7 @@ describe("automation frontend", () => {
   });
 
   it("offers boolean state transitions and deCONZ button-event triggers", () => {
-    expect(ui).toContain("const automationActionLabels={turnOn:'An',turnOff:'Aus',toggle:'Toggle'}");
+    expect(ui).toContain("turnOn:'An',turnOff:'Aus',toggle:'Toggle'");
     expect(ui).toContain("typeof value==='boolean'");
     expect(ui).toContain("automationButtonEventMarker='event:buttonEvent'");
     expect(ui).toContain("triggerStateKey:eventTrigger?`event:buttonEvent:${eventValue}`");
@@ -139,6 +139,16 @@ describe("automation frontend", () => {
     expect(hasFunction(uiAst, "automationActionSummaryItems")).toBe(true);
     expect(ui).toContain("additionalActions:automationAdditionalActionPayload()");
     expect(ui).toContain("automationActionSummaryMarkup(summary.actionItems)");
+    expect(ui).toContain("device.source==='virtual'");
+    expect(ui).toContain("device.source==='openccu'");
+    expect(ui).toContain("thermostatOff:'Thermostat Aus'");
+    expect(ui).toContain("actions.push('thermostatOff','thermostatAuto','thermostatManual')");
+    expect(ui).toContain("actions.push('setTargetTemperature')");
+    expect(html).toContain('id="automationActionValue"');
+    expect(ui).toContain("setTargetTemperature:'Solltemperatur setzen'");
+    expect(ui).toContain("automationNormalizeTemperature");
+    expect(ui).toContain("actionValue:automationNormalizeTemperature");
+    expect(cssRuleContains(styles, ".automation-action-value-field[hidden]", "display:none")).toBe(true);
     expect(cssRuleContains(styles, ".automation-add-action", "border:1px dashed var(--line)")).toBe(true);
     expect(cssRuleContains(styles, ".automation-extra-action-body[hidden]", "display:none")).toBe(true);
     expect(cssRuleContains(styles, ".automation-action-list", "flex-wrap:wrap")).toBe(true);

@@ -303,7 +303,7 @@ The first automation rule format contains exactly three stages:
 
 1. **When** — choose a trigger device. Boolean device states fire only when the selected value is entered, while Zigbee button devices can trigger on every received deCONZ `buttonevent`, including repeated identical event codes.
 2. **Only if** — optionally require a second device to have a selected boolean state. Conditions are evaluated from the current reachable device state at execution time.
-3. **Then** — choose one or more different target devices and execute **On**, **Off** or **Toggle** independently for each target, depending on the capabilities exposed by that device. Up to eight target devices can be controlled by one automation.
+3. **Then** — choose one or more different controllable target devices. Binary switches/lights, including SALTA virtual switches and writable OpenCCU/HomeMatic actors, offer **On**, **Off** and **Toggle**. Covers offer **Open** and **Close**. OpenCCU/HomeMatic thermostats offer **Off**, **Auto** and **Manual** mode actions. Read-only sensors remain trigger/condition-only. Up to eight target devices can be controlled by one automation.
 
 The device selectors for trigger, condition and target are searchable. Type any part of the device name, room, source (for example Shelly, Zigbee, HomeMatic, Presence or Virtual), model or logical device type to narrow the list. The editor also shows how many matching devices are currently available.
 

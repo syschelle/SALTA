@@ -62,7 +62,14 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("UNIQUE(automation_id,action_device_id)");
     expect(databaseSource).toContain("CREATE INDEX IF NOT EXISTS automation_actions_device_idx");
     expect(databaseSource).toContain('as "additionalActions"');
-    expect(databaseSource).toContain("INSERT INTO automation_actions(automation_id,position,action_device_id,action)");
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_targets");
+    expect(databaseSource).toContain("position smallint NOT NULL CHECK(position BETWEEN 0 AND 7)");
+    expect(databaseSource).toContain("setTargetTemperature");
+    expect(databaseSource).toContain("value double precision");
+    expect(databaseSource).toContain("CREATE INDEX IF NOT EXISTS automation_targets_device_idx");
+    expect(databaseSource).toContain('as "targetActions"');
+    expect(databaseSource).toContain("INSERT INTO automation_targets(automation_id,position,action_device_id,action,value)");
+    expect(databaseSource).toContain("DELETE FROM automation_targets WHERE automation_id=$1");
   });
 
   it("stores FRITZ!Box presence settings and monitored MAC addresses additively", () => {

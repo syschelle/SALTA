@@ -65,8 +65,16 @@ const automationAdditionalTriggerSchema = z.object({
 }).strict();
 const automationAdditionalActionSchema = z.object({
   deviceId: z.string().min(1).max(255),
-  action: z.enum(["turnOn", "turnOff", "toggle"])
-}).strict();
+  action: z.enum(["turnOn", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature"]),
+  value: z.number().min(4).max(35).optional()
+}).strict().superRefine((target, ctx) => {
+  if (target.action === "setTargetTemperature" && target.value === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "Temperature is required." });
+  }
+  if (target.action !== "setTargetTemperature" && target.value !== undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "Value is only supported for target temperature actions." });
+  }
+});
 const automationSchema = z.object({
   name: z.string().trim().min(1).max(120),
   enabled: z.boolean().default(true),
@@ -79,9 +87,17 @@ const automationSchema = z.object({
   conditionStateKey: z.string().trim().min(1).max(80).nullable().optional(),
   conditionValue: z.boolean().nullable().optional(),
   actionDeviceId: z.string().min(1).max(255),
-  action: z.enum(["turnOn", "turnOff", "toggle"]),
+  action: z.enum(["turnOn", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature"]),
+  actionValue: z.number().min(4).max(35).optional(),
   additionalActions: z.array(automationAdditionalActionSchema).max(7).default([])
-}).strict();
+}).strict().superRefine((automation, ctx) => {
+  if (automation.action === "setTargetTemperature" && automation.actionValue === undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["actionValue"], message: "Temperature is required." });
+  }
+  if (automation.action !== "setTargetTemperature" && automation.actionValue !== undefined) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["actionValue"], message: "Value is only supported for target temperature actions." });
+  }
+});
 const automationEnabledSchema = z.object({ enabled: z.boolean() }).strict();
 const systemLogQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(100),
@@ -278,6 +294,7 @@ function automationError(error: unknown): { status: number; code: string; messag
     AUTOMATION_CONDITION_DEVICE_NOT_FOUND: "The condition device no longer exists.",
     AUTOMATION_CONDITION_INVALID: "The condition is incomplete.",
     AUTOMATION_CONDITION_STATE_UNSUPPORTED: "The selected condition state is not available on this device.",
+    AUTOMATION_ACTION_TEMPERATURE_INVALID: "The selected thermostat target temperature is outside the supported device range.",
     AUTOMATION_CYCLE_NOT_ALLOWED: "This automation would create a device-action loop. Cyclic automations are not allowed."
   };
   return { status: code === "AUTOMATION_NOT_FOUND" ? 404 : code.endsWith("_NOT_FOUND") ? 404 : 400, code, message: messages[code] ?? "The automation could not be saved." };
@@ -297,7 +314,12 @@ function normalizeAutomationInput(data: z.infer<typeof automationSchema>) {
     conditionValue: data.conditionValue ?? undefined,
     actionDeviceId: data.actionDeviceId,
     action: data.action,
-    additionalActions: data.additionalActions.map(target => ({ deviceId: target.deviceId, action: target.action }))
+    actionValue: data.action === "setTargetTemperature" ? data.actionValue : undefined,
+    additionalActions: data.additionalActions.map(target => ({
+      deviceId: target.deviceId,
+      action: target.action,
+      ...(target.action === "setTargetTemperature" ? { value: target.value } : {})
+    }))
   };
 }
 
@@ -532,9 +554,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.54" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.55" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.54", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.55", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1070,7 +1092,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.54", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.55", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

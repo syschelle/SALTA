@@ -350,6 +350,98 @@ describe("AutomationEngine", () => {
     engine.stop();
   });
 
+
+  it("accepts virtual switches as automation targets even when an older persisted record lacks binary capability metadata", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { motion: false }));
+    registry.devices.set("virtual-target", { ...device("virtual-target", { on: false }), source: "virtual", type: "switch", capabilities: [] });
+    const command = vi.fn(async commandInput => registry.get(commandInput.deviceId)!);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+    await engine.start();
+    await engine.create({ name: "Virtual target", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "virtual-target", action: "turnOn" });
+    registry.publish(device("trigger", { motion: true }));
+    await tick();
+    await tick();
+    expect(command).toHaveBeenCalledWith({ deviceId: "virtual-target", capability: "turnOn", source: "automation" });
+    engine.stop();
+  });
+
+  it("supports OpenCCU covers and thermostat modes as target actions", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { motion: false }));
+    registry.devices.set("cover", { ...device("cover", { currentPosition: 0, targetPosition: 0 }, ["open", "close", "setTargetPosition"]), source: "openccu", type: "windowCovering" });
+    registry.devices.set("thermostat", { ...device("thermostat", { temperature: 20, targetTemperature: 20, controlMode: "off" }, ["setTargetTemperature", "setThermostatMode"]), source: "openccu", type: "thermostat" });
+    const command = vi.fn(async commandInput => registry.get(commandInput.deviceId)!);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+    await engine.start();
+    await engine.create({
+      name: "OpenCCU targets", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "motion", triggerValue: true,
+      actionDeviceId: "cover", action: "open", additionalActions: [{ deviceId: "thermostat", action: "thermostatAuto" }]
+    });
+    registry.publish(device("trigger", { motion: true }));
+    await tick();
+    await tick();
+    expect(command.mock.calls.map(call => call[0])).toEqual([
+      { deviceId: "cover", capability: "open", source: "automation" },
+      { deviceId: "thermostat", capability: "setThermostatMode", value: "auto", source: "automation" }
+    ]);
+    engine.stop();
+  });
+
+  it("sets thermostat target temperatures for primary and additional target actions", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { motion: false }));
+    registry.devices.set("thermostat-a", {
+      ...device("thermostat-a", { temperature: 20, targetTemperature: 20, controlMode: "manual" }, ["setTargetTemperature", "setThermostatMode"]),
+      source: "openccu",
+      type: "thermostat",
+      adapterData: { targetTemperatureMin: 4.5, targetTemperatureMax: 30, targetTemperatureStep: 0.5 }
+    });
+    registry.devices.set("thermostat-b", {
+      ...device("thermostat-b", { temperature: 21, targetTemperature: 21, controlMode: "auto" }, ["setTargetTemperature", "setThermostatMode"]),
+      source: "openccu",
+      type: "thermostat",
+      adapterData: { targetTemperatureMin: 5, targetTemperatureMax: 28, targetTemperatureStep: 0.5 }
+    });
+    const command = vi.fn(async commandInput => registry.get(commandInput.deviceId)!);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+    await engine.start();
+    await engine.create({
+      name: "Heat rooms", enabled: true,
+      triggerDeviceId: "trigger", triggerStateKey: "motion", triggerValue: true,
+      actionDeviceId: "thermostat-a", action: "setTargetTemperature", actionValue: 22.5,
+      additionalActions: [{ deviceId: "thermostat-b", action: "setTargetTemperature", value: 19.5 }]
+    });
+
+    registry.publish(device("trigger", { motion: true }));
+    await tick();
+    await tick();
+    expect(command.mock.calls.map(call => call[0])).toEqual([
+      { deviceId: "thermostat-a", capability: "setTargetTemperature", value: 22.5, source: "automation" },
+      { deviceId: "thermostat-b", capability: "setTargetTemperature", value: 19.5, source: "automation" }
+    ]);
+    engine.stop();
+  });
+
+  it("rejects thermostat target temperatures outside the device range", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { motion: false }));
+    registry.devices.set("thermostat", {
+      ...device("thermostat", { targetTemperature: 20, controlMode: "manual" }, ["setTargetTemperature", "setThermostatMode"]),
+      source: "openccu",
+      type: "thermostat",
+      adapterData: { targetTemperatureMin: 5, targetTemperatureMax: 28 }
+    });
+    const engine = new AutomationEngine(registry as never, { command: vi.fn(async commandInput => registry.get(commandInput.deviceId)!) }, memoryStore());
+    await engine.start();
+    await expect(engine.create({
+      name: "Invalid heat", enabled: true,
+      triggerDeviceId: "trigger", triggerStateKey: "motion", triggerValue: true,
+      actionDeviceId: "thermostat", action: "setTargetTemperature", actionValue: 31
+    })).rejects.toThrow("AUTOMATION_ACTION_TEMPERATURE_INVALID");
+    engine.stop();
+  });
+
   it("includes additional target devices in cycle protection", async () => {
     const registry = new TestRegistry();
     for (const id of ["a", "b", "c"]) registry.devices.set(id, device(id, { on: false }, ["turnOn", "turnOff", "toggle"]));

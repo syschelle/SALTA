@@ -47,7 +47,7 @@ vi.mock("./configuration-backup.js", () => ({
       devices: [{ id: "device-1" }],
       device_preferences: [], device_homekit_settings: [], adapter_settings: [], openccu_settings: [],
       fritzbox_presence_settings: [], fritzbox_presence_transport_settings: [], presence_targets: [{ id: "presence-1" }],
-      device_adapter_data: [], automations: [{ id: "automation-1" }], automation_preferences: [], automation_triggers: [], automation_actions: [],
+      device_adapter_data: [], automations: [{ id: "automation-1" }], automation_preferences: [], automation_triggers: [], automation_actions: [], automation_targets: [],
       climate_mode_settings: [], notification_settings: [], notification_state: []
     },
     signature: `signed-with:${signingKey}`

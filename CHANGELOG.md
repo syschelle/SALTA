@@ -1,6 +1,20 @@
 # Changelog
 
+## v0.8.55
+
+- Added **Solltemperatur setzen** to thermostat automation targets, including a per-target numeric temperature input in step **3 · Dann**.
+- Primary and additional thermostat targets can each store and execute their own target temperature.
+- Temperature inputs use device-specific minimum/maximum/step metadata where available and are validated again by the automation engine before execution.
+- Automation cards now show configured target temperatures in the compact **Dann** summary.
+- Carried forward the v0.8.54 target expansion for SALTA virtual switches and writable OpenCCU/HomeMatic switches, lights, covers and thermostats.
+- Added the additive canonical `automation_targets` table so extended actions and temperature values are persisted without destructive changes to legacy automation tables.
+- Existing simple automation actions are imported into `automation_targets` automatically during schema initialization.
+- Configuration/disaster-recovery backup now preserves `automation_targets`, while older format-v1 backups without the additive action tables remain supported.
+- No manual database migration, new mandatory environment variable or new npm dependency is required.
+
 ## v0.8.54
+
+- Virtual and OpenCCU automation targets: multi-target automations can now select SALTA virtual switches, writable HomeMatic/OpenCCU switches/lights, covers, and thermostat modes; read-only sensors remain trigger/condition-only.
 
 - Added up to eight target actions per automation with a compact **UND** editor in step **3 · Dann**.
 - Added independent per-target `An`, `Aus` and `Toggle` action selection based on device capabilities.
