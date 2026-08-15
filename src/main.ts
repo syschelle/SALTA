@@ -27,9 +27,16 @@ async function main(): Promise<void> {
   const virtual = new VirtualDeviceAdapter(registry);
   const presence = new FritzBoxPresenceAdapter(registry);
   const commands = new DeviceCommandRouter(registry, { shelly, phoscon, hue, openccu: openCcu, virtual });
-  const automations = new AutomationEngine(registry, commands, databaseAutomationStore, databaseAutomationLogger, { timeZone: config.TZ });
-  await automations.start();
   const climate = new ClimateModeManager(registry, commands);
+  const automations = new AutomationEngine(
+    registry,
+    commands,
+    databaseAutomationStore,
+    databaseAutomationLogger,
+    { timeZone: config.TZ },
+    { applyClimateMode: async mode => { await climate.apply(mode); } }
+  );
+  await automations.start();
   const batteryMonitor = new BatteryMonitor(registry);
 
   shelly.start();

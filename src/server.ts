@@ -73,7 +73,7 @@ const automationAdditionalTriggerSchema = z.object({
 }).strict();
 const automationAdditionalActionSchema = z.object({
   deviceId: z.string().min(1).max(255),
-  action: z.enum(["turnOn", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature"]),
+  action: z.enum(["turnOn", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature", "climateSummer", "climateWinter"]),
   value: z.number().min(4).max(35).optional()
 }).strict().superRefine((target, ctx) => {
   if (target.action === "setTargetTemperature" && target.value === undefined) {
@@ -97,7 +97,7 @@ const automationSchema = z.object({
   conditionStateKey: z.string().trim().min(1).max(80).nullable().optional(),
   conditionValue: z.boolean().nullable().optional(),
   actionDeviceId: z.string().min(1).max(255),
-  action: z.enum(["turnOn", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature"]),
+  action: z.enum(["turnOn", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature", "climateSummer", "climateWinter"]),
   actionValue: z.number().min(4).max(35).optional(),
   additionalActions: z.array(automationAdditionalActionSchema).max(7).default([])
 }).strict().superRefine((automation, ctx) => {
@@ -348,6 +348,7 @@ function automationError(error: unknown): { status: number; code: string; messag
     AUTOMATION_ACTION_DUPLICATE_DEVICE: "Each target device can be configured only once per automation.",
     AUTOMATION_TRIGGER_ACTION_SAME_DEVICE: "Trigger and action must use different devices unless a virtual switch is safely reset to the opposite state.",
     AUTOMATION_ACTION_UNSUPPORTED: "The selected action is not supported by the target device.",
+    AUTOMATION_SYSTEM_ACTION_UNAVAILABLE: "The requested SALTA system action is not available.",
     AUTOMATION_CONDITION_DEVICE_NOT_FOUND: "The condition device no longer exists.",
     AUTOMATION_CONDITION_INVALID: "The condition is incomplete.",
     AUTOMATION_CONDITION_STATE_UNSUPPORTED: "The selected condition state is not available on this device.",
@@ -614,9 +615,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.65" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.66" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.65", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.66", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1233,7 +1234,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.65", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.66", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

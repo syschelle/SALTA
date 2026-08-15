@@ -128,6 +128,33 @@ describe("AutomationEngine", () => {
     }
   });
 
+  it("applies the global heating mode through a SALTA system action", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("system:climate-mode", {
+      ...device("system:climate-mode", { mode: "winter" }),
+      source: "system",
+      type: "genericSensor",
+      capabilities: ["setClimateMode"],
+      adapterData: { systemKind: "climateMode" }
+    });
+    const command = vi.fn(async () => registry.get("trigger")!);
+    const applyClimateMode = vi.fn(async () => undefined);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore(), undefined, {}, { applyClimateMode });
+    await engine.start();
+    await engine.create({
+      name: "Summer mode", enabled: true,
+      triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: "system:climate-mode", action: "climateSummer"
+    });
+    registry.publish(device("trigger", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    expect(applyClimateMode).toHaveBeenCalledTimes(1);
+    expect(applyClimateMode).toHaveBeenCalledWith("summer");
+    expect(command).not.toHaveBeenCalled();
+    engine.stop();
+  });
+
   it("keeps a time trigger tied to local wall-clock time across daylight-saving offsets", () => {
     expect(localAutomationTime(new Date("2026-01-15T06:30:00.000Z"), "Europe/Berlin")).toEqual({ dateKey: "2026-01-15", time: "07:30" });
     expect(localAutomationTime(new Date("2026-08-15T05:30:00.000Z"), "Europe/Berlin")).toEqual({ dateKey: "2026-08-15", time: "07:30" });

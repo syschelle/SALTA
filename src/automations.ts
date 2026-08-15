@@ -1,7 +1,13 @@
 import type { Device, DeviceCommand, DeviceEvent, DeviceState } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 
-export type AutomationAction = "turnOn" | "turnOff" | "toggle" | "open" | "close" | "thermostatOff" | "thermostatAuto" | "thermostatManual" | "setTargetTemperature";
+export type AutomationAction = "turnOn" | "turnOff" | "toggle" | "open" | "close" | "thermostatOff" | "thermostatAuto" | "thermostatManual" | "setTargetTemperature" | "climateSummer" | "climateWinter";
+
+export const CLIMATE_MODE_AUTOMATION_DEVICE_ID = "system:climate-mode";
+
+export interface AutomationSystemActions {
+  applyClimateMode(mode: "summer" | "winter"): Promise<void>;
+}
 
 export type AutomationTriggerType = "device" | "time";
 
@@ -144,6 +150,12 @@ function actionCommand(target: Pick<AutomationTargetAction, "action" | "value">)
   return { capability: target.action };
 }
 
+function climateModeAction(target: Pick<AutomationTargetAction, "action">): "summer" | "winter" | undefined {
+  if (target.action === "climateSummer") return "summer";
+  if (target.action === "climateWinter") return "winter";
+  return undefined;
+}
+
 function thermostatTemperatureRange(device: Device): { min: number; max: number } {
   const metadata = device.adapterData ?? {};
   const min = Number(metadata.targetTemperatureMin ?? 4.5);
@@ -156,6 +168,11 @@ function thermostatTemperatureRange(device: Device): { min: number; max: number 
 
 function actionCapabilitySupported(device: Device, target: AutomationTargetAction): boolean {
   const action = target.action;
+  if (climateModeAction(target)) {
+    return device.id === CLIMATE_MODE_AUTOMATION_DEVICE_ID
+      && device.source === "system"
+      && device.capabilities.includes("setClimateMode");
+  }
   const command = actionCommand(target);
   if (action === "setTargetTemperature") {
     if (!device.capabilities.includes("setTargetTemperature")) return false;
@@ -335,7 +352,8 @@ export class AutomationEngine {
     private readonly commander: { command(command: DeviceCommand): Promise<Device> },
     private readonly store: AutomationStore,
     private readonly logger: AutomationLogger = noOpLogger,
-    scheduler: AutomationSchedulerOptions = {}
+    scheduler: AutomationSchedulerOptions = {},
+    private readonly systemActions?: AutomationSystemActions
   ) {
     this.schedulerNow = scheduler.now ?? (() => new Date());
     this.schedulerIntervalMs = Math.max(1_000, scheduler.intervalMs ?? 5_000);
@@ -410,6 +428,7 @@ export class AutomationEngine {
       if (triggers.some(trigger => trigger.deviceId === actionInput.deviceId) && !virtualSelfResetAction(triggers, actionInput, target)) {
         throw new Error("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
       }
+      if (climateModeAction(actionInput) && !this.systemActions) throw new Error("AUTOMATION_SYSTEM_ACTION_UNAVAILABLE");
       if (!actionCapabilitySupported(target, actionInput)) throw new Error(actionInput.action === "setTargetTemperature" ? "AUTOMATION_ACTION_TEMPERATURE_INVALID" : "AUTOMATION_ACTION_UNSUPPORTED");
     }
 
@@ -535,13 +554,19 @@ export class AutomationEngine {
       }
 
       try {
-        const command = actionCommand(targetAction);
-        await this.commander.command({
-          deviceId: targetAction.deviceId,
-          capability: command.capability,
-          ...(command.value !== undefined ? { value: command.value } : {}),
-          source: "automation"
-        });
+        const climateMode = climateModeAction(targetAction);
+        if (climateMode) {
+          if (!this.systemActions) throw new Error("AUTOMATION_SYSTEM_ACTION_UNAVAILABLE");
+          await this.systemActions.applyClimateMode(climateMode);
+        } else {
+          const command = actionCommand(targetAction);
+          await this.commander.command({
+            deviceId: targetAction.deviceId,
+            capability: command.capability,
+            ...(command.value !== undefined ? { value: command.value } : {}),
+            source: "automation"
+          });
+        }
         successfulActions += 1;
       } catch (error) {
         failedActions += 1;

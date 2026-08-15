@@ -1,5 +1,6 @@
 import type { ClimateMode, ClimateModeSettings, Device, DeviceCommand, WinterThermostatMode } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
+import { CLIMATE_MODE_AUTOMATION_DEVICE_ID } from "./automations.js";
 import { getClimateModeSettings, getGeneralSettings, getPushoverConnection, updateClimateModeSettings, updateClimateWinterMode, writeSystemLog } from "./db.js";
 import { sendPushoverMessage, type PushoverSender } from "./pushover.js";
 
@@ -87,7 +88,12 @@ export class ClimateModeManager {
   }
 
   async setWinterMode(winterMode: WinterThermostatMode): Promise<ClimateModeStatus> {
-    await updateClimateWinterMode(winterMode);
+    const settings = await updateClimateWinterMode(winterMode);
+    const systemDevice = this.registry.get(CLIMATE_MODE_AUTOMATION_DEVICE_ID);
+    if (systemDevice) {
+      const stamp = new Date().toISOString();
+      await this.registry.set({ ...systemDevice, state: { ...systemDevice.state, winterMode: settings.winterMode }, lastSeen: stamp, lastEvent: stamp });
+    }
     await writeSystemLog(
       "info",
       "system",
@@ -128,7 +134,17 @@ export class ClimateModeManager {
 
     const appliedAt = new Date().toISOString();
     const lastResult = { total: thermostats.length, succeeded, failed };
-    await updateClimateModeSettings({ mode, winterMode, lastAppliedAt: appliedAt, lastResult });
+    const settings = await updateClimateModeSettings({ mode, winterMode, lastAppliedAt: appliedAt, lastResult });
+    const systemDevice = this.registry.get(CLIMATE_MODE_AUTOMATION_DEVICE_ID);
+    if (systemDevice) {
+      await this.registry.set({
+        ...systemDevice,
+        reachable: true,
+        state: { ...systemDevice.state, mode: settings.mode, winterMode: settings.winterMode },
+        lastSeen: appliedAt,
+        lastEvent: appliedAt
+      });
+    }
     await writeSystemLog(
       failed ? "warning" : "info",
       "system",

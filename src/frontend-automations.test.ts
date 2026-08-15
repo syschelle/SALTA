@@ -34,6 +34,13 @@ describe("automation frontend", () => {
     expect(cssRuleContains(styles, ".automation-additional-triggers[hidden]", "display:none")).toBe(true);
   });
 
+  it("offers the global SALTA heating mode as an automation target", () => {
+    expect(ui).toContain("climateSummer:'Sommermodus'");
+    expect(ui).toContain("climateWinter:'Wintermodus'");
+    expect(ui).toContain("device.source==='system'&&device.adapterData?.systemKind==='climateMode'");
+    expect(html).toContain('aria-label="Ziel nach Name, Raum, Quelle oder SALTA-Funktion suchen"');
+  });
+
   it("offers boolean state transitions and deCONZ button-event triggers", () => {
     expect(ui).toContain("turnOn:'An',turnOff:'Aus',toggle:'Toggle'");
     expect(ui).toContain("typeof value==='boolean'");

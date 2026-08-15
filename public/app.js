@@ -19,7 +19,7 @@ const icons={outlet:'mdi-power-socket-eu',switch:'mdi-toggle-switch-outline',ene
 const mdiIcon=(name,fallback='help-circle-outline')=>{const normalized=String(name||'').trim().toLowerCase().replace(/^mdi-/,'');return /^[a-z0-9-]+$/.test(normalized)?`mdi-${normalized}`:`mdi-${fallback}`};
 const iconMarkup=(name)=>`<span class="mdi ${mdiIcon(name)}" aria-hidden="true"></span>`;
 const typeLabels={outlet:'Steckdose',switch:'Schalter',energyMeter:'Energiezähler',windowCovering:'Rollladen',light:'Licht',fan:'Ventilator',motionSensor:'Bewegungssensor',contactSensor:'Kontakt',temperatureSensor:'Temperatursensor',humiditySensor:'Feuchtesensor',lightSensor:'Lichtsensor',waterLeakSensor:'Wassersensor',smokeSensor:'Gefahrensensor',button:'Taster',thermostat:'Thermostat',genericSensor:'Sensor'};
-const sourceLabels={shelly:'Shelly',phoscon:'Zigbee',hue:'Philips Hue',openccu:'HomeMatic',virtual:'Virtuell',presence:'Präsenz'};
+const sourceLabels={shelly:'Shelly',phoscon:'Zigbee',hue:'Philips Hue',openccu:'HomeMatic',virtual:'Virtuell',presence:'Präsenz',system:'SALTA'};
 const overviewDeviceGridElement=document.getElementById('overviewDeviceGrid');
 const roomGrouping=globalThis.SaltaRoomGrouping;
 if(!overviewDeviceGridElement||!roomGrouping)throw new Error('Overview room grouping could not be initialized');
@@ -385,7 +385,7 @@ async function logout(){
 }
 function updateDashboardSummary(){
   renderDaylightOverview();
-  const dashboardDevices=all.filter(device=>device.source!=='presence');
+  const dashboardDevices=all.filter(device=>device.source!=='presence'&&device.source!=='system');
   deviceCount.textContent=dashboardDevices.length;
   reachableCount.textContent=dashboardDevices.filter(device=>device.reachable).length;
   roomCount.textContent=rooms.length;

@@ -206,6 +206,14 @@ export async function initializeDatabaseSchema(): Promise<void> {
       )
     );
     CREATE INDEX IF NOT EXISTS automation_targets_device_idx ON automation_targets(action_device_id,automation_id);
+    CREATE TABLE IF NOT EXISTS automation_system_actions (
+      automation_id uuid NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+      position smallint NOT NULL CHECK(position BETWEEN 0 AND 7),
+      target text NOT NULL CHECK(target IN ('climateMode')),
+      action text NOT NULL CHECK(action IN ('climateSummer','climateWinter')),
+      PRIMARY KEY(automation_id,position),
+      UNIQUE(automation_id,target)
+    );
     INSERT INTO automation_targets(automation_id,position,action_device_id,action,value)
       SELECT id,0,action_device_id,action,NULL FROM automations
       ON CONFLICT DO NOTHING;
@@ -224,6 +232,17 @@ export async function initializeDatabaseSchema(): Promise<void> {
       updated_at timestamptz NOT NULL DEFAULT now()
     );
     INSERT INTO climate_mode_settings(id) VALUES('global') ON CONFLICT(id) DO NOTHING;
+    INSERT INTO devices(id,source,source_id,type,presentation_type,name,reachable,state,capabilities,homekit_enabled,credential_mode,last_seen,last_event,updated_at)
+      SELECT 'system:climate-mode','system','climate-mode','genericSensor','auto','Heizmodus',true,
+        jsonb_build_object('mode',mode,'winterMode',winter_mode),ARRAY['setClimateMode']::text[],false,'none',now(),now(),now()
+      FROM climate_mode_settings WHERE id='global'
+      ON CONFLICT(id) DO UPDATE SET source=EXCLUDED.source,source_id=EXCLUDED.source_id,type=EXCLUDED.type,presentation_type=EXCLUDED.presentation_type,name=EXCLUDED.name,reachable=true,state=EXCLUDED.state,capabilities=EXCLUDED.capabilities,homekit_enabled=false,credential_mode='none',updated_at=now();
+    INSERT INTO device_preferences(device_id,hidden) VALUES('system:climate-mode',true)
+      ON CONFLICT(device_id) DO UPDATE SET hidden=true,updated_at=now();
+    INSERT INTO device_homekit_settings(device_id,enabled) VALUES('system:climate-mode',false)
+      ON CONFLICT(device_id) DO UPDATE SET enabled=false,updated_at=now();
+    INSERT INTO device_adapter_data(device_id,data) VALUES('system:climate-mode','{"systemKind":"climateMode"}'::jsonb)
+      ON CONFLICT(device_id) DO UPDATE SET data=EXCLUDED.data,updated_at=now();
     CREATE TABLE IF NOT EXISTS notification_settings (
       channel text PRIMARY KEY DEFAULT 'pushover',
       enabled boolean NOT NULL DEFAULT false,
@@ -395,21 +414,24 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
         return [{ deviceId: String(trigger.deviceId), stateKey: String(trigger.stateKey), value: trigger.value }];
       })
     : [];
-  const parsedTargets = Array.isArray(row.targetActions)
-    ? row.targetActions.flatMap(value => {
-        if (!value || typeof value !== "object") return [];
-        const target = value as Record<string, unknown>;
-        const action = String(target.action ?? "");
-        if (!target.deviceId || !["turnOn", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature"].includes(action)) return [];
-        const numericValue = target.value === null || target.value === undefined ? undefined : Number(target.value);
-        if (action === "setTargetTemperature" && !Number.isFinite(numericValue)) return [];
-        return [{
-          deviceId: String(target.deviceId),
-          action: action as AutomationRule["action"],
-          ...(numericValue !== undefined ? { value: numericValue } : {})
-        }];
-      })
-    : [];
+  const rawTargets = [
+    ...(Array.isArray(row.targetActions) ? row.targetActions : []),
+    ...(Array.isArray(row.systemActions) ? row.systemActions : [])
+  ];
+  const parsedTargets = rawTargets.flatMap(value => {
+    if (!value || typeof value !== "object") return [];
+    const target = value as Record<string, unknown>;
+    const action = String(target.action ?? "");
+    if (!target.deviceId || !["turnOn", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature", "climateSummer", "climateWinter"].includes(action)) return [];
+    const numericValue = target.value === null || target.value === undefined ? undefined : Number(target.value);
+    if (action === "setTargetTemperature" && !Number.isFinite(numericValue)) return [];
+    return [{
+      position: Number(target.position ?? 0),
+      deviceId: String(target.deviceId),
+      action: action as AutomationRule["action"],
+      ...(numericValue !== undefined ? { value: numericValue } : {})
+    }];
+  }).sort((left, right) => left.position - right.position).map(({ position: _position, ...target }) => target);
   const legacyAdditionalActions = Array.isArray(row.additionalActions)
     ? row.additionalActions.flatMap(value => {
         if (!value || typeof value !== "object") return [];
@@ -449,7 +471,8 @@ const automationColumns = `a.id,a.name,a.enabled,p.room_id as "roomId",CASE WHEN
   a.condition_device_id as "conditionDeviceId",a.condition_state_key as "conditionStateKey",a.condition_value as "conditionValue",
   a.action_device_id as "actionDeviceId",a.action,
   COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',x.action_device_id,'action',x.action) ORDER BY x.position) FROM automation_actions x WHERE x.automation_id=a.id),'[]'::jsonb) as "additionalActions",
-  COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',x.action_device_id,'action',x.action,'value',x.value) ORDER BY x.position) FROM automation_targets x WHERE x.automation_id=a.id),'[]'::jsonb) as "targetActions",
+  COALESCE((SELECT jsonb_agg(jsonb_build_object('position',x.position,'deviceId',x.action_device_id,'action',x.action,'value',x.value) ORDER BY x.position) FROM automation_targets x WHERE x.automation_id=a.id),'[]'::jsonb) as "targetActions",
+  COALESCE((SELECT jsonb_agg(jsonb_build_object('position',x.position,'deviceId','system:climate-mode','action',x.action) ORDER BY x.position) FROM automation_system_actions x WHERE x.automation_id=a.id),'[]'::jsonb) as "systemActions",
   a.last_triggered_at as "lastTriggeredAt",a.created_at as "createdAt",a.updated_at as "updatedAt"`;
 
 export async function listAutomations(): Promise<AutomationRule[]> {
@@ -474,7 +497,15 @@ function canonicalAutomationTargets(input: AutomationInput): AutomationTargetAct
 
 async function writeAutomationTargets(client: PoolClient, automationId: string, input: AutomationInput): Promise<void> {
   await client.query("DELETE FROM automation_targets WHERE automation_id=$1", [automationId]);
+  await client.query("DELETE FROM automation_system_actions WHERE automation_id=$1", [automationId]);
   for (const [position, target] of canonicalAutomationTargets(input).entries()) {
+    if (target.action === "climateSummer" || target.action === "climateWinter") {
+      await client.query(
+        `INSERT INTO automation_system_actions(automation_id,position,target,action) VALUES($1,$2,'climateMode',$3)`,
+        [automationId,position,target.action]
+      );
+      continue;
+    }
     await client.query(
       `INSERT INTO automation_targets(automation_id,position,action_device_id,action,value) VALUES($1,$2,$3,$4,$5)`,
       [automationId,position,target.deviceId,target.action,target.action === "setTargetTemperature" ? target.value ?? null : null]

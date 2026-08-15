@@ -90,7 +90,8 @@ const pushoverSource = read("src/pushover.ts");
 const climateDbSource = read("src/db.ts");
 if (!publicIndex.includes('id="climateSummerButton"') || !publicIndex.includes('id="climateWinterButton"') || !publicIndex.includes('id="climateWinterModeDisplay"')) fail("Global summer/winter thermostat controls are missing");
 if (!publicIndex.includes('data-settings-panel="climate"') || !publicIndex.includes('id="climateSettingsWinterMode"') || !publicIndex.includes('id="climateApplyNowButton"')) fail("Climate mode settings are missing");
-if (!publicIndex.includes('class="panel overview-system-card climate-mode-card" data-homekit-exposed="false"')) fail("Climate mode must remain explicitly SALTA-only");
+if (!publicIndex.includes('class="panel overview-system-card climate-mode-card" data-homekit-exposed="false"')) fail("Climate mode must remain excluded from HomeKit");
+if (publicIndex.includes('<span class="system-card-badge">Nur SALTA</span>')) fail("Climate overview must not show the removed Nur SALTA badge");
 if (!serverSource.includes('"/api/system/climate-mode"') || !serverSource.includes('"/api/settings/climate-mode"')) fail("Climate mode APIs are missing");
 if (!climateModeSource.includes('value: targetMode') || !climateModeSource.includes('source: "system"')) fail("Climate mode does not route thermostat mode commands through SALTA system commands");
 if (!climateModeSource.includes('async setWinterMode') || !climateModeSource.includes('updateClimateWinterMode')) fail("Winter thermostat mode is not stored separately from mode application");
@@ -192,9 +193,14 @@ if (!automationFrontend.includes("setTargetTemperature:'Solltemperatur setzen'")
 if (!automationFrontend.includes("automationNormalizeTemperature") || !automationFrontend.includes("actionValue:automationNormalizeTemperature")) fail("Automation thermostat target temperature is not included in the payload");
 if (!automationEngineSource.includes('capability: "setThermostatMode"') || !automationEngineSource.includes('value: "auto"')) fail("Automation engine does not map thermostat target modes to device commands");
 if (!automationEngineSource.includes('capability: "setTargetTemperature"') || !automationEngineSource.includes("AUTOMATION_ACTION_TEMPERATURE_INVALID")) fail("Automation engine does not validate thermostat target temperatures");
+if (!automationFrontend.includes("climateSummer:'Sommermodus'") || !automationFrontend.includes("climateWinter:'Wintermodus'") || !automationFrontend.includes("systemKind==='climateMode'")) fail("Automation frontend does not expose the SALTA heating-mode target");
+if (!automationEngineSource.includes('CLIMATE_MODE_AUTOMATION_DEVICE_ID = "system:climate-mode"') || !automationEngineSource.includes("applyClimateMode(climateMode)")) fail("Automation engine does not execute SALTA heating-mode actions");
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS automation_system_actions") || !databaseSource.includes("INSERT INTO automation_system_actions(automation_id,position,target,action)")) fail("Automation heating-mode actions are not stored additively");
+if (!databaseSource.includes("'system:climate-mode','system','climate-mode'") || !databaseSource.includes('"systemKind":"climateMode"')) fail("The internal SALTA heating-mode automation target is missing");
+if (!mainSource.includes("applyClimateMode: async mode") || !mainSource.includes("climate.apply(mode)")) fail("Main does not wire SALTA heating-mode actions to the climate manager");
 if (!serverSource.includes("additionalTriggers: z.array(automationAdditionalTriggerSchema).max(7).default([])")) fail("Automation API does not accept bounded additional OR triggers");
 if (!serverSource.includes("additionalActions: z.array(automationAdditionalActionSchema).max(7).default([])")) fail("Automation API does not accept bounded additional target actions");
-if (!configurationBackupSource.includes("automation_actions: backupRows().optional()") || !configurationBackupSource.includes("automation_targets: backupRows().optional()") || !configurationBackupSource.includes('"automation_actions", "automation_targets", "climate_mode_settings"')) fail("Configuration backup does not preserve canonical multi-target automation actions");
+if (!configurationBackupSource.includes("automation_actions: backupRows().optional()") || !configurationBackupSource.includes("automation_targets: backupRows().optional()") || !configurationBackupSource.includes("automation_system_actions: backupRows().optional()") || !configurationBackupSource.includes('"automation_actions", "automation_targets", "automation_system_actions", "climate_mode_settings"')) fail("Configuration backup does not preserve canonical device and SALTA-system automation actions");
 
 if (!automationFrontend.includes("automationButtonEventMarker='event:buttonEvent'")) fail("Automation button-event trigger UI is missing");
 if (!automationFrontend.includes("event:buttonEvent:${eventValue}")) fail("Automation button events are not persisted through the existing trigger key");
@@ -277,7 +283,7 @@ if (!phosconCoreSource.includes('sensor.type === "button"')) fail("Phoscon butto
 const automationPersistenceSource = read("src/automation-persistence.ts");
 if (automationEngineSource.includes('from "./db.js"')) fail("automation core must not import the database/configuration layer directly");
 if (!automationPersistenceSource.includes('from "./db.js"')) fail("automation persistence adapter is not wired to the database layer");
-if (!mainSource.includes("databaseAutomationStore, databaseAutomationLogger")) fail("main does not inject automation persistence and logging adapters");
+if (!mainSource.includes("databaseAutomationStore") || !mainSource.includes("databaseAutomationLogger") || !mainSource.includes("new AutomationEngine(")) fail("main does not inject automation persistence and logging adapters");
 const testRunnerSource = read("scripts/check-test-symbols.mjs");
 if (!testRunnerSource.includes('resolve(root, "node_modules", "vitest", "vitest.mjs")')) fail("npm test does not launch the locked local Vitest executable");
 if (!testRunnerSource.includes('const vitestOnly = process.argv.includes("--vitest-only")')) fail("test runner does not support the optimized Vitest-only phase");

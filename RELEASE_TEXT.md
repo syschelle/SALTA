@@ -1,6 +1,20 @@
-# SALTA v0.8.65
+# SALTA v0.8.66
 
-SALTA v0.8.65 adds a first-class daily wall-clock trigger to the local automation engine. Automations can now start from either a device event/state or a selected local time such as `07:30`, while keeping the existing optional condition and multi-target action model. The implementation is local-first, timezone-aware and persists schedules without a destructive database migration.
+SALTA v0.8.66 integrates the global Heating mode into the local automation engine and simplifies the Heating mode card on the overview. Automations can now switch the complete thermostat group to Summer or Winter mode as a normal target action, including from the daily time trigger introduced in v0.8.65.
+
+## v0.8.66 heating-mode automation target
+
+- Added the global SALTA **Heating mode** as a first-class target in the automation editor's **Then** stage.
+- Heating mode provides two automation actions: **Summer mode** and **Winter mode**.
+- The target can be used as the primary action or as one of the additional actions in a rule.
+- Time-triggered rules can therefore perform schedules such as `22:00 → Heating mode → Winter mode` without creating or selecting a dummy device.
+- Heating-mode actions use the same `ClimateModeManager` as the overview and settings UI. Summer mode turns compatible thermostats off; Winter mode applies the manual or automatic winter behavior configured under **Settings → Heating mode**.
+- Added an internal hidden `system:climate-mode` target for automation persistence and execution. It is not shown on normal device pages, is excluded from overview device counts, and remains disabled for HomeKit publication.
+- Added the additive `automation_system_actions` table for SALTA-level automation actions. No destructive `ALTER TABLE` migration is required.
+- Configuration and disaster-recovery backups include system actions. Existing backups created before v0.8.66 remain compatible and restore with no system-action rows.
+- Removed the visible **Nur SALTA** badge from the Heating mode overview card. The underlying Heating mode remains a SALTA-local control and is still explicitly excluded from HomeKit.
+- Added regression coverage for the automation engine, API normalization, database schema/persistence, frontend target selection and backup/restore.
+- No new mandatory environment variable or npm dependency is required.
 
 ## v0.8.65 daily automation time triggers
 

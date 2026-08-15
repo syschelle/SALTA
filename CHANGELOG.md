@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.66
+
+- Added the global SALTA **Heating mode** as a first-class automation target under **Then**. Rules can now switch the complete heating system to **Summer mode** or **Winter mode** without a dummy device.
+- Heating-mode actions use the existing `ClimateModeManager`, so **Summer mode** turns compatible thermostats off while **Winter mode** applies the configured manual/automatic winter behavior.
+- Heating mode can be the primary or an additional automation action and can be combined with the daily time trigger and the existing optional condition.
+- Added an internal hidden `system:climate-mode` automation target. It is not shown as a normal device, is excluded from overview device counts and remains disabled for HomeKit publication.
+- Added additive `automation_system_actions` persistence plus configuration/disaster-recovery backup support. Older backups without the table remain compatible.
+- Removed the visible **Nur SALTA** badge from the heating-mode overview card while keeping the climate mode itself local to SALTA and not exposed to HomeKit.
+- No destructive database migration, new mandatory environment variable or new npm dependency is required.
+
 ## v0.8.65
 
 - Added a first-class **daily time trigger** to the automation editor under **When**, alongside the existing device trigger.

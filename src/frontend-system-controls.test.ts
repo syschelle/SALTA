@@ -20,7 +20,7 @@ describe("system overview controls", () => {
     expect(cssRuleContains(styles, ".daylight-times", "grid-template-columns:1fr 1fr")).toBe(true);
   });
 
-  it("shows a compact SALTA-only summer/winter thermostat control", () => {
+  it("shows a compact summer/winter thermostat control without the old SALTA-only badge", () => {
     expect(html).toContain('id="climateSummerButton"');
     expect(html).toContain('id="climateWinterButton"');
     expect(html).toContain('id="climateWinterModeDisplay"');
@@ -28,6 +28,7 @@ describe("system overview controls", () => {
     expect(html).toContain('id="climateSettingsWinterMode"');
     expect(html).toContain('id="climateApplyNowButton"');
     expect(html).toContain('class="panel overview-system-card climate-mode-card" data-homekit-exposed="false"');
+    expect(html).not.toContain('<span class="system-card-badge">Nur SALTA</span>');
     expect(html).toContain("onclick=\"applyClimateMode('summer')\"");
     expect(html).toContain("onclick=\"applyClimateMode('winter')\"");
     expect(hasFunction(app, "applyClimateMode")).toBe(true);

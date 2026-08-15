@@ -180,7 +180,7 @@ export class HomeKitBridge {
     bridge.getService(Service.AccessoryInformation)
       ?.setCharacteristic(Characteristic.Manufacturer, "SALTA")
       .setCharacteristic(Characteristic.Model, "SALTA HomeKit Bridge")
-      .setCharacteristic(Characteristic.FirmwareRevision, "0.8.65")
+      .setCharacteristic(Characteristic.FirmwareRevision, "0.8.66")
       .setCharacteristic(Characteristic.SerialNumber, settings.username.replace(/:/g, ""));
     bridge.on("listening", (port, address) => {
       this.listeningPort = port;
@@ -366,7 +366,7 @@ export class HomeKitBridge {
         ?.setCharacteristic(Characteristic.Manufacturer, "SALTA")
         .setCharacteristic(Characteristic.Model, device.model || `SALTA ${device.source}`)
         .setCharacteristic(Characteristic.SerialNumber, device.macAddress || device.sourceId)
-        .setCharacteristic(Characteristic.FirmwareRevision, device.firmwareVersion || "0.8.65");
+        .setCharacteristic(Characteristic.FirmwareRevision, device.firmwareVersion || "0.8.66");
       const primary = this.addService(accessory, device, serviceType, accessoryName);
       if (!primary) return;
       this.addBatteryService(accessory, device);
