@@ -128,4 +128,20 @@ describe("automation frontend", () => {
     expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card", "padding:9px")).toBe(true);
     expect(cssMediaRuleContains(styles, "(max-width:620px)", ".automation-card-controls", "gap:4px")).toBe(true);
   });
+  it("supports multiple target devices in the Dann step", () => {
+    expect(html).toContain('id="automationAdditionalActions"');
+    expect(html).toContain('id="automationAddActionButton"');
+    expect(html).toContain("Weiteres Zielgerät hinzufügen");
+    expect(ui).toContain("automationAdditionalActions");
+    expect(hasFunction(uiAst, "addAutomationAdditionalAction")).toBe(true);
+    expect(hasFunction(uiAst, "renderAutomationAdditionalActions")).toBe(true);
+    expect(hasFunction(uiAst, "automationAdditionalActionPayload")).toBe(true);
+    expect(hasFunction(uiAst, "automationActionSummaryItems")).toBe(true);
+    expect(ui).toContain("additionalActions:automationAdditionalActionPayload()");
+    expect(ui).toContain("automationActionSummaryMarkup(summary.actionItems)");
+    expect(cssRuleContains(styles, ".automation-add-action", "border:1px dashed var(--line)")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-extra-action-body[hidden]", "display:none")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-action-list", "flex-wrap:wrap")).toBe(true);
+  });
+
 });

@@ -24,6 +24,7 @@ const backupDataSchema = z.object({
   automations: backupRows(),
   automation_preferences: backupRows(),
   automation_triggers: backupRows(),
+  automation_actions: backupRows().optional(),
   climate_mode_settings: backupRows(10),
   notification_settings: backupRows(10),
   notification_state: backupRows(100)
@@ -43,9 +44,10 @@ const backupSchema = z.object({
 export type ConfigurationBackup = z.infer<typeof backupSchema>;
 
 type BackupData = z.infer<typeof backupDataSchema>;
+type NormalizedBackupData = Omit<BackupData, "automation_actions"> & { automation_actions: Record<string, unknown>[] };
 type BackupRow = Record<string, unknown>;
 
-const exportQueries: Readonly<Record<keyof BackupData, string>> = {
+const exportQueries: Readonly<Record<keyof NormalizedBackupData, string>> = {
   rooms: "SELECT * FROM rooms ORDER BY sort_order,name,id",
   devices: "SELECT * FROM devices ORDER BY id",
   device_preferences: "SELECT * FROM device_preferences ORDER BY device_id",
@@ -59,12 +61,13 @@ const exportQueries: Readonly<Record<keyof BackupData, string>> = {
   automations: "SELECT * FROM automations ORDER BY name,id",
   automation_preferences: "SELECT * FROM automation_preferences ORDER BY automation_id",
   automation_triggers: "SELECT * FROM automation_triggers ORDER BY automation_id,position",
+  automation_actions: "SELECT * FROM automation_actions ORDER BY automation_id,position",
   climate_mode_settings: "SELECT * FROM climate_mode_settings ORDER BY id",
   notification_settings: "SELECT * FROM notification_settings ORDER BY channel",
   notification_state: "SELECT * FROM notification_state ORDER BY key"
 };
 
-const insertStatements: Readonly<Record<keyof BackupData, string>> = {
+const insertStatements: Readonly<Record<keyof NormalizedBackupData, string>> = {
   rooms: "INSERT INTO rooms SELECT * FROM jsonb_populate_recordset(NULL::rooms, $1::jsonb)",
   devices: "INSERT INTO devices SELECT * FROM jsonb_populate_recordset(NULL::devices, $1::jsonb)",
   device_preferences: "INSERT INTO device_preferences SELECT * FROM jsonb_populate_recordset(NULL::device_preferences, $1::jsonb)",
@@ -78,19 +81,21 @@ const insertStatements: Readonly<Record<keyof BackupData, string>> = {
   automations: "INSERT INTO automations SELECT * FROM jsonb_populate_recordset(NULL::automations, $1::jsonb)",
   automation_preferences: "INSERT INTO automation_preferences SELECT * FROM jsonb_populate_recordset(NULL::automation_preferences, $1::jsonb)",
   automation_triggers: "INSERT INTO automation_triggers SELECT * FROM jsonb_populate_recordset(NULL::automation_triggers, $1::jsonb)",
+  automation_actions: "INSERT INTO automation_actions SELECT * FROM jsonb_populate_recordset(NULL::automation_actions, $1::jsonb)",
   climate_mode_settings: "INSERT INTO climate_mode_settings SELECT * FROM jsonb_populate_recordset(NULL::climate_mode_settings, $1::jsonb)",
   notification_settings: "INSERT INTO notification_settings SELECT * FROM jsonb_populate_recordset(NULL::notification_settings, $1::jsonb)",
   notification_state: "INSERT INTO notification_state SELECT * FROM jsonb_populate_recordset(NULL::notification_state, $1::jsonb)"
 };
 
-const insertOrder: readonly (keyof BackupData)[] = [
+const insertOrder: readonly (keyof NormalizedBackupData)[] = [
   "rooms", "devices", "device_preferences", "device_homekit_settings", "adapter_settings", "openccu_settings",
   "fritzbox_presence_settings", "fritzbox_presence_transport_settings", "presence_targets", "device_adapter_data",
-  "automations", "automation_preferences", "automation_triggers", "climate_mode_settings", "notification_settings", "notification_state"
+  "automations", "automation_preferences", "automation_triggers", "automation_actions", "climate_mode_settings", "notification_settings", "notification_state"
 ];
 
 const deleteStatements = [
   "DELETE FROM notification_state",
+  "DELETE FROM automation_actions",
   "DELETE FROM automation_triggers",
   "DELETE FROM automation_preferences",
   "DELETE FROM automations",
@@ -165,12 +170,12 @@ export async function createConfigurationBackup(saltaVersion: string, signingKey
   const client = await pool.connect();
   try {
     await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-    const entries: [keyof BackupData, BackupRow[]][] = [];
-    for (const [key, sql] of Object.entries(exportQueries) as [keyof BackupData, string][]) {
+    const entries: [keyof NormalizedBackupData, BackupRow[]][] = [];
+    for (const [key, sql] of Object.entries(exportQueries) as [keyof NormalizedBackupData, string][]) {
       entries.push([key, (await client.query<BackupRow>(sql)).rows]);
     }
     await client.query("COMMIT");
-    const data = Object.fromEntries(entries) as BackupData;
+    const data = Object.fromEntries(entries) as NormalizedBackupData;
     data.devices = sanitizeDeviceRows(data.devices, createdAt);
     const unsigned: Omit<ConfigurationBackup, "signature"> = {
       format: CONFIGURATION_BACKUP_FORMAT,
@@ -218,16 +223,19 @@ export async function importConfigurationBackup(input: unknown, signingKey = con
   if (!signaturesMatch(expectedSignature, backup.signature)) throw new Error("CONFIG_BACKUP_SIGNATURE_INVALID");
   validateEncryptedSecretShapes(backup.data);
   if (backup.containsEncryptedSecrets !== encryptedSecretsPresent(backup.data)) throw new Error("CONFIG_BACKUP_INVALID");
+  // v0.8.53 and older format-v1 backups do not contain automation_actions.
+  // Keep the signed input untouched for verification, then normalize it for restore.
+  const restoreData: NormalizedBackupData = { ...backup.data, automation_actions: backup.data.automation_actions ?? [] };
 
   const client = await pool.connect();
   let externalTransaction: ConfigurationImportExternalTransaction | void = undefined;
   let committed = false;
   try {
     await client.query("BEGIN");
-    await client.query("LOCK TABLE rooms, devices, device_preferences, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, device_adapter_data, automations, automation_preferences, automation_triggers, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
+    await client.query("LOCK TABLE rooms, devices, device_preferences, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, device_adapter_data, automations, automation_preferences, automation_triggers, automation_actions, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
     for (const statement of deleteStatements) await client.query(statement);
     for (const table of insertOrder) {
-      const rows = backup.data[table];
+      const rows = restoreData[table];
       if (!rows.length) continue;
       await client.query(insertStatements[table], [JSON.stringify(rows)]);
     }

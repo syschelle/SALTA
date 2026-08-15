@@ -3,6 +3,11 @@ import type { DeviceRegistry } from "./registry.js";
 
 export type AutomationAction = "turnOn" | "turnOff" | "toggle";
 
+export interface AutomationTargetAction {
+  deviceId: string;
+  action: AutomationAction;
+}
+
 export interface AutomationTrigger {
   deviceId: string;
   stateKey: string;
@@ -23,6 +28,7 @@ export interface AutomationRule {
   conditionValue?: boolean;
   actionDeviceId: string;
   action: AutomationAction;
+  additionalActions?: AutomationTargetAction[];
   lastTriggeredAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -41,6 +47,7 @@ export interface AutomationInput {
   conditionValue?: boolean;
   actionDeviceId: string;
   action: AutomationAction;
+  additionalActions?: AutomationTargetAction[];
 }
 
 export interface AutomationStore {
@@ -134,7 +141,11 @@ function cloneInput(input: AutomationInput): AutomationInput {
       stateKey: trigger.stateKey.trim(),
       value: trigger.value
     })),
-    conditionStateKey: input.conditionStateKey?.trim() || undefined
+    conditionStateKey: input.conditionStateKey?.trim() || undefined,
+    additionalActions: (input.additionalActions ?? []).map(target => ({
+      deviceId: target.deviceId,
+      action: target.action
+    }))
   };
 }
 
@@ -142,6 +153,13 @@ export function automationRuleTriggers(rule: Pick<AutomationRule, "triggerDevice
   return [
     { deviceId: rule.triggerDeviceId, stateKey: rule.triggerStateKey, value: rule.triggerValue },
     ...(rule.additionalTriggers ?? [])
+  ];
+}
+
+export function automationRuleActions(rule: Pick<AutomationRule, "actionDeviceId" | "action" | "additionalActions">): AutomationTargetAction[] {
+  return [
+    { deviceId: rule.actionDeviceId, action: rule.action },
+    ...(rule.additionalActions ?? [])
   ];
 }
 
@@ -155,7 +173,7 @@ function assertAcyclic(rules: AutomationRule[], candidate: AutomationRule): void
   for (const rule of active) {
     for (const trigger of automationRuleTriggers(rule)) {
       const targets = graph.get(trigger.deviceId) ?? [];
-      targets.push(rule.actionDeviceId);
+      targets.push(...automationRuleActions(rule).map(action => action.deviceId));
       graph.set(trigger.deviceId, targets);
     }
   }
@@ -202,7 +220,8 @@ export class AutomationEngine {
     this.rules = this.rules.flatMap(rule => {
       if (rule.triggerDeviceId === device.id || rule.conditionDeviceId === device.id || rule.actionDeviceId === device.id) return [];
       const additionalTriggers = (rule.additionalTriggers ?? []).filter(trigger => trigger.deviceId !== device.id);
-      return [{ ...rule, additionalTriggers }];
+      const additionalActions = (rule.additionalActions ?? []).filter(action => action.deviceId !== device.id);
+      return [{ ...rule, additionalTriggers, additionalActions }];
     });
   };
 
@@ -259,10 +278,15 @@ export class AutomationEngine {
       }
     }
 
-    const target = this.registry.get(input.actionDeviceId);
-    if (!target) throw new Error("AUTOMATION_ACTION_DEVICE_NOT_FOUND");
-    if (triggers.some(trigger => trigger.deviceId === input.actionDeviceId)) throw new Error("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
-    if (!actionCapabilitySupported(target, input.action)) throw new Error("AUTOMATION_ACTION_UNSUPPORTED");
+    const actions = automationRuleActions(input);
+    if (actions.length > 8) throw new Error("AUTOMATION_ACTION_LIMIT");
+    if (new Set(actions.map(action => action.deviceId)).size !== actions.length) throw new Error("AUTOMATION_ACTION_DUPLICATE_DEVICE");
+    for (const actionInput of actions) {
+      const target = this.registry.get(actionInput.deviceId);
+      if (!target) throw new Error("AUTOMATION_ACTION_DEVICE_NOT_FOUND");
+      if (triggers.some(trigger => trigger.deviceId === actionInput.deviceId)) throw new Error("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
+      if (!actionCapabilitySupported(target, actionInput.action)) throw new Error("AUTOMATION_ACTION_UNSUPPORTED");
+    }
 
     const hasCondition = Boolean(input.conditionDeviceId);
     if (hasCondition) {
@@ -318,7 +342,8 @@ export class AutomationEngine {
       conditionStateKey: current.conditionStateKey,
       conditionValue: current.conditionValue,
       actionDeviceId: current.actionDeviceId,
-      action: current.action
+      action: current.action,
+      additionalActions: current.additionalActions
     });
   }
 
@@ -353,36 +378,58 @@ export class AutomationEngine {
   private async executeRule(ruleId: string, trigger: Record<string, unknown>): Promise<void> {
     const rule = this.rules.find(item => item.id === ruleId);
     if (!rule?.enabled || !this.conditionAllows(rule)) return;
-    const target = this.registry.get(rule.actionDeviceId);
-    if (!target || !target.reachable || !actionCapabilitySupported(target, rule.action)) return;
 
-    try {
-      await this.commander.command({
-        deviceId: rule.actionDeviceId,
-        capability: rule.action,
-        source: "automation"
-      });
-      const triggeredAt = new Date().toISOString();
-      await this.store.markTriggered(rule.id, triggeredAt);
-      this.rules = this.rules.map(item => item.id === rule.id ? { ...item, lastTriggeredAt: triggeredAt } : item);
-      await this.logger.write("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", {
-        automationId: rule.id,
-        automationName: rule.name,
-        triggerDeviceId: rule.triggerDeviceId,
-        actionDeviceId: rule.actionDeviceId,
-        action: rule.action,
-        ...trigger
-      }).catch(() => undefined);
-    } catch (error) {
-      await this.logger.write("error", "automation", "AUTOMATION_ACTION_FAILED", "Automation action failed", {
-        automationId: rule.id,
-        automationName: rule.name,
-        actionDeviceId: rule.actionDeviceId,
-        action: rule.action,
-        error: error instanceof Error ? error.message : String(error),
-        ...trigger
-      }).catch(() => undefined);
+    let successfulActions = 0;
+    let failedActions = 0;
+    const actions = automationRuleActions(rule);
+    for (const targetAction of actions) {
+      const target = this.registry.get(targetAction.deviceId);
+      if (!target || !target.reachable || !actionCapabilitySupported(target, targetAction.action)) {
+        failedActions += 1;
+        await this.logger.write("warning", "automation", "AUTOMATION_ACTION_SKIPPED", "Automation target action was skipped", {
+          automationId: rule.id,
+          automationName: rule.name,
+          actionDeviceId: targetAction.deviceId,
+          action: targetAction.action,
+          reason: !target ? "device-not-found" : !target.reachable ? "device-unreachable" : "action-unsupported",
+          ...trigger
+        }).catch(() => undefined);
+        continue;
+      }
+
+      try {
+        await this.commander.command({
+          deviceId: targetAction.deviceId,
+          capability: targetAction.action,
+          source: "automation"
+        });
+        successfulActions += 1;
+      } catch (error) {
+        failedActions += 1;
+        await this.logger.write("error", "automation", "AUTOMATION_ACTION_FAILED", "Automation action failed", {
+          automationId: rule.id,
+          automationName: rule.name,
+          actionDeviceId: targetAction.deviceId,
+          action: targetAction.action,
+          error: error instanceof Error ? error.message : String(error),
+          ...trigger
+        }).catch(() => undefined);
+      }
     }
+
+    if (successfulActions === 0) return;
+    const triggeredAt = new Date().toISOString();
+    await this.store.markTriggered(rule.id, triggeredAt);
+    this.rules = this.rules.map(item => item.id === rule.id ? { ...item, lastTriggeredAt: triggeredAt } : item);
+    await this.logger.write("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", {
+      automationId: rule.id,
+      automationName: rule.name,
+      triggerDeviceId: rule.triggerDeviceId,
+      actions: actions.map(action => ({ deviceId: action.deviceId, action: action.action })),
+      successfulActions,
+      failedActions,
+      ...trigger
+    }).catch(() => undefined);
   }
 
   private async handleDevice(device: Device): Promise<void> {

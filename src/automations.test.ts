@@ -265,4 +265,105 @@ describe("AutomationEngine", () => {
     engine.stop();
   });
 
+  it("executes all configured target actions for one trigger", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("target-a", device("target-a", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("target-b", device("target-b", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("target-c", device("target-c", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const command = vi.fn(async commandInput => registry.get(commandInput.deviceId)!);
+    const store = memoryStore();
+    const engine = new AutomationEngine(registry as never, { command }, store);
+    await engine.start();
+    await engine.create({
+      name: "Multi target", enabled: true,
+      triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: "target-a", action: "turnOn",
+      additionalActions: [
+        { deviceId: "target-b", action: "turnOff" },
+        { deviceId: "target-c", action: "toggle" }
+      ]
+    });
+
+    registry.publish(device("trigger", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    await tick();
+    expect(command).toHaveBeenCalledTimes(3);
+    expect(command.mock.calls.map(call => call[0])).toEqual([
+      { deviceId: "target-a", capability: "turnOn", source: "automation" },
+      { deviceId: "target-b", capability: "turnOff", source: "automation" },
+      { deviceId: "target-c", capability: "toggle", source: "automation" }
+    ]);
+    expect(store.markTriggered).toHaveBeenCalledTimes(1);
+    engine.stop();
+  });
+
+  it("continues with remaining targets when one target action fails", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("target-a", device("target-a", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("target-b", device("target-b", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const command = vi.fn(async commandInput => {
+      if (commandInput.deviceId === "target-a") throw new Error("TEST_FAILURE");
+      return registry.get(commandInput.deviceId)!;
+    });
+    const logger = { write: vi.fn(async () => undefined) };
+    const store = memoryStore();
+    const engine = new AutomationEngine(registry as never, { command }, store, logger);
+    await engine.start();
+    await engine.create({
+      name: "Partial failure", enabled: true,
+      triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: "target-a", action: "turnOn",
+      additionalActions: [{ deviceId: "target-b", action: "turnOn" }]
+    });
+
+    registry.publish(device("trigger", { on: true }, ["turnOn", "turnOff", "toggle"]));
+    await tick();
+    await tick();
+    expect(command).toHaveBeenCalledTimes(2);
+    expect(store.markTriggered).toHaveBeenCalledTimes(1);
+    expect(logger.write).toHaveBeenCalledWith("error", "automation", "AUTOMATION_ACTION_FAILED", "Automation action failed", expect.objectContaining({ actionDeviceId: "target-a" }));
+    expect(logger.write).toHaveBeenCalledWith("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", expect.objectContaining({ successfulActions: 1, failedActions: 1 }));
+    engine.stop();
+  });
+
+  it("rejects duplicate, trigger-equal and excessive target actions", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    for (let index = 1; index <= 9; index += 1) registry.devices.set(`target-${index}`, device(`target-${index}`, { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const engine = new AutomationEngine(registry as never, { command: vi.fn(async commandInput => registry.get(commandInput.deviceId)!) }, memoryStore());
+    await engine.start();
+    await expect(engine.create({
+      name: "Duplicate target", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: "target-1", action: "turnOn", additionalActions: [{ deviceId: "target-1", action: "turnOff" }]
+    })).rejects.toThrow("AUTOMATION_ACTION_DUPLICATE_DEVICE");
+    await expect(engine.create({
+      name: "Trigger target", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: "target-1", action: "turnOn", additionalActions: [{ deviceId: "trigger", action: "turnOff" }]
+    })).rejects.toThrow("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
+    await expect(engine.create({
+      name: "Too many targets", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: "target-1", action: "turnOn",
+      additionalActions: Array.from({ length: 8 }, (_, index) => ({ deviceId: `target-${index + 2}`, action: "turnOn" as const }))
+    })).rejects.toThrow("AUTOMATION_ACTION_LIMIT");
+    engine.stop();
+  });
+
+  it("includes additional target devices in cycle protection", async () => {
+    const registry = new TestRegistry();
+    for (const id of ["a", "b", "c"]) registry.devices.set(id, device(id, { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const engine = new AutomationEngine(registry as never, { command: vi.fn(async commandInput => registry.get(commandInput.deviceId)!) }, memoryStore());
+    await engine.start();
+    await engine.create({
+      name: "A to B and C", enabled: true, triggerDeviceId: "a", triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: "b", action: "turnOn", additionalActions: [{ deviceId: "c", action: "turnOn" }]
+    });
+    await expect(engine.create({
+      name: "C to A", enabled: true, triggerDeviceId: "c", triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: "a", action: "turnOn"
+    })).rejects.toThrow("AUTOMATION_CYCLE_NOT_ALLOWED");
+    engine.stop();
+  });
+
 });

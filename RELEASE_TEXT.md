@@ -1,42 +1,55 @@
-# SALTA v0.8.53
+# SALTA v0.8.54
 
-SALTA v0.8.53 improves the HomeKit settings experience and adds central per-device publication controls directly to **Settings → HomeKit**. The release keeps the existing HomeKit protocol implementation and production network topology from v0.8.52, while making supported thermostats, contact sensors and other compatible devices much easier to publish and review.
+SALTA v0.8.54 adds multi-target actions to the automation engine and includes the HomeKit settings and central device-publication improvements prepared after v0.8.52. One automation can now control several target devices in its **Dann** step while preserving existing single-target automations unchanged.
 
-## HomeKit settings redesign
+## Multiple target devices in automations
 
-- Reworked the HomeKit settings page into compact, clearly separated sections for bridge configuration, runtime status, pairing and device publication.
-- Fixed the settings-page width calculation so the HomeKit panel and its controls remain inside the available content area instead of overflowing to the right.
-- Added responsive bridge fields and status cards that shrink or wrap cleanly on narrower screens.
-- Replaced the previous warning-style room notice with a neutral informational note.
-- Added compact runtime cards for bridge state, pairing state, Bridge ID, HAP port and published/supported device counts.
-- Added a dedicated `[hidden]` rule for the pairing section so the QR/pairing block is actually removed from the layout after the bridge is paired.
+- Added **Weiteres Zielgerät hinzufügen** to step **3 · Dann** in the automation editor.
+- One automation can control up to eight target devices in total.
+- Each target device has its own `An`, `Aus` or `Toggle` action according to the capabilities exposed by that device.
+- Additional targets are displayed as compact **UND** entries because every configured target action is executed when the automation fires.
+- Existing automations remain fully compatible: their existing `actionDeviceId` / `action` pair stays the primary target action.
+- The automation overview now shows every configured target action instead of only the first target device.
 
-## Central HomeKit device management
+## Execution safety
 
-- Added a new **Devices in HomeKit** section to the global HomeKit settings page.
-- Lists all currently HomeKit-compatible SALTA devices grouped by SALTA room.
-- Shows device type, integration source, target room and a compact live-state summary.
-- Adds a direct HomeKit publication toggle for each supported device.
-- Existing per-device HomeKit configuration remains available for optional HomeKit-specific names and room overrides.
-- Hidden Zigbee devices remain excluded from HomeKit and their publication control is disabled with an explanatory state.
+- Target devices are validated independently before an automation is saved.
+- A target device cannot also be one of the automation's trigger devices.
+- The same target device cannot be configured twice in one automation.
+- Cycle detection now includes every additional target device, preventing loops that pass through secondary actions.
+- If one target is temporarily unreachable or one command fails, SALTA continues with the remaining target actions.
+- Individual failures and skipped targets are written to the system log with the affected device and action.
+- An automation is marked as triggered when at least one configured target action succeeds.
 
-## Thermostats and OpenCCU contact sensors
+## Additive persistence and recovery
 
-- Compatible OpenCCU thermostats exposing `setTargetTemperature` and `setThermostatMode` are shown in the central HomeKit device list and can be enabled directly there.
-- OpenCCU contact sensors already represented by SALTA as `contactSensor` are shown with their live **Open / Closed** state and can be published directly to HomeKit.
-- Existing HomeKit battery-service behavior remains unchanged for devices that expose battery information.
-- No OpenCCU protocol or device-detection relaxation was required for these devices.
+- Added the canonical `automation_actions` table for up to seven additional target actions per automation.
+- The existing primary action remains in the `automations` table, preserving existing installations and rules.
+- No destructive `ALTER TABLE` migration is used; the table is created additively during normal SALTA database initialization.
+- Configuration/disaster-recovery backups now export and restore `automation_actions`.
+- Existing format-v1 configuration backups that do not contain `automation_actions` remain accepted and restore with an empty additional-action list.
+
+## HomeKit settings improvements included
+
+- Includes the compact and responsive **Settings → HomeKit** redesign prepared after v0.8.52.
+- Fixes the HomeKit settings width/overflow issue.
+- Hides the QR/pairing block completely after successful pairing.
+- Adds a central **Geräte in HomeKit** list grouped by SALTA room.
+- Supported OpenCCU thermostats and contact sensors can be enabled for HomeKit directly from the HomeKit settings page.
+- Contact sensors show their live open/closed state; thermostats show their available temperature/mode information.
+- Hidden Zigbee devices remain excluded from HomeKit.
 
 ## Compatibility
 
-- Builds on the released SALTA v0.8.52 production topology.
+- Builds on the released SALTA v0.8.52 baseline and supersedes the unreleased v0.8.53 candidate.
+- Existing single-target automations require no changes.
+- No manual database migration is required.
+- Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
 - SALTA continues to use `network_mode: host` for HomeKit HAP/mDNS.
 - PostgreSQL remains on Docker's normal bridge network and is published only on host loopback.
-- No database migration is required.
-- Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
 - No new mandatory environment variable is required.
 - No new npm dependency is introduced.
-- The legacy `/opt/SALTA/migrate-homekit-storage.sh` helper is still required only for HomeKit pairing state created before v0.8.41.
+- `/opt/SALTA/migrate-homekit-storage.sh` is still required only for HomeKit pairing state created before v0.8.41.
 
 ## Production update
 

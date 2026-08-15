@@ -57,6 +57,12 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
     expect(databaseSource).toContain("PRIMARY KEY(automation_id,position)");
     expect(databaseSource).toContain('as "additionalTriggers"');
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_actions");
+    expect(databaseSource).toContain("action_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE");
+    expect(databaseSource).toContain("UNIQUE(automation_id,action_device_id)");
+    expect(databaseSource).toContain("CREATE INDEX IF NOT EXISTS automation_actions_device_idx");
+    expect(databaseSource).toContain('as "additionalActions"');
+    expect(databaseSource).toContain("INSERT INTO automation_actions(automation_id,position,action_device_id,action)");
   });
 
   it("stores FRITZ!Box presence settings and monitored MAC addresses additively", () => {

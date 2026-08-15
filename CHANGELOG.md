@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.54
+
+- Added up to eight target actions per automation with a compact **UND** editor in step **3 · Dann**.
+- Added independent per-target `An`, `Aus` and `Toggle` action selection based on device capabilities.
+- Added the canonical additive `automation_actions` table while preserving the existing primary action columns for backward compatibility.
+- Extended cycle detection, trigger/action validation and duplicate-target protection across all configured target devices.
+- Automation execution now continues with remaining targets when one command fails or a device is unreachable, with per-target system-log diagnostics.
+- Configuration/disaster-recovery backup now preserves `automation_actions` and keeps format-v1 backups without that table compatible.
+- Automation cards now summarize every target action instead of only the primary target.
+- Includes the responsive HomeKit settings redesign, central HomeKit device publication list, paired-state hiding and OpenCCU thermostat/contact-sensor publication controls prepared in the v0.8.53 candidate.
+- No manual database migration, new mandatory environment variable or new npm dependency is required.
+
 ## v0.8.53
 
 - Redesigned **Settings → HomeKit** into compact bridge, runtime, pairing and device-publication sections with responsive width handling.

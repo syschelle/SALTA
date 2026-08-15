@@ -152,9 +152,16 @@ if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS automation_triggers")) 
 if (!databaseSource.includes("position smallint NOT NULL CHECK(position BETWEEN 1 AND 7)")) fail("Automation OR-trigger limit is missing from the canonical schema");
 if (!databaseSource.includes("trigger_device_id text NOT NULL REFERENCES devices(id) ON DELETE CASCADE")) fail("Automation OR-trigger device reference is missing");
 if (!databaseSource.includes('as "additionalTriggers"')) fail("Automation OR triggers are not loaded with rules");
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS automation_actions")) fail("Automation multi-target action table is missing");
+if (!databaseSource.includes('as "additionalActions"')) fail("Automation additional target actions are not loaded with rules");
+if (!databaseSource.includes("INSERT INTO automation_actions(automation_id,position,action_device_id,action)")) fail("Automation additional target actions are not persisted");
 if (!publicIndex.includes('id="automationAdditionalTriggers"') || !publicIndex.includes('id="automationAddTriggerButton"')) fail("Compact OR-trigger editor controls are missing");
+if (!publicIndex.includes('id="automationAdditionalActions"') || !publicIndex.includes('id="automationAddActionButton"')) fail("Multi-target automation action controls are missing");
 if (!automationFrontend.includes("automationAdditionalTriggerPayload()") || !automationFrontend.includes("additionalTriggers:")) fail("Automation OR triggers are not included in the frontend payload");
 if (!automationFrontend.includes("automationAdditionalTriggerPayload") || !automationFrontend.includes("renderAutomationAdditionalTriggers")) fail("Automation OR-trigger UI implementation is incomplete");
+if (!automationFrontend.includes("automationAdditionalActionPayload") || !automationFrontend.includes("renderAutomationAdditionalActions")) fail("Automation multi-target action UI implementation is incomplete");
+if (!automationFrontend.includes("additionalActions:automationAdditionalActionPayload()")) fail("Automation additional target actions are not included in the frontend payload");
+if (!automationFrontend.includes("automationActionSummaryMarkup(summary.actionItems)")) fail("Automation cards do not summarize every target action");
 if (!phosconAdapterSource.includes("buttonFallbackIntervalMs = 2_000") || !phosconAdapterSource.includes("pollButtonSensors")) fail("Phoscon button fallback polling is missing");
 if (!phosconAdapterSource.includes("buttonEventLastUpdated") || !phosconAdapterSource.includes('transport: "websocket" | "poll"')) fail("Phoscon button-event revision tracking is missing");
 if (!automationFrontend.includes("automationPrimaryEventValues") || !automationFrontend.includes("sameDeviceEventTriggers")) fail("Automation multi-event selection is missing");
@@ -167,7 +174,10 @@ if (!publicStyles.includes(".automation-card-icon-action") || !publicStyles.incl
 if (!automationFrontend.includes('id="automationExtraEventPicker-${trigger.id}"')) fail("Additional OR-trigger event picker markup is missing");
 if (!publicIndex.includes('id="automationTriggerEventPicker"') || !publicIndex.includes('id="automationTriggerEventOptions"')) fail("Automation multi-event picker markup is missing");
 if (!automationEngineSource.includes("automationRuleTriggers") || !automationEngineSource.includes("AUTOMATION_TRIGGER_LIMIT")) fail("Automation engine does not validate multiple OR triggers");
+if (!automationEngineSource.includes("automationRuleActions") || !automationEngineSource.includes("AUTOMATION_ACTION_LIMIT") || !automationEngineSource.includes("AUTOMATION_ACTION_DUPLICATE_DEVICE")) fail("Automation engine does not validate multiple target actions");
 if (!serverSource.includes("additionalTriggers: z.array(automationAdditionalTriggerSchema).max(7).default([])")) fail("Automation API does not accept bounded additional OR triggers");
+if (!serverSource.includes("additionalActions: z.array(automationAdditionalActionSchema).max(7).default([])")) fail("Automation API does not accept bounded additional target actions");
+if (!configurationBackupSource.includes("automation_actions: backupRows().optional()") || !configurationBackupSource.includes('"automation_actions", "climate_mode_settings"')) fail("Configuration backup does not preserve multi-target automation actions");
 
 if (!automationFrontend.includes("automationButtonEventMarker='event:buttonEvent'")) fail("Automation button-event trigger UI is missing");
 if (!automationFrontend.includes("event:buttonEvent:${eventValue}")) fail("Automation button events are not persisted through the existing trigger key");

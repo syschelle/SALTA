@@ -11,7 +11,7 @@ SALTA is a local-first smart-home control plane with PostgreSQL persistence, a r
 SALTA uses pre-1.0 semantic versioning while the architecture is still evolving. The original roadmap assigned the automation engine to the v0.7.x line and the dashboard to v0.8.x. During implementation, the room-based dashboard, compact device controls, virtual devices and HomeKit integration were completed within v0.7.x. The roadmap is therefore re-baselined from v0.8.0 onward:
 
 - **v0.7.x — device and dashboard foundation:** Shelly, Zigbee, OpenCCU/HomeMatic, room overview, compact responsive cards, virtual switches and shared HomeKit command routing.
-- **v0.8.x — automation engine:** persistent event rules, conditions and actions; later v0.8.x releases can extend this with additional trigger types, multiple conditions/actions and scheduling.
+- **v0.8.x — automation engine:** persistent event rules, conditions and actions; later v0.8.x releases can extend this with additional trigger types, multiple conditions, delays and scheduling.
 - **v0.9.x — assistant and advanced orchestration:** planned higher-level assistance and rule composition.
 - **v1.0.0 — first stable release:** production-ready documentation, upgrade discipline, tests, backups and stable public behavior.
 
@@ -303,15 +303,15 @@ The first automation rule format contains exactly three stages:
 
 1. **When** — choose a trigger device. Boolean device states fire only when the selected value is entered, while Zigbee button devices can trigger on every received deCONZ `buttonevent`, including repeated identical event codes.
 2. **Only if** — optionally require a second device to have a selected boolean state. Conditions are evaluated from the current reachable device state at execution time.
-3. **Then** — choose a different target device and execute **On**, **Off** or **Toggle**, depending on the capabilities exposed by that device.
+3. **Then** — choose one or more different target devices and execute **On**, **Off** or **Toggle** independently for each target, depending on the capabilities exposed by that device. Up to eight target devices can be controlled by one automation.
 
 The device selectors for trigger, condition and target are searchable. Type any part of the device name, room, source (for example Shelly, Zigbee, HomeMatic, Presence or Virtual), model or logical device type to narrow the list. The editor also shows how many matching devices are currently available.
 
 The engine works across supported SALTA device sources because actions use the shared device command router. For example, a Zigbee motion sensor can switch a Shelly relay, a HomeMatic contact can toggle a SALTA virtual switch, or a phone-presence state can be combined with the Phoscon Daylight sensor. Rules can be enabled, disabled, edited and deleted from the web interface.
 
-Automation rules are stored in PostgreSQL and restored after restart. References to deleted trigger, condition or target devices are removed automatically by the database. SALTA also rejects automation graphs that would create a device-to-device cycle, preventing simple toggle loops.
+Automation rules are stored in PostgreSQL and restored after restart. The primary target action remains part of the original automation row, while additional target actions are stored additively in `automation_actions`. References to deleted trigger, condition or target devices are removed automatically by the database. SALTA also rejects automation graphs that would create a device-to-device cycle across any configured target, preventing simple toggle loops. If one target command fails at runtime, SALTA logs that target failure and continues with the remaining actions.
 
-The v0.8.x engine currently supports boolean device-state transitions and deCONZ/Zigbee button events, together with one optional boolean condition and one On/Off/Toggle action. Numeric threshold triggers, time schedules, delays, multiple conditions and multiple actions remain planned extensions.
+The v0.8.x engine currently supports boolean device-state transitions and deCONZ/Zigbee button events, together with one optional boolean condition and up to eight On/Off/Toggle target actions. Numeric threshold triggers, time schedules, delays and multiple conditions remain planned extensions.
 
 ## OpenCCU and HomeMatic support
 

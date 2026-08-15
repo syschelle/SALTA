@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { clientQuery, release, connect } = vi.hoisted(() => {
@@ -25,6 +26,7 @@ function rowsFor(sql: string): Record<string, unknown>[] {
   ];
   if (sql.includes("FROM adapter_settings")) return [{ adapter_id: "shelly", username: "admin", encrypted_password: encrypted }];
   if (sql.includes("FROM automations ")) return [{ id: "22222222-2222-4222-8222-222222222222", name: "Test" }];
+  if (sql.includes("FROM automation_actions")) return [{ automation_id: "22222222-2222-4222-8222-222222222222", position: 1, action_device_id: "virtual:test", action: "turnOn" }];
   if (sql.includes("FROM climate_mode_settings")) return [{ id: "global", mode: "winter", winter_mode: "auto" }];
   if (sql.includes("FROM notification_settings")) return [{ channel: "pushover", enabled: false, encrypted_user_key: "", encrypted_api_token: "", battery_threshold: 20 }];
   if (sql.includes("FROM notification_state")) return [{ key: "battery-low-weekly", last_sent_at: "2026-08-12T07:00:00.000Z", details: {} }];
@@ -63,9 +65,11 @@ describe("configuration backup", () => {
     expect(connect).toHaveBeenCalledTimes(1);
     expect(clientQuery).toHaveBeenCalledWith("BEGIN");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM notification_state");
+    expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_actions");
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO notification_state SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO rooms SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO devices SELECT * FROM jsonb_populate_recordset"))).toBe(true);
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_actions SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery).toHaveBeenCalledWith("COMMIT");
     expect(release).toHaveBeenCalledTimes(1);
   });
@@ -99,4 +103,23 @@ describe("configuration backup", () => {
     await expect(importConfigurationBackup(modified)).rejects.toThrow("CONFIG_BACKUP_SIGNATURE_INVALID");
     expect(connect).not.toHaveBeenCalled();
   });
+  it("accepts signed format-v1 backups created before automation_actions existed", async () => {
+    const backup = await createConfigurationBackup("0.8.53");
+    const data = { ...backup.data } as Record<string, unknown>;
+    delete data.automation_actions;
+    const { signature: _signature, ...base } = backup;
+    void _signature;
+    const unsigned = { ...base, data };
+    const signature = createHmac("sha256", "test-backup-encryption-key-123456").update(JSON.stringify(unsigned), "utf8").digest("base64url");
+    clientQuery.mockClear();
+    connect.mockClear();
+    release.mockClear();
+
+    await importConfigurationBackup({ ...unsigned, signature });
+
+    expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_actions");
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_actions SELECT"))).toBe(false);
+    expect(clientQuery).toHaveBeenCalledWith("COMMIT");
+  });
+
 });
