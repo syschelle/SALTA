@@ -1,6 +1,18 @@
-# SALTA v0.8.75
+# SALTA v0.8.76
 
-SALTA v0.8.75 is a regression-test maintenance release for the Vacation mode introduced in v0.8.74. The two failing frontend tests were stale source-location expectations; runtime behavior is unchanged.
+SALTA v0.8.76 cleans up the overview after the recent addition of Daylight, Vacation mode, Heating mode and Battery status. The release keeps every existing function but reduces the number of competing visual containers and gives the overview a clearer status-first hierarchy.
+
+## v0.8.76 overview hierarchy cleanup
+
+- Combined the five top-level metrics — Devices, Reachable, Current power, Rooms and Presence — into one compact **house-status band** instead of five visually separate cards.
+- Rebalanced **Daylight**, **Vacation mode**, **Heating mode** and **Batteries** into four equal-width quick-control cards on wide screens.
+- Removed the explanatory paragraph from each quick-control card. The current state, control buttons and warnings now receive visual priority.
+- Reduced overview-only padding, icon sizes, control height and status-chip spacing to make the page easier to scan without reducing functionality.
+- Heating mode no longer consumes disproportionately more horizontal space than the other global controls. Its Summer/Winter selector and configured Winter behavior are stacked compactly inside the same card.
+- Preserved the existing Daylight phase and sunrise/sunset information, Vacation On/Off controls and Pushover status, Heating Summer/Winter controls and Battery/Pushover shortcut.
+- Added responsive layouts: four quick-control cards on wide screens, two columns on tablet-sized screens and one column on narrow phones. The house-status band similarly adapts from five to three to two columns.
+- Updated overview regression tests to verify the new visual hierarchy while keeping all runtime IDs and JavaScript integration points unchanged.
+- No backend, database schema, automation behavior, HomeKit behavior, Vacation security monitoring, Pushover logic, mandatory environment variable, npm dependency or deployment topology changed.
 
 ## v0.8.75 regression-test maintenance
 
@@ -213,8 +225,8 @@ SALTA v0.8.75 is a regression-test maintenance release for the Vacation mode int
 
 ## Compatibility
 
-- v0.8.75 changes only frontend regression-test expectations; runtime behavior and persistence are unchanged.
-- The v0.8.74 Vacation mode, contact-security monitor and Pushover alert path remain unchanged.
+- v0.8.76 changes only the overview HTML/CSS hierarchy and related frontend regression tests; backend behavior and persistence are unchanged.
+- The v0.8.75 regression-test maintenance and v0.8.74 Vacation mode, contact-security monitor and Pushover alert path remain unchanged.
 - v0.8.65 adds the `automation_time_triggers` table automatically during normal schema initialization; no manual database migration is required.
 - Hue credentials continue to reuse SALTA's existing encrypted `adapter_settings` persistence.
 - Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.

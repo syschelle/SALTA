@@ -34,9 +34,9 @@ describe("system overview controls", () => {
     expect(hasFunction(app, "applyClimateMode")).toBe(true);
     expect(functionCallsWithStringArgument(app, "applyClimateMode", "api", "/api/system/climate-mode")).toBe(true);
     expect(functionCallsWithStringArgument(app, "saveClimateSettings", "api", "/api/settings/climate-mode")).toBe(true);
-    expect(cssRuleContains(styles, ".overview-system-card", "padding:13px 15px")).toBe(true);
-    expect(cssRuleContains(styles, ".climate-mode-row", "grid-template-columns:minmax(220px,1fr) auto")).toBe(true);
-    expect(cssMediaRuleContains(styles, "(max-width:620px)", ".climate-mode-row", "grid-template-columns:1fr")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-system-card", "padding:11px 12px")).toBe(true);
+    expect(cssRuleContains(styles, ".climate-mode-row", "grid-template-columns:1fr")).toBe(true);
+    expect(cssRuleContains(styles, ".climate-winter-mode-display", "justify-content:space-between")).toBe(true);
   });
 
   it("shows battery status and keeps Pushover configuration compact", () => {
@@ -55,7 +55,18 @@ describe("system overview controls", () => {
     expect(functionCallsWithStringArgument(app, "saveGeneralSettings", "api", "/api/settings/general")).toBe(true);
     expect(cssRuleContains(styles, ".debug-mode-indicator", "position:sticky")).toBe(true);
     expect(functionCallsWithStringArgument(app, "testPushover", "api", "/api/settings/notifications/test")).toBe(true);
-    expect(cssRuleContains(styles, ".battery-overview-status", "min-height:44px")).toBe(true);
+    expect(cssRuleContains(styles, ".battery-overview-status", "min-height:50px")).toBe(true);
+  });
+
+  it("presents the four global controls as equal compact quick-control cards", () => {
+    expect(cssRuleContains(styles, ".overview-system-grid", "grid-template-columns:repeat(4,minmax(0,1fr))")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-system-card", "min-height:136px")).toBe(true);
+    expect(cssMediaRuleContains(styles, "(max-width:1280px)", ".overview-system-grid", "grid-template-columns:repeat(2,minmax(0,1fr))")).toBe(true);
+    expect(cssMediaRuleContains(styles, "(max-width:560px)", ".overview-system-grid", "grid-template-columns:1fr")).toBe(true);
+    expect(html).not.toContain('Aktuelle Sonnenphase sowie Auf- und Untergang.');
+    expect(html).not.toContain('Überwacht Fenster- und Türkontakte und alarmiert per Pushover.');
+    expect(html).not.toContain('Alle kompatiblen Thermostate zentral umschalten.');
+    expect(html).not.toContain('Batteriestände und Low-Battery-Meldungen im Blick.');
   });
 
   it("does not show the Phoscon badge on the daylight overview card", () => {

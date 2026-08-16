@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.76
+
+- Reworked the overview into a clearer visual hierarchy without changing runtime behavior.
+- Combined the five top-level metrics into one compact **Hausstatus / house-status** band instead of five separate cards.
+- Rebalanced Daylight, Vacation mode, Heating mode and Battery status into four equal-width quick-control cards on wide screens.
+- Removed explanatory copy from the four quick-control cards so current state, controls and warnings have visual priority.
+- Reduced padding, icon sizes, button height and status-chip spacing in the overview quick controls while preserving all existing controls and IDs.
+- Added responsive 4 → 2 → 1 quick-control columns and 5 → 3 → 2 KPI behavior for desktop, tablet and mobile layouts.
+- No backend, database, automation, HomeKit, Pushover, adapter or persistence behavior changed.
+
 ## v0.8.75
 
 - Updated two stale frontend regression tests after the v0.8.74 Vacation mode integration.

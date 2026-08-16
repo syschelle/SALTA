@@ -9,16 +9,19 @@ const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "u
 const appAst = parseJavaScriptSource(appSource);
 
 describe("compact overview summary", () => {
-  it("uses a dedicated compact overview header and five summary cards", () => {
+  it("uses a dedicated compact overview header and a unified five-value house-status band", () => {
     expect(html).toContain('class="overview-header"');
     expect(html).toContain('class="stats overview-stats"');
+    expect(html).toContain('aria-label="Hausstatus"');
     expect(html).toContain('id="overviewPresenceCard"');
     expect(html).toContain('id="overviewPresence"');
     expect(html).toContain('id="overviewPresenceDetail"');
     expect(cssRuleContains(styles, ".overview-stats", "grid-template-columns:repeat(5,minmax(0,1fr))")).toBe(true);
-    expect(cssRuleContains(styles, ".overview-stats", "margin:18px 0 18px")).toBe(true);
-    expect(cssRuleContains(styles, ".overview-heading h1", "font-size:28px")).toBe(true);
-    expect(cssRuleContains(styles, ".overview-stats article", "min-height:78px")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-stats", "gap:0")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-stats", "margin:16px 0 12px")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-stats article", "min-height:62px")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-stats article", "background:transparent")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-stats article", "box-shadow:none")).toBe(true);
   });
 
   it("renders house presence from the existing virtual presence-group device", () => {
@@ -37,8 +40,9 @@ describe("compact overview summary", () => {
     expect(summary).toContain("device.source!=='system'");
   });
 
-  it("keeps the overview summary compact and responsive on narrow screens", () => {
+  it("keeps the house-status band compact and responsive on narrow screens", () => {
+    expect(cssMediaRuleContains(styles, "(max-width:900px)", ".overview-stats", "grid-template-columns:repeat(3,minmax(0,1fr))")).toBe(true);
     expect(cssMediaRuleContains(styles, "(max-width:700px)", ".overview-stats", "grid-template-columns:repeat(2,minmax(0,1fr))")).toBe(true);
-    expect(cssMediaRuleContains(styles, "(max-width:700px)", ".overview-presence-stat", "grid-column:span 2")).toBe(true);
+    expect(cssMediaRuleContains(styles, "(max-width:700px)", ".overview-stats article:last-child", "grid-column:1/-1")).toBe(true);
   });
 });
