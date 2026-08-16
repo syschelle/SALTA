@@ -238,6 +238,13 @@ describe("FRITZ!Box presence transport", () => {
     expect(authorization).toContain('username="salta"');
   });
 
+  it("carries person display names into the aggregate house presence state", () => {
+    const source = readFileSync(new URL("./fritzbox-presence.ts", import.meta.url), "utf8");
+    expect(source).toContain("personName:target.personName");
+    expect(source).toContain("presentNames:JSON.stringify(presentNames)");
+    expect(source).toContain("memberNames:JSON.stringify(memberNames)");
+  });
+
   it("keeps TLS certificate bypass request-scoped", () => {
     const source = readFileSync(new URL("./fritzbox-presence.ts", import.meta.url), "utf8");
     expect(source).toContain("rejectUnauthorized:!tlsInsecure");

@@ -235,7 +235,11 @@ if (!publicIndex.includes('data-nav="presence"') || !publicIndex.includes('data-
 for (const id of ["presenceSettingsForm", "presenceHouseSummary", "presenceTargetList", "presenceTargetForm", "presenceProtocol", "presenceHost", "presencePort", "presenceTlsInsecure"]) {
   if (!publicIndex.includes(`id="${id}"`)) fail(`Presence page section is missing: ${id}`);
 }
-if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_targets") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_transport_settings")) fail("Presence persistence tables are missing");
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_targets") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_target_profiles") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_transport_settings")) fail("Presence persistence tables are missing");
+if (!databaseSource.includes('as "personName"') || !databaseSource.includes("LEFT JOIN presence_target_profiles p ON p.target_id=t.id")) fail("Presence person-name persistence/fallback is missing");
+if (!publicIndex.includes('id="presenceTargetPersonName"') || !virtualFrontend.includes("personName:presenceTargetPersonName.value.trim()")) fail("Presence person-name editor is missing");
+if (!presenceSource.includes("presentNames:JSON.stringify(presentNames)") || !virtualFrontend.includes("presenceNamesFromHouse") || !virtualFrontend.includes("compactPresenceNames")) fail("Named house-presence overview is incomplete");
+if (!configurationBackupSource.includes("presence_target_profiles: backupRows(1000).optional()") || !configurationBackupSource.includes("presence_target_profiles: backup.data.presence_target_profiles ?? []")) fail("Presence person-name backup compatibility is missing");
 if (!databaseSource.includes("tls_insecure boolean NOT NULL DEFAULT false")) fail("FRITZ!Box TLS verification setting persistence is missing");
 if (!presenceSource.includes('urn:dslforum-org:service:Hosts:1') || !presenceSource.includes('GetSpecificHostEntry') || !presenceSource.includes('/upnp/control/hosts')) fail("FRITZ!Box TR-064 Hosts integration is incomplete");
 if (!presenceSource.includes('tr64desc.xml') || !presenceSource.includes('hostsControlUrlFromDescription') || !presenceSource.includes('controlURL')) fail("FRITZ!Box Hosts controlURL discovery from tr64desc.xml is missing");

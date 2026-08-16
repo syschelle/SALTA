@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.77
+
+- Added a separate **person display name** to every monitored FRITZ!Box presence target while keeping the existing device name and MAC address unchanged.
+- The overview Presence status now shows the names of currently present people instead of only a numeric `x of y present` summary.
+- The Presence page house summary also shows the currently present person names, while the target list displays the person name prominently and the device name as secondary information.
+- Existing presence targets remain compatible: when no person profile exists yet, SALTA falls back to the existing target/device name until the entry is edited.
+- Added the additive `presence_target_profiles` table rather than altering the existing `presence_targets` table. No manual SQL migration is required.
+- Configuration and disaster-recovery backups include person profiles; older format-v1 backups without the additive table remain importable.
+- No new mandatory environment variable, npm dependency or deployment-topology change is required.
+
 ## v0.8.76
 
 - Reworked the overview into a clearer visual hierarchy without changing runtime behavior.

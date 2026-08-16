@@ -31,7 +31,8 @@ describe("compact overview summary", () => {
     expect(summary).toContain("housePresence.state?.presentCount");
     expect(summary).toContain("housePresence.adapterData?.memberCount");
     expect(summary).toContain("presenceValue.textContent=anyHome?'Zuhause':'Niemand'");
-    expect(summary).toContain("`${count} von ${members} anwesend`");
+    expect(summary).toContain("presenceNamesFromHouse(housePresence)");
+    expect(summary).toContain("presentNames.length?compactPresenceNames(presentNames)");
   });
 
   it("keeps presence devices out of normal device/reachability/power counters", () => {

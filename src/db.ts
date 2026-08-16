@@ -125,6 +125,11 @@ export async function initializeDatabaseSchema(): Promise<void> {
       created_at timestamptz NOT NULL DEFAULT now(),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS presence_target_profiles (
+      target_id uuid PRIMARY KEY REFERENCES presence_targets(id) ON DELETE CASCADE,
+      person_name text NOT NULL CHECK(length(trim(person_name)) BETWEEN 1 AND 80),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS device_adapter_data (
       device_id text PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
       data jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -928,18 +933,32 @@ export async function updateFritzBoxPresenceSettings(input: { baseUrl: string; u
 }
 
 export async function listPresenceTargets(): Promise<PresenceTarget[]> {
-  const result = await pool.query(`SELECT id,name,mac_address as "macAddress",absence_delay_seconds as "absenceDelaySeconds",created_at as "createdAt",updated_at as "updatedAt" FROM presence_targets ORDER BY name,id`);
+  const result = await pool.query(`SELECT t.id,t.name,COALESCE(NULLIF(trim(p.person_name),''),t.name) as "personName",t.mac_address as "macAddress",t.absence_delay_seconds as "absenceDelaySeconds",t.created_at as "createdAt",t.updated_at as "updatedAt" FROM presence_targets t LEFT JOIN presence_target_profiles p ON p.target_id=t.id ORDER BY COALESCE(NULLIF(trim(p.person_name),''),t.name),t.name,t.id`);
   return result.rows;
 }
 
-export async function createPresenceTarget(name: string, macAddress: string, absenceDelaySeconds?: number): Promise<PresenceTarget> {
-  const result = await pool.query(`INSERT INTO presence_targets(id,name,mac_address,absence_delay_seconds) VALUES($1,$2,$3,$4) RETURNING id,name,mac_address as "macAddress",absence_delay_seconds as "absenceDelaySeconds",created_at as "createdAt",updated_at as "updatedAt"`, [randomUUID(),name,macAddress,absenceDelaySeconds??null]);
-  return result.rows[0];
+export async function createPresenceTarget(name: string, personName: string, macAddress: string, absenceDelaySeconds?: number): Promise<PresenceTarget> {
+  const id=randomUUID();
+  const client=await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(`INSERT INTO presence_targets(id,name,mac_address,absence_delay_seconds) VALUES($1,$2,$3,$4) RETURNING id,name,mac_address as "macAddress",absence_delay_seconds as "absenceDelaySeconds",created_at as "createdAt",updated_at as "updatedAt"`, [id,name,macAddress,absenceDelaySeconds??null]);
+    await client.query(`INSERT INTO presence_target_profiles(target_id,person_name) VALUES($1,$2)`,[id,personName]);
+    await client.query("COMMIT");
+    return {...result.rows[0],personName};
+  } catch(error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
 }
 
-export async function updatePresenceTarget(id: string, name: string, macAddress: string, absenceDelaySeconds?: number): Promise<PresenceTarget | undefined> {
-  const result = await pool.query(`UPDATE presence_targets SET name=$2,mac_address=$3,absence_delay_seconds=$4,updated_at=now() WHERE id=$1 RETURNING id,name,mac_address as "macAddress",absence_delay_seconds as "absenceDelaySeconds",created_at as "createdAt",updated_at as "updatedAt"`, [id,name,macAddress,absenceDelaySeconds??null]);
-  return result.rows[0];
+export async function updatePresenceTarget(id: string, name: string, personName: string, macAddress: string, absenceDelaySeconds?: number): Promise<PresenceTarget | undefined> {
+  const client=await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(`UPDATE presence_targets SET name=$2,mac_address=$3,absence_delay_seconds=$4,updated_at=now() WHERE id=$1 RETURNING id,name,mac_address as "macAddress",absence_delay_seconds as "absenceDelaySeconds",created_at as "createdAt",updated_at as "updatedAt"`, [id,name,macAddress,absenceDelaySeconds??null]);
+    if(!result.rows[0]) { await client.query("ROLLBACK"); return undefined; }
+    await client.query(`INSERT INTO presence_target_profiles(target_id,person_name) VALUES($1,$2) ON CONFLICT(target_id) DO UPDATE SET person_name=EXCLUDED.person_name,updated_at=now()`,[id,personName]);
+    await client.query("COMMIT");
+    return {...result.rows[0],personName};
+  } catch(error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
 }
 
 export async function deletePresenceTarget(id: string): Promise<boolean> {

@@ -2,7 +2,9 @@
 
 v0.8.69 fixes the startup SQL used to create/update the hidden `system:climate-mode` automation target. The canonical schema is unchanged: `devices.capabilities` remains `jsonb`, and schema initialization now supplies a JSONB array instead of a PostgreSQL `text[]`.
 
-## Current v0.8.76 update
+## Current v0.8.77 update
+
+v0.8.77 adds the additive `presence_target_profiles` table for human-readable person names associated with existing FRITZ!Box presence targets. No existing table is altered and no manual SQL command is required. SALTA creates the new table during normal schema initialization. Existing targets without a profile automatically fall back to their current target/device name until edited. Configuration/disaster-recovery backups include the new table, while older format-v1 backups without it remain compatible.
 
 v0.8.76 changes only the overview HTML/CSS hierarchy and its frontend regression tests. There is no backend, runtime, persistence or schema migration.
 

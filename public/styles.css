@@ -413,6 +413,7 @@ html[data-theme="dark"] .automation-or-trigger-remove:hover{background:#321a20;c
 .presence-devices-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,var(--layout-side-md));gap:var(--layout-gap);margin-top:20px;align-items:start}
 .presence-target-list-panel{min-width:0}
 .presence-target-list{display:grid;gap:10px}
+.presence-target-device-name{display:block;margin:2px 0 4px;color:var(--muted);font-size:10.5px;font-weight:650}
 .presence-target-card{display:flex;align-items:center;justify-content:space-between;gap:18px;border:1px solid var(--line);border-radius:13px;padding:14px;background:var(--subtle-bg);box-shadow:inset 3px 0 0 #aab2bd}
 .presence-target-card.present{box-shadow:inset 3px 0 0 var(--green)}
 .presence-target-card.unreachable{opacity:.72;border-style:dashed}

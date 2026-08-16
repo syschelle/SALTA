@@ -143,6 +143,7 @@ export interface FritzBoxPresenceSettings {
 export interface PresenceTarget {
   id: string;
   name: string;
+  personName: string;
   macAddress: string;
   absenceDelaySeconds?: number | null;
   createdAt: string;

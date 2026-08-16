@@ -455,8 +455,8 @@ export class FritzBoxPresenceAdapter {
     const targetIds=new Set(targets.map(target=>`presence:${target.id}`));
     for(const existing of this.registry.all().filter(device=>device.source==="presence"&&device.id!==houseDeviceId&&!targetIds.has(device.id))) await this.registry.remove(existing.id);
     for(const target of targets) {
-      const id=`presence:${target.id}`; const existing=this.registry.get(id); if(existing&&existing.name===target.name&&existing.macAddress===target.macAddress) continue;
-      const stamp=now(); await this.registry.set({id,source:"presence",sourceId:target.id,type:"genericSensor",presentationType:"auto",name:target.name,model:"FRITZ!Box Wi-Fi Presence",macAddress:target.macAddress,profile:"presence",reachable:existing?.reachable??false,state:existing?.state??{present:false},capabilities:[],homekitEnabled:false,hidden:false,credentialMode:"none",passwordConfigured:false,lastSeen:existing?.lastSeen??stamp,lastEvent:existing?.lastEvent??stamp,adapterData:{...(existing?.adapterData??{}),targetId:target.id}});
+      const id=`presence:${target.id}`; const existing=this.registry.get(id); if(existing&&existing.name===target.name&&existing.macAddress===target.macAddress&&existing.adapterData?.personName===target.personName) continue;
+      const stamp=now(); await this.registry.set({id,source:"presence",sourceId:target.id,type:"genericSensor",presentationType:"auto",name:target.name,model:"FRITZ!Box Wi-Fi Presence",macAddress:target.macAddress,profile:"presence",reachable:existing?.reachable??false,state:existing?.state??{present:false},capabilities:[],homekitEnabled:false,hidden:false,credentialMode:"none",passwordConfigured:false,lastSeen:existing?.lastSeen??stamp,lastEvent:existing?.lastEvent??stamp,adapterData:{...(existing?.adapterData??{}),targetId:target.id,personName:target.personName}});
     }
   }
 
@@ -476,9 +476,11 @@ export class FritzBoxPresenceAdapter {
   }
 
   private async updateHousePresence(): Promise<void> {
-    const people=this.registry.all().filter(device=>device.source==="presence"&&device.id!==houseDeviceId); const count=people.filter(device=>Boolean(device.state.present)).length; const anyHome=count>0; const nobodyHome=!anyHome; const existing=this.registry.get(houseDeviceId); const stamp=now(); const previousAny=Boolean(existing?.state.anyHome); const previousNobody=existing?.state.nobodyHome===undefined?nobodyHome:Boolean(existing.state.nobodyHome);
+    const people=this.registry.all().filter(device=>device.source==="presence"&&device.id!==houseDeviceId); const presentPeople=people.filter(device=>Boolean(device.state.present)); const count=presentPeople.length; const anyHome=count>0; const nobodyHome=!anyHome; const existing=this.registry.get(houseDeviceId); const stamp=now(); const previousAny=Boolean(existing?.state.anyHome); const previousNobody=existing?.state.nobodyHome===undefined?nobodyHome:Boolean(existing.state.nobodyHome);
+    const personName=(device:Device)=>typeof device.adapterData?.personName==="string"&&device.adapterData.personName.trim()?device.adapterData.personName.trim():device.name;
+    const memberNames=people.map(personName); const presentNames=presentPeople.map(personName);
     const changed=Boolean(existing)&&(previousAny!==anyHome||previousNobody!==nobodyHome);
-    const device: Device={id:houseDeviceId,source:"presence",sourceId:"house",type:"genericSensor",presentationType:"auto",name:"Hauspräsenz",model:"SALTA Presence Group",profile:"presence-group",reachable:this.status.enabled?people.every(device=>device.reachable):true,state:{anyHome,nobodyHome,present:anyHome,presentCount:count},capabilities:[],homekitEnabled:false,hidden:false,credentialMode:"none",passwordConfigured:false,lastSeen:stamp,lastEvent:changed?stamp:(existing?.lastEvent??stamp),adapterData:{memberCount:people.length}};
+    const device: Device={id:houseDeviceId,source:"presence",sourceId:"house",type:"genericSensor",presentationType:"auto",name:"Hauspräsenz",model:"SALTA Presence Group",profile:"presence-group",reachable:this.status.enabled?people.every(device=>device.reachable):true,state:{anyHome,nobodyHome,present:anyHome,presentCount:count,memberNames:JSON.stringify(memberNames),presentNames:JSON.stringify(presentNames)},capabilities:[],homekitEnabled:false,hidden:false,credentialMode:"none",passwordConfigured:false,lastSeen:stamp,lastEvent:changed?stamp:(existing?.lastEvent??stamp),adapterData:{memberCount:people.length}};
     await this.registry.set(device);
   }
 }

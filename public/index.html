@@ -34,7 +34,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.76</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.77</strong></div>
   </div>
 </aside>
 
@@ -165,7 +165,7 @@
       <article class="panel presence-target-list-panel"><div class="panel-head"><div><h2>Überwachte Personen</h2><p class="muted">Verwende die MAC-Adresse, die deine FRITZ!Box für das Handy im Heim-WLAN anzeigt.</p></div><span id="presenceTargetCount" class="count-badge">0</span></div><div id="presenceTargetList" class="presence-target-list"></div></article>
       <article class="panel sticky-panel presence-target-form-panel"><h2 id="presenceTargetFormTitle">Person hinzufügen</h2><p class="muted">Eine bekannte WLAN-MAC-Adresse wird als eigener schreibgeschützter Präsenzsensor angelegt.</p>
         <form id="presenceTargetForm" class="page-form">
-          <label>Name<input id="presenceTargetName" maxlength="120" placeholder="z. B. Schellies iPhone" required></label>
+          <label>Personenname<input id="presenceTargetPersonName" maxlength="80" placeholder="z. B. Martin" required><small>Dieser Name wird in der Übersicht bei anwesenden Personen angezeigt.</small></label><label>Gerätename<input id="presenceTargetName" maxlength="120" placeholder="z. B. Martins iPhone" required></label>
           <label>MAC-Adresse<input id="presenceTargetMac" maxlength="32" placeholder="AA:BB:CC:DD:EE:FF" autocapitalize="characters" spellcheck="false" required><small>Auch Bindestriche, Cisco-Notation oder eine MAC ohne Trennzeichen werden akzeptiert.</small></label>
           <label>Individuell abwesend nach<select id="presenceTargetDelay"><option value="">Standard verwenden</option><option value="0">sofort</option><option value="60">1 Minute</option><option value="180">3 Minuten</option><option value="300">5 Minuten</option><option value="600">10 Minuten</option><option value="900">15 Minuten</option></select></label>
           <p class="setting-note">Bei Smartphones sollte die für dieses Heim-WLAN verwendete private MAC-Adresse stabil bleiben. Eine kurze Abwesenheitsverzögerung verhindert Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.</p>

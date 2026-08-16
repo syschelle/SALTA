@@ -14,6 +14,7 @@ describe("presence page", () => {
     expect(html).toContain('id="presenceHouseSummary"');
     expect(html).toContain('id="presenceTargetList"');
     expect(html).toContain('id="presenceTargetForm"');
+    expect(html).toContain('id="presenceTargetPersonName"');
     expect(html).toContain('id="presenceProtocol"');
     expect(html).toContain('id="presenceHost"');
     expect(html).toContain('id="presencePort"');
@@ -28,6 +29,11 @@ describe("presence page", () => {
     expect(app).toContain("'/api/presence/refresh'");
     expect(app).toContain("'/api/presence/devices'");
     expect(app).toContain("presenceTargetDelay");
+    expect(app).toContain("personName:presenceTargetPersonName.value.trim()");
+    expect(app).toContain("presenceTargetPersonName.value=target.personName||target.name");
+    expect(app).toContain("presenceNamesFromHouse");
+    expect(app).toContain("compactPresenceNames");
+    expect(app).toContain("presentNames.length?compactPresenceNames(presentNames)");
     expect(app).toContain("presenceBaseUrlFromForm()");
     expect(app).toContain("tlsInsecure:presenceProtocol.value==='https'&&presenceTlsInsecure.checked");
     expect(app).toContain("FRITZBOX_TLS_CERTIFICATE");

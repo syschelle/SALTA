@@ -60,7 +60,7 @@ const fritzBoxPresenceSettingsSchema = z.object({
   tlsInsecure: z.boolean().default(false)
 }).strict();
 const fritzBoxPresenceTestSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), username: z.string().trim().max(120).default(""), password: z.string().max(512).optional(), tlsInsecure: z.boolean().default(false) }).strict();
-const presenceTargetSchema = z.object({ name: z.string().trim().min(1).max(120), macAddress: z.string().trim().min(12).max(32), absenceDelaySeconds: z.number().int().min(0).max(86400).nullable().optional() }).strict();
+const presenceTargetSchema = z.object({ name: z.string().trim().min(1).max(120), personName: z.string().trim().min(1).max(80).optional(), macAddress: z.string().trim().min(12).max(32), absenceDelaySeconds: z.number().int().min(0).max(86400).nullable().optional() }).strict();
 const openCcuDiagnosticSchema = z.object({ baseUrl: z.string().trim().min(1).max(512).optional(), username: z.string().trim().min(1).max(120).optional(), password: z.string().max(512).optional() }).strict();
 const virtualDeviceSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -630,9 +630,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.76" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.77" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.76", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.77", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -718,12 +718,12 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
 
   app.post<{Body:unknown}>("/api/presence/devices", { config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "presence-device-create" } } }, async(request,reply)=>{
     const parsed=presenceTargetSchema.safeParse(request.body); if(!parsed.success) return securityError(reply,request,400,"INVALID_REQUEST","Invalid presence device.");
-    try {const target=await createPresenceTarget(parsed.data.name,normalizePresenceMac(parsed.data.macAddress),parsed.data.absenceDelaySeconds??undefined);if(presenceAdapter)await presenceAdapter.reload();return reply.code(201).send(target);}catch(error){if((error as {code?:string})?.code==="23505")return securityError(reply,request,409,"PRESENCE_MAC_EXISTS","This MAC address is already monitored.");const response=fritzBoxRequestError(error);return securityError(reply,request,response.status,response.code,response.message);}
+    try {const target=await createPresenceTarget(parsed.data.name,parsed.data.personName??parsed.data.name,normalizePresenceMac(parsed.data.macAddress),parsed.data.absenceDelaySeconds??undefined);if(presenceAdapter)await presenceAdapter.reload();return reply.code(201).send(target);}catch(error){if((error as {code?:string})?.code==="23505")return securityError(reply,request,409,"PRESENCE_MAC_EXISTS","This MAC address is already monitored.");const response=fritzBoxRequestError(error);return securityError(reply,request,response.status,response.code,response.message);}
   });
 
   app.put<{Params:{id:string};Body:unknown}>("/api/presence/devices/:id", { config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "presence-device-update" } } }, async(request,reply)=>{
     const parsed=presenceTargetSchema.safeParse(request.body); if(!parsed.success) return securityError(reply,request,400,"INVALID_REQUEST","Invalid presence device.");
-    try {const target=await updatePresenceTarget(request.params.id,parsed.data.name,normalizePresenceMac(parsed.data.macAddress),parsed.data.absenceDelaySeconds??undefined);if(!target)return securityError(reply,request,404,"PRESENCE_DEVICE_NOT_FOUND","Presence device not found.");if(presenceAdapter)await presenceAdapter.reload();return target;}catch(error){if((error as {code?:string})?.code==="23505")return securityError(reply,request,409,"PRESENCE_MAC_EXISTS","This MAC address is already monitored.");const response=fritzBoxRequestError(error);return securityError(reply,request,response.status,response.code,response.message);}
+    try {const target=await updatePresenceTarget(request.params.id,parsed.data.name,parsed.data.personName??parsed.data.name,normalizePresenceMac(parsed.data.macAddress),parsed.data.absenceDelaySeconds??undefined);if(!target)return securityError(reply,request,404,"PRESENCE_DEVICE_NOT_FOUND","Presence device not found.");if(presenceAdapter)await presenceAdapter.reload();return target;}catch(error){if((error as {code?:string})?.code==="23505")return securityError(reply,request,409,"PRESENCE_MAC_EXISTS","This MAC address is already monitored.");const response=fritzBoxRequestError(error);return securityError(reply,request,response.status,response.code,response.message);}
   });
 
   app.delete<{Params:{id:string} }>("/api/presence/devices/:id", { config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "presence-device-delete" } } }, async(request,reply)=>{
@@ -1264,7 +1264,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.76", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.77", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

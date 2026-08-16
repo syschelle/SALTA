@@ -1,4 +1,4 @@
-# SALTA v0.8.76 Git commands
+# SALTA v0.8.77 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "ui(overview): simplify status and quick controls"
+git commit -m "feat(presence): add person display names"
 git push origin main
 ```
 
@@ -47,13 +47,17 @@ git show origin/main:src/vacation-mode.ts | grep -F 'VACATION_CONTACT_ALERT_SENT
 git show origin/main:public/automation-ui.js | grep -F "vacationActive:['Aktiv','Inaktiv']"
 git show origin/main:public/index.html | grep -F 'aria-label="Hausstatus"'
 git show origin/main:public/styles.css | grep -F '.overview-system-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))'
+git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS presence_target_profiles'
+git show origin/main:public/index.html | grep -F 'id="presenceTargetPersonName"'
+git show origin/main:src/fritzbox-presence.ts | grep -F 'presentNames:JSON.stringify(presentNames)'
+git show origin/main:public/app.js | grep -F 'presentNames.length?compactPresenceNames(presentNames)'
 ```
 
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.76 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.76.
+Release validator contract: SALTA v0.8.77 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.77.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -64,14 +68,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.76 -m "SALTA v0.8.76"
-git push origin v0.8.76
+git tag -a v0.8.77 -m "SALTA v0.8.77"
+git push origin v0.8.77
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.76 \
-  --title "SALTA v0.8.76" \
+gh release create v0.8.77 \
+  --title "SALTA v0.8.77" \
   --notes-file RELEASE_TEXT.md
 ```
