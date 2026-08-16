@@ -3,7 +3,7 @@ import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, HueSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel } from "./types.js";
+import type { ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, HueSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel, VacationModeSettings } from "./types.js";
 import type { AutomationInput, AutomationRule, AutomationTargetAction } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
@@ -979,6 +979,20 @@ export async function updateClimateWinterMode(winterMode: "manual" | "auto"): Pr
     ON CONFLICT(id) DO UPDATE SET winter_mode=EXCLUDED.winter_mode,updated_at=now()`,
     [winterMode]);
   return getClimateModeSettings();
+}
+
+export async function getVacationModeSettings(): Promise<VacationModeSettings> {
+  const result = await pool.query<{ details: Record<string, unknown> }>(
+    "SELECT details FROM notification_state WHERE key='vacation-mode'"
+  );
+  return { enabled: result.rows[0]?.details?.enabled === true };
+}
+
+export async function updateVacationModeSettings(enabled: boolean): Promise<VacationModeSettings> {
+  await pool.query(`INSERT INTO notification_state(key,details,updated_at) VALUES('vacation-mode',$1::jsonb,now())
+    ON CONFLICT(key) DO UPDATE SET details=EXCLUDED.details,updated_at=now()`,
+    [JSON.stringify({ enabled })]);
+  return { enabled };
 }
 
 function storedDebugLevel(details: Record<string, unknown> | undefined): SystemDebugLevel {

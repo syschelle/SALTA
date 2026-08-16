@@ -2,7 +2,7 @@
 
 > **Smart-home Abstraction & Local Transport Architecture**
 
-SALTA is a deliberately focused, local-first smart-home control plane for homes where reliability, long-term hardware compatibility and predictable upgrades matter more than feature churn. It combines PostgreSQL persistence, a responsive web interface, a REST API, a local automation engine and an optional HomeKit bridge. SALTA currently integrates Shelly, Phoscon/deCONZ Zigbee, Philips Hue Bridge, OpenCCU/HomeMatic, FRITZ!Box Wi-Fi presence and SALTA-native virtual devices.
+SALTA is a deliberately focused, local-first smart-home control plane for homes where reliability, long-term hardware compatibility and predictable upgrades matter more than feature churn. It combines PostgreSQL persistence, a responsive web interface, a REST API, a local automation engine and an optional HomeKit bridge. SALTA currently integrates Shelly, Phoscon/deCONZ Zigbee, Philips Hue Bridge, OpenCCU/HomeMatic, FRITZ!Box Wi-Fi presence and SALTA-native virtual devices. It also provides global Heating and Vacation modes; Vacation mode can be used as an automation condition and can send Pushover security alerts when a local door/window contact opens.
 
 > Your home. Your hardware. Your rules.
 

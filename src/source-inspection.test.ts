@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { functionTransitivelyCalls, parseJavaScriptSource } from "../test-utils/source-inspection.js";
 
@@ -22,4 +23,14 @@ describe("source inspection call graph", () => {
 
     expect(functionTransitivelyCalls(source, "first", "target")).toBe(false);
   });
+  it("wires the vacation mode API and security manager", () => {
+    const serverSource = readFileSync(new URL("./server.ts", import.meta.url), "utf8");
+    const mainSource = readFileSync(new URL("./main.ts", import.meta.url), "utf8");
+    expect(serverSource).toContain('/api/system/vacation-mode');
+    expect(serverSource).toContain('vacationMode.setEnabled');
+    expect(mainSource).toContain('new VacationModeManager(registry, config.TZ)');
+    expect(mainSource).toContain('await vacation.initialize()');
+    expect(mainSource).toContain('vacation.start()');
+  });
+
 });

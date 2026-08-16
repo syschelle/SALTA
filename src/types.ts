@@ -202,6 +202,10 @@ export type ClimateMode = "summer" | "winter";
 export type WinterThermostatMode = "manual" | "auto";
 export type SystemDebugLevel = "off" | "errors" | "verbose";
 
+export interface VacationModeSettings {
+  enabled: boolean;
+}
+
 export interface ClimateModeSettings {
   mode: ClimateMode;
   winterMode: WinterThermostatMode;

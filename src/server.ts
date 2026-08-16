@@ -15,6 +15,7 @@ import type { DeviceCommandRouter } from "./device-command-router.js";
 import type { AutomationEngine } from "./automations.js";
 import type { ClimateModeManager } from "./climate-mode.js";
 import type { BatteryMonitor } from "./battery-monitor.js";
+import type { VacationModeManager } from "./vacation-mode.js";
 import type { HomeKitBridge } from "./homekit.js";
 import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getHueSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
@@ -135,6 +136,7 @@ const systemLogQuerySchema = z.object({
 const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
 const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]), winterMode: z.enum(["manual", "auto"]).optional() }).strict();
 const climateModeSettingsSchema = z.object({ winterMode: z.enum(["manual", "auto"]) }).strict();
+const vacationModeSchema = z.object({ enabled: z.boolean() }).strict();
 const generalSettingsSchema = z.object({ debugLevel: z.enum(["off", "errors", "verbose"]) }).strict();
 const homeKitSettingsSchema = z.object({
   enabled: z.boolean(),
@@ -418,7 +420,7 @@ async function automationRoomExists(roomId: string | null | undefined): Promise<
   return (await listRooms()).some(room => room.id === roomId);
 }
 
-export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine, presenceAdapter?: FritzBoxPresenceAdapter, climateMode?: ClimateModeManager, batteryMonitor?: BatteryMonitor, restartAfterConfigurationImport?: () => void, homeKitBridge?: HomeKitBridge, hueAdapter?: HueAdapter) {
+export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapter, phosconAdapter: PhosconAdapter, openCcuAdapter: OpenCcuAdapter, virtualAdapter?: VirtualDeviceAdapter, commandRouter?: DeviceCommandRouter, automationEngine?: AutomationEngine, presenceAdapter?: FritzBoxPresenceAdapter, climateMode?: ClimateModeManager, batteryMonitor?: BatteryMonitor, restartAfterConfigurationImport?: () => void, homeKitBridge?: HomeKitBridge, hueAdapter?: HueAdapter, vacationMode?: VacationModeManager) {
   const trustedProxyEntries = config.TRUSTED_PROXIES.split(",").map(value => value.trim()).filter(Boolean);
   const trustedProxies = trustedProxyEntries.length ? trustedProxyEntries : false;
   const localNetworks = config.LOCAL_NETWORKS.split(",").map(value => value.trim()).filter(Boolean);
@@ -628,9 +630,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.73" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.74" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.73", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.74", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1111,6 +1113,21 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return climateMode.apply(parsed.data.mode);
   });
 
+  app.get("/api/system/vacation-mode", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "vacation-mode-read" } }
+  }, async (_request, reply) => {
+    if (!vacationMode) return reply.code(503).send({ error: { code: "VACATION_MODE_UNAVAILABLE", message: "Vacation mode is not available" } });
+    return vacationMode.status();
+  });
+  app.put<{ Body: unknown }>("/api/system/vacation-mode", {
+    config: { rateLimit: { max: 12, timeWindow: rateWindowMs, groupId: "vacation-mode-write" } }
+  }, async (request, reply) => {
+    const parsed = vacationModeSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    if (!vacationMode) return reply.code(503).send({ error: { code: "VACATION_MODE_UNAVAILABLE", message: "Vacation mode is not available", requestId: request.id } });
+    return vacationMode.setEnabled(parsed.data.enabled);
+  });
+
   app.get("/api/settings/climate-mode", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "climate-mode-settings-read" } }
   }, async (_request, reply) => {
@@ -1247,7 +1264,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.73", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.74", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

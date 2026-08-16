@@ -233,4 +233,11 @@ describe("automation frontend", () => {
     expect(html).not.toContain("automation-self-reset-hint");
   });
 
+  it("offers vacation mode as an optional condition but not as a device trigger", () => {
+    expect(ui).toContain("key==='vacationActive'?'Urlaubsmodus'");
+    expect(ui).toContain("vacationActive:['Aktiv','Inaktiv']");
+    expect(ui).toContain("automationIsVacationModeDevice(device)?`Urlaubsmodus = ${automationValueLabel(condition.stateKey,condition.value)}`");
+    expect(ui).toContain("function automationTriggerDevices(){return all.filter(device=>device.source!=='system'");
+  });
+
 });

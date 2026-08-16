@@ -1,4 +1,4 @@
-let all=[],rooms=[],systemLogs=[],selectedDevice=null,shellySettingsStatus=null,phosconSettingsStatus=null,hueSettingsStatus=null,openCcuSettingsStatus=null,presenceData=null,climateModeData=null,notificationData=null,generalData=null,homeKitData=null,editingPresenceTargetId=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null,activeBrightnessSliderId=null,activeTemperatureSliderId=null,activeHueColorTemperatureId=null,activeHueColorId=null,presenceSettingsDirty=false,selectedRecoveryBackup=null,csrfToken="";
+let all=[],rooms=[],systemLogs=[],selectedDevice=null,shellySettingsStatus=null,phosconSettingsStatus=null,hueSettingsStatus=null,openCcuSettingsStatus=null,presenceData=null,climateModeData=null,vacationModeData=null,notificationData=null,generalData=null,homeKitData=null,editingPresenceTargetId=null,editingRoomId=null,liveRefreshInFlight=false,activeCoverSliderId=null,activeBrightnessSliderId=null,activeTemperatureSliderId=null,activeHueColorTemperatureId=null,activeHueColorId=null,presenceSettingsDirty=false,selectedRecoveryBackup=null,csrfToken="";
 const coverSliderDrafts=new Map();
 
 const themeToggleElement=document.getElementById('themeToggle');
@@ -133,6 +133,28 @@ function renderDaylightOverview(){
   daylightOverviewStatus.innerHTML=`<div class="daylight-current"><span class="mdi ${icon}" aria-hidden="true"></span><div><strong>${escapeHtml(phase)}</strong><small>${escapeHtml(daylightState)}</small></div></div><div class="daylight-times"><div><span class="mdi mdi-weather-sunset-up" aria-hidden="true"></span><small>Sonnenaufgang</small><strong>${escapeHtml(sunrise)}</strong></div><div><span class="mdi mdi-weather-sunset-down" aria-hidden="true"></span><small>Sonnenuntergang</small><strong>${escapeHtml(sunset)}</strong></div></div>`;
 }
 
+function renderVacationMode(){
+  if(!vacationModeData)return;
+  const enabled=Boolean(vacationModeData.enabled);
+  vacationModeOffButton.classList.toggle('active',!enabled);
+  vacationModeOnButton.classList.toggle('active',enabled);
+  vacationModeOffButton.setAttribute('aria-pressed',String(!enabled));
+  vacationModeOnButton.setAttribute('aria-pressed',String(enabled));
+  const contacts=Number(vacationModeData.contactSensors||0);
+  const open=Number(vacationModeData.openContacts||0);
+  const pushover=Boolean(vacationModeData.pushoverConfigured);
+  const chips=[`<span class="${enabled?'success':''}">${enabled?'Aktiv':'Inaktiv'}</span>`,`<span class="${open?'warning':''}">${contacts} Kontakte · ${open} offen</span>`,`<span class="${pushover?'success':'warning'}">Pushover ${pushover?'bereit':'nicht konfiguriert'}</span>`];
+  vacationModeStatus.innerHTML=chips.join('');
+}
+async function applyVacationMode(enabled){
+  const button=enabled?vacationModeOnButton:vacationModeOffButton;const original=button.innerHTML;
+  vacationModeOnButton.disabled=true;vacationModeOffButton.disabled=true;button.textContent='Wird gespeichert …';
+  try{
+    vacationModeData=await api('/api/system/vacation-mode',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({enabled:Boolean(enabled)})});
+    renderVacationMode();automationDevicesChanged();
+    notify(enabled?(vacationModeData.pushoverConfigured?'Urlaubsmodus aktiviert. Fenster- und Türkontakte werden überwacht.':'Urlaubsmodus aktiviert. Pushover ist für Sicherheitsmeldungen noch nicht vollständig konfiguriert.'):'Urlaubsmodus deaktiviert.',enabled&&!vacationModeData.pushoverConfigured);
+  }catch(error){notify(error.message,true)}finally{vacationModeOnButton.disabled=false;vacationModeOffButton.disabled=false;button.innerHTML=original;renderVacationMode()}
+}
 function renderClimateMode(){
   if(!climateModeData)return;
   const summer=climateModeData.mode==='summer';
@@ -162,8 +184,8 @@ function renderBatteryOverview(){
 }
 async function loadSystemControls(){
   try{
-    [climateModeData,notificationData,generalData]=await Promise.all([api('/api/system/climate-mode'),api('/api/settings/notifications'),api('/api/settings/general')]);
-    renderClimateMode();renderBatteryOverview();renderDebugModeIndicator();
+    [climateModeData,vacationModeData,notificationData,generalData]=await Promise.all([api('/api/system/climate-mode'),api('/api/system/vacation-mode'),api('/api/settings/notifications'),api('/api/settings/general')]);
+    renderClimateMode();renderVacationMode();renderBatteryOverview();renderDebugModeIndicator();
   }catch(error){console.warn('System controls could not be loaded',error)}
 }
 async function applyClimateMode(mode){

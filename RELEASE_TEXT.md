@@ -1,6 +1,22 @@
-# SALTA v0.8.73
+# SALTA v0.8.74
 
-SALTA v0.8.73 is a small overview UI cleanup release. The visible **Phoscon** badge has been removed from the Daylight card while the underlying Phoscon/deCONZ Daylight integration remains unchanged.
+SALTA v0.8.74 adds a global Vacation mode that can be switched from the overview, used as an **Only if** automation condition, and used as a local security guard for door/window contacts. When Vacation mode is active and a reachable contact changes from closed to open, SALTA sends a Pushover alert using the already configured notification credentials.
+
+## v0.8.74 Vacation mode and contact security
+
+- Added a global **Vacation mode** card to the SALTA overview with explicit **Off** and **On** controls.
+- Vacation mode is persisted locally and survives restarts.
+- Added the hidden `system:vacation-mode` device with the boolean `vacationActive` state so Vacation mode can be selected under automation **Only if** conditions as **Vacation mode = Active/Inactive**.
+- Vacation mode is intentionally excluded from normal device triggers and is not published as a HomeKit accessory.
+- Added a local contact security monitor. While Vacation mode is active, a reachable `contactSensor` transition from closed to open sends an immediate Pushover notification.
+- Security notifications include the contact name, SALTA room and local timestamp using the configured SALTA timezone.
+- Repeated device refreshes while the contact remains open do not generate duplicate alerts; a new alert requires a real closed-to-open transition.
+- Security alerts use the stored Pushover User Key and API Token even when the separate weekly battery-warning switch is disabled.
+- If Pushover is not configured or sending fails, Vacation mode remains active and SALTA writes a warning/error to the System Log instead of crashing.
+- Vacation mode state reuses the existing backed-up `notification_state` persistence. No new database table or manual migration is required.
+- The hidden Vacation mode system device is created through SALTA's normal typed `upsertDevice()` path rather than raw schema-startup SQL.
+- Added explicit API rate limits and regression coverage for Vacation mode persistence, security alert transitions, frontend controls and automation conditions.
+- No new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.73 overview cleanup
 

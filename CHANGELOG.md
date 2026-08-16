@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.74
+
+- Added a global **Urlaubsmodus / Vacation mode** to the overview with explicit On/Off controls.
+- Added Vacation mode as an optional automation **Only if** condition using the boolean `vacationActive` state.
+- Added a local security monitor for SALTA contact sensors: when Vacation mode is active and a reachable door/window contact changes from closed to open, SALTA sends a Pushover alert with device name, room and local timestamp.
+- Vacation security alerts use the already configured Pushover credentials independently of the weekly battery-warning enable switch.
+- The hidden `system:vacation-mode` device is created through the normal typed device persistence path instead of startup SQL, avoiding a new schema or raw JSONB migration surface.
+- Vacation mode state reuses the existing backed-up `notification_state` table; no database migration or new mandatory environment variable is required.
+- Vacation mode is intentionally available as an automation condition but not as a normal device trigger or HomeKit accessory.
+- Added regression coverage for Vacation mode persistence, Pushover contact alerts, overview controls, automation condition labels and explicit API rate limiting.
+
 ## v0.8.73
 
 - Removed the visible **Phoscon** badge from the Daylight card on the SALTA overview.

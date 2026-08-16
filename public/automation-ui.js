@@ -52,7 +52,7 @@ const automationElements={
   save:document.getElementById('automationSaveButton')
 };
 
-const automationStatePriority=['on','present','anyHome','nobodyHome','motion','open','water','fire','alarm','vibration','dark','daylight','tampered','lowBattery'];
+const automationStatePriority=['on','vacationActive','present','anyHome','nobodyHome','motion','open','water','fire','alarm','vibration','dark','daylight','tampered','lowBattery'];
 const automationActionLabels={turnOn:'An',turnOff:'Aus',toggle:'Toggle',open:'Öffnen',close:'Schließen',thermostatOff:'Thermostat Aus',thermostatAuto:'Thermostat Automatik',thermostatManual:'Thermostat Manuell',setTargetTemperature:'Solltemperatur setzen',climateSummer:'Sommermodus',climateWinter:'Wintermodus'};
 const automationButtonEventMarker='event:buttonEvent';
 const automationCommonButtonEvents=[1000,1001,1002,1003,1004,1005,1006,1007,1010];
@@ -67,9 +67,9 @@ function automationBooleanStateKeys(device){
   return keys.sort((a,b)=>{const ai=automationStatePriority.indexOf(a),bi=automationStatePriority.indexOf(b);if(ai>=0||bi>=0){if(ai<0)return 1;if(bi<0)return -1;return ai-bi}return a.localeCompare(b)});
 }
 function automationEventStateKeys(device){return device&&(device.type==='button'||typeof device.state?.buttonEvent==='number'||device.adapterData?.buttonEventProtocol==='deconz')?['buttonEvent']:[]}
-function automationStateLabel(key){return key===automationButtonEventMarker?'Tasterereignis':key==='winterActive'?'Heizmodus':labels?.[key]||key}
+function automationStateLabel(key){return key===automationButtonEventMarker?'Tasterereignis':key==='winterActive'?'Heizmodus':key==='vacationActive'?'Urlaubsmodus':labels?.[key]||key}
 function automationValueLabel(key,value){
-  const states={on:['An','Aus'],motion:['Bewegung erkannt','Keine Bewegung'],open:['Offen','Geschlossen'],water:['Wasser erkannt','Trocken'],fire:['Alarm','Normal'],alarm:['Alarm','Normal'],vibration:['Erkannt','Ruhe'],lowBattery:['Niedrig','OK'],tampered:['Erkannt','OK'],dark:['Dunkel','Hell'],daylight:['Tageslicht','Kein Tageslicht'],present:['Anwesend','Abwesend'],anyHome:['Jemand zuhause','Niemand zuhause'],nobodyHome:['Niemand zuhause','Jemand zuhause'],winterActive:['Wintermodus','Sommermodus']};
+  const states={on:['An','Aus'],motion:['Bewegung erkannt','Keine Bewegung'],open:['Offen','Geschlossen'],water:['Wasser erkannt','Trocken'],fire:['Alarm','Normal'],alarm:['Alarm','Normal'],vibration:['Erkannt','Ruhe'],lowBattery:['Niedrig','OK'],tampered:['Erkannt','OK'],dark:['Dunkel','Hell'],daylight:['Tageslicht','Kein Tageslicht'],present:['Anwesend','Abwesend'],anyHome:['Jemand zuhause','Niemand zuhause'],nobodyHome:['Niemand zuhause','Jemand zuhause'],winterActive:['Wintermodus','Sommermodus'],vacationActive:['Aktiv','Inaktiv']};
   const pair=states[key]||['Aktiv','Inaktiv'];
   return value?pair[0]:pair[1];
 }
@@ -138,7 +138,8 @@ function renderAutomationPrimaryEventPicker(){
 function automationDeviceLabel(device){return `${device.name} · ${sourceLabels?.[device.source]||device.source}${device.room?` · ${device.room}`:''}`}
 function automationDeviceById(id){return all.find(device=>device.id===id)}
 function automationIsClimateModeDevice(device){return device?.source==='system'&&device.adapterData?.systemKind==='climateMode'}
-function automationTriggerDevices(){return all.filter(device=>!automationIsClimateModeDevice(device)&&(automationBooleanStateKeys(device).length>0||automationEventStateKeys(device).length>0))}
+function automationIsVacationModeDevice(device){return device?.source==='system'&&device.adapterData?.systemKind==='vacationMode'}
+function automationTriggerDevices(){return all.filter(device=>device.source!=='system'&&(automationBooleanStateKeys(device).length>0||automationEventStateKeys(device).length>0))}
 function automationConditionDevices(){return all.filter(device=>automationBooleanStateKeys(device).length>0)}
 function automationActionDevices(){return all.filter(device=>automationActionsForDevice(device.id).length>0)}
 function automationAllTriggerDeviceIds(){if(automationTimeTriggerActive())return new Set();return new Set([automationElements.triggerDevice?.value,...automationAdditionalTriggers.map(trigger=>trigger.deviceId)].filter(Boolean))}
@@ -346,7 +347,7 @@ function changeAutomationAdditionalTriggerState(id,stateKey){const trigger=autom
 function changeAutomationAdditionalTriggerValue(id,value){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.value=trigger.stateKey===automationButtonEventMarker?Number(value):value==='true';if(trigger.stateKey===automationButtonEventMarker)trigger.eventValues=[trigger.value];renderAutomationAdditionalTriggers()}
 function automationAdditionalTriggerPayload(){return automationAdditionalTriggers.flatMap(trigger=>trigger.stateKey===automationButtonEventMarker?automationAdditionalEventValues(trigger).map(value=>({deviceId:trigger.deviceId,stateKey:`event:buttonEvent:${value}`,value:true})):[{deviceId:trigger.deviceId,stateKey:trigger.stateKey,value:trigger.value===true||trigger.value==='true'}])}
 function automationStoredAdditionalConditions(conditions){return (conditions||[]).map(condition=>({id:++automationAdditionalConditionSequence,deviceId:String(condition?.deviceId||''),stateKey:String(condition?.stateKey||''),value:condition?.value===true,query:'',expanded:false}))}
-function automationAdditionalConditionSummary(condition){const device=automationDeviceById(condition.deviceId);if(!device)return 'Bedingung noch nicht vollständig';return automationIsClimateModeDevice(device)?`Heizmodus = ${automationValueLabel(condition.stateKey,condition.value)}`:`${device.name} · ${automationStateLabel(condition.stateKey)} = ${automationValueLabel(condition.stateKey,condition.value)}`}
+function automationAdditionalConditionSummary(condition){const device=automationDeviceById(condition.deviceId);if(!device)return 'Bedingung noch nicht vollständig';return automationIsClimateModeDevice(device)?`Heizmodus = ${automationValueLabel(condition.stateKey,condition.value)}`:automationIsVacationModeDevice(device)?`Urlaubsmodus = ${automationValueLabel(condition.stateKey,condition.value)}`:`${device.name} · ${automationStateLabel(condition.stateKey)} = ${automationValueLabel(condition.stateKey,condition.value)}`}
 function refreshAutomationAddConditionAvailability(){if(!automationElements.addCondition)return;const enabled=automationElements.conditionEnabled?.checked;automationElements.addCondition.hidden=!enabled||automationAdditionalConditions.length>=7;automationElements.addCondition.disabled=!enabled||automationAdditionalConditions.length>=7||automationConditionDevices().filter(device=>!automationAllTriggerDeviceIds().has(device.id)).length===0}
 function renderAutomationAdditionalConditions(){
   if(!automationElements.additionalConditions)return;
@@ -443,7 +444,7 @@ function automationTriggerSummaryItems(rule){
 function automationActionSummaryItems(rule){return [{deviceId:rule.actionDeviceId,action:rule.action,value:rule.actionValue},...(rule.additionalActions||[])].map(target=>{const device=automationDeviceById(target.deviceId);const valueLabel=automationActionValueLabel(target);return `${device?.name||'Unbekannt'} → ${automationActionLabels[target.action]||target.action}${valueLabel?` · ${valueLabel}`:''}`})}
 function automationConditionSummaryItems(rule){
   const conditions=rule.conditionDeviceId?[{deviceId:rule.conditionDeviceId,stateKey:rule.conditionStateKey,value:rule.conditionValue},...(rule.additionalConditions||[])]:[];
-  return conditions.map(condition=>{const device=automationDeviceById(condition.deviceId);if(!device)return 'Unbekannte Bedingung';return automationIsClimateModeDevice(device)?`Heizmodus = ${automationValueLabel(condition.stateKey,condition.value)}`:`${device.name} · ${automationStateLabel(condition.stateKey)} = ${automationValueLabel(condition.stateKey,condition.value)}`});
+  return conditions.map(condition=>{const device=automationDeviceById(condition.deviceId);if(!device)return 'Unbekannte Bedingung';return automationIsClimateModeDevice(device)?`Heizmodus = ${automationValueLabel(condition.stateKey,condition.value)}`:automationIsVacationModeDevice(device)?`Urlaubsmodus = ${automationValueLabel(condition.stateKey,condition.value)}`:`${device.name} · ${automationStateLabel(condition.stateKey)} = ${automationValueLabel(condition.stateKey,condition.value)}`});
 }
 function automationSummary(rule){
   const triggerItems=automationTriggerSummaryItems(rule);const conditionItems=automationConditionSummaryItems(rule);const actionItems=automationActionSummaryItems(rule);

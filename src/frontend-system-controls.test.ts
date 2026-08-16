@@ -64,4 +64,14 @@ describe("system overview controls", () => {
   });
 
 
+  it("shows a global vacation mode control and loads it with the other system controls", () => {
+    expect(html).toContain('<h2>Urlaubsmodus</h2>');
+    expect(html).toContain('id="vacationModeOffButton"');
+    expect(html).toContain('id="vacationModeOnButton"');
+    expect(html).toContain('id="vacationModeStatus"');
+    expect(script).toContain("api('/api/system/vacation-mode')");
+    expect(script).toContain("applyVacationMode(false)");
+    expect(script).toContain("applyVacationMode(true)");
+  });
+
 });

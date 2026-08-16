@@ -14,6 +14,7 @@ import { AutomationEngine } from "./automations.js";
 import { databaseAutomationLogger, databaseAutomationStore } from "./automation-persistence.js";
 import { ClimateModeManager } from "./climate-mode.js";
 import { BatteryMonitor } from "./battery-monitor.js";
+import { VacationModeManager } from "./vacation-mode.js";
 
 async function main(): Promise<void> {
   await initializeDatabaseSchema();
@@ -28,6 +29,8 @@ async function main(): Promise<void> {
   const presence = new FritzBoxPresenceAdapter(registry);
   const commands = new DeviceCommandRouter(registry, { shelly, phoscon, hue, openccu: openCcu, virtual });
   const climate = new ClimateModeManager(registry, commands);
+  const vacation = new VacationModeManager(registry, config.TZ);
+  await vacation.initialize();
   const automations = new AutomationEngine(
     registry,
     commands,
@@ -38,6 +41,7 @@ async function main(): Promise<void> {
   );
   await automations.start();
   const batteryMonitor = new BatteryMonitor(registry);
+  vacation.start();
 
   shelly.start();
   phoscon.start();
@@ -50,7 +54,7 @@ async function main(): Promise<void> {
   const homekit = new HomeKitBridge(registry, commands);
   let homeKitStatus = await homekit.start().catch(async () => homekit.status());
 
-  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"), homekit, hue);
+  const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"), homekit, hue, vacation);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   homeKitStatus = await homekit.status();
   server.log.info({ port: config.WEB_PORT, homekit: { enabled: homeKitStatus.enabled, running: homeKitStatus.running, paired: homeKitStatus.paired }, trustedProxiesConfigured: Boolean(config.TRUSTED_PROXIES.trim()) }, "SALTA started with mandatory authentication");
@@ -77,6 +81,7 @@ async function main(): Promise<void> {
     await homekit.stop();
     automations.stop();
     climate.stop();
+    vacation.stop();
     batteryMonitor.stop();
     presence.stop();
     await openCcu.stop();

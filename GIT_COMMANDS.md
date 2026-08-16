@@ -1,4 +1,4 @@
-# SALTA v0.8.73 Git commands
+# SALTA v0.8.74 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "ui(overview): remove daylight Phoscon badge"
+git commit -m "feat(system): add vacation mode security"
 git push origin main
 ```
 
@@ -40,13 +40,18 @@ git show origin/main:src/db.ts | grep -F "jsonb_build_array('setClimateMode')"
 git show origin/main:src/automations.ts | grep -F 'CLIMATE_MODE_AUTOMATION_DEVICE_ID'
 git show origin/main:public/automation-ui.js | grep -F "climateWinter:'Wintermodus'"
 ! git show origin/main:public/index.html | grep -F '<span class="system-card-badge">Nur SALTA</span>'
+git show origin/main:public/index.html | grep -F '<h2>Urlaubsmodus</h2>'
+git show origin/main:src/server.ts | grep -F '/api/system/vacation-mode'
+git show origin/main:src/main.ts | grep -F 'new VacationModeManager(registry, config.TZ)'
+git show origin/main:src/vacation-mode.ts | grep -F 'VACATION_CONTACT_ALERT_SENT'
+git show origin/main:public/automation-ui.js | grep -F "vacationActive:['Aktiv','Inaktiv']"
 ```
 
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.73 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.73.
+Release validator contract: SALTA v0.8.74 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.74.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -57,14 +62,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.73 -m "SALTA v0.8.73"
-git push origin v0.8.73
+git tag -a v0.8.74 -m "SALTA v0.8.74"
+git push origin v0.8.74
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.73 \
-  --title "SALTA v0.8.73" \
+gh release create v0.8.74 \
+  --title "SALTA v0.8.74" \
   --notes-file RELEASE_TEXT.md
 ```

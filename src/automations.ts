@@ -103,7 +103,7 @@ const noOpLogger: AutomationLogger = {
   }
 };
 
-const preferredBooleanKeys = ["on", "motion", "open", "water", "fire", "alarm", "vibration", "dark", "daylight", "tampered", "lowBattery"];
+const preferredBooleanKeys = ["on", "vacationActive", "motion", "open", "water", "fire", "alarm", "vibration", "dark", "daylight", "tampered", "lowBattery"];
 
 export function booleanStateKeys(device: Device): string[] {
   const keys = Object.entries(device.state)

@@ -34,7 +34,7 @@
       <span class="theme-toggle-track" aria-hidden="true"><span></span></span>
     </button>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.73</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.74</strong></div>
   </div>
 </aside>
 
@@ -60,6 +60,16 @@
         <div id="daylightOverviewStatus" class="daylight-overview-status unavailable" aria-live="polite">
           <div class="daylight-current"><span class="mdi mdi-weather-partly-cloudy" aria-hidden="true"></span><div><strong>Wird geladen …</strong><small>Daylight-Sensor wird gesucht</small></div></div>
         </div>
+      </article>
+      <article class="panel overview-system-card vacation-mode-card" data-homekit-exposed="false">
+        <div class="system-card-head">
+          <div class="system-card-title"><span class="system-card-icon mdi mdi-airplane" aria-hidden="true"></span><div><div class="system-card-title-line"><h2>Urlaubsmodus</h2></div><p>Überwacht Fenster- und Türkontakte und alarmiert per Pushover.</p></div></div>
+        </div>
+        <div class="vacation-mode-controls" role="group" aria-label="Urlaubsmodus ein- oder ausschalten">
+          <button id="vacationModeOffButton" type="button" class="secondary" onclick="applyVacationMode(false)"><span class="mdi mdi-home-outline" aria-hidden="true"></span>Aus</button>
+          <button id="vacationModeOnButton" type="button" class="secondary" onclick="applyVacationMode(true)"><span class="mdi mdi-shield-home-outline" aria-hidden="true"></span>An</button>
+        </div>
+        <div id="vacationModeStatus" class="system-control-status" aria-live="polite">Noch nicht geladen</div>
       </article>
       <article class="panel overview-system-card climate-mode-card" data-homekit-exposed="false">
         <div class="system-card-head">
