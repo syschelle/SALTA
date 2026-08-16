@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.78
+
+- Added classic HomeMatic `KEY` channel support for OpenCCU, including the six button channels of `HM-PB-6-WM55`.
+- `KEY` channels are now represented as separate SALTA `button` devices even though their OpenCCU `VALUES` paramset is empty.
+- Added a local XML-RPC callback listener on TCP `18099` and automatic registration with the OpenCCU `BidCos-RF` XML-RPC interface on port `2001` when KEY channels are present.
+- Added immediate automation events for `PRESS_SHORT`, `PRESS_LONG` and `PRESS_LONG_RELEASE`; repetitive `PRESS_CONT` and diagnostic `INSTALL_TEST` events are deliberately ignored.
+- Callback registration is renewed automatically after an OpenCCU disconnect/reconnect while the existing 60-second polling path remains active for normal states.
+- `HM-PB-6-WM55` automation choices are limited to short press, long press and long-release events.
+- Channel names configured in OpenCCU are used when available; otherwise SALTA generates names such as `Wandtaster Wohnzimmer · Taste 2`.
+- Carries forward the v0.8.77 named-person Presence display and v0.8.76 compact overview unchanged.
+- No database schema migration, new mandatory environment variable or npm dependency is required.
+
 ## v0.8.77
 
 - Added a separate **person display name** to every monitored FRITZ!Box presence target while keeping the existing device name and MAC address unchanged.

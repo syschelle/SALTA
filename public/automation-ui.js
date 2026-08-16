@@ -59,7 +59,8 @@ const automationCommonButtonEvents=[1000,1001,1002,1003,1004,1005,1006,1007,1010
 const automationModelButtonEvents={
   'lumi.remote.b1acn01':[1002,1004,1001,1003],
   'lumi.sensor_switch.aq2':[1002,1004,1005,1006],
-  'lumi.sensor_switch':[1000,1002,1003,1004,1005,1006,1010]
+  'lumi.sensor_switch':[1000,1002,1003,1004,1005,1006,1010],
+  'hm-pb-6-wm55':[1002,1001,1003]
 };
 
 function automationBooleanStateKeys(device){

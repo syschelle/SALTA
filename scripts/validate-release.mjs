@@ -18,6 +18,7 @@ const requiredReleaseFiles = [
   "src/automation-persistence.ts",
   "src/phoscon-adapter.ts",
   "src/phoscon-core.ts",
+  "src/openccu-xmlrpc.ts",
   "src/fritzbox-presence.ts",
   "src/climate-mode.ts",
   "src/battery-monitor.ts",
@@ -84,6 +85,15 @@ if (shellyAdapterSource.includes("reachable: false, lastSeen: now()")) fail("Fai
 if (!shellyAdapterSource.includes("const next = { ...device, reachable: false };")) fail("Shelly offline refresh path does not preserve the previous lastSeen timestamp");
 if (!virtualFrontend.includes("add('Sensor-Ressourcen',adapter.sensorResourceIds,{copy:true})") || !virtualFrontend.includes("add('OpenCCU-Kanalname',adapter.channelName)")) fail("Source-specific device information is incomplete");
 if (!serverSource.includes('"/api/adapters/virtual/devices"')) fail("Virtual device creation API route is missing");
+const openCcuAdapterSource = read("src/openccu-adapter.ts");
+const openCcuCoreSource = read("src/openccu-core.ts");
+const openCcuXmlRpcSource = read("src/openccu-xmlrpc.ts");
+if (!openCcuCoreSource.includes('snapshot.channelType.trim().toUpperCase() === "KEY"') || !openCcuCoreSource.includes('type: "button"')) fail("OpenCCU KEY channels are not mapped as SALTA buttons");
+if (!openCcuXmlRpcSource.includes("OPENCCU_CALLBACK_PORT = 18_099") || !openCcuXmlRpcSource.includes('"BidCos-RF": 2001')) fail("OpenCCU XML-RPC callback port contract is missing");
+if (!openCcuXmlRpcSource.includes('if (parameter === "PRESS_SHORT") return 1002') || !openCcuXmlRpcSource.includes('if (parameter === "PRESS_LONG") return 1001') || !openCcuXmlRpcSource.includes('if (parameter === "PRESS_LONG_RELEASE") return 1003')) fail("OpenCCU KEY event mapping is incomplete");
+if (!openCcuAdapterSource.includes('key: "buttonEvent"') || !openCcuAdapterSource.includes("callbackServer.invalidateRegistrations()")) fail("OpenCCU realtime button-event wiring or reconnect registration is missing");
+if (!read("public/automation-ui.js").includes("'hm-pb-6-wm55':[1002,1001,1003]")) fail("HM-PB-6-WM55 automation event choices are missing");
+
 const climateModeSource = read("src/climate-mode.ts");
 const batteryMonitorSource = read("src/battery-monitor.ts");
 const pushoverSource = read("src/pushover.ts");

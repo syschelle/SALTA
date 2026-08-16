@@ -1,4 +1,4 @@
-# SALTA v0.8.77 Git commands
+# SALTA v0.8.78 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(presence): add person display names"
+git commit -m "feat(openccu): add realtime HomeMatic button events"
 git push origin main
 ```
 
@@ -18,6 +18,12 @@ git push origin main
 git fetch origin
 
 git show origin/main:package.json | grep '"version"'
+git show origin/main:src/openccu-core.ts | grep -F 'snapshot.channelType.trim().toUpperCase() === "KEY"'
+git show origin/main:src/openccu-xmlrpc.ts | grep -F 'OPENCCU_CALLBACK_PORT = 18_099'
+git show origin/main:src/openccu-xmlrpc.ts | grep -F '"BidCos-RF": 2001'
+git show origin/main:src/openccu-adapter.ts | grep -F 'openCcuButtonEventValue(event.parameter)'
+git show origin/main:src/openccu-adapter.ts | grep -F 'key: "buttonEvent"'
+git show origin/main:public/automation-ui.js | grep -F "'hm-pb-6-wm55':[1002,1001,1003]"
 git show origin/main:docker-compose.image.yml | sha256sum
 git show origin/main:migrate-homekit-storage.sh | sha256sum
 
@@ -56,8 +62,8 @@ git show origin/main:public/app.js | grep -F 'presentNames.length?compactPresenc
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.77 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.77.
+Release validator contract: SALTA v0.8.78 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.78.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -68,14 +74,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.77 -m "SALTA v0.8.77"
-git push origin v0.8.77
+git tag -a v0.8.78 -m "SALTA v0.8.78"
+git push origin v0.8.78
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.77 \
-  --title "SALTA v0.8.77" \
+gh release create v0.8.78 \
+  --title "SALTA v0.8.78" \
   --notes-file RELEASE_TEXT.md
 ```

@@ -46,6 +46,13 @@ describe("automation frontend", () => {
     expect(html).toContain('aria-label="Ziel nach Name, Raum, Quelle oder SALTA-Funktion suchen"');
   });
 
+  it("offers the HM-PB-6-WM55 short, long and release events", () => {
+    expect(ui).toContain("'hm-pb-6-wm55':[1002,1001,1003]");
+    expect(ui).toContain("1:'Hold'");
+    expect(ui).toContain("2:'Einfachklick'");
+    expect(ui).toContain("3:'Losgelassen'");
+  });
+
   it("offers the global SALTA heating mode as an optional condition but not as a device trigger", () => {
     expect(ui).toContain("function automationIsClimateModeDevice(device)");
     expect(ui).toContain("function automationTriggerDevices(){return all.filter(device=>device.source!=='system'");

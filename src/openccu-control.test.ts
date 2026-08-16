@@ -5,6 +5,7 @@ import { functionSource, functionTransitivelyCalls, hasFunction, parseJavaScript
 const adapter = readFileSync(new URL("./openccu-adapter.ts", import.meta.url), "utf8");
 const core = readFileSync(new URL("./openccu-core.ts", import.meta.url), "utf8");
 const frontend = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+const automationFrontend = readFileSync(new URL("../public/automation-ui.js", import.meta.url), "utf8");
 const frontendAst = parseJavaScriptSource(frontend);
 
 describe("OpenCCU control and naming integration", () => {
@@ -39,4 +40,13 @@ describe("OpenCCU control and naming integration", () => {
     expect(frontend).toContain("['manual','Hand'");
     expect(frontend).toContain("['auto','Automatik'");
   });
+  it("registers a realtime XML-RPC callback for HomeMatic KEY events", () => {
+    expect(adapter).toContain("OpenCcuXmlRpcCallbackServer");
+    expect(adapter).toContain("openCcuButtonEventValue(event.parameter)");
+    expect(adapter).toContain('key: "buttonEvent"');
+    expect(adapter).toContain("callbackServer.invalidateRegistrations()");
+    expect(core).toContain('snapshot.channelType.trim().toUpperCase() === "KEY"');
+    expect(automationFrontend).toContain("'hm-pb-6-wm55':[1002,1001,1003]");
+  });
+
 });

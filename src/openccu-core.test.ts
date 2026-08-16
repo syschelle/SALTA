@@ -468,4 +468,27 @@ describe("OpenCCU HomeMatic device mapping", () => {
       capabilities: []
     });
   });
+  it("maps HM-PB-6-WM55 KEY channels as separate automation buttons even when VALUES is empty", () => {
+    const catalog = openCcuCatalogFromDescriptions("BidCos-RF", [
+      { ADDRESS: "REQ0862479", TYPE: "HM-PB-6-WM55", FIRMWARE: "1.2", CHILDREN: ["REQ0862479:0", "REQ0862479:1", "REQ0862479:2"] },
+      { ADDRESS: "REQ0862479:0", PARENT: "REQ0862479", TYPE: "MAINTENANCE", PARAMSETS: ["MASTER", "VALUES"] },
+      { ADDRESS: "REQ0862479:1", PARENT: "REQ0862479", TYPE: "KEY", PARAMSETS: ["LINK", "MASTER", "VALUES"] },
+      { ADDRESS: "REQ0862479:2", PARENT: "REQ0862479", TYPE: "KEY", PARAMSETS: ["LINK", "MASTER", "VALUES"] }
+    ], [{ address: "REQ0862479", name: "Wandtaster Wohnzimmer", channels: [
+      { address: "REQ0862479:1", name: "Wandtaster Wohnzimmer:1" },
+      { address: "REQ0862479:2", name: "Szene Licht" }
+    ] }]);
+
+    expect(catalog.map(entry => entry.channelAddress)).toEqual(["REQ0862479:1", "REQ0862479:2"]);
+    const first = openCcuDeviceFromChannel({ ...catalog[0]!, baseUrl: "http://openccu.local", values: {} });
+    const second = openCcuDeviceFromChannel({ ...catalog[1]!, baseUrl: "http://openccu.local", values: {} });
+    expect(first).toMatchObject({
+      type: "button",
+      name: "Wandtaster Wohnzimmer · Taste 1",
+      state: {},
+      adapterData: { buttonEventProtocol: "openccu-xmlrpc", buttonEventTransport: "xmlrpc" }
+    });
+    expect(second).toMatchObject({ type: "button", name: "Szene Licht" });
+  });
+
 });

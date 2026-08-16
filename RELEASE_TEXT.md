@@ -1,6 +1,22 @@
-# SALTA v0.8.77
+# SALTA v0.8.78
 
-SALTA v0.8.77 adds human-readable person names to FRITZ!Box presence targets. The overview can now show who is currently home instead of only displaying a numeric `x of y present` count, while the existing device name and MAC-address based presence detection remain unchanged.
+SALTA v0.8.78 adds realtime classic HomeMatic button support through OpenCCU. The implementation is based on the XML-RPC event payload observed from real `HM-PB-6-WM55` devices: OpenCCU exposes six `KEY` channels with empty `VALUES` paramsets and sends button actions such as `PRESS_SHORT` through `system.multicall` callbacks.
+
+## v0.8.78 OpenCCU/HomeMatic button events
+
+- Added classic HomeMatic `KEY` channel support, including all six channels of `HM-PB-6-WM55`.
+- `KEY` channels are represented as separate SALTA `button` devices even when `Interface.getParamset(..., "VALUES")` returns an empty object.
+- If OpenCCU provides a dedicated channel name, SALTA uses it. Otherwise a readable fallback such as `Wandtaster Wohnzimmer · Taste 2` is generated from the physical device name and channel number.
+- Added a local XML-RPC callback listener on TCP `18099`. When the synchronized catalogue contains `KEY` channels, SALTA registers that callback with the corresponding OpenCCU XML-RPC interface; classic `BidCos-RF` uses OpenCCU port `2001`.
+- Added immediate automation button events for `PRESS_SHORT`, `PRESS_LONG` and `PRESS_LONG_RELEASE`. They map to SALTA's existing button-event model as short click, hold and release.
+- Repetitive `PRESS_CONT` callbacks are deliberately ignored so holding a button cannot create an automation-event flood. OpenCCU's diagnostic `INSTALL_TEST` callback is also ignored.
+- `HM-PB-6-WM55` devices offer only the three supported event choices in the automation editor.
+- The most recent button event is kept on the SALTA button state across the normal 60-second OpenCCU polling cycle.
+- XML-RPC registration is invalidated when the normal OpenCCU connection fails and is renewed automatically after a successful reconnect, covering OpenCCU restarts without restarting SALTA.
+- XML-RPC callback setup is non-fatal: if callback registration fails, normal OpenCCU polling and device control continue and the problem is written to the System Log.
+- The callback instance identifier is randomized per SALTA process. No OpenCCU session identifier or credential is exposed through the callback endpoint.
+- The OpenCCU host must be able to connect to the SALTA host on TCP `18099`. SALTA's existing production `network_mode: host` topology already allows the listener to bind directly to the LAN address used to reach OpenCCU.
+- No database schema migration, new mandatory environment variable or npm dependency is required.
 
 ## v0.8.77 named presence people
 
@@ -26,6 +42,9 @@ SALTA v0.8.77 adds human-readable person names to FRITZ!Box presence targets. Th
 
 ## Compatibility
 
+- No database migration is required for the v0.8.78 OpenCCU button integration.
+- Existing OpenCCU JSON-RPC polling and device-control behavior remains active and unchanged for normal states and actuators.
+- The OpenCCU host must be able to reach the SALTA host on TCP `18099` for realtime HomeMatic `KEY` events. No Docker Compose port mapping is required because SALTA continues to use `network_mode: host`.
 - Normal startup automatically creates the additive `presence_target_profiles` table.
 - No existing table is altered and no manual database command is required.
 - Existing Presence targets remain valid; before a separate person name is saved, the existing target/device name is used as the display-name fallback.

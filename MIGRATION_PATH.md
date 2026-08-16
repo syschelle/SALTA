@@ -2,7 +2,9 @@
 
 v0.8.69 fixes the startup SQL used to create/update the hidden `system:climate-mode` automation target. The canonical schema is unchanged: `devices.capabilities` remains `jsonb`, and schema initialization now supplies a JSONB array instead of a PostgreSQL `text[]`.
 
-## Current v0.8.77 update
+## Current v0.8.78 update
+
+v0.8.78 adds OpenCCU XML-RPC event reception for classic HomeMatic `KEY` channels. No database migration is required. SALTA listens on TCP `18099` on its local OpenCCU-facing address and registers that callback with OpenCCU only when KEY channels are present. The production `network_mode: host` topology remains unchanged. Ensure the OpenCCU host can connect back to the SALTA host on TCP `18099`.
 
 v0.8.77 adds the additive `presence_target_profiles` table for human-readable person names associated with existing FRITZ!Box presence targets. No existing table is altered and no manual SQL command is required. SALTA creates the new table during normal schema initialization. Existing targets without a profile automatically fall back to their current target/device name until edited. Configuration/disaster-recovery backups include the new table, while older format-v1 backups without it remain compatible.
 

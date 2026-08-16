@@ -21,6 +21,7 @@ import {
   type JsonRecord,
   type OpenCcuCatalogEntry
 } from "./openccu-core.js";
+import { OpenCcuXmlRpcCallbackServer, openCcuButtonEventValue, type OpenCcuXmlRpcEvent } from "./openccu-xmlrpc.js";
 import type {
   Device,
   DeviceCommand,
@@ -269,12 +270,68 @@ export class OpenCcuAdapter {
   private catalogLoadedAt = 0;
   private status: OpenCcuGatewayStatus = { connected: false, interfaces: [], devices: 0 };
   private commandQueues = new Map<string, Promise<void>>();
+  private eventQueue: Promise<void> = Promise.resolve();
   private lastLoggedError = "";
+  private readonly callbackServer: OpenCcuXmlRpcCallbackServer;
 
-  constructor(private readonly registry: DeviceRegistry) {}
+  constructor(private readonly registry: DeviceRegistry) {
+    this.callbackServer = new OpenCcuXmlRpcCallbackServer({
+      onEvent: event => this.queueRealtimeEvent(event),
+      onTopologyChange: () => {
+        this.catalogLoadedAt = 0;
+        if (this.running) this.scheduleReconcile(0);
+      },
+      onLog: (level, code, message, details) => this.log(level, code, message, details)
+    });
+  }
 
   private log(level: SystemLogLevel, code: string | undefined, message: string, details: Record<string, unknown> = {}): void {
     void writeSystemLog(level, "openccu", code, message, details).catch(() => undefined);
+  }
+
+  private queueRealtimeEvent(event: OpenCcuXmlRpcEvent): void {
+    const run = this.eventQueue.catch(() => undefined).then(() => this.applyRealtimeEvent(event));
+    this.eventQueue = run.catch(error => {
+      this.log("warning", "OPENCCU_CALLBACK_EVENT_FAILED", "OpenCCU realtime event could not be applied", {
+        channelAddress: event.channelAddress,
+        parameter: event.parameter,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    });
+  }
+
+  private async applyRealtimeEvent(event: OpenCcuXmlRpcEvent): Promise<void> {
+    const eventValue = openCcuButtonEventValue(event.parameter);
+    if (eventValue === undefined || event.value !== true) return;
+    const entry = this.catalog.find(candidate => candidate.channelAddress === event.channelAddress && candidate.channelType.toUpperCase() === "KEY");
+    if (!entry) return;
+    const device = this.registry.all().find(candidate => candidate.source === "openccu"
+      && candidate.adapterData?.interfaceName === entry.interfaceName
+      && candidate.adapterData?.channelAddress === entry.channelAddress);
+    if (!device || device.type !== "button") return;
+    const receivedAt = now();
+    const updated: Device = {
+      ...device,
+      reachable: true,
+      state: { ...device.state, buttonEvent: eventValue },
+      adapterData: {
+        ...(device.adapterData ?? {}),
+        buttonEventProtocol: "openccu-xmlrpc",
+        buttonEventTransport: "xmlrpc",
+        buttonEventParameter: event.parameter,
+        buttonEventLastUpdated: receivedAt
+      },
+      lastSeen: receivedAt,
+      lastEvent: receivedAt
+    };
+    await this.registry.set(updated);
+    this.registry.emitDeviceEvent({
+      deviceId: updated.id,
+      source: "openccu",
+      key: "buttonEvent",
+      value: eventValue,
+      receivedAt
+    });
   }
 
   private runExclusive<T>(operation: () => Promise<T>): Promise<T> {
@@ -334,6 +391,8 @@ export class OpenCcuAdapter {
     this.timer = undefined;
     await this.reconcileTask?.catch(() => undefined);
     await this.operationQueue.catch(() => undefined);
+    await this.eventQueue.catch(() => undefined);
+    await this.callbackServer.stop();
     await this.closeRuntimeClient();
   }
 
@@ -453,6 +512,7 @@ export class OpenCcuAdapter {
       const normalizedUsername = username.trim();
       if (!normalizedUsername || !effectivePassword) throw new OpenCcuAdapterError("OPENCCU_CREDENTIALS_REQUIRED", "Session.login");
 
+      await this.callbackServer.stop();
       await this.closeRuntimeClient();
       const report = await this.runDiagnostics(baseUrl, normalizedUsername, effectivePassword);
       const loginStep = report.steps.find(step => step.method === "Session.login");
@@ -492,6 +552,7 @@ export class OpenCcuAdapter {
     return this.runExclusive(async () => {
       this.configurationGeneration += 1;
       await clearOpenCcuSettings();
+      await this.callbackServer.stop();
       await this.closeRuntimeClient();
       await this.registry.removeSource("openccu");
       this.catalog = [];
@@ -643,6 +704,9 @@ export class OpenCcuAdapter {
         if (generation !== this.configurationGeneration) return;
         this.registry.restore(discovered.id);
         const existing = this.registry.get(discovered.id);
+        const preservedButtonState = discovered.type === "button" && typeof existing?.state.buttonEvent === "number"
+          ? { ...discovered.state, buttonEvent: existing.state.buttonEvent }
+          : discovered.state;
         await this.registry.set({
           ...discovered,
           name: reconciledOpenCcuName(existing, discovered),
@@ -651,7 +715,8 @@ export class OpenCcuAdapter {
           presentationType: existing?.presentationType ?? discovered.presentationType,
           homekitEnabled: false,
           hidden: false,
-          lastEvent: existing && JSON.stringify(existing.state) === JSON.stringify(discovered.state) ? existing.lastEvent : discovered.lastEvent
+          state: preservedButtonState,
+          lastEvent: existing && (discovered.type === "button" || JSON.stringify(existing.state) === JSON.stringify(discovered.state)) ? existing.lastEvent : discovered.lastEvent
         });
       }
       for (const existing of this.registry.all().filter(device => device.source === "openccu" && !seen.has(device.id))) {
@@ -666,6 +731,13 @@ export class OpenCcuAdapter {
         lastSync: now(),
         lastDiagnostic: this.status.lastDiagnostic
       };
+      const eventInterfaces = [...new Set(this.catalog.filter(entry => entry.channelType.toUpperCase() === "KEY").map(entry => entry.interfaceName))];
+      await this.callbackServer.ensure(connection.baseUrl, eventInterfaces).catch(error => {
+        this.log("warning", "OPENCCU_CALLBACK_SETUP_FAILED", "OpenCCU realtime callback setup failed; polling remains active", {
+          error: error instanceof Error ? error.message : String(error),
+          interfaces: eventInterfaces
+        });
+      });
       if (snapshotFailures) {
         this.log("warning", "OPENCCU_CHANNEL_READ_PARTIAL", "Some OpenCCU channels could not be read", {
           failedChannels: snapshotFailures,
@@ -686,6 +758,7 @@ export class OpenCcuAdapter {
       if (generation !== this.configurationGeneration) return;
       const info = openCcuErrorInfo(error);
       this.runtimeClient?.invalidateSession();
+      this.callbackServer.invalidateRegistrations();
       this.catalogLoadedAt = 0;
       if (info.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + sessionRetryDelayMs;
       this.status = {

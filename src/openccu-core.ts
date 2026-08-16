@@ -546,11 +546,38 @@ function baseDevice(snapshot: OpenCcuChannelSnapshot): Omit<Device, "type" | "st
   };
 }
 
+function openCcuButtonName(snapshot: OpenCcuChannelSnapshot): string {
+  const channelIndex = snapshot.channelAddress.split(":").at(-1);
+  const physicalName = snapshot.deviceName?.trim() || deviceName(snapshot);
+  const channelName = snapshot.channelName?.trim();
+  const generatedChannelSuffix = channelIndex ? `:${channelIndex}` : "";
+  if (channelName && (!generatedChannelSuffix || !channelName.toLocaleLowerCase().endsWith(generatedChannelSuffix.toLocaleLowerCase())) && channelName !== physicalName) return channelName;
+  return channelIndex ? `${physicalName} · Taste ${channelIndex}` : physicalName;
+}
+
 export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Device | undefined {
   const values = snapshot.values;
   const type = normalizedType(snapshot);
   const common = stateFromCommonValues(values);
   const base = baseDevice(snapshot);
+
+  if (snapshot.channelType.trim().toUpperCase() === "KEY") {
+    const name = openCcuButtonName(snapshot);
+    return {
+      ...base,
+      name,
+      type: "button",
+      state: { ...common },
+      capabilities: [],
+      adapterData: {
+        ...(base.adapterData ?? {}),
+        sourceName: name,
+        buttonEventProtocol: "openccu-xmlrpc",
+        buttonEventTransport: "xmlrpc",
+        buttonEventParameters: "PRESS_SHORT,PRESS_LONG,PRESS_LONG_RELEASE"
+      }
+    };
+  }
   const level = numberValue(values.LEVEL);
   const stateValue = booleanValue(values.STATE);
   const actualTemperature = numberValue(values.ACTUAL_TEMPERATURE ?? values.TEMPERATURE);
