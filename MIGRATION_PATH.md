@@ -2,7 +2,9 @@
 
 v0.8.69 fixes the startup SQL used to create/update the hidden `system:climate-mode` automation target. The canonical schema is unchanged: `devices.capabilities` remains `jsonb`, and schema initialization now supplies a JSONB array instead of a PostgreSQL `text[]`.
 
-## Current v0.8.74 update
+## Current v0.8.75 update
+
+v0.8.75 changes only frontend regression tests. There is no runtime, persistence or schema change.
 
 v0.8.74 adds Vacation mode without a schema migration. The persisted Vacation mode flag reuses the existing `notification_state` table, which is already included in SALTA configuration and disaster-recovery backups. The hidden `system:vacation-mode` automation-condition device is created through the normal typed device persistence path during startup.
 

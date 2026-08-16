@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.75
+
+- Updated two stale frontend regression tests after the v0.8.74 Vacation mode integration.
+- The automation trigger test now verifies that all hidden SALTA `system` devices are excluded from **When**, which covers both Heating mode and Vacation mode.
+- The Vacation mode overview test now verifies the Off/On button handlers in `public/index.html` and the generic `applyVacationMode()` API implementation in `public/app.js` at their actual locations.
+- Runtime behavior, Vacation mode security monitoring, Pushover alerts, automation conditions, database persistence and deployment behavior are unchanged.
+
 ## v0.8.74
 
 - Added a global **Urlaubsmodus / Vacation mode** to the overview with explicit On/Off controls.

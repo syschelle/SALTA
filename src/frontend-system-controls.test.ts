@@ -70,8 +70,10 @@ describe("system overview controls", () => {
     expect(html).toContain('id="vacationModeOnButton"');
     expect(html).toContain('id="vacationModeStatus"');
     expect(script).toContain("api('/api/system/vacation-mode')");
-    expect(script).toContain("applyVacationMode(false)");
-    expect(script).toContain("applyVacationMode(true)");
+    expect(html).toContain("onclick=\"applyVacationMode(false)\"");
+    expect(html).toContain("onclick=\"applyVacationMode(true)\"");
+    expect(hasFunction(app, "applyVacationMode")).toBe(true);
+    expect(functionCallsWithStringArgument(app, "applyVacationMode", "api", "/api/system/vacation-mode")).toBe(true);
   });
 
 });

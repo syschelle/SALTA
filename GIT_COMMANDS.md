@@ -1,4 +1,4 @@
-# SALTA v0.8.74 Git commands
+# SALTA v0.8.75 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(system): add vacation mode security"
+git commit -m "test(frontend): align vacation mode regression coverage"
 git push origin main
 ```
 
@@ -50,8 +50,8 @@ git show origin/main:public/automation-ui.js | grep -F "vacationActive:['Aktiv',
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.74 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.74.
+Release validator contract: SALTA v0.8.75 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.75.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -62,14 +62,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.74 -m "SALTA v0.8.74"
-git push origin v0.8.74
+git tag -a v0.8.75 -m "SALTA v0.8.75"
+git push origin v0.8.75
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.74 \
-  --title "SALTA v0.8.74" \
+gh release create v0.8.75 \
+  --title "SALTA v0.8.75" \
   --notes-file RELEASE_TEXT.md
 ```

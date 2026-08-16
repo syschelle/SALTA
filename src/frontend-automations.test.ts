@@ -48,7 +48,7 @@ describe("automation frontend", () => {
 
   it("offers the global SALTA heating mode as an optional condition but not as a device trigger", () => {
     expect(ui).toContain("function automationIsClimateModeDevice(device)");
-    expect(ui).toContain("!automationIsClimateModeDevice(device)");
+    expect(ui).toContain("function automationTriggerDevices(){return all.filter(device=>device.source!=='system'");
     expect(ui).toContain("key==='winterActive'?'Heizmodus'");
     expect(ui).toContain("winterActive:['Wintermodus','Sommermodus']");
     expect(ui).toContain("automationIsClimateModeDevice(device)?`Heizmodus = ${automationValueLabel(condition.stateKey,condition.value)}`");

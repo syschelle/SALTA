@@ -1,6 +1,14 @@
-# SALTA v0.8.74
+# SALTA v0.8.75
 
-SALTA v0.8.74 adds a global Vacation mode that can be switched from the overview, used as an **Only if** automation condition, and used as a local security guard for door/window contacts. When Vacation mode is active and a reachable contact changes from closed to open, SALTA sends a Pushover alert using the already configured notification credentials.
+SALTA v0.8.75 is a regression-test maintenance release for the Vacation mode introduced in v0.8.74. The two failing frontend tests were stale source-location expectations; runtime behavior is unchanged.
+
+## v0.8.75 regression-test maintenance
+
+- Updated the Heating mode automation-condition regression test to reflect the current trigger filter, which excludes all hidden SALTA `system` devices from **When** rather than checking only the Climate mode device helper.
+- This keeps both `system:climate-mode` and `system:vacation-mode` available as **Only if** conditions while excluding them from device-event triggers.
+- Updated the Vacation mode overview regression test so the **Off** and **On** button handlers are checked in `public/index.html`, where `applyVacationMode(false)` and `applyVacationMode(true)` are actually wired.
+- The test separately verifies that `public/app.js` contains the generic `applyVacationMode()` function and that it calls `/api/system/vacation-mode`.
+- No runtime code, database schema, automation behavior, Vacation mode security logic, Pushover behavior, mandatory environment variable, npm dependency or deployment topology changed.
 
 ## v0.8.74 Vacation mode and contact security
 
@@ -205,6 +213,8 @@ SALTA v0.8.74 adds a global Vacation mode that can be switched from the overview
 
 ## Compatibility
 
+- v0.8.75 changes only frontend regression-test expectations; runtime behavior and persistence are unchanged.
+- The v0.8.74 Vacation mode, contact-security monitor and Pushover alert path remain unchanged.
 - v0.8.65 adds the `automation_time_triggers` table automatically during normal schema initialization; no manual database migration is required.
 - Hue credentials continue to reuse SALTA's existing encrypted `adapter_settings` persistence.
 - Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
