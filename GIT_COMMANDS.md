@@ -1,4 +1,4 @@
-# SALTA v0.8.83 Git commands
+# SALTA v0.8.84 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(appearance): add configurable color profiles"
+git commit -m "test(frontend): align appearance regression coverage"
 git push origin main
 ```
 
@@ -18,6 +18,9 @@ git push origin main
 git fetch origin
 
 git show origin/main:package.json | grep '"version"'
+git show origin/main:src/frontend-auth.test.ts | grep -F "await loadAppearanceSettings().catch(()=>undefined);navigate();load()"
+git show origin/main:src/frontend-device-grouping.test.ts | grep -F 'background:var(--overview-room-bg)'
+git show origin/main:src/frontend-device-grouping.test.ts | grep -F -- '--overview-room-bg:#eef2ff'
 git show origin/main:public/index.html | grep -F 'data-settings-panel="appearance"'
 git show origin/main:public/index.html | grep -F 'id="appearanceLightColors"'
 git show origin/main:public/index.html | grep -F 'id="appearanceDarkColors"'
@@ -35,8 +38,8 @@ git show origin/main:src/db.ts | grep -F "jsonb_build_array('setClimateMode')"
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.83 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.83.
+Release validator contract: SALTA v0.8.84 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.84.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -47,14 +50,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.83 -m "SALTA v0.8.83"
-git push origin v0.8.83
+git tag -a v0.8.84 -m "SALTA v0.8.84"
+git push origin v0.8.84
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.83 \
-  --title "SALTA v0.8.83" \
+gh release create v0.8.84 \
+  --title "SALTA v0.8.84" \
   --notes-file RELEASE_TEXT.md
 ```

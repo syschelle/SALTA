@@ -1,6 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.83 update
+## Current v0.8.84 update
+
+v0.8.84 changes only frontend regression tests and release metadata after the configurable Appearance integration. No runtime, persistence, schema or environment-variable migration is required.
 
 v0.8.83 adds persisted Appearance profiles and per-color customization using the existing `notification_state` table. No new table, `ALTER TABLE`, manual SQL migration or environment variable is required. Existing installations without Appearance settings automatically use the Standard profile.
 
