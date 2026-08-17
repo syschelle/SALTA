@@ -200,8 +200,7 @@ html[data-theme="dark"]{--state-on-bg:#13271f;--state-on-border:#2b3b33;--state-
 .thermostat-mode-buttons .mdi{font-size:15px}
 .overview-section-head{margin-top:0}
 .overview-device-groups{gap:14px}
-.overview-device-groups .device-room-group{padding:14px 16px 16px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,var(--card) 0,var(--subtle-bg) 100%);box-shadow:var(--shadow-card)}
-.overview-device-groups .device-room-group:nth-child(even){background:linear-gradient(180deg,var(--card) 0,var(--accent-bg) 100%)}
+.overview-device-groups .device-room-group{padding:14px 16px 16px;border:1px solid var(--line);border-radius:16px;background:#eef2ff;box-shadow:var(--shadow-card)}
 .overview-device-groups .device-room-heading{padding:0}
 
 

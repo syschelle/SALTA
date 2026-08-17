@@ -4,14 +4,14 @@
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.81 -m "SALTA v0.8.81"
-git push origin v0.8.81
+git tag -a v0.8.82 -m "SALTA v0.8.82"
+git push origin v0.8.82
 ```
 
 Default image tag in `docker-compose.image.yml`:
 
 ```text
-ghcr.io/syschelle/salta:0.8.81
+ghcr.io/syschelle/salta:0.8.82
 ```
 
 HomeKit migration compatibility boundary:

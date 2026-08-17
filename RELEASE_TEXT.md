@@ -1,16 +1,25 @@
-# SALTA v0.8.81
+# SALTA v0.8.82
 
-SALTA v0.8.81 polishes the overview after the Favorites integration. The explanatory hint below **Devices by room** has been removed and the room groups on the overview now sit inside clearer background blocks so neighboring rooms are easier to distinguish at a glance.
+SALTA v0.8.82 further simplifies the overview. The descriptive subtitle below **Favorites** is removed, and the room-group boundaries introduced in v0.8.81 now use a single solid `#eef2ff` background instead of gradients or alternating colors.
+
+## v0.8.82 overview visual cleanup
+
+- Removed the **Schnellzugriff auf deine wichtigsten Geräte.** subtitle below the **Favoriten / Favorites** heading.
+- Replaced the room-group gradient backgrounds introduced in v0.8.81 with the requested solid HTML color `#eef2ff`.
+- Removed alternating room-group background colors so every room section uses the same consistent background.
+- The room-group border, rounded corners, spacing, room order and device-card behavior remain unchanged.
+- Favorites remain positioned between the global system controls and the normal room-grouped devices.
+- Favorite devices still intentionally remain visible both in Favorites and in their assigned room.
+- Added frontend regression coverage that rejects the removed Favorites subtitle and rejects overview room-group gradients.
+- No backend logic, database schema, automation behavior, HomeKit behavior, new environment variable or deployment-topology change is required.
 
 ## v0.8.81 overview room-group clarity
 
 - Removed the explanatory overview hint text below **Geräte nach Räumen / Devices by room**.
-- The overview room groups now render inside their own bordered background blocks instead of visually running directly into the page background.
-- Added an alternating subtle/accent-tinted room-group background treatment so adjacent room sections are easier to distinguish in long overviews.
+- Added bordered background blocks around overview room groups so neighboring room sections are easier to distinguish.
 - The underlying room order, room grouping logic and device-card behavior are unchanged.
-- Favorites still remain positioned between the global system cards and the room-grouped overview.
-- Favorites still intentionally duplicate the same live device card: once in Favorites and once in its assigned room.
-- Added frontend regression coverage for the simplified overview heading and the overview room-group styling.
+- Favorites remain positioned between the global system cards and the room-grouped overview.
+- Added frontend regression coverage for the simplified overview heading and room-group styling.
 - No backend logic, database schema, automation behavior, HomeKit behavior, new environment variable or deployment-topology change is required.
 
 ## v0.8.80 Favorites lifecycle regression fix
@@ -21,18 +30,10 @@ SALTA v0.8.81 polishes the overview after the Favorites integration. The explana
 - The v0.8.79 Favorites UI and persistence behavior remain unchanged.
 - No database schema migration, manual SQL command, new mandatory environment variable, npm dependency or deployment-topology change is required.
 
-## v0.8.79 overview device favorites
-
-- Added a per-device **Show as favorite** option to the existing device configuration dialog.
-- Favorite devices are rendered in a dedicated **Favorites** section directly between Daylight/Vacation/Heating/Battery controls and **Devices by room**.
-- Marking a device as a favorite does not remove or move it from the room-grouped overview.
-- Favorite cards reuse the existing device-card renderer, including live state, controls and configuration actions.
-- Added the additive `device_favorites` table and backup/restore support.
-- Hidden Zigbee devices and internal Presence/SALTA system devices are excluded from Favorites.
-
 ## Compatibility
 
-- v0.8.81 does not add or alter database schema.
+- v0.8.82 changes only overview HTML/CSS and the corresponding frontend regression tests.
+- No database schema is added or altered.
 - The additive `device_favorites` table introduced in v0.8.79 remains unchanged.
 - Existing Favorites remain persistent across adapter refreshes.
 - Existing OpenCCU JSON-RPC polling and realtime XML-RPC button events remain unchanged.

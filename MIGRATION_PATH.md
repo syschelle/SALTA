@@ -1,8 +1,10 @@
 # SALTA migration paths
 
-## Current v0.8.81 update
+## Current v0.8.82 update
 
-v0.8.81 is a frontend-only overview polish release. It removes the helper hint below **Geräte nach Räumen** and improves visual differentiation between room groups on the overview. No database schema, persistence format or environment variable changes are introduced.
+v0.8.82 is a frontend-only overview polish release. It removes the descriptive Favorites subtitle and replaces the v0.8.81 room-group gradients with the requested solid `#eef2ff` background. No database schema, persistence format or environment variable changes are introduced.
+
+v0.8.81 introduced the clearer room-group boundaries and removed the helper hint below **Geräte nach Räumen**.
 
 v0.8.80 fixes the v0.8.79 Favorites lifecycle/CI regressions. It does not add or alter database schema. `ShellyAdapter.add()` now returns the canonical Registry device after persistence, and Registry test fixtures explicitly include the default `favorite: false` field. No manual migration is required.
 

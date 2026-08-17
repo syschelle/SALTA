@@ -13,6 +13,7 @@ describe("overview favorites", () => {
     expect(html).toContain('id="overviewFavoritesGrid"');
     expect(html.indexOf('id="overviewFavoritesSection"')).toBeLessThan(html.indexOf('id="overviewDeviceGrid"'));
     expect(html).toContain("Favoriten");
+    expect(html).not.toContain("Schnellzugriff auf deine wichtigsten Geräte.");
     expect(styles).toContain(".overview-favorites-grid");
   });
 

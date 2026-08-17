@@ -34,8 +34,9 @@ describe("room-grouped device overview", () => {
   it("distinguishes overview room groups with their own background blocks", () => {
     expect(cssRuleContains(styles, ".overview-device-groups", "gap:14px")).toBe(true);
     expect(cssRuleContains(styles, ".overview-device-groups .device-room-group", "border-radius:16px")).toBe(true);
-    expect(cssRuleContains(styles, ".overview-device-groups .device-room-group", "background:linear-gradient(180deg,var(--card) 0,var(--subtle-bg) 100%)")).toBe(true);
-    expect(cssRuleContains(styles, ".overview-device-groups .device-room-group:nth-child(even)", "background:linear-gradient(180deg,var(--card) 0,var(--accent-bg) 100%)")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-device-groups .device-room-group", "background:#eef2ff")).toBe(true);
+    expect(styles).not.toContain("linear-gradient(180deg,var(--card) 0,var(--subtle-bg) 100%)");
+    expect(styles).not.toContain(".overview-device-groups .device-room-group:nth-child(even)");
   });
 
   it("keeps duplicate control IDs out of overview and adapter-page cards", () => {
