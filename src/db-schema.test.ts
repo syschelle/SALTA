@@ -37,9 +37,13 @@ describe("clean database schema", () => {
 
   it("stores device visibility separately without altering the devices table", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS device_preferences");
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS device_favorites");
+    expect(databaseSource).toContain("favorite boolean NOT NULL DEFAULT false");
     expect(databaseSource).toContain("hidden boolean NOT NULL DEFAULT false");
     expect(databaseSource).toContain('COALESCE(p.hidden,false) as hidden');
     expect(databaseSource).toContain("LEFT JOIN device_preferences p ON p.device_id=d.id");
+    expect(databaseSource).toContain("LEFT JOIN device_favorites f ON f.device_id=d.id");
+    expect(databaseSource).toContain('COALESCE(f.favorite,false) as favorite');
   });
 
 

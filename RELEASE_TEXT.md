@@ -1,6 +1,20 @@
-# SALTA v0.8.78
+# SALTA v0.8.79
 
-SALTA v0.8.78 adds realtime classic HomeMatic button support through OpenCCU. The implementation is based on the XML-RPC event payload observed from real `HM-PB-6-WM55` devices: OpenCCU exposes six `KEY` channels with empty `VALUES` paramsets and sends button actions such as `PRESS_SHORT` through `system.multicall` callbacks.
+SALTA v0.8.79 adds a dedicated Favorites area to the overview. Any normal SALTA device can be marked as a favorite for quick access between the global system controls and the existing room-grouped device view. Favorites are deliberately additive: the same device continues to appear normally in its assigned room.
+
+## v0.8.79 overview device favorites
+
+- Added a per-device **Show as favorite** option to the existing device configuration dialog.
+- Favorite devices are rendered in a dedicated **Favorites** section directly between Daylight/Vacation/Heating/Battery controls and **Devices by room**.
+- Marking a device as a favorite does not remove or move it from the room-grouped overview. The same live device can intentionally appear once in Favorites and once in its normal room.
+- Favorite cards reuse the existing device-card renderer, including live state, switch/cover/light/thermostat controls, Shelly web links and the configuration button.
+- The Favorites section remains completely hidden when no devices are marked as favorites, avoiding additional overview clutter.
+- Hidden Zigbee devices are not displayed in Favorites while hidden. Presence helper devices and internal SALTA `system` devices are also excluded.
+- Added the additive `device_favorites` table. Existing database tables are not altered and no manual SQL migration is required.
+- Device adapter refreshes preserve the favorite flag.
+- Configuration and disaster-recovery backups include `device_favorites`. Older signed format-v1 backups without the additive table remain importable and restore with no favorites selected.
+- Carries forward the v0.8.78 realtime OpenCCU/HomeMatic button integration and all previous overview/system functionality unchanged.
+- No new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.78 OpenCCU/HomeMatic button events
 
@@ -42,7 +56,10 @@ SALTA v0.8.78 adds realtime classic HomeMatic button support through OpenCCU. Th
 
 ## Compatibility
 
-- No database migration is required for the v0.8.78 OpenCCU button integration.
+- v0.8.79 adds the additive `device_favorites` table during normal schema initialization. No existing table is altered and no manual database command is required.
+- Existing devices default to not being favorites until explicitly selected.
+- Older signed format-v1 configuration/disaster-recovery backups without `device_favorites` remain importable and restore with no favorites selected.
+- The v0.8.78 OpenCCU button integration requires no database migration.
 - Existing OpenCCU JSON-RPC polling and device-control behavior remains active and unchanged for normal states and actuators.
 - The OpenCCU host must be able to reach the SALTA host on TCP `18099` for realtime HomeMatic `KEY` events. No Docker Compose port mapping is required because SALTA continues to use `network_mode: host`.
 - Normal startup automatically creates the additive `presence_target_profiles` table.

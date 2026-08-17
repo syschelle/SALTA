@@ -2,7 +2,9 @@
 
 v0.8.69 fixes the startup SQL used to create/update the hidden `system:climate-mode` automation target. The canonical schema is unchanged: `devices.capabilities` remains `jsonb`, and schema initialization now supplies a JSONB array instead of a PostgreSQL `text[]`.
 
-## Current v0.8.78 update
+## Current v0.8.79 update
+
+v0.8.79 adds the additive `device_favorites` table for overview Favorites. No existing device table is altered and no manual SQL command is required. SALTA creates the table during normal schema initialization. Existing devices default to not being favorites until selected in the device configuration dialog. Configuration/disaster-recovery backups include the table, while older format-v1 backups without it remain compatible.
 
 v0.8.78 adds OpenCCU XML-RPC event reception for classic HomeMatic `KEY` channels. No database migration is required. SALTA listens on TCP `18099` on its local OpenCCU-facing address and registers that callback with OpenCCU only when KEY channels are present. The production `network_mode: host` topology remains unchanged. Ensure the OpenCCU host can connect back to the SALTA host on TCP `18099`.
 

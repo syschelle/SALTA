@@ -1,11 +1,11 @@
-# SALTA v0.8.78 release manifest
+# SALTA v0.8.79 release manifest
 
 This manifest is intended for post-push verification before tagging the release.
 
 ## Production deployment file
 
 ```text
-docker-compose.image.yml  SHA-256  c622495a8e167ee3c9abd17f2789213504fddac0eaff15a54e269278299cfb69
+docker-compose.image.yml  SHA-256  1616b7ce0d2612858d740475dcee5df806cb3809ad2b9a673b8f60c80ae4fa87
 ```
 
 Required topology:
@@ -14,16 +14,6 @@ Required topology:
 - PostgreSQL uses Docker's normal bridge network.
 - PostgreSQL is published only on `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`.
 - No custom `networks:` section or `internal: true` network exists in the production Compose file.
-
-
-## OpenCCU realtime callback contract
-
-```text
-SALTA callback listener: TCP 18099
-Classic BidCos-RF XML-RPC: TCP 2001
-```
-
-The callback listener is bound to the SALTA host address used to reach OpenCCU. The OpenCCU host must be able to connect back to SALTA on TCP `18099`. No Docker port publication is required because the production SALTA service uses `network_mode: host`.
 
 ## Legacy HomeKit migration helper
 

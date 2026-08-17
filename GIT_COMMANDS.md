@@ -1,4 +1,4 @@
-# SALTA v0.8.78 Git commands
+# SALTA v0.8.79 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(openccu): add realtime HomeMatic button events"
+git commit -m "feat(overview): add device favorites"
 git push origin main
 ```
 
@@ -18,6 +18,11 @@ git push origin main
 git fetch origin
 
 git show origin/main:package.json | grep '"version"'
+git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS device_favorites'
+git show origin/main:public/index.html | grep -F 'id="overviewFavoritesSection"'
+git show origin/main:public/index.html | grep -F 'id="deviceFavorite"'
+git show origin/main:public/app.js | grep -F "deviceCard(device,false,'favorite')"
+git show origin/main:src/configuration-backup.ts | grep -F 'device_favorites: backupRows().optional()'
 git show origin/main:src/openccu-core.ts | grep -F 'snapshot.channelType.trim().toUpperCase() === "KEY"'
 git show origin/main:src/openccu-xmlrpc.ts | grep -F 'OPENCCU_CALLBACK_PORT = 18_099'
 git show origin/main:src/openccu-xmlrpc.ts | grep -F '"BidCos-RF": 2001'
@@ -62,8 +67,8 @@ git show origin/main:public/app.js | grep -F 'presentNames.length?compactPresenc
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.78 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.78.
+Release validator contract: SALTA v0.8.79 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.79.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -74,14 +79,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.78 -m "SALTA v0.8.78"
-git push origin v0.8.78
+git tag -a v0.8.79 -m "SALTA v0.8.79"
+git push origin v0.8.79
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.78 \
-  --title "SALTA v0.8.78" \
+gh release create v0.8.79 \
+  --title "SALTA v0.8.79" \
   --notes-file RELEASE_TEXT.md
 ```

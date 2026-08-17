@@ -78,6 +78,11 @@ export async function initializeDatabaseSchema(): Promise<void> {
       hidden boolean NOT NULL DEFAULT false,
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS device_favorites (
+      device_id text PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+      favorite boolean NOT NULL DEFAULT false,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS device_homekit_settings (
       device_id text PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
       enabled boolean NOT NULL DEFAULT true,
@@ -308,11 +313,16 @@ export async function upsertDevice(d: Device): Promise<void> {
     SELECT id,$31 FROM upserted_device
     ON CONFLICT(device_id) DO UPDATE SET hidden=EXCLUDED.hidden,updated_at=now()
     RETURNING device_id
+  ), upserted_favorite AS (
+    INSERT INTO device_favorites(device_id,favorite)
+    SELECT device_id,$32 FROM upserted_preferences
+    ON CONFLICT(device_id) DO UPDATE SET favorite=EXCLUDED.favorite,updated_at=now()
+    RETURNING device_id
   )
   INSERT INTO device_adapter_data(device_id,data)
-  SELECT device_id,$32::jsonb FROM upserted_preferences
+  SELECT device_id,$33::jsonb FROM upserted_favorite
   ON CONFLICT(device_id) DO UPDATE SET data=EXCLUDED.data,updated_at=now()`,
-    [d.id,d.source,d.sourceId,d.type,d.presentationType??"auto",d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.profile??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent,d.hidden,JSON.stringify(d.adapterData??{})]);
+    [d.id,d.source,d.sourceId,d.type,d.presentationType??"auto",d.name,d.host??null,d.generation??null,d.model??null,d.firmwareVersion??null,d.hostname??null,d.macAddress??null,d.profile??null,d.componentKind??null,d.componentId??null,d.channelCount??null,d.powerMetering??null,d.coverSupport??null,d.switchSupport??null,d.lightSupport??null,d.inputSupport??null,roomId,d.reachable,JSON.stringify(d.state),JSON.stringify(d.capabilities),d.homekitEnabled,d.credentialMode,d.credentialUsername??null,d.lastSeen,d.lastEvent,d.hidden,d.favorite??false,JSON.stringify(d.adapterData??{})]);
   await pool.query(`INSERT INTO device_homekit_settings(device_id,enabled) VALUES($1,$2) ON CONFLICT(device_id) DO NOTHING`,[d.id,d.homekitEnabled]);
 }
 
@@ -335,12 +345,13 @@ export async function listDevices(): Promise<Device[]> {
     COALESCE(hk.use_salta_room,true) as "homekitUseSaltaRoom",
     CASE WHEN COALESCE(hk.use_salta_room,true) THEN d.room_id ELSE hk.room_id END as "homekitRoomId",
     CASE WHEN COALESCE(hk.use_salta_room,true) THEN r.name ELSE hkr.name END as "homekitRoom",
-    COALESCE(p.hidden,false) as hidden,d.credential_mode as "credentialMode",d.credential_username as "credentialUsername",
+    COALESCE(p.hidden,false) as hidden,COALESCE(f.favorite,false) as favorite,d.credential_mode as "credentialMode",d.credential_username as "credentialUsername",
     (d.credential_password IS NOT NULL AND d.credential_password <> '') as "passwordConfigured",
     d.last_seen as "lastSeen",d.last_event as "lastEvent",COALESCE(ad.data,'{}'::jsonb) as "adapterData"
     FROM devices d
     LEFT JOIN rooms r ON r.id=d.room_id
     LEFT JOIN device_preferences p ON p.device_id=d.id
+    LEFT JOIN device_favorites f ON f.device_id=d.id
     LEFT JOIN device_homekit_settings hk ON hk.device_id=d.id
     LEFT JOIN rooms hkr ON hkr.id=hk.room_id
     LEFT JOIN device_adapter_data ad ON ad.device_id=d.id

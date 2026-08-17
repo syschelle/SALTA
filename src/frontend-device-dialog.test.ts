@@ -26,16 +26,18 @@ describe("device configuration details", () => {
 
   it("keeps name, room, presentation and HomeKit fields in one shared save contract", () => {
     expect(html).toContain('id="deviceName" maxlength="120" required');
+    expect(html).toContain('id="deviceFavorite" type="checkbox"');
     expect(html).toContain('id="devicePresentationType"');
     for (const value of ["auto", "light", "switch", "outlet", "fan"]) {
       expect(html).toContain(`option value="${value}"`);
     }
     expect(hasFunction(app, "openDevice")).toBe(true);
     expect(functionSource(app, "openDevice")).toContain("deviceName.value=selectedDevice.name");
+    expect(functionSource(app, "openDevice")).toContain("deviceFavorite.checked=Boolean(selectedDevice.favorite)");
     expect(functionSource(app, "saveDeviceConfig")).toContain("deviceName.value.trim()");
     expect(functionCalls(app, "saveDeviceConfig", "api", 2)).toBe(true);
     expect(objectLiteralPropertyNames(app, "saveDeviceConfig", "config")).toEqual(expect.arrayContaining([
-      "name", "roomId", "presentationType", "homekitEnabled", "homekitName", "homekitUseSaltaRoom", "homekitRoomId",
+      "name", "roomId", "favorite", "presentationType", "homekitEnabled", "homekitName", "homekitUseSaltaRoom", "homekitRoomId",
     ]));
     expect(hasFunction(app, "resolvedPresentationType")).toBe(true);
     expect(source).toContain("fan:'Ventilator'");

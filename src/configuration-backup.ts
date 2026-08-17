@@ -14,6 +14,7 @@ const backupDataSchema = z.object({
   rooms: backupRows(1000),
   devices: backupRows(),
   device_preferences: backupRows(),
+  device_favorites: backupRows().optional(),
   device_homekit_settings: backupRows(),
   adapter_settings: backupRows(20),
   openccu_settings: backupRows(10),
@@ -49,13 +50,14 @@ const backupSchema = z.object({
 export type ConfigurationBackup = z.infer<typeof backupSchema>;
 
 type BackupData = z.infer<typeof backupDataSchema>;
-type NormalizedBackupData = Omit<BackupData, "presence_target_profiles" | "automation_time_triggers" | "automation_conditions" | "automation_actions" | "automation_targets" | "automation_system_actions"> & { presence_target_profiles: Record<string, unknown>[]; automation_time_triggers: Record<string, unknown>[]; automation_conditions: Record<string, unknown>[]; automation_actions: Record<string, unknown>[]; automation_targets: Record<string, unknown>[]; automation_system_actions: Record<string, unknown>[] };
+type NormalizedBackupData = Omit<BackupData, "device_favorites" | "presence_target_profiles" | "automation_time_triggers" | "automation_conditions" | "automation_actions" | "automation_targets" | "automation_system_actions"> & { device_favorites: Record<string, unknown>[]; presence_target_profiles: Record<string, unknown>[]; automation_time_triggers: Record<string, unknown>[]; automation_conditions: Record<string, unknown>[]; automation_actions: Record<string, unknown>[]; automation_targets: Record<string, unknown>[]; automation_system_actions: Record<string, unknown>[] };
 type BackupRow = Record<string, unknown>;
 
 const exportQueries: Readonly<Record<keyof NormalizedBackupData, string>> = {
   rooms: "SELECT * FROM rooms ORDER BY sort_order,name,id",
   devices: "SELECT * FROM devices ORDER BY id",
   device_preferences: "SELECT * FROM device_preferences ORDER BY device_id",
+  device_favorites: "SELECT * FROM device_favorites ORDER BY device_id",
   device_homekit_settings: "SELECT * FROM device_homekit_settings ORDER BY device_id",
   adapter_settings: "SELECT * FROM adapter_settings ORDER BY adapter_id",
   openccu_settings: "SELECT * FROM openccu_settings ORDER BY adapter_id",
@@ -81,6 +83,7 @@ const insertStatements: Readonly<Record<keyof NormalizedBackupData, string>> = {
   rooms: "INSERT INTO rooms SELECT * FROM jsonb_populate_recordset(NULL::rooms, $1::jsonb)",
   devices: "INSERT INTO devices SELECT * FROM jsonb_populate_recordset(NULL::devices, $1::jsonb)",
   device_preferences: "INSERT INTO device_preferences SELECT * FROM jsonb_populate_recordset(NULL::device_preferences, $1::jsonb)",
+  device_favorites: "INSERT INTO device_favorites SELECT * FROM jsonb_populate_recordset(NULL::device_favorites, $1::jsonb)",
   device_homekit_settings: "INSERT INTO device_homekit_settings SELECT * FROM jsonb_populate_recordset(NULL::device_homekit_settings, $1::jsonb)",
   adapter_settings: "INSERT INTO adapter_settings SELECT * FROM jsonb_populate_recordset(NULL::adapter_settings, $1::jsonb)",
   openccu_settings: "INSERT INTO openccu_settings SELECT * FROM jsonb_populate_recordset(NULL::openccu_settings, $1::jsonb)",
@@ -103,7 +106,7 @@ const insertStatements: Readonly<Record<keyof NormalizedBackupData, string>> = {
 };
 
 const insertOrder: readonly (keyof NormalizedBackupData)[] = [
-  "rooms", "devices", "device_preferences", "device_homekit_settings", "adapter_settings", "openccu_settings",
+  "rooms", "devices", "device_preferences", "device_favorites", "device_homekit_settings", "adapter_settings", "openccu_settings",
   "fritzbox_presence_settings", "fritzbox_presence_transport_settings", "presence_targets", "presence_target_profiles", "device_adapter_data",
   "automations", "automation_preferences", "automation_time_triggers", "automation_conditions", "automation_triggers", "automation_actions", "automation_targets", "automation_system_actions", "climate_mode_settings", "notification_settings", "notification_state"
 ];
@@ -120,6 +123,7 @@ const deleteStatements = [
   "DELETE FROM automations",
   "DELETE FROM device_adapter_data",
   "DELETE FROM device_homekit_settings",
+  "DELETE FROM device_favorites",
   "DELETE FROM device_preferences",
   "DELETE FROM devices",
   "DELETE FROM presence_target_profiles",
@@ -247,6 +251,7 @@ export async function importConfigurationBackup(input: unknown, signingKey = con
   // Keep the signed input untouched for verification, then normalize it for restore.
   const restoreData: NormalizedBackupData = {
     ...backup.data,
+    device_favorites: backup.data.device_favorites ?? [],
     presence_target_profiles: backup.data.presence_target_profiles ?? [],
     automation_time_triggers: backup.data.automation_time_triggers ?? [],
     automation_conditions: backup.data.automation_conditions ?? [],
@@ -260,7 +265,7 @@ export async function importConfigurationBackup(input: unknown, signingKey = con
   let committed = false;
   try {
     await client.query("BEGIN");
-    await client.query("LOCK TABLE rooms, devices, device_preferences, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, presence_target_profiles, device_adapter_data, automations, automation_preferences, automation_time_triggers, automation_conditions, automation_triggers, automation_actions, automation_targets, automation_system_actions, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
+    await client.query("LOCK TABLE rooms, devices, device_preferences, device_favorites, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, presence_target_profiles, device_adapter_data, automations, automation_preferences, automation_time_triggers, automation_conditions, automation_triggers, automation_actions, automation_targets, automation_system_actions, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
     for (const statement of deleteStatements) await client.query(statement);
     for (const table of insertOrder) {
       const rows = restoreData[table];

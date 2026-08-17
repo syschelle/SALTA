@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.8.79
+
+- Added per-device **Favorites** for the overview.
+- Devices can be marked as favorites in the existing device configuration dialog.
+- Favorite devices are shown in a dedicated section between the global system cards and the normal room-grouped devices.
+- A favorite remains visible in its normal room group as well; Favorites are an additional quick-access view, not a move or separate device copy.
+- The Favorites section stays hidden when no devices are selected.
+- Favorite device cards use the same live state, controls and configuration actions as normal overview cards.
+- Added additive `device_favorites` persistence and configuration/disaster-recovery backup support. Older format-v1 backups without favorites remain compatible.
+- Hidden Zigbee devices and internal Presence/SALTA system devices are not rendered as overview favorites.
+- Carries forward the v0.8.78 realtime OpenCCU/HomeMatic button support unchanged.
+- No existing table is altered, and no new mandatory environment variable or npm dependency is required.
+
 ## v0.8.78
 
 - Added classic HomeMatic `KEY` channel support for OpenCCU, including the six button channels of `HM-PB-6-WM55`.

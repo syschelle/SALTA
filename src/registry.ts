@@ -45,6 +45,7 @@ export class DeviceRegistry extends EventEmitter {
     const hasHomeKitMetadata = current?.homekitName !== undefined || input.homekitName !== undefined || homekitUseSaltaRoom !== undefined || current?.homekitRoomId !== undefined || input.homekitRoomId !== undefined;
     const device = this.withoutDeletedRoom({
       ...input,
+      favorite: input.favorite ?? current?.favorite ?? false,
       homekitEnabled: current?.homekitEnabled ?? input.homekitEnabled,
       ...(current?.homekitName !== undefined || input.homekitName !== undefined ? { homekitName: current?.homekitName ?? input.homekitName } : {}),
       ...(hasHomeKitMetadata ? {
@@ -133,7 +134,7 @@ export class DeviceRegistry extends EventEmitter {
     return updated;
   }
 
-  async patch(id: string, patch: Partial<Pick<Device,"name"|"roomId"|"room"|"homekitEnabled"|"hidden"|"presentationType">>): Promise<Device> {
+  async patch(id: string, patch: Partial<Pick<Device,"name"|"roomId"|"room"|"homekitEnabled"|"hidden"|"favorite"|"presentationType">>): Promise<Device> {
     const current=this.devices.get(id); if(!current) throw new Error("DEVICE_NOT_FOUND");
     const next={...current,...patch}; await this.set(next); return next;
   }

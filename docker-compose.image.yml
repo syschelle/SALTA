@@ -24,7 +24,7 @@ services:
       - no-new-privileges:true
 
   salta:
-    image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.78}
+    image: ${SALTA_IMAGE:-ghcr.io/syschelle/salta:0.8.79}
     container_name: salta
     restart: unless-stopped
     depends_on:

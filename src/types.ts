@@ -46,6 +46,7 @@ export interface Device {
   homekitRoomId?: string;
   homekitRoom?: string;
   hidden: boolean;
+  favorite?: boolean;
   credentialMode: CredentialMode;
   credentialUsername?: string;
   passwordConfigured: boolean;

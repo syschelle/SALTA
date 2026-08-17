@@ -20,6 +20,7 @@ const encrypted = "v2.c2FsdA.aXY.dGFn.ZGF0YQ";
 
 function rowsFor(sql: string): Record<string, unknown>[] {
   if (sql.includes("FROM rooms")) return [{ id: "11111111-1111-4111-8111-111111111111", name: "Wohnzimmer", icon: "sofa-outline", sort_order: 0 }];
+  if (sql.includes("FROM device_favorites")) return [{ device_id: "shelly:test", favorite: true }];
   if (sql.includes("FROM devices")) return [
     { id: "shelly:test", source: "shelly", state: { power: 42 }, reachable: true, credential_password: encrypted },
     { id: "virtual:test", source: "virtual", state: { on: true }, reachable: true, credential_password: null }
@@ -73,6 +74,7 @@ describe("configuration backup", () => {
     expect(clientQuery).toHaveBeenCalledWith("BEGIN");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM notification_state");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM presence_target_profiles");
+    expect(clientQuery).toHaveBeenCalledWith("DELETE FROM device_favorites");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_system_actions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_targets");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_actions");
@@ -81,6 +83,7 @@ describe("configuration backup", () => {
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO notification_state SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO rooms SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO devices SELECT * FROM jsonb_populate_recordset"))).toBe(true);
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO device_favorites SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO presence_target_profiles SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_time_triggers SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_conditions SELECT * FROM jsonb_populate_recordset"))).toBe(true);
@@ -123,6 +126,7 @@ describe("configuration backup", () => {
   it("accepts signed format-v1 backups created before additive automation schedule/action tables existed", async () => {
     const backup = await createConfigurationBackup("0.8.53");
     const data = { ...backup.data } as Record<string, unknown>;
+    delete data.device_favorites;
     delete data.presence_target_profiles;
     delete data.automation_time_triggers;
     delete data.automation_conditions;
@@ -144,6 +148,7 @@ describe("configuration backup", () => {
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_actions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_conditions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_time_triggers");
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO device_favorites SELECT"))).toBe(false);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO presence_target_profiles SELECT"))).toBe(false);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_time_triggers SELECT"))).toBe(false);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_actions SELECT"))).toBe(false);
