@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.87
+
+- Fixed the single v0.8.86 CI regression in the compact device-card energy formatter test.
+- The isolated formatter test now injects the `appI18n.formatNumber()` dependency introduced by the German/English localization layer instead of evaluating the browser formatter without its required context.
+- The test continues to verify Wh-to-kWh conversion independently from locale-formatting behavior, which remains covered by the dedicated i18n regression suite.
+- Runtime JavaScript, localization behavior, database schema and deployment topology are unchanged from v0.8.86.
+- Carries forward the full German/English localization feature from v0.8.86 unchanged.
+
 ## v0.8.86
 
 - Added a browser-localized SALTA UI with **Automatic**, **Deutsch** and **English** language selection.

@@ -1,4 +1,4 @@
-# SALTA v0.8.86 Git commands
+# SALTA v0.8.87 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(i18n): add German and English UI localization"
+git commit -m "test(frontend): inject i18n formatter dependency"
 git push origin main
 ```
 
@@ -18,17 +18,12 @@ git push origin main
 git fetch origin
 
 git show origin/main:package.json | grep '"version"'
-git show origin/main:public/index.html | grep -F 'id="languageSelector"'
-git show origin/main:public/index.html | grep -F 'id="appearanceLanguage"'
-git show origin/main:public/login.html | grep -F 'id="loginLanguage"'
-git show origin/main:public/index.html | grep -F '<script src="/i18n.js"></script>'
+git show origin/main:src/frontend-device-density.test.ts | grep -F 'const appI18n = { formatNumber: (value: number) => String(value) };'
+git show origin/main:src/frontend-device-density.test.ts | grep -F '"appI18n"'
 git show origin/main:public/i18n.js | grep -F "const COOKIE='salta_language'"
 git show origin/main:public/i18n.js | grep -F "new Set(['auto','de','en'])"
 git show origin/main:public/i18n/en.json | grep -F '"Übersicht": "Overview"'
-git show origin/main:public/i18n/en.json | grep -F '"Geräte nach Räumen": "Devices by room"'
-git show origin/main:src/server.ts | grep -F '["/i18n/en.json", "i18n/en.json"]'
-git show origin/main:src/frontend-i18n.test.ts | grep -F 'browser-localized SALTA UI'
-git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.86'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.87'
 git show origin/main:src/db.ts | grep -F "jsonb_build_array('setClimateMode')"
 ! git show origin/main:src/db.ts | grep -F "ARRAY['setClimateMode']::text[]"
 ```
@@ -36,8 +31,8 @@ git show origin/main:src/db.ts | grep -F "jsonb_build_array('setClimateMode')"
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.86 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.86.
+Release validator contract: SALTA v0.8.87 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.87.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -48,14 +43,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.86 -m "SALTA v0.8.86"
-git push origin v0.8.86
+git tag -a v0.8.87 -m "SALTA v0.8.87"
+git push origin v0.8.87
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.86 \
-  --title "SALTA v0.8.86" \
+gh release create v0.8.87 \
+  --title "SALTA v0.8.87" \
   --notes-file RELEASE_TEXT.md
 ```

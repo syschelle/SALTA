@@ -1,6 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.86 update
+## Current v0.8.87 update
+
+v0.8.87 changes only the isolated frontend energy-formatting regression test so it provides the `appI18n.formatNumber()` dependency introduced in v0.8.86. There is no runtime, database, persistence, environment-variable or deployment migration.
 
 v0.8.86 adds browser-localized German/English UI assets and a per-browser `salta_language` cookie. No database table, persistence schema, environment variable or container topology changes are introduced. Existing user-defined device, room, person, automation and HomeKit names remain untouched. Existing Appearance palettes remain compatible and independent of language selection.
 

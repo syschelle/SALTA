@@ -37,11 +37,16 @@ describe("compact responsive device-card layout", () => {
     expect(hasFunction(appAst, "formatEnergyKwh")).toBe(true);
     expect(functionCalls(appAst, "fmt", "formatEnergyKwh", 1)).toBe(true);
 
-    const energyFormatter = new Function(`return (${functionSource(appAst, "formatEnergyKwh")})`)() as (value: number) => string;
+    const appI18n = { formatNumber: (value: number) => String(value) };
+    const energyFormatter = new Function(
+      "appI18n",
+      `return (${functionSource(appAst, "formatEnergyKwh")})`,
+    )(appI18n) as (value: number) => string;
     const stateFormatter = new Function(
       "formatEnergyKwh",
+      "appI18n",
       `return (${functionSource(appAst, "fmt")})`,
-    )(energyFormatter) as (key: string, value: number) => string;
+    )(energyFormatter, appI18n) as (key: string, value: number) => string;
 
     expect(stateFormatter("energy", 3245.3)).toBe("3.245 kWh");
     expect(stateFormatter("energy", 10)).toBe("0.01 kWh");

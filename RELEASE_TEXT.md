@@ -1,6 +1,15 @@
-# SALTA v0.8.86
+# SALTA v0.8.87
 
-SALTA v0.8.86 introduces browser-localized German and English user interfaces. Users can choose **Automatic**, **Deutsch** or **English** independently on each browser/device. The localization architecture uses external translation catalogues and preserves user-defined device, room, person and automation names exactly as entered.
+SALTA v0.8.87 fixes the single CI regression found after the German/English localization release. The runtime localization implementation from v0.8.86 is unchanged; the isolated device-energy formatter test now supplies the i18n number-formatting dependency that exists in the real browser application.
+
+## v0.8.87 localized formatter regression-test fix
+
+- Fixed the only failing v0.8.86 Vitest assertion in `frontend-device-density.test.ts`.
+- `formatEnergyKwh()` correctly uses `appI18n.formatNumber()` in the browser so energy values follow the selected UI language. The old isolated test executed that extracted function without defining `appI18n`, producing `ReferenceError: appI18n is not defined`.
+- The test now injects a small deterministic `appI18n.formatNumber()` stub into both extracted formatter functions.
+- This keeps the device-density test focused on its original contract: `3245.3 Wh` becomes `3.245 kWh`, while a consumption value remains `3245.3 Wh`.
+- Locale-specific German/English number and date behavior remains covered by the dedicated i18n regression suite.
+- No runtime JavaScript, translation catalogue, database schema, automation behavior, HomeKit behavior, mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.86 German/English localization
 
@@ -45,7 +54,7 @@ SALTA v0.8.86 introduces browser-localized German and English user interfaces. U
 
 ## Compatibility
 
-- v0.8.86 does not add or alter database schema.
+- v0.8.87 does not add or alter database schema and does not change runtime behavior from v0.8.86.
 - Language preference is browser-local and does not change existing SALTA user/configuration records.
 - Existing device, room, person, automation and HomeKit names are not translated or rewritten.
 - Existing saved Appearance settings remain compatible and independent of language selection.
