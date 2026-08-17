@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.80
+
+- Fixed the v0.8.79 push-test regressions caused by the new canonical `favorite: false` device field.
+- Registry lifecycle test fixtures now model the canonical favorite state explicitly instead of comparing an old pre-Favorites device shape.
+- `ShellyAdapter.add()` now returns the canonical device stored in `DeviceRegistry` after persistence, preserving the existing contract that the returned device matches the registry representation.
+- The Favorites feature, `device_favorites` persistence, overview rendering and backup/restore behavior from v0.8.79 are unchanged.
+- No database schema migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.79
 
 - Added per-device **Favorites** for the overview.

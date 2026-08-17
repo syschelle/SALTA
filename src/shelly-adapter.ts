@@ -442,7 +442,7 @@ export class ShellyAdapter {
       };
       await this.registry.set(device);
       if (credentialMode === "custom") await this.registry.patchCredentials(device.id, "custom", username, password);
-      devices.push(device);
+      devices.push(this.registry.get(device.id) ?? device);
     }
 
     return devices;

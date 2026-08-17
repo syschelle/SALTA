@@ -1,4 +1,4 @@
-# SALTA v0.8.79 Git commands
+# SALTA v0.8.80 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(overview): add device favorites"
+git commit -m "fix(registry): keep canonical favorite device shape"
 git push origin main
 ```
 
@@ -18,6 +18,8 @@ git push origin main
 git fetch origin
 
 git show origin/main:package.json | grep '"version"'
+git show origin/main:src/registry.test.ts | grep -F 'favorite: false'
+git show origin/main:src/shelly-adapter.ts | grep -F 'devices.push(this.registry.get(device.id) ?? device)'
 git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS device_favorites'
 git show origin/main:public/index.html | grep -F 'id="overviewFavoritesSection"'
 git show origin/main:public/index.html | grep -F 'id="deviceFavorite"'
@@ -67,8 +69,8 @@ git show origin/main:public/app.js | grep -F 'presentNames.length?compactPresenc
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.79 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.79.
+Release validator contract: SALTA v0.8.80 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.80.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -79,14 +81,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.79 -m "SALTA v0.8.79"
-git push origin v0.8.79
+git tag -a v0.8.80 -m "SALTA v0.8.80"
+git push origin v0.8.80
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.79 \
-  --title "SALTA v0.8.79" \
+gh release create v0.8.80 \
+  --title "SALTA v0.8.80" \
   --notes-file RELEASE_TEXT.md
 ```

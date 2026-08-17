@@ -2,7 +2,9 @@
 
 v0.8.69 fixes the startup SQL used to create/update the hidden `system:climate-mode` automation target. The canonical schema is unchanged: `devices.capabilities` remains `jsonb`, and schema initialization now supplies a JSONB array instead of a PostgreSQL `text[]`.
 
-## Current v0.8.79 update
+## Current v0.8.80 update
+
+v0.8.80 fixes the v0.8.79 Favorites lifecycle/CI regressions. It does not add or alter database schema. `ShellyAdapter.add()` now returns the canonical Registry device after persistence, and Registry test fixtures explicitly include the default `favorite: false` field. No manual migration is required.
 
 v0.8.79 adds the additive `device_favorites` table for overview Favorites. No existing device table is altered and no manual SQL command is required. SALTA creates the table during normal schema initialization. Existing devices default to not being favorites until selected in the device configuration dialog. Configuration/disaster-recovery backups include the table, while older format-v1 backups without it remain compatible.
 

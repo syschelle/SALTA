@@ -1,11 +1,11 @@
-# SALTA v0.8.79 release manifest
+# SALTA v0.8.80 release manifest
 
 This manifest is intended for post-push verification before tagging the release.
 
 ## Production deployment file
 
 ```text
-docker-compose.image.yml  SHA-256  1616b7ce0d2612858d740475dcee5df806cb3809ad2b9a673b8f60c80ae4fa87
+docker-compose.image.yml  SHA-256  66724aa878aee3d88dfaf5a6eb7f9ab207cdac2a302d4cc198b252fe5201b37a
 ```
 
 Required topology:

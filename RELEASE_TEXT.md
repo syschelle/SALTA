@@ -1,6 +1,15 @@
-# SALTA v0.8.79
+# SALTA v0.8.80
 
-SALTA v0.8.79 adds a dedicated Favorites area to the overview. Any normal SALTA device can be marked as a favorite for quick access between the global system controls and the existing room-grouped device view. Favorites are deliberately additive: the same device continues to appear normally in its assigned room.
+SALTA v0.8.80 fixes the four v0.8.79 CI regressions caused by introducing the canonical per-device Favorites state. The Favorites runtime behavior remains unchanged; the release aligns lifecycle tests with the new device shape and restores the Shelly add/registry return-value contract.
+
+## v0.8.80 Favorites lifecycle regression fix
+
+- Fixed the four failing v0.8.79 Vitest assertions reported by CI. All four failures were caused by the new canonical `favorite: false` field appearing on devices stored in `DeviceRegistry`.
+- Updated the shared Registry lifecycle test fixture to include `favorite: false`, so exact-equality assertions model the current canonical `Device` representation.
+- Updated `ShellyAdapter.add()` to return the canonical device from `DeviceRegistry` after persistence instead of returning the pre-normalized local object.
+- This preserves the pre-existing lifecycle contract verified by the Shelly test: the object returned by `add()` is equal to the device held by the registry.
+- The v0.8.79 Favorites UI, duplicate Favorites/room rendering, `device_favorites` table, adapter refresh preservation and backup/restore behavior are unchanged.
+- No database schema migration, manual SQL command, new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.79 overview device favorites
 

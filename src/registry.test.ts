@@ -24,6 +24,7 @@ const device: Device = {
   capabilities: ["toggle", "turnOn", "turnOff"],
   homekitEnabled: true,
   hidden: false,
+  favorite: false,
   credentialMode: "inherit",
   passwordConfigured: false,
   lastSeen: "2026-07-21T12:00:00.000Z",
