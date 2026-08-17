@@ -31,6 +31,9 @@ const requiredReleaseFiles = [
   "test-utils/source-inspection.ts",
   "test-utils/style-inspection.ts",
   "public/automation-ui.js",
+  "public/i18n.js",
+  "public/i18n/de.json",
+  "public/i18n/en.json",
   ".github/workflows/codeql.yml",
 ];
 for (const file of requiredReleaseFiles) {
@@ -60,6 +63,18 @@ if (!publicIndex.includes(roomGroupingScript)) fail("public/index.html does not 
 if (!publicIndex.includes(automationUiScript)) fail("public/index.html does not load automation-ui.js");
 if (publicIndex.indexOf(roomGroupingScript) > publicIndex.indexOf(appScript)) fail("room-grouping.js must load before app.js");
 if (publicIndex.indexOf(automationUiScript) > publicIndex.indexOf(appScript)) fail("automation-ui.js must load before app.js");
+const i18nScript = '<script src="/i18n.js"></script>';
+if (!publicIndex.includes(i18nScript) || publicIndex.indexOf(i18nScript) > publicIndex.indexOf(appScript)) fail("public/index.html must load i18n.js before app.js");
+if (!publicIndex.includes('id="languageSelector"') || !publicIndex.includes('id="appearanceLanguage"')) fail("Per-browser language selectors are missing");
+const loginIndex = read("public/login.html");
+if (!loginIndex.includes(i18nScript) || !loginIndex.includes('id="loginLanguage"')) fail("Login localization controls are incomplete");
+const i18nSource = read("public/i18n.js");
+const germanI18n = json("public/i18n/de.json");
+const englishI18n = json("public/i18n/en.json");
+if (!i18nSource.includes("const COOKIE='salta_language'") || !i18nSource.includes("new Set(['auto','de','en'])") || !i18nSource.includes("navigator.languages")) fail("Browser language persistence or automatic detection is incomplete");
+if (germanI18n?.meta?.language !== "de" || englishI18n?.meta?.language !== "en") fail("German/English translation metadata is invalid");
+if (Object.keys(englishI18n?.phrases ?? {}).length < 450) fail("English translation catalogue is unexpectedly incomplete");
+if (englishI18n?.phrases?.["Übersicht"] !== "Overview" || englishI18n?.phrases?.["Geräte nach Räumen"] !== "Devices by room") fail("Core English overview translations are missing");
 const serverSource = read("src/server.ts");
 if (!serverSource.includes('["/room-grouping.js", "room-grouping.js"]')) fail("server does not serve room-grouping.js");
 if (!serverSource.includes('["/automation-ui.js", "automation-ui.js"]')) fail("server does not serve automation-ui.js");
@@ -371,6 +386,8 @@ for (const command of [
   "node --check public/room-grouping.js",
   "node --check public/automation-ui.js",
   "node --check public/homekit-qr.js",
+  "node --check public/i18n.js",
+  "node --check public/login.js",
   "node --check public/app.js",
   "npm run build",
   "npm run test:vitest",
@@ -417,6 +434,7 @@ for (const [file, expected] of versionSurfaces) {
 const releaseText = read("RELEASE_TEXT.md");
 if (!releaseText.includes(`\n\nSALTA v${version}`)) fail("RELEASE_TEXT.md introduction does not identify the current release version");
 const ghcrDocs = read("docs-ghcr.md");
+if (!ghcrDocs.startsWith(`# Publish SALTA v${version} to GHCR`)) fail("docs-ghcr.md heading does not match the current release version");
 if (!ghcrDocs.includes("pre-v0.8.41 container") || !ghcrDocs.includes("v0.8.41 and later store HomeKit pairing state")) {
   fail("HomeKit migration documentation must preserve the pre-v0.8.41 compatibility boundary");
 }

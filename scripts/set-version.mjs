@@ -60,6 +60,7 @@ stageReplace("src/server.test.ts", [
   { from: `createDisasterRecoveryBackup).toHaveBeenCalledWith("${previousVersion}"`, to: `createDisasterRecoveryBackup).toHaveBeenCalledWith("${nextVersion}"` },
 ]);
 stageReplace("docs-ghcr.md", [
+  { from: `# Publish SALTA v${previousVersion} to GHCR`, to: `# Publish SALTA v${nextVersion} to GHCR` },
   { from: `git tag -a v${previousVersion} -m "SALTA v${previousVersion}"`, to: `git tag -a v${nextVersion} -m "SALTA v${nextVersion}"` },
   { from: `git push origin v${previousVersion}`, to: `git push origin v${nextVersion}` },
   { from: `ghcr.io/syschelle/salta:${previousVersion}`, to: `ghcr.io/syschelle/salta:${nextVersion}` },

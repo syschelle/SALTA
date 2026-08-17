@@ -215,6 +215,12 @@ npm run version:set -- <next-version>
 
 This command updates only the SALTA root version and known release surfaces. It deliberately does not replace matching version strings inside transitive package-lock entries, which prevents dependency tarball and integrity metadata from being corrupted during a release bump.
 
+## Language and localization
+
+SALTA supports a browser-localized interface with **Automatic**, **Deutsch** and **English** choices. The selected language is stored per browser/device in the `salta_language` cookie, so different clients can use different languages against the same SALTA server. Automatic mode follows the browser preference order and falls back to German when no supported language is found.
+
+Translations are maintained outside the application logic in `public/i18n/de.json` and `public/i18n/en.json`. Device names, room names, person names, automation names and HomeKit display names are user content and are never intentionally translated. Date and number formatting follows the active interface language while the configured SALTA timezone remains unchanged.
+
 ## Status and logs
 
 ```bash

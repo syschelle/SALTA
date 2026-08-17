@@ -193,6 +193,7 @@ const STATIC_CONTENT_TYPES: Readonly<Record<string, string>> = {
   ".css": "text/css; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
   ".woff2": "font/woff2"
 };
 
@@ -485,9 +486,12 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
   app.server.headersTimeout = 10_000;
 
   const publicDir = join(process.cwd(), "public");
-  const publicPaths = new Set(["/login", "/login.html", "/login.js", "/login.css", "/theme-init.js"]);
+  const publicPaths = new Set(["/login", "/login.html", "/login.js", "/login.css", "/theme-init.js", "/i18n.js", "/i18n/de.json", "/i18n/en.json"]);
   const staticFiles = new Map<string, string>([
     ["/app.js", "app.js"],
+    ["/i18n.js", "i18n.js"],
+    ["/i18n/de.json", "i18n/de.json"],
+    ["/i18n/en.json", "i18n/en.json"],
     ["/automation-ui.js", "automation-ui.js"],
     ["/homekit-qr.js", "homekit-qr.js"],
     ["/room-grouping.js", "room-grouping.js"],
@@ -666,9 +670,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.85" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.86" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.85", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.86", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1311,7 +1315,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.85", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.86", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.8.86
+
+- Added a browser-localized SALTA UI with **Automatic**, **Deutsch** and **English** language selection.
+- Added a compact language selector in the sidebar, a matching selector under **Settings → Appearance**, and language selection on the login page.
+- Language preference is stored per browser/device in the `salta_language` cookie; `Automatic` resolves the browser's first supported preferred language and falls back to German.
+- Added external `public/i18n/de.json` and `public/i18n/en.json` catalogues plus the shared `public/i18n.js` localization runtime.
+- Added translation of static HTML, newly rendered UI fragments, placeholders, titles and ARIA labels while explicitly protecting user-defined device, room, person and automation names.
+- Added language-aware `Intl` number/date formatting for dashboard values, timestamps and automation temperatures.
+- Added public no-session delivery of the localization runtime/catalogues so the login screen can be translated before authentication.
+- Added regression coverage and release-validator contracts for language persistence, automatic detection, translation catalogues, user-content protection and public localization assets.
+- Carries forward the v0.8.85 Appearance profile application fix unchanged.
+- No database schema migration, new mandatory environment variable or npm dependency is required.
+
 ## v0.8.85
 
 - Fixed Appearance profile preview so selecting or explicitly applying a profile writes that profile palette directly to the active CSS theme variables.

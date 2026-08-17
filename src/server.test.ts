@@ -864,15 +864,26 @@ describe("web security", () => {
     expect(response.headers.location).toBe("/login");
   });
 
-  it("serves the login assets without authentication", async () => {
+  it("serves the login and localization assets without authentication", async () => {
     const server = createServer(vi.fn());
     const stylesheet = await server.inject({ method: "GET", url: "/login.css" });
     const script = await server.inject({ method: "GET", url: "/login.js" });
+    const i18nScript = await server.inject({ method: "GET", url: "/i18n.js" });
+    const german = await server.inject({ method: "GET", url: "/i18n/de.json" });
+    const english = await server.inject({ method: "GET", url: "/i18n/en.json" });
 
     expect(stylesheet.statusCode).toBe(200);
     expect(stylesheet.headers["content-type"]).toContain("text/css");
     expect(script.statusCode).toBe(200);
     expect(script.headers["content-type"]).toContain("text/javascript");
+    expect(i18nScript.statusCode).toBe(200);
+    expect(i18nScript.headers["content-type"]).toContain("text/javascript");
+    expect(german.statusCode).toBe(200);
+    expect(german.headers["content-type"]).toContain("application/json");
+    expect(german.json()).toMatchObject({ meta: { language: "de" } });
+    expect(english.statusCode).toBe(200);
+    expect(english.headers["content-type"]).toContain("application/json");
+    expect(english.json()).toMatchObject({ meta: { language: "en" } });
   });
 
   it("serves current application assets without stale browser caching", async () => {
@@ -952,7 +963,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.85" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.86" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -1115,7 +1126,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.85", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.86", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -1126,7 +1137,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.85", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.86", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {

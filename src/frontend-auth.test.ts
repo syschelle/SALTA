@@ -9,7 +9,11 @@ describe("authenticated web application", () => {
   it("loads a protected browser session before application data", () => {
     expect(appSource).toContain("async function initializeSession()");
     expect(appSource).toContain("headers.set('X-SALTA-CSRF',csrfToken)");
-    expect(appSource).toContain("initializeSession().then(async()=>{await loadAppearanceSettings().catch(()=>undefined);navigate();load();setInterval(refreshLiveData,5000)}")
+    expect(appSource).toContain("async function initializeApplication()")
+    expect(appSource).toContain("await appI18n?.init?.().catch(()=>undefined)")
+    expect(appSource).toContain("await initializeSession();")
+    expect(appSource).toContain("await loadAppearanceSettings().catch(()=>undefined);")
+    expect(appSource.indexOf("await initializeSession();")).toBeLessThan(appSource.indexOf("await loadAppearanceSettings().catch(()=>undefined);"))
   });
 
   it("provides login and logout controls", () => {

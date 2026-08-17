@@ -7,6 +7,7 @@ let automationAdditionalConditionSequence=0;
 let automationAdditionalActions=[];
 let automationAdditionalActionSequence=0;
 let automationPrimaryEventValues=[];
+function automationLocale(){return globalThis.SaltaI18n?.locale?.()||'de-DE'}
 
 const automationElements={
   list:document.getElementById('automationList'),
@@ -157,10 +158,10 @@ function automationVirtualSelfResetAction(deviceId){
   if(!matching.length||matching.some(trigger=>trigger.stateKey!=='on'))return '';const values=new Set(matching.map(trigger=>trigger.value));if(values.size!==1)return '';return matching[0].value?'turnOff':'turnOn';
 }
 function automationTargetDeviceAllowed(device,usedActionIds=new Set()){const triggerConflict=automationAllTriggerDeviceIds().has(device.id);return !usedActionIds.has(device.id)&&(!triggerConflict||Boolean(automationVirtualSelfResetAction(device.id)))}
-function normalizedAutomationSearch(value){return String(value||'').trim().toLocaleLowerCase('de-DE')}
-function automationDeviceSearchText(device){return [device.name,device.room,sourceLabels?.[device.source]||device.source,device.model,typeLabels?.[device.type]||device.type].filter(Boolean).join(' ').toLocaleLowerCase('de-DE')}
+function normalizedAutomationSearch(value){return String(value||'').trim().toLocaleLowerCase(automationLocale())}
+function automationDeviceSearchText(device){return [device.name,device.room,sourceLabels?.[device.source]||device.source,device.model,typeLabels?.[device.type]||device.type].filter(Boolean).join(' ').toLocaleLowerCase(automationLocale())}
 function automationDeviceMatchesSearch(device,query){const terms=normalizedAutomationSearch(query).split(/\s+/).filter(Boolean);if(!terms.length)return true;const haystack=automationDeviceSearchText(device);return terms.every(term=>haystack.includes(term))}
-function sortedAutomationDevices(devices){return [...devices].sort((a,b)=>String(a.room||'ZZZ').localeCompare(String(b.room||'ZZZ'),'de',{sensitivity:'base'})||String(a.name||'').localeCompare(String(b.name||''),'de',{sensitivity:'base'})||String(a.source||'').localeCompare(String(b.source||''),'de',{sensitivity:'base'}))}
+function sortedAutomationDevices(devices){return [...devices].sort((a,b)=>String(a.room||'ZZZ').localeCompare(String(b.room||'ZZZ'),automationLocale(),{sensitivity:'base'})||String(a.name||'').localeCompare(String(b.name||''),automationLocale(),{sensitivity:'base'})||String(a.source||'').localeCompare(String(b.source||''),automationLocale(),{sensitivity:'base'}))}
 function fillAutomationSelect(select,devices,selected,placeholder='Gerät wählen',query='',countElement=null){
   const sorted=sortedAutomationDevices(devices);
   const matches=sorted.filter(device=>automationDeviceMatchesSearch(device,query));
@@ -205,7 +206,7 @@ function automationNormalizeTemperature(device,value){
   const range=automationThermostatRange(device);const numeric=Number(value);const base=Number.isFinite(numeric)?numeric:automationDefaultTargetTemperature(device);const rounded=Math.round(base/range.step)*range.step;return Math.min(range.max,Math.max(range.min,Number(rounded.toFixed(2))));
 }
 function automationActionValueLabel(target){
-  return target?.action==='setTargetTemperature'&&Number.isFinite(Number(target?.value))?`${Number(target.value).toLocaleString('de-DE',{minimumFractionDigits:1,maximumFractionDigits:1})} °C`:'';
+  return target?.action==='setTargetTemperature'&&Number.isFinite(Number(target?.value))?`${Number(target.value).toLocaleString(automationLocale(),{minimumFractionDigits:1,maximumFractionDigits:1})} °C`:'';
 }
 function updateAutomationPrimaryActionValue(value){
   if(!automationElements.actionValueField||!automationElements.actionValue)return;
@@ -413,7 +414,7 @@ function automationAdditionalActionPayload(){return automationAdditionalActions.
 function automationRoomById(id){return rooms.find(room=>room.id===id)}
 function fillAutomationRoomSelect(selected=''){
   const current=selected||automationElements.room?.value||'';
-  const options=['<option value="">Keinem Raum zugeordnet</option>',...rooms.map(room=>`<option value="${escapeHtml(room.id)}"${room.id===current?' selected':''}>${escapeHtml(room.name)}</option>`)]
+  const options=['<option value="">Keinem Raum zugeordnet</option>',...rooms.map(room=>`<option value="${escapeHtml(room.id)}" data-i18n-skip${room.id===current?' selected':''}>${escapeHtml(room.name)}</option>`)]
   if(automationElements.room){automationElements.room.innerHTML=options.join('');automationElements.room.value=rooms.some(room=>room.id===current)?current:''}
 }
 function automationLastEventLabel(value,now=new Date()){
@@ -423,7 +424,7 @@ function automationLastEventLabel(value,now=new Date()){
   const eventDay=new Date(eventDate.getFullYear(),eventDate.getMonth(),eventDate.getDate());
   const days=Math.max(0,Math.round((today.getTime()-eventDay.getTime())/86400000));
   const dayLabel=days===0?'Heute':days===1?'Gestern':`vor ${days} Tagen`;
-  const time=eventDate.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  const time=eventDate.toLocaleTimeString(automationLocale(),{hour:'2-digit',minute:'2-digit'});
   return `Letztes Event: ${dayLabel} · ${time} Uhr`;
 }
 function automationTriggerSummaryItems(rule){

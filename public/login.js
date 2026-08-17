@@ -34,3 +34,7 @@ form.addEventListener("submit", async (event) => {
     button.textContent = "Anmelden";
   }
 });
+
+globalThis.SaltaI18n?.init?.().then(()=>{
+  globalThis.SaltaI18n?.bindSelector?.(document.getElementById('loginLanguage'));
+}).catch(()=>undefined);

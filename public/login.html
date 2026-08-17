@@ -12,7 +12,7 @@
   <main class="login-shell">
     <section class="login-card" aria-labelledby="login-title">
       <div class="login-brand"><span class="login-logo">S</span><div><strong>SALTA</strong><small>Local by design</small></div></div>
-      <div class="login-copy"><p class="eyebrow">GESCHÜTZTER ZUGANG</p><h1 id="login-title">Anmelden</h1><p>Bitte authentifiziere dich, um auf SALTA zuzugreifen.</p></div>
+      <label class="login-language-control" for="loginLanguage"><span>Sprache</span><select id="loginLanguage" aria-label="Sprache dieses Browsers"><option value="auto">Automatisch</option><option value="de">Deutsch</option><option value="en">English</option></select></label><div class="login-copy"><p class="eyebrow">GESCHÜTZTER ZUGANG</p><h1 id="login-title">Anmelden</h1><p>Bitte authentifiziere dich, um auf SALTA zuzugreifen.</p></div>
       <form id="loginForm">
         <label>Benutzername<input id="username" name="username" autocomplete="username" required maxlength="64"></label>
         <label>Passwort<input id="password" name="password" type="password" autocomplete="current-password" required maxlength="1024"></label>
@@ -21,6 +21,7 @@
       </form>
     </section>
   </main>
+  <script src="/i18n.js"></script>
   <script src="/login.js"></script>
 </body>
 </html>

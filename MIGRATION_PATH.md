@@ -1,6 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.85 update
+## Current v0.8.86 update
+
+v0.8.86 adds browser-localized German/English UI assets and a per-browser `salta_language` cookie. No database table, persistence schema, environment variable or container topology changes are introduced. Existing user-defined device, room, person, automation and HomeKit names remain untouched. Existing Appearance palettes remain compatible and independent of language selection.
 
 v0.8.85 fixes the client-side Appearance profile preview/application path. No persistence format, database schema or environment variable changes are introduced. Existing saved Appearance palettes remain compatible.
 
