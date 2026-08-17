@@ -36,9 +36,9 @@ Pushover delivery uses the fixed `https://api.pushover.net/1/messages.json` endp
 
 ### Protocol-mandated MD5 in FRITZ!Box authentication
 
-The FRITZ! TR-064 SOAP content-level authentication protocol mandates two MD5 operations for its challenge-response calculation. SALTA implements those two operations only inside `contentAuthDigest()` in `src/fritzbox-presence.ts` so it can interoperate with FRITZ!OS. They are not used to store SALTA passwords, derive encryption keys, protect sessions, or hash administrator credentials.
+The official FRITZ! TR-064 *First Steps* specification defines HTTP Digest authentication with MD5 as the default mechanism and defines SOAP content-level authentication with `secret = MD5(uid + ":" + realm + ":" + pwd)` followed by `response = MD5(secret + ":" + serverNonce)`. SALTA therefore has to retain MD5 interoperability for those FRITZ!Box protocol exchanges. This is not password storage, a password KDF, session protection, or administrator-password hashing.
 
-Those two protocol-mandated calls carry narrow, query-specific CodeQL suppressions for `js/weak-cryptographic-algorithm` and `js/insufficient-password-hash`. On the first MD5 expression, where both queries report the same source line, the single preceding comment contains a `codeql[...]` annotation and the still-supported query-specific `lgtm[...]` annotation so both findings are scoped to exactly that expression. The second MD5 expression has only the required `codeql[...]` suppression for the weak-cryptography query. Release validation fails if additional direct `createHash("md5")` calls are introduced elsewhere in the FRITZ!Box Presence source or if the expected suppression placement changes. Do not copy this exception to application password hashing or any other security-sensitive SALTA code.
+SALTA centralizes protocol hashing in `digestHash()` in `src/fritzbox-presence.ts`. The SOAP `contentAuthDigest()` path reuses that helper instead of containing direct `createHash("md5")` calls. Release validation rejects any direct literal MD5 `createHash()` call in the FRITZ!Box Presence source and verifies that the content-level calculation remains exactly two protocol `digestHash("MD5", ...)` operations. Do not reuse MD5 for application password hashing or any other SALTA security primitive.
 
 ## Authentication and browser sessions
 

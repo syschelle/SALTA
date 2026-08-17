@@ -59,7 +59,7 @@ function xmlMethodName(xml: string): string {
   return xmlDecode(/<methodName>\s*([^<]+?)\s*<\/methodName>/i.exec(xml)?.[1]?.trim() ?? "");
 }
 
-function primitiveXmlValue(fragment: string): string | number | boolean {
+function primitiveXmlValue(fragment: string): string | number | boolean | undefined {
   const boolean = /<boolean>\s*([^<]+?)\s*<\/boolean>/i.exec(fragment)?.[1]?.trim();
   if (boolean !== undefined) return boolean === "1" || boolean.toLowerCase() === "true";
   const integer = /<(?:int|i4)>\s*([^<]+?)\s*<\/(?:int|i4)>/i.exec(fragment)?.[1]?.trim();
@@ -74,14 +74,16 @@ function primitiveXmlValue(fragment: string): string | number | boolean {
   }
   const string = /<string>([\s\S]*?)<\/string>/i.exec(fragment)?.[1];
   if (string !== undefined) return xmlDecode(string.trim());
-  return xmlDecode(fragment.replace(/<[^>]+>/g, "").trim());
+  const bare = fragment.trim();
+  if (bare.includes("<") || bare.includes(">")) return undefined;
+  return xmlDecode(bare);
 }
 
 function valueFragments(xml: string): string[] {
   return [...xml.matchAll(/<value>([\s\S]*?)<\/value>/gi)].map(match => match[1] ?? "");
 }
 
-function eventFromParams(params: Array<string | number | boolean>, instanceId: string): OpenCcuXmlRpcEvent | undefined {
+function eventFromParams(params: Array<string | number | boolean | undefined>, instanceId: string): OpenCcuXmlRpcEvent | undefined {
   if (params.length < 4 || String(params[0]) !== instanceId) return undefined;
   const channelAddress = String(params[1] ?? "").trim();
   const parameter = String(params[2] ?? "").trim().toUpperCase();

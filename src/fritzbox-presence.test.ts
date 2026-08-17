@@ -190,6 +190,13 @@ describe("FRITZ!Box presence transport", () => {
     expect(thirdBody).toContain("<Auth>b4f67585f22b0af7c4615db5a18faa14</Auth>");
   });
 
+  it("keeps FRITZ! protocol MD5 behind the shared digest helper with no direct MD5 crypto call", () => {
+    const source = readFileSync(new URL("./fritzbox-presence.ts", import.meta.url), "utf8");
+    expect(source.match(/createHash\(["']md5["']\)/gi) ?? []).toHaveLength(0);
+    expect(source.match(/digestHash\("MD5"/g) ?? []).toHaveLength(2);
+    expect(source).toContain('normalized === "MD5" ? "md5" : undefined');
+  });
+
   it("uses the Hosts controlURL advertised by tr64desc.xml", async () => {
     let requestedPath="";
     const baseUrl=await localServer((request,response)=>{

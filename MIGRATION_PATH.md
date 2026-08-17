@@ -1,6 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.87 update
+## Current v0.8.88 update
+
+v0.8.88 hardens the OpenCCU XML-RPC parser and centralizes FRITZ!Box protocol digest handling. No database, persistence, environment-variable or deployment migration is required. Existing FRITZ!Box credentials and Presence configuration remain compatible.
 
 v0.8.87 changes only the isolated frontend energy-formatting regression test so it provides the `appI18n.formatNumber()` dependency introduced in v0.8.86. There is no runtime, database, persistence, environment-variable or deployment migration.
 

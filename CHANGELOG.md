@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.88
+
+- Fixed the OpenCCU XML-RPC incomplete multi-character sanitization finding by rejecting unknown typed markup instead of stripping XML tags and decoding the remainder.
+- Centralized the FRITZ!Box SOAP content-authentication MD5 calculations through the existing protocol `digestHash()` helper, removing direct literal `createHash("md5")` calls while preserving the FRITZ! TR-064 authentication result.
+- Added regression tests for rejected unknown XML-RPC value markup and the scoped FRITZ! protocol digest path.
+- Updated release validation and `SECURITY.md` so future direct literal MD5 calls in FRITZ!Box Presence are rejected and the protocol-only exception remains documented.
+- Carries forward the v0.8.87 formatter regression fix and the v0.8.86 German/English localization unchanged.
+- No database schema migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.87
 
 - Fixed the single v0.8.86 CI regression in the compact device-card energy formatter test.

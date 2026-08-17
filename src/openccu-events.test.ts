@@ -24,6 +24,11 @@ describe("OpenCCU XML-RPC realtime events", () => {
     ]);
   });
 
+  it("rejects unknown typed XML-RPC value markup instead of stripping tags and decoding it", () => {
+    const xml = `<?xml version="1.0"?><methodCall><methodName>event</methodName><params><param><value>${instanceId}</value></param><param><value>REQ0862479:2</value></param><param><value>PRESS_SHORT</value></param><param><value><dateTime.iso8601>&lt;script&gt;</dateTime.iso8601></value></param></params></methodCall>`;
+    expect(openCcuXmlRpcEvents(xml, instanceId)).toEqual([]);
+  });
+
   it("maps only stable button edges to SALTA event values", () => {
     expect(openCcuButtonEventValue("PRESS_SHORT")).toBe(1002);
     expect(openCcuButtonEventValue("PRESS_LONG")).toBe(1001);

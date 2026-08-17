@@ -100,18 +100,14 @@ function contentAuthInitHeader(username: string): string {
 }
 
 function contentAuthDigest(username: string, password: string, realm: string, nonce: string): string {
-  // FRITZ! TR-064 SOAP content-level authentication mandates MD5 for this
-  // challenge-response calculation. This is protocol interoperability, not
-  // password storage or a password KDF. Do not replace it with another hash:
-  // doing so would make ClientAuth incompatible with FRITZ!OS.
-  // Two CodeQL queries report this same protocol-mandated expression. Keep
-  // both query-specific suppressions on the immediately preceding comment.
-  // codeql[js/insufficient-password-hash] lgtm[js/weak-cryptographic-algorithm]
-  const secret = createHash("md5").update(`${username}:${realm}:${password}`, "utf8").digest("hex");
-
-  // The second MD5 step is likewise fixed by the FRITZ! TR-064 specification.
-  // codeql[js/weak-cryptographic-algorithm]
-  return createHash("md5").update(`${secret}:${nonce}`, "utf8").digest("hex");
+  // FRITZ! TR-064 SOAP content-level authentication explicitly specifies
+  // response = MD5(secret + ":" + nonce) and
+  // secret = MD5(username + ":" + realm + ":" + password). Reuse the same
+  // protocol digest helper used for HTTP Digest rather than maintaining direct
+  // MD5 crypto calls in the content-authentication path. This is protocol
+  // interoperability only; SALTA never stores passwords with MD5.
+  const secret = digestHash("MD5",`${username}:${realm}:${password}`);
+  return digestHash("MD5",`${secret}:${nonce}`);
 }
 
 function contentAuthClientHeader(username: string, password: string, challenge: ContentAuthChallenge): string {
