@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.83
+
+- Added a dedicated **Darstellung / Appearance** settings page with Standard, Ocean, Forest, Warm, Graphite and Custom profiles.
+- Added separate light and dark palettes with 27 individually configurable central UI colors per mode.
+- Individual color changes automatically switch the profile to Custom while preserving the rest of the selected palette.
+- Added live preview, exact HEX editing and native color pickers.
+- Made the overview room background a configurable theme token; Standard Light keeps `#eef2ff`.
+- Appearance settings use the existing backed-up `notification_state` persistence and require no database migration.
+- Added API validation/rate limiting and frontend/API regression coverage.
+- Carries forward the v0.8.82 overview cleanup unchanged.
+
 ## v0.8.82
 
 - Removed the descriptive subtitle below **Favoriten** on the overview.

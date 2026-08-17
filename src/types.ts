@@ -219,6 +219,14 @@ export interface GeneralSettings {
   debugLevel: SystemDebugLevel;
 }
 
+export type AppearanceProfile = "standard" | "ocean" | "forest" | "warm" | "graphite" | "custom";
+
+export interface AppearanceSettings {
+  profile: AppearanceProfile;
+  light: Record<string, string>;
+  dark: Record<string, string>;
+}
+
 export interface HomeKitSettings {
   enabled: boolean;
   name: string;

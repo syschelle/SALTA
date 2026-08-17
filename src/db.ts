@@ -3,7 +3,7 @@ import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, HueSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel, VacationModeSettings } from "./types.js";
+import type { AppearanceSettings, ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, HueSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel, VacationModeSettings } from "./types.js";
 import type { AutomationInput, AutomationRule, AutomationTargetAction } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
@@ -1043,6 +1043,26 @@ export async function updateGeneralSettings(input: GeneralSettings): Promise<Gen
   await pool.query(`INSERT INTO notification_state(key,details,updated_at) VALUES('debug-mode',$1::jsonb,now())
     ON CONFLICT(key) DO UPDATE SET details=EXCLUDED.details,updated_at=now()`, [JSON.stringify({ level: input.debugLevel })]);
   return getGeneralSettings();
+}
+
+export async function getAppearanceSettings(): Promise<AppearanceSettings> {
+  const result = await pool.query<{ details: Record<string, unknown> }>(
+    "SELECT details FROM notification_state WHERE key='appearance-settings'"
+  );
+  const details = result.rows[0]?.details ?? {};
+  const allowedProfiles = new Set<AppearanceSettings["profile"]>(["standard", "ocean", "forest", "warm", "graphite", "custom"]);
+  const storedProfile = typeof details.profile === "string" ? details.profile as AppearanceSettings["profile"] : "standard";
+  return {
+    profile: allowedProfiles.has(storedProfile) ? storedProfile : "standard",
+    light: details.light && typeof details.light === "object" && !Array.isArray(details.light) ? details.light as Record<string, string> : {},
+    dark: details.dark && typeof details.dark === "object" && !Array.isArray(details.dark) ? details.dark as Record<string, string> : {}
+  };
+}
+
+export async function updateAppearanceSettings(input: AppearanceSettings): Promise<AppearanceSettings> {
+  await pool.query(`INSERT INTO notification_state(key,details,updated_at) VALUES('appearance-settings',$1::jsonb,now())
+    ON CONFLICT(key) DO UPDATE SET details=EXCLUDED.details,updated_at=now()`, [JSON.stringify(input)]);
+  return getAppearanceSettings();
 }
 
 type HomeKitStateDetails = {

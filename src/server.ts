@@ -17,7 +17,7 @@ import type { ClimateModeManager } from "./climate-mode.js";
 import type { BatteryMonitor } from "./battery-monitor.js";
 import type { VacationModeManager } from "./vacation-mode.js";
 import type { HomeKitBridge } from "./homekit.js";
-import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getHueSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
+import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getAppearanceSettings, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getHueSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateAppearanceSettings, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
 import { isHomeKitSupportedDevice, supportsPresentationOverride } from "./device-presentation.js";
 import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
@@ -139,6 +139,41 @@ const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]), winterM
 const climateModeSettingsSchema = z.object({ winterMode: z.enum(["manual", "auto"]) }).strict();
 const vacationModeSchema = z.object({ enabled: z.boolean() }).strict();
 const generalSettingsSchema = z.object({ debugLevel: z.enum(["off", "errors", "verbose"]) }).strict();
+const appearanceHexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+const appearancePaletteSchema = z.object({
+  background: appearanceHexColorSchema,
+  card: appearanceHexColorSchema,
+  text: appearanceHexColorSchema,
+  muted: appearanceHexColorSchema,
+  line: appearanceHexColorSchema,
+  accent: appearanceHexColorSchema,
+  success: appearanceHexColorSchema,
+  buttonBackground: appearanceHexColorSchema,
+  buttonText: appearanceHexColorSchema,
+  inputBackground: appearanceHexColorSchema,
+  sidebarBackground: appearanceHexColorSchema,
+  subtleBackground: appearanceHexColorSchema,
+  accentBackground: appearanceHexColorSchema,
+  hoverBackground: appearanceHexColorSchema,
+  dialogTabsBackground: appearanceHexColorSchema,
+  emptyBackground: appearanceHexColorSchema,
+  toastBackground: appearanceHexColorSchema,
+  toastText: appearanceHexColorSchema,
+  roomBackground: appearanceHexColorSchema,
+  stateOnBackground: appearanceHexColorSchema,
+  stateOnBorder: appearanceHexColorSchema,
+  stateOnAccent: appearanceHexColorSchema,
+  stateOnIconBackground: appearanceHexColorSchema,
+  stateOffBackground: appearanceHexColorSchema,
+  stateOffBorder: appearanceHexColorSchema,
+  stateOffAccent: appearanceHexColorSchema,
+  stateOffIconBackground: appearanceHexColorSchema
+}).strict();
+const appearanceSettingsSchema = z.object({
+  profile: z.enum(["standard", "ocean", "forest", "warm", "graphite", "custom"]),
+  light: appearancePaletteSchema,
+  dark: appearancePaletteSchema
+}).strict();
 const homeKitSettingsSchema = z.object({
   enabled: z.boolean(),
   name: z.string().trim().min(1).max(120),
@@ -631,9 +666,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.82" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.83" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.82", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.83", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1155,6 +1190,17 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return updateGeneralSettings(parsed.data);
   });
 
+  app.get("/api/settings/appearance", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "appearance-settings-read" } }
+  }, async () => getAppearanceSettings());
+  app.put<{ Body: unknown }>("/api/settings/appearance", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "appearance-settings-write" } }
+  }, async (request, reply) => {
+    const parsed = appearanceSettingsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    return updateAppearanceSettings(parsed.data);
+  });
+
   app.get("/api/settings/homekit", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "homekit-settings-read" } }
   }, async (request, reply) => {
@@ -1265,7 +1311,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.82", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.83", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

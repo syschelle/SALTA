@@ -1,6 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.82 update
+## Current v0.8.83 update
+
+v0.8.83 adds persisted Appearance profiles and per-color customization using the existing `notification_state` table. No new table, `ALTER TABLE`, manual SQL migration or environment variable is required. Existing installations without Appearance settings automatically use the Standard profile.
 
 v0.8.82 is a frontend-only overview polish release. It removes the descriptive Favorites subtitle and replaces the v0.8.81 room-group gradients with the requested solid `#eef2ff` background. No database schema, persistence format or environment variable changes are introduced.
 

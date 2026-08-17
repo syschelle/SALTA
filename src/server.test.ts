@@ -46,6 +46,8 @@ vi.mock("./db.js", () => ({
   getShellySettings: vi.fn(),
   getGeneralSettings: vi.fn(async () => ({ debugLevel: "off" })),
   updateGeneralSettings: vi.fn(async (input) => input),
+  getAppearanceSettings: vi.fn(async () => ({ profile: "standard", light: {}, dark: {} })),
+  updateAppearanceSettings: vi.fn(async (input) => input),
   getPushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20 })),
   updatePushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20 })),
   inspectCredentialEncryption: vi.fn(async () => ({ status: "ok", globalCredential: "not-configured", phosconCredential: "not-configured", hueCredential: "not-configured", openCcuCredential: "not-configured", pushoverCredential: "not-configured", invalidDeviceIds: [] })),
@@ -74,7 +76,7 @@ vi.mock("./disaster-recovery-backup.js", () => ({
 }));
 
 import { createDisasterRecoveryBackup, importDisasterRecoveryBackup } from "./disaster-recovery-backup.js";
-import { clearSystemLogs, deleteRoom, getGeneralSettings, getGlobalShellyCredentials, getHueSettings, getOpenCcuSettings, getPhosconSettings, listRooms, listSystemLogs, reorderRooms, updateGeneralSettings, updateRoom } from "./db.js";
+import { clearSystemLogs, deleteRoom, getAppearanceSettings, getGeneralSettings, getGlobalShellyCredentials, getHueSettings, getOpenCcuSettings, getPhosconSettings, listRooms, listSystemLogs, reorderRooms, updateAppearanceSettings, updateGeneralSettings, updateRoom } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -760,6 +762,32 @@ describe("general settings API", () => {
   });
 });
 
+
+describe("appearance settings API", () => {
+  const palette = {
+    background: "#f4f6f8", card: "#ffffff", text: "#17202a", muted: "#77808b", line: "#e6e9ed", accent: "#2457e6", success: "#20a66a", buttonBackground: "#17202a", buttonText: "#ffffff", inputBackground: "#ffffff", sidebarBackground: "#ffffff", subtleBackground: "#f7f8fa", accentBackground: "#eef2ff", hoverBackground: "#f5f7fb", dialogTabsBackground: "#fafbfc", emptyBackground: "#ffffff", toastBackground: "#17202a", toastText: "#ffffff", roomBackground: "#eef2ff", stateOnBackground: "#effaf4", stateOnBorder: "#dbe8e0", stateOnAccent: "#16865a", stateOnIconBackground: "#dff3e8", stateOffBackground: "#fff3f4", stateOffBorder: "#eddfe2", stateOffAccent: "#c53a49", stateOffIconBackground: "#fbe0e3"
+  };
+
+  it("reads and updates a complete appearance palette", async () => {
+    vi.mocked(getAppearanceSettings).mockResolvedValueOnce({ profile: "ocean", light: palette, dark: palette });
+    vi.mocked(updateAppearanceSettings).mockImplementationOnce(async input => input);
+    const server = createServer(vi.fn());
+    const readResponse = await authenticatedInject(server, { method: "GET", url: "/api/settings/appearance" });
+    expect(readResponse.statusCode).toBe(200);
+    expect(readResponse.json().profile).toBe("ocean");
+    const payload = { profile: "custom", light: { ...palette, roomBackground: "#abcdef" }, dark: palette };
+    const writeResponse = await authenticatedInject(server, { method: "PUT", url: "/api/settings/appearance", payload });
+    expect(writeResponse.statusCode).toBe(200);
+    expect(updateAppearanceSettings).toHaveBeenCalledWith(payload);
+  });
+
+  it("rejects invalid appearance colors", async () => {
+    const server = createServer(vi.fn());
+    const response = await authenticatedInject(server, { method: "PUT", url: "/api/settings/appearance", payload: { profile: "custom", light: { ...palette, accent: "red" }, dark: palette } });
+    expect(response.statusCode).toBe(400);
+  });
+});
+
 describe("climate mode API", () => {
   it("stores the winter target mode without applying thermostat commands", async () => {
     const status = vi.fn(async () => ({ mode: "winter", winterMode: "auto", thermostats: 2, supportedThermostats: 2 }));
@@ -924,7 +952,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.82" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.83" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -1087,7 +1115,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.82", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.83", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -1098,7 +1126,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.82", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.83", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {
