@@ -1,4 +1,4 @@
-# SALTA v0.8.80 Git commands
+# SALTA v0.8.81 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(registry): keep canonical favorite device shape"
+git commit -m "feat(overview): improve room-group readability"
 git push origin main
 ```
 
@@ -18,59 +18,23 @@ git push origin main
 git fetch origin
 
 git show origin/main:package.json | grep '"version"'
-git show origin/main:src/registry.test.ts | grep -F 'favorite: false'
-git show origin/main:src/shelly-adapter.ts | grep -F 'devices.push(this.registry.get(device.id) ?? device)'
+git show origin/main:public/index.html | grep -F '<section class="section-head overview-section-head"><div><h2>Geräte nach Räumen</h2></div></section>'
+! git show origin/main:public/index.html | grep -F 'Shelly-, Zigbee-, Hue-, HomeMatic- und virtuelle Geräte nach Raum.'
+git show origin/main:public/styles.css | grep -F '.overview-device-groups .device-room-group{padding:14px 16px 16px'
+git show origin/main:public/styles.css | grep -F '.overview-device-groups .device-room-group:nth-child(even){background:linear-gradient(180deg,var(--card) 0,var(--accent-bg) 100%)}'
+git show origin/main:src/frontend-device-grouping.test.ts | grep -F 'distinguishes overview room groups with their own background blocks'
 git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS device_favorites'
-git show origin/main:public/index.html | grep -F 'id="overviewFavoritesSection"'
-git show origin/main:public/index.html | grep -F 'id="deviceFavorite"'
-git show origin/main:public/app.js | grep -F "deviceCard(device,false,'favorite')"
-git show origin/main:src/configuration-backup.ts | grep -F 'device_favorites: backupRows().optional()'
-git show origin/main:src/openccu-core.ts | grep -F 'snapshot.channelType.trim().toUpperCase() === "KEY"'
 git show origin/main:src/openccu-xmlrpc.ts | grep -F 'OPENCCU_CALLBACK_PORT = 18_099'
-git show origin/main:src/openccu-xmlrpc.ts | grep -F '"BidCos-RF": 2001'
-git show origin/main:src/openccu-adapter.ts | grep -F 'openCcuButtonEventValue(event.parameter)'
-git show origin/main:src/openccu-adapter.ts | grep -F 'key: "buttonEvent"'
-git show origin/main:public/automation-ui.js | grep -F "'hm-pb-6-wm55':[1002,1001,1003]"
-git show origin/main:docker-compose.image.yml | sha256sum
-git show origin/main:migrate-homekit-storage.sh | sha256sum
-
-git show origin/main:src/main.ts | grep -F 'new HueAdapter(registry)'
-git show origin/main:src/server.ts | grep -F '/api/settings/hue/pair'
-git show origin/main:src/hue-adapter.ts | grep -F '/eventstream/clip/v2'
-git show origin/main:src/hue-mdns.ts | grep -F '_hue._tcp.local'
-git show origin/main:src/hue-tls.ts | grep -F 'rejectUnauthorized: true'
-git show origin/main:src/hue-tls.ts | grep -F 'HUE_LOCAL_NETWORK_REQUIRED'
-git show origin/main:public/index.html | grep -F 'Philips Hue'
-git show origin/main:public/index.html | grep -F 'option value="time"'
-git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS automation_time_triggers'
-git show origin/main:src/main.ts | grep -F 'timeZone: config.TZ'
-git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS automation_conditions'
-git show origin/main:src/automations.ts | grep -F 'automationRuleConditions'
-git show origin/main:public/index.html | grep -F 'Weitere UND-Bedingung hinzufügen'
-git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS automation_system_actions'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.81'
 git show origin/main:src/db.ts | grep -F "jsonb_build_array('setClimateMode')"
 ! git show origin/main:src/db.ts | grep -F "ARRAY['setClimateMode']::text[]"
-git show origin/main:src/automations.ts | grep -F 'CLIMATE_MODE_AUTOMATION_DEVICE_ID'
-git show origin/main:public/automation-ui.js | grep -F "climateWinter:'Wintermodus'"
-! git show origin/main:public/index.html | grep -F '<span class="system-card-badge">Nur SALTA</span>'
-git show origin/main:public/index.html | grep -F '<h2>Urlaubsmodus</h2>'
-git show origin/main:src/server.ts | grep -F '/api/system/vacation-mode'
-git show origin/main:src/main.ts | grep -F 'new VacationModeManager(registry, config.TZ)'
-git show origin/main:src/vacation-mode.ts | grep -F 'VACATION_CONTACT_ALERT_SENT'
-git show origin/main:public/automation-ui.js | grep -F "vacationActive:['Aktiv','Inaktiv']"
-git show origin/main:public/index.html | grep -F 'aria-label="Hausstatus"'
-git show origin/main:public/styles.css | grep -F '.overview-system-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))'
-git show origin/main:src/db.ts | grep -F 'CREATE TABLE IF NOT EXISTS presence_target_profiles'
-git show origin/main:public/index.html | grep -F 'id="presenceTargetPersonName"'
-git show origin/main:src/fritzbox-presence.ts | grep -F 'presentNames:JSON.stringify(presentNames)'
-git show origin/main:public/app.js | grep -F 'presentNames.length?compactPresenceNames(presentNames)'
 ```
 
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.80 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.80.
+Release validator contract: SALTA v0.8.81 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.81.
 ```
 
 Wait for GitHub CI and both CodeQL analyses to be green before tagging.
@@ -81,14 +45,14 @@ Wait for GitHub CI and both CodeQL analyses to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.80 -m "SALTA v0.8.80"
-git push origin v0.8.80
+git tag -a v0.8.81 -m "SALTA v0.8.81"
+git push origin v0.8.81
 ```
 
 ## GitHub Release with gh CLI
 
 ```bash
-gh release create v0.8.80 \
-  --title "SALTA v0.8.80" \
+gh release create v0.8.81 \
+  --title "SALTA v0.8.81" \
   --notes-file RELEASE_TEXT.md
 ```

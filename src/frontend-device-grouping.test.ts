@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { functionCalls, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
+import { cssRuleContains } from "../test-utils/style-inspection.js";
 
 const appSource = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
 const htmlSource = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
@@ -17,7 +18,8 @@ describe("room-grouped device overview", () => {
 
   it("shows only room-assigned devices on the overview and removes the old status panel", () => {
     expect(htmlSource).toContain('id="overviewDeviceGrid" class="device-groups overview-device-groups"');
-    expect(htmlSource).toContain("Shelly-, Zigbee-, Hue-, HomeMatic- und virtuelle Geräte nach Raum.");
+    expect(htmlSource).toContain('<section class="section-head overview-section-head"><div><h2>Geräte nach Räumen</h2></div></section>');
+    expect(htmlSource).not.toContain("Shelly-, Zigbee-, Hue-, HomeMatic- und virtuelle Geräte nach Raum.");
     expect(htmlSource).not.toContain("Alles an einem Ort");
     expect(htmlSource).not.toContain('<p class="eyebrow">STATUS</p>');
     expect(hasFunction(appAst, "renderOverviewDevices")).toBe(true);
@@ -27,6 +29,13 @@ describe("room-grouped device overview", () => {
     expect(htmlSource).toContain('<script src="/room-grouping.js"></script>');
     expect(appSource).toContain("Auf der Übersicht werden ausschließlich Geräte mit einer gültigen Raumzuordnung angezeigt.");
     expect(styles).toContain(".overview-section-head{margin-top:0}");
+  });
+
+  it("distinguishes overview room groups with their own background blocks", () => {
+    expect(cssRuleContains(styles, ".overview-device-groups", "gap:14px")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-device-groups .device-room-group", "border-radius:16px")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-device-groups .device-room-group", "background:linear-gradient(180deg,var(--card) 0,var(--subtle-bg) 100%)")).toBe(true);
+    expect(cssRuleContains(styles, ".overview-device-groups .device-room-group:nth-child(even)", "background:linear-gradient(180deg,var(--card) 0,var(--accent-bg) 100%)")).toBe(true);
   });
 
   it("keeps duplicate control IDs out of overview and adapter-page cards", () => {
