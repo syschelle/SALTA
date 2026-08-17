@@ -1,4 +1,4 @@
-# SALTA v0.8.88 Git commands
+# SALTA v0.8.89 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(security): harden XML-RPC and FRITZ digest handling"
+git commit -m "fix(ui): compact sidebar language selector"
 git push origin main
 ```
 
@@ -18,21 +18,17 @@ git push origin main
 git fetch origin
 
 git show origin/main:package.json | grep '"version"'
-git show origin/main:src/openccu-xmlrpc.ts | grep -F 'if (bare.includes("<") || bare.includes(">")) return undefined'
-! git show origin/main:src/openccu-xmlrpc.ts | grep -F 'fragment.replace(/<[^>]+>/g'
-! git show origin/main:src/fritzbox-presence.ts | grep -E 'createHash\(["'"'"']md5["'"'"']\)'
-git show origin/main:src/fritzbox-presence.ts | grep -F 'const secret = digestHash("MD5"'
-git show origin/main:src/fritzbox-presence.ts | grep -F 'return digestHash("MD5"'
-git show origin/main:src/openccu-events.test.ts | grep -F 'rejects unknown typed XML-RPC value markup'
-git show origin/main:src/fritzbox-presence.test.ts | grep -F 'shared digest helper with no direct MD5 crypto call'
-git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.88'
+git show origin/main:public/styles.css | grep -F '.sidebar-footer .language-control{grid-template-columns:1fr;align-items:stretch;gap:8px}'
+git show origin/main:public/styles.css | grep -F '.sidebar-footer .language-control select{justify-self:end;width:120px;max-width:100%;min-width:0}'
+git show origin/main:src/frontend-i18n.test.ts | grep -F 'keeps the sidebar language selector compact so labels are not clipped'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.89'
 ```
 
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.88 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.88.
+Release validator contract: SALTA v0.8.89 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.89.
 ```
 
 Wait for GitHub CI and CodeQL to be green before tagging.
@@ -43,14 +39,14 @@ Wait for GitHub CI and CodeQL to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.88 -m "SALTA v0.8.88"
-git push origin v0.8.88
+git tag -a v0.8.89 -m "SALTA v0.8.89"
+git push origin v0.8.89
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.88 \
-  --title "SALTA v0.8.88" \
+gh release create v0.8.89 \
+  --title "SALTA v0.8.89" \
   --notes-file RELEASE_TEXT.md
 ```

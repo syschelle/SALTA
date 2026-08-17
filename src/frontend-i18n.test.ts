@@ -9,6 +9,7 @@ const i18n = readFileSync(new URL("../public/i18n.js", import.meta.url), "utf8")
 const de = JSON.parse(readFileSync(new URL("../public/i18n/de.json", import.meta.url), "utf8"));
 const en = JSON.parse(readFileSync(new URL("../public/i18n/en.json", import.meta.url), "utf8"));
 const server = readFileSync(new URL("server.ts", import.meta.url), "utf8");
+const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
 
 function countKeys(value: unknown): number {
   if (!value || typeof value !== "object" || Array.isArray(value)) return 0;
@@ -77,5 +78,10 @@ describe("browser-localized SALTA UI", () => {
     expect(app).toContain("document.addEventListener('salta:languagechange',refreshLocalizedApplication)");
     expect(app).toContain("renderDevices();updateDashboardSummary();renderDaylightOverview();renderVacationMode();renderClimateMode();renderBatteryOverview()");
     expect(app).toContain("if(typeof renderAutomations==='function')renderAutomations()");
+  });
+
+  it("keeps the sidebar language selector compact so labels are not clipped", () => {
+    expect(styles).toContain(".sidebar-footer .language-control{grid-template-columns:1fr;align-items:stretch;gap:8px}");
+    expect(styles).toContain(".sidebar-footer .language-control select{justify-self:end;width:120px;max-width:100%;min-width:0}");
   });
 });

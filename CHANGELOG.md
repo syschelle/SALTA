@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.89
+
+- Refined the compact sidebar language selector so its label and dropdown no longer fight for horizontal space.
+- The sidebar language control now uses a stacked layout with a compact right-aligned selector to avoid clipped labels.
+- Kept the larger language selector under **Settings → Appearance** unchanged.
+- Added frontend regression coverage for the compact stacked sidebar language-control layout.
+- Carries forward the v0.8.88 CodeQL security hardening, the v0.8.87 formatter regression fix and the v0.8.86 German/English localization unchanged.
+- No database schema migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.88
 
 - Fixed the OpenCCU XML-RPC incomplete multi-character sanitization finding by rejecting unknown typed markup instead of stripping XML tags and decoding the remainder.
