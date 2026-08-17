@@ -73,8 +73,33 @@ const germanI18n = json("public/i18n/de.json");
 const englishI18n = json("public/i18n/en.json");
 if (!i18nSource.includes("const COOKIE='salta_language'") || !i18nSource.includes("new Set(['auto','de','en'])") || !i18nSource.includes("navigator.languages")) fail("Browser language persistence or automatic detection is incomplete");
 if (germanI18n?.meta?.language !== "de" || englishI18n?.meta?.language !== "en") fail("German/English translation metadata is invalid");
-if (Object.keys(englishI18n?.phrases ?? {}).length < 450) fail("English translation catalogue is unexpectedly incomplete");
+if (Object.keys(englishI18n?.phrases ?? {}).length < 900) fail("English translation catalogue is unexpectedly incomplete");
 if (englishI18n?.phrases?.["Übersicht"] !== "Overview" || englishI18n?.phrases?.["Geräte nach Räumen"] !== "Devices by room") fail("Core English overview translations are missing");
+const germanPhraseKeys = Object.keys(germanI18n?.phrases ?? {}).sort();
+const englishPhraseKeys = Object.keys(englishI18n?.phrases ?? {}).sort();
+if (JSON.stringify(germanPhraseKeys) !== JSON.stringify(englishPhraseKeys)) fail("German and English phrase catalogues do not contain the same source keys");
+const requiredDynamicEnglish = new Map([
+  ["DEBUG aktiv", "DEBUG enabled"],
+  ["Fehler: nur fehlgeschlagene Diagnoseaktionen können per Pushover gemeldet werden.", "Errors: only failed diagnostic actions can be reported via Pushover."],
+  ["Ein API-Schlüssel ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.", "An API key is stored encrypted. Leave blank to keep it."],
+  ["Ein Passwort ist verschlüsselt gespeichert. Leer lassen, um es beizubehalten.", "A password is stored encrypted. Leave blank to keep it."],
+  ["Bridge ist mit Apple Home gekoppelt.", "Bridge is paired with Apple Home."],
+  ["Passwort gespeichert", "Password stored"],
+  ["Gerätetyp", "Device type"],
+  ["Quelle", "Source"],
+  ["DIAGNOSE & FEHLERSUCHE", "DIAGNOSTICS & TROUBLESHOOTING"],
+]);
+for (const [source, expected] of requiredDynamicEnglish) if (englishI18n?.phrases?.[source] !== expected) fail(`Required dynamic English translation is missing: ${source}`);
+const requiredDynamicPatterns = [
+  "^DEBUG · FEHLER$",
+  "^(.+) · Realtime: Eventstream verbunden · Letztes Event (.+)$",
+  "^(.+) · (\\d+) Geräte · Synchronisiert (.+)$",
+  "^(\\d+) von (\\d+) Thermostaten unterstützt · zuletzt angewendet (.+) · (\\d+) erfolgreich$",
+  "^Letzte Batteriewarnung (.+) · frühestens wieder (.+)$",
+  "^Zuletzt gesehen: (.+)$",
+];
+const englishPatternKeys = new Set((englishI18n?.patterns ?? []).map((entry) => entry.match));
+for (const pattern of requiredDynamicPatterns) if (!englishPatternKeys.has(pattern)) fail(`Required dynamic English pattern is missing: ${pattern}`);
 const serverSource = read("src/server.ts");
 if (!serverSource.includes('["/room-grouping.js", "room-grouping.js"]')) fail("server does not serve room-grouping.js");
 if (!serverSource.includes('["/automation-ui.js", "automation-ui.js"]')) fail("server does not serve automation-ui.js");
@@ -82,6 +107,8 @@ if (!serverSource.includes('immutableVendorAsset ? "public, max-age=31536000, im
 
 
 const virtualFrontend = read("public/app.js");
+if (virtualFrontend.includes(".toLocaleString()")) fail("Frontend contains locale-unaware toLocaleString() calls");
+if (!virtualFrontend.includes("new Date(report.completedAt).toLocaleString(appLocale())") || !virtualFrontend.includes("new Date(gateway.lastSync).toLocaleString(appLocale())")) fail("OpenCCU timestamps do not follow the selected SALTA language");
 if (!virtualFrontend.includes("function liveRefreshAllowedForRoute(route){return route!=='automations'&&route!=='settings'}")) fail("Periodic live refresh must be paused on Automations and Settings pages");
 if (/function refreshLiveData\(\)[\s\S]*?loadAutomations\(/.test(virtualFrontend)) fail("Periodic live refresh must not reload the automation editor");
 if (!publicIndex.includes('data-nav="virtual"')) fail("Virtual Devices navigation is missing");

@@ -11,6 +11,18 @@ const en = JSON.parse(readFileSync(new URL("../public/i18n/en.json", import.meta
 const server = readFileSync(new URL("server.ts", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
 
+function translateEnglish(source: string): string {
+  const exact = en.phrases?.[source];
+  if (typeof exact === "string") return exact;
+  for (const pattern of en.patterns ?? []) {
+    const regex = new RegExp(pattern.match, pattern.flags || "");
+    if (regex.test(source)) return source.replace(regex, pattern.replace);
+  }
+  let translated = source;
+  for (const [from, to] of Object.entries(en.tokens ?? {})) translated = translated.split(from).join(String(to));
+  return translated;
+}
+
 function countKeys(value: unknown): number {
   if (!value || typeof value !== "object" || Array.isArray(value)) return 0;
   return Object.values(value as Record<string, unknown>).reduce((sum, entry) => sum + (entry && typeof entry === "object" && !Array.isArray(entry) ? countKeys(entry) : 1), 0);
@@ -39,8 +51,11 @@ describe("browser-localized SALTA UI", () => {
     expect(en.phrases["Urlaubsmodus"]).toBe("Vacation mode");
     expect(en.phrases["Automationen"]).toBe("Automations");
     expect(en.phrases["Darstellung"]).toBe("Appearance");
-    expect(Object.keys(en.phrases).length).toBeGreaterThanOrEqual(450);
+    expect(Object.keys(en.phrases).length).toBeGreaterThanOrEqual(900);
+    expect(en.patterns.length).toBeGreaterThanOrEqual(80);
     expect(countKeys(en.language)).toBe(countKeys(de.language));
+    expect(Object.keys(en.phrases).sort()).toEqual(Object.keys(de.phrases).sort());
+    expect(en.patterns.map((entry: { match: string }) => entry.match)).toEqual(de.patterns.map((entry: { match: string }) => entry.match));
   });
 
   it("translates static and dynamically inserted UI while protecting user-defined names", () => {
@@ -56,12 +71,41 @@ describe("browser-localized SALTA UI", () => {
     expect(en.tokens[" UND "]).toBe(" AND ");
   });
 
+  it("covers dynamic status, credential, diagnostics and device-info text in English", () => {
+    const samples: Array<[string, string]> = [
+      ["DEBUG aktiv", "DEBUG enabled"],
+      ["DEBUG · FEHLER", "DEBUG · ERROR"],
+      ["Fehler: nur fehlgeschlagene Diagnoseaktionen können per Pushover gemeldet werden.", "Errors: only failed diagnostic actions can be reported via Pushover."],
+      ["Ein API-Schlüssel ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.", "An API key is stored encrypted. Leave blank to keep it."],
+      ["Ein Passwort ist verschlüsselt gespeichert. Leer lassen, um es beizubehalten.", "A password is stored encrypted. Leave blank to keep it."],
+      ["Realtime: Eventstream verbunden · Letztes Event 06:46:51 PM", "Realtime: event stream connected · Last event 06:46:51 PM"],
+      ["37 Geräte · Synchronisiert 8/17/2026, 6:47:43 PM", "37 devices · Synchronized 8/17/2026, 6:47:43 PM"],
+      ["Bridge ist mit Apple Home gekoppelt.", "Bridge is paired with Apple Home."],
+      ["11 von 11 Thermostaten unterstützt · zuletzt angewendet 8/13/26, 10:55 AM · 11 erfolgreich", "11 of 11 thermostats supported · last applied 8/13/26, 10:55 AM · 11 successful"],
+      ["Aktuell: Sommer · Winter: Handbetrieb", "Current: Summer · Winter: Manual"],
+      ["Letzte Batteriewarnung 8/14/2026, 11:46:55 AM · frühestens wieder 8/21/2026, 11:46:55 AM", "Last battery warning 8/14/2026, 11:46:55 AM · next eligible 8/21/2026, 11:46:55 AM"],
+      ["Zuletzt gesehen: 8/17/26, 6:50 PM", "Last seen: 8/17/26, 6:50 PM"],
+      ["Passwort gespeichert", "Password stored"],
+      ["Gerätetyp", "Device type"],
+      ["Quelle", "Source"],
+      ["DIAGNOSE & FEHLERSUCHE", "DIAGNOSTICS & TROUBLESHOOTING"],
+      ["Diagnose abgeschlossen", "Diagnostics completed"],
+      ["Realtime: WebSocket verbunden", "Realtime: WebSocket connected"],
+      ["Kein Trigger verfügbar", "No trigger available"],
+      ["Automation konnte nicht gespeichert werden.", "Automation could not be saved."],
+    ];
+    for (const [source, expected] of samples) expect(translateEnglish(source), source).toBe(expected);
+  });
+
   it("uses the selected language for date, number and automation formatting", () => {
     expect(i18n).toContain("new Intl.NumberFormat(locale(),options)");
     expect(i18n).toContain("new Intl.DateTimeFormat(locale(),options)");
     expect(app).toContain("function appLocale(){return appI18n?.locale?.()||'de-DE'}");
     expect(app).toContain("appI18n?.formatNumber?.(value,{maximumFractionDigits:1})");
-    expect(app).toContain("toLocaleString(appLocale()");
+    expect(app).toContain("toLocaleString(appLocale()")
+    expect(app).not.toContain(".toLocaleString()")
+    expect(app).toContain("new Date(report.completedAt).toLocaleString(appLocale())")
+    expect(app).toContain("new Date(gateway.lastSync).toLocaleString(appLocale())");
     expect(automationUi).toContain("function automationLocale(){return globalThis.SaltaI18n?.locale?.()||'de-DE'}");
     expect(automationUi).toContain("toLocaleString(automationLocale()");
   });

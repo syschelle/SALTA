@@ -132,7 +132,7 @@
     "Definiere einen oder mehrere Auslöser, bis zu acht UND-verknüpfte Bedingungen und bis zu acht Zielaktionen.": "Define one or more triggers, up to eight AND-linked conditions and up to eight target actions.",
     "Name": "Name",
     "Raum": "Room",
-    "Keinem Raum zugeordnet": "No room assigned",
+    "Keinem Raum zugeordnet": "Not assigned to a room",
     "Aktiv": "Active",
     "Regel automatisch ausführen": "Run rule automatically",
     "Wenn": "When",
@@ -227,7 +227,7 @@
     "Fehler": "Error",
     "Details": "Details",
     "Keine Protokolleinträge": "No log entries",
-    "Für die gewählten Filter sind keine Ereignisse vorhanden.": "No events match the selected filters.",
+    "Für die gewählten Filter sind keine Ereignisse vorhanden.": "There are no events for the selected filters.",
     "Konfiguriere Adapter und globale Standardwerte.": "Configure adapters and global defaults.",
     "Sicherheit · folgt": "Security · coming later",
     "Globale SALTA-Einstellungen für Diagnose und Laufzeitverhalten.": "Global SALTA settings for diagnostics and runtime behavior.",
@@ -440,7 +440,7 @@
     "Status unbekannt": "Unknown status",
     "Keine Batteriewarnung": "No battery warning",
     "Grenzwert": "Threshold",
-    "aktuell alles im grünen Bereich": "everything is currently OK",
+    "aktuell alles im grünen Bereich": "everything currently OK",
     "Pushover bereit": "Pushover ready",
     "Pushover nicht konfiguriert": "Pushover not configured",
     "Wird gespeichert …": "Saving …",
@@ -694,9 +694,324 @@
     "z. B. 192.168.178.45": "e.g. 192.168.178.45",
     "z. B. http://192.168.178.20:8080": "e.g. http://192.168.178.20:8080",
     "z. B. http://192.168.178.30": "e.g. http://192.168.178.30",
-    "z. B. https://192.168.178.25": "e.g. https://192.168.178.25"
+    "z. B. https://192.168.178.25": "e.g. https://192.168.178.25",
+    "Nautische Morgendämmerung": "Nautical dawn",
+    "Morgendämmerung": "Dawn",
+    "Sonnenhöchststand": "Solar noon",
+    "Abenddämmerung": "Dusk",
+    "Nautische Abenddämmerung": "Nautical dusk",
+    "Kein Phoscon-Daylight-Sensor gefunden": "No Phoscon daylight sensor found",
+    "Phoscon-Daylight nicht erreichbar": "Phoscon daylight unavailable",
+    "nicht konfiguriert": "not configured",
+    "noch nicht angewendet": "not applied yet",
+    "FEHLER": "ERROR",
+    "DEBUG aktiv": "DEBUG enabled",
+    "Normalbetrieb": "Normal operation",
+    "Verbose: automatische Korrekturen und Fehler können per Pushover gemeldet werden.": "Verbose: automatic corrections and errors can be reported via Pushover.",
+    "Fehler: nur fehlgeschlagene Diagnoseaktionen können per Pushover gemeldet werden.": "Errors: only failed diagnostic actions can be reported via Pushover.",
+    "Keine zusätzlichen DEBUG-Pushover-Meldungen.": "No additional DEBUG Pushover notifications.",
+    "Bridge ist mit Apple Home gekoppelt.": "Bridge is paired with Apple Home.",
+    "Bridge wartet auf die Kopplung mit Apple Home.": "Bridge is waiting to be paired with Apple Home.",
+    "Aktiviere die Bridge, wenn du SALTA-Geräte in Apple Home verwenden möchtest.": "Enable the bridge if you want to use SALTA devices in Apple Home.",
+    "Die gespeicherten HomeKit-Pairingdaten können mit dem aktuellen SALTA_ENCRYPTION_KEY nicht entschlüsselt werden. Stelle ein passendes Disaster-Recovery-Backup wieder her oder setze die HomeKit-Konfiguration zurück.": "The stored HomeKit pairing data cannot be decrypted with the current SALTA_ENCRYPTION_KEY. Restore a matching disaster-recovery backup or reset the HomeKit configuration.",
+    "QR-Code oder Pairing-Code werden nach erfolgreicher Kopplung nicht mehr angezeigt.": "The QR code and pairing code are no longer shown after successful pairing.",
+    "Der QR-Code ist noch nicht verfügbar. Du kannst den Pairing-Code manuell verwenden.": "The QR code is not available yet. You can use the pairing code manually.",
+    "HomeKit-Pairing wirklich zurücksetzen? Die SALTA-Bridge muss anschließend in Apple Home erneut hinzugefügt werden.": "Really reset HomeKit pairing? The SALTA bridge must then be added to Apple Home again.",
+    "Pairing wird zurückgesetzt …": "Resetting pairing …",
+    "User Key ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.": "The User Key is stored encrypted. Leave blank to keep it.",
+    "Noch kein User Key gespeichert.": "No User Key stored yet.",
+    "API Token ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.": "The API Token is stored encrypted. Leave blank to keep it.",
+    "Noch kein API Token gespeichert.": "No API Token stored yet.",
+    "Die gespeicherten Pushover-Zugangsdaten können mit dem aktuellen SALTA_ENCRYPTION_KEY nicht entschlüsselt werden. Bitte User Key und API Token neu eingeben.": "The stored Pushover credentials cannot be decrypted with the current SALTA_ENCRYPTION_KEY. Please re-enter the User Key and API Token.",
+    "Pushover konfiguriert": "Pushover configured",
+    "Pushover nicht vollständig konfiguriert": "Pushover not fully configured",
+    "Aktuell meldet kein Gerät einen niedrigen Batteriestand.": "No device currently reports a low battery level.",
+    "Test wird gesendet …": "Sending test …",
+    "Vollsicherung wird verschlüsselt …": "Encrypting full backup …",
+    "Die Sicherungsdatei ist größer als 10 MB.": "The backup file is larger than 10 MB.",
+    "Die Datei ist keine gültige SALTA-Vollsicherung.": "The file is not a valid SALTA full backup.",
+    "Die aktuelle SALTA-Konfiguration, Laufzeitschlüssel und HomeKit-Pairing-Daten werden durch diese Vollsicherung ersetzt. SALTA startet danach automatisch neu. Fortfahren?": "The current SALTA configuration, runtime keys and HomeKit pairing data will be replaced by this full backup. SALTA will restart automatically afterwards. Continue?",
+    "System wird wiederhergestellt …": "Restoring system …",
+    "keine Personen konfiguriert": "no people configured",
+    "Noch keine Person für die Präsenzerkennung konfiguriert": "No person configured for presence detection yet",
+    "Phoscon ist nicht verbunden": "Phoscon is not connected",
+    "Verbinde unter Einstellungen eine Phoscon-/deCONZ-Instanz.": "Connect a Phoscon/deCONZ instance under Settings.",
+    "OpenCCU ist nicht verbunden": "OpenCCU is not connected",
+    "Verbinde unter Einstellungen eine OpenCCU-Instanz.": "Connect an OpenCCU instance under Settings.",
+    "Das gespeicherte Passwort kann nicht entschlüsselt werden. Bitte vollständig neu eingeben.": "The stored password cannot be decrypted. Please enter it again in full.",
+    "Ein Passwort ist sicher gespeichert. Leer lassen, um es beizubehalten.": "A password is stored securely. Leave blank to keep it.",
+    "Aktuell ist kein globales Passwort gespeichert.": "No global password is currently stored.",
+    "Shelly-Einstellungen wurden gespeichert.": "Shelly settings were saved.",
+    "Trage die Adresse deiner Phoscon-/deCONZ-Instanz ein.": "Enter the address of your Phoscon/deCONZ instance.",
+    "Die Phoscon-Adresse ist ungültig. Beispiel: http://192.168.178.20:8080": "The Phoscon address is invalid. Example: http://192.168.178.20:8080",
+    "Trage einen API-Schlüssel ein oder fordere nach der Freigabe in Phoscon automatisch einen an.": "Enter an API key or request one automatically after enabling app access in Phoscon.",
+    "Verbinde zuerst unter Einstellungen eine Phoscon-/deCONZ-Instanz.": "First connect a Phoscon/deCONZ instance under Settings.",
+    "Die App-Freigabe ist nicht aktiv. Öffne in Phoscon Einstellungen → Gateway → Erweitert und erlaube innerhalb von 60 Sekunden eine neue App.": "App access is not enabled. In Phoscon, open Settings → Gateway → Advanced and allow a new app within 60 seconds.",
+    "Der API-Schlüssel wurde von Phoscon abgelehnt.": "The API key was rejected by Phoscon.",
+    "Die Phoscon-/deCONZ-Instanz ist unter dieser Adresse nicht erreichbar.": "The Phoscon/deCONZ instance is not reachable at this address.",
+    "Die Phoscon-/deCONZ-Instanz antwortet nicht rechtzeitig.": "The Phoscon/deCONZ instance did not respond in time.",
+    "Der gespeicherte Phoscon-API-Schlüssel kann mit dem aktuellen SALTA_ENCRYPTION_KEY nicht entschlüsselt werden.": "The stored Phoscon API key cannot be decrypted with the current SALTA_ENCRYPTION_KEY.",
+    "Die Phoscon-Anfrage ist fehlgeschlagen.": "The Phoscon request failed.",
+    "Phoscon ist konfiguriert, aber derzeit nicht verbunden.": "Phoscon is configured but currently not connected.",
+    "Realtime: WebSocket verbunden": "Realtime: WebSocket connected",
+    "Realtime: Fallback-Abfrage aktiv": "Realtime: fallback polling active",
+    "Realtime: nicht verbunden": "Realtime: not connected",
+    "Der gespeicherte API-Schlüssel kann nicht entschlüsselt werden. Gib ihn neu ein oder kopple SALTA erneut.": "The stored API key cannot be decrypted. Enter it again or pair SALTA again.",
+    "Ein API-Schlüssel ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.": "An API key is stored encrypted. Leave blank to keep it.",
+    "Noch kein API-Schlüssel gespeichert.": "No API key stored yet.",
+    "Der aktuelle SALTA_ENCRYPTION_KEY passt nicht zum gespeicherten Phoscon-API-Schlüssel. Kopple die Instanz erneut oder trage den Schlüssel neu ein.": "The current SALTA_ENCRYPTION_KEY does not match the stored Phoscon API key. Pair the instance again or enter the key again.",
+    "Phoscon-Verbindung wurde gespeichert und geprüft.": "Phoscon connection was saved and verified.",
+    "Schlüssel wird angefordert …": "Requesting key …",
+    "SALTA wurde mit Phoscon verbunden.": "SALTA was connected to Phoscon.",
+    "Phoscon-Verbindung trennen? Die synchronisierten Zigbee-Geräte werden aus SALTA entfernt, aber nicht aus Phoscon gelöscht.": "Disconnect Phoscon? Synchronized Zigbee devices will be removed from SALTA but not deleted from Phoscon.",
+    "Phoscon-Verbindung wurde getrennt.": "Phoscon connection was disconnected.",
+    "Trage die lokale Adresse deiner Philips Hue Bridge ein.": "Enter the local address of your Philips Hue Bridge.",
+    "Die Hue-Bridge-Adresse ist ungültig. Beispiel: https://192.168.178.25": "The Hue bridge address is invalid. Example: https://192.168.178.25",
+    "Trage einen Application Key ein oder kopple SALTA über den Link-Button mit der Hue Bridge.": "Enter an Application Key or pair SALTA with the Hue bridge using the link button.",
+    "Verbinde zuerst unter Einstellungen eine Philips Hue Bridge.": "First connect a Philips Hue bridge under Settings.",
+    "Drücke zuerst den runden Link-Button auf der Hue Bridge und starte die Kopplung danach erneut.": "First press the round link button on the Hue bridge, then start pairing again.",
+    "Die lokale Hue-Bridge-Suche per mDNS ist fehlgeschlagen. Trage die Bridge-Adresse manuell ein oder versuche es erneut.": "Local Hue bridge discovery via mDNS failed. Enter the bridge address manually or try again.",
+    "Der gespeicherte Hue Application Key wurde von der Bridge abgelehnt.": "The stored Hue Application Key was rejected by the bridge.",
+    "Das TLS-Zertifikat der Hue Bridge konnte nicht gegen die Signify-Hue-Bridge-Zertifikate geprüft werden. Aktualisiere die Bridge-Firmware und versuche es erneut.": "The Hue bridge TLS certificate could not be verified against the Signify Hue bridge certificates. Update the bridge firmware and try again.",
+    "Die Identität der Hue Bridge konnte nicht sicher bestimmt werden.": "The identity of the Hue bridge could not be determined securely.",
+    "Die Identität der Hue Bridge passt nicht zum TLS-Zertifikat.": "The identity of the Hue bridge does not match the TLS certificate.",
+    "Die Philips Hue Bridge ist unter dieser Adresse nicht erreichbar.": "The Philips Hue bridge is not reachable at this address.",
+    "Die Philips Hue Bridge antwortet nicht rechtzeitig.": "The Philips Hue bridge did not respond in time.",
+    "Die Kopplung mit der Philips Hue Bridge ist fehlgeschlagen.": "Pairing with the Philips Hue bridge failed.",
+    "Der gespeicherte Hue Application Key kann mit dem aktuellen SALTA_ENCRYPTION_KEY nicht entschlüsselt werden.": "The stored Hue Application Key cannot be decrypted with the current SALTA_ENCRYPTION_KEY.",
+    "Hue ist konfiguriert, aber derzeit nicht verbunden.": "Hue is configured but currently not connected.",
+    "Realtime: Eventstream verbunden": "Realtime: event stream connected",
+    "Der gespeicherte Application Key kann nicht entschlüsselt werden. Kopple SALTA erneut oder trage einen neuen Key ein.": "The stored Application Key cannot be decrypted. Pair SALTA again or enter a new key.",
+    "Ein Application Key ist verschlüsselt gespeichert. Leer lassen, um ihn beizubehalten.": "An Application Key is stored encrypted. Leave blank to keep it.",
+    "Noch kein Application Key gespeichert.": "No Application Key stored yet.",
+    "Der aktuelle SALTA_ENCRYPTION_KEY passt nicht zum gespeicherten Hue Application Key. Kopple SALTA erneut mit der Bridge.": "The current SALTA_ENCRYPTION_KEY does not match the stored Hue Application Key. Pair SALTA with the bridge again.",
+    "Philips Hue wurde gespeichert und geprüft.": "Philips Hue was saved and verified.",
+    "Hue-Bridge-Adresse übernommen. Drücke jetzt den Link-Button der Bridge und starte die Kopplung.": "Hue bridge address applied. Now press the bridge link button and start pairing.",
+    "Suche läuft …": "Searching …",
+    "Keine Hue Bridge gefunden": "No Hue bridge found",
+    "Du kannst die IP-Adresse oder den Hostnamen weiterhin manuell eintragen.": "You can still enter the IP address or hostname manually.",
+    "Eine Philips Hue Bridge wurde gefunden und übernommen.": "A Philips Hue bridge was found and applied.",
+    "Bridge wird gekoppelt …": "Pairing bridge …",
+    "SALTA wurde mit der Philips Hue Bridge gekoppelt.": "SALTA was paired with the Philips Hue bridge.",
+    "Philips-Hue-Verbindung trennen? Die Hue-Geräte werden aus SALTA entfernt, bleiben aber vollständig auf der Hue Bridge erhalten.": "Disconnect Philips Hue? Hue devices will be removed from SALTA but remain fully available on the Hue bridge.",
+    "Philips-Hue-Verbindung wurde getrennt.": "Philips Hue connection was disconnected.",
+    "Trage die Adresse deiner OpenCCU-Instanz ein.": "Enter the address of your OpenCCU instance.",
+    "Die OpenCCU-Adresse ist ungültig. Beispiel: http://192.168.178.30": "The OpenCCU address is invalid. Example: http://192.168.178.30",
+    "Trage OpenCCU-Benutzername und Passwort ein.": "Enter the OpenCCU username and password.",
+    "Verbinde zuerst unter Einstellungen eine OpenCCU-Instanz.": "First connect an OpenCCU instance under Settings.",
+    "Benutzername oder Passwort wurden von OpenCCU abgelehnt.": "The username or password was rejected by OpenCCU.",
+    "OpenCCU kann keine neue Sitzung anlegen. Die Zugangsdaten sind ungültig oder das Sitzungslimit ist erreicht. SALTA wartet vor dem nächsten automatischen Versuch eine Minute.": "OpenCCU cannot create a new session. The credentials are invalid or the session limit has been reached. SALTA waits one minute before the next automatic attempt.",
+    "Die OpenCCU-Instanz ist unter dieser Adresse nicht erreichbar.": "The OpenCCU instance is not reachable at this address.",
+    "Die OpenCCU-Instanz antwortet nicht rechtzeitig.": "The OpenCCU instance did not respond in time.",
+    "Das HTTPS-Zertifikat der OpenCCU-Instanz kann nicht verifiziert werden.": "The HTTPS certificate of the OpenCCU instance cannot be verified.",
+    "OpenCCU hat keine gültige JSON-RPC-Antwort geliefert.": "OpenCCU did not return a valid JSON-RPC response.",
+    "OpenCCU hat über keine unterstützte Schnittstelle einen nutzbaren Gerätekatalog geliefert.": "OpenCCU did not provide a usable device catalog through any supported interface.",
+    "OpenCCU hat keine Kanalwerte geliefert. SALTA verwirft die alte Sitzung und verbindet sich automatisch neu.": "OpenCCU did not provide channel values. SALTA discards the old session and reconnects automatically.",
+    "Das gespeicherte OpenCCU-Passwort kann mit dem aktuellen SALTA_ENCRYPTION_KEY nicht entschlüsselt werden.": "The stored OpenCCU password cannot be decrypted with the current SALTA_ENCRYPTION_KEY.",
+    "Die OpenCCU-Anfrage ist fehlgeschlagen.": "The OpenCCU request failed.",
+    "OpenCCU ist konfiguriert, aber derzeit nicht verbunden.": "OpenCCU is configured but currently not connected.",
+    "Diagnose abgeschlossen": "Diagnostics completed",
+    "Diagnose mit Fehlern": "Diagnostics completed with errors",
+    "Erfolgreich": "Successful",
+    "Das gespeicherte Passwort kann nicht entschlüsselt werden. Gib es vollständig neu ein.": "The stored password cannot be decrypted. Enter it again in full.",
+    "Ein Passwort ist verschlüsselt gespeichert. Leer lassen, um es beizubehalten.": "A password is stored encrypted. Leave blank to keep it.",
+    "Noch kein Passwort gespeichert.": "No password stored yet.",
+    "Der aktuelle SALTA_ENCRYPTION_KEY passt nicht zum gespeicherten OpenCCU-Passwort. Gib das Passwort neu ein.": "The current SALTA_ENCRYPTION_KEY does not match the stored OpenCCU password. Enter the password again.",
+    "OpenCCU wurde gespeichert, die Gerätesynchronisierung enthält aber einen Fehler.": "OpenCCU was saved, but device synchronization contains an error.",
+    "OpenCCU wurde gespeichert. Die Diagnose enthält Warnungen; Details stehen im Bericht und im Systemprotokoll.": "OpenCCU was saved. Diagnostics contain warnings; details are shown in the report and system log.",
+    "OpenCCU-Verbindung wurde gespeichert und geprüft.": "OpenCCU connection was saved and verified.",
+    "Diagnose läuft …": "Running diagnostics …",
+    "OpenCCU-Diagnose abgeschlossen. Es gibt Warnungen im Bericht.": "OpenCCU diagnostics completed. The report contains warnings.",
+    "OpenCCU-Diagnose erfolgreich abgeschlossen.": "OpenCCU diagnostics completed successfully.",
+    "Die OpenCCU-Diagnose hat einen Fehler gefunden.": "OpenCCU diagnostics found an error.",
+    "OpenCCU-Verbindung trennen? Die synchronisierten HomeMatic-Geräte werden aus SALTA entfernt, aber nicht aus OpenCCU gelöscht.": "Disconnect OpenCCU? Synchronized HomeMatic devices will be removed from SALTA but not deleted from OpenCCU.",
+    "OpenCCU-Verbindung wurde getrennt.": "OpenCCU connection was disconnected.",
+    "Taster wird angelegt …": "Creating button …",
+    "Schalter wird angelegt …": "Creating switch …",
+    "Virtueller Taster wurde angelegt und an HomeKit übergeben.": "Virtual button was created and published to HomeKit.",
+    "Virtueller Schalter wurde angelegt und an HomeKit übergeben.": "Virtual switch was created and published to HomeKit.",
+    "Quelle": "Source",
+    "Gerätetyp": "Device type",
+    "Modell": "Model",
+    "Host / Adresse": "Host / address",
+    "MAC / Geräteadresse": "MAC / device address",
+    "Generation": "Generation",
+    "Profil": "Profile",
+    "Kanäle": "Channels",
+    "Komponente": "Component",
+    "Passwort gespeichert": "Password stored",
+    "Ressource": "Resource",
+    "Sensor-Ressourcen": "Sensor resources",
+    "Hue-Ressource": "Hue resource",
+    "Hue-Gerät": "Hue device",
+    "Hue-Archetyp": "Hue archetype",
+    "Interface": "Interface",
+    "Geräteadresse": "Device address",
+    "Kanaladresse": "Channel address",
+    "Kanaltyp": "Channel type",
+    "OpenCCU-Gerätename": "OpenCCU device name",
+    "OpenCCU-Kanalname": "OpenCCU channel name",
+    "Funktionen": "Capabilities",
+    "Zuletzt gesehen": "Last seen",
+    "Letztes Ereignis": "Last event",
+    "SALTA-ID": "SALTA ID",
+    "Quell-ID": "Source ID",
+    "Nicht freigegeben": "Not enabled",
+    "Nicht unterstützt": "Not supported",
+    "Freigegeben": "Enabled",
+    "Shelly-Gerät konfigurieren und technische Geräteinformationen prüfen.": "Configure the Shelly device and review technical device information.",
+    "Zigbee-Gerät konfigurieren und Phoscon-Geräteinformationen prüfen.": "Configure the Zigbee device and review Phoscon device information.",
+    "Philips-Hue-Gerät konfigurieren und Bridge-Ressourcen prüfen.": "Configure the Philips Hue device and review bridge resources.",
+    "HomeMatic-Gerät konfigurieren und OpenCCU-Geräteinformationen prüfen.": "Configure the HomeMatic device and review OpenCCU device information.",
+    "Virtuelles SALTA-Gerät konfigurieren und technische Informationen prüfen.": "Configure the virtual SALTA device and review technical information.",
+    "Die Auswahl ändert nur die Darstellung in SALTA; das HomeMatic-Gerät in OpenCCU bleibt unverändert.": "This selection only changes the presentation in SALTA; the HomeMatic device in OpenCCU remains unchanged.",
+    "Die Auswahl ändert nur die Darstellung in SALTA; die Zigbee-Ressource in Phoscon bleibt unverändert.": "This selection only changes the presentation in SALTA; the Zigbee resource in Phoscon remains unchanged.",
+    "Das virtuelle Gerät wird aus SALTA entfernt und verschwindet automatisch aus der HomeKit-Bridge.": "The virtual device will be removed from SALTA and automatically disappear from the HomeKit bridge.",
+    "Virtuelles Gerät löschen": "Delete virtual device",
+    "Das virtuelle Gerät wird auch aus der HomeKit-Bridge entfernt.": "The virtual device will also be removed from the HomeKit bridge.",
+    "Das Shelly-Gerät selbst bleibt unverändert und kann später erneut hinzugefügt werden.": "The Shelly device itself remains unchanged and can be added again later.",
+    "Gerät wird gelöscht …": "Deleting device …",
+    "Virtuelles Gerät wurde gelöscht.": "Virtual device was deleted.",
+    "Shelly-Gerät wurde aus SALTA gelöscht.": "Shelly device was removed from SALTA.",
+    "Das Shelly-Gerät hat mit einem unerwarteten HTTP-Fehler geantwortet.": "The Shelly device returned an unexpected HTTP error.",
+    "Die gespeicherten Shelly-Zugangsdaten können mit dem aktuellen SALTA_ENCRYPTION_KEY nicht entschlüsselt werden. Bitte unter Einstellungen neu speichern.": "The stored Shelly credentials cannot be decrypted with the current SALTA_ENCRYPTION_KEY. Please save them again under Settings.",
+    "Das Shelly-Gerät konnte nicht hinzugefügt werden.": "The Shelly device could not be added.",
+    "Verbindung wird geprüft …": "Checking connection …",
+    "Shelly-Gerät wurde hinzugefügt.": "Shelly device was added.",
+    "Netzwerk wird durchsucht …": "Scanning network …",
+    "Die Suche läuft. Bitte einen Moment warten …": "Search in progress. Please wait a moment …",
+    "Keine Shelly-Geräte gefunden": "No Shelly devices found",
+    "Prüfe das Netzwerk und versuche es erneut.": "Check the network and try again.",
+    "Verbindungstest erfolgreich": "Connection test successful",
+    "TR-064 erreichbar · Anmeldung fehlgeschlagen": "TR-064 reachable · authentication failed",
+    "FRITZ!Box nicht erreichbar": "FRITZ!Box unreachable",
+    "Noch keine erfolgreiche automatische TR-064-Abfrage.": "No successful automatic TR-064 poll yet.",
+    "Mit „Verbindung testen“ kannst du TR-064 unabhängig von der aktivierten Präsenzerkennung prüfen.": "You can use “Test connection” to check TR-064 independently of enabled presence detection.",
+    "Systemprotokoll öffnen": "Open system log",
+    "Der aktuelle SALTA_ENCRYPTION_KEY passt nicht zum gespeicherten FRITZ!Box-Passwort. Bitte das Passwort neu eingeben.": "The current SALTA_ENCRYPTION_KEY does not match the stored FRITZ!Box password. Please enter the password again.",
+    "Noch keine Personen": "No people yet",
+    "Füge rechts die erste bekannte Handy-MAC-Adresse hinzu.": "Add the first known phone MAC address on the right.",
+    "FRITZ!Box-Abfrage aktuell nicht verfügbar": "FRITZ!Box query currently unavailable",
+    "Das gespeicherte Passwort kann nicht entschlüsselt werden. Bitte neu eingeben.": "The stored password cannot be decrypted. Please enter it again.",
+    "Kein Passwort gespeichert. Die Hosts-Abfrage kann je nach FRITZ!Box-Konfiguration auch ohne Anmeldung verfügbar sein.": "No password stored. Depending on the FRITZ!Box configuration, the hosts query may also be available without authentication.",
+    "DIAGNOSE & FEHLERSUCHE": "DIAGNOSTICS & TROUBLESHOOTING",
+    "Keine Schaltaktion verfügbar": "No switching action available",
+    "Auslöser noch nicht vollständig": "Trigger not complete yet",
+    "Auslöser entfernen": "Remove trigger",
+    "Weiteres Triggergerät suchen": "Search for another trigger device",
+    "Bedingung noch nicht vollständig": "Condition not complete yet",
+    "Bedingungsgerät wählen": "Select condition device",
+    "Ziel noch nicht vollständig": "Target not complete yet",
+    "Letztes Event: noch nicht ausgeführt": "Last event: not executed yet",
+    "Noch keine Automationen": "No automations yet",
+    "Lege rechts deine erste lokale Regel an.": "Create your first local rule on the right.",
+    "Der ausgewählte Raum existiert nicht mehr.": "The selected room no longer exists.",
+    "Diese Regel würde einen Schaltkreis zwischen Automationen erzeugen. Zyklische Regeln sind nicht erlaubt.": "This rule would create a cycle between automations. Cyclic rules are not allowed.",
+    "Trigger- und Zielgerät müssen unterschiedlich sein. Ausnahme: Ein virtueller Schalter darf sich mit An → Aus bzw. Aus → An selbst zurücksetzen.": "Trigger and target devices must be different. Exception: a virtual switch may reset itself with On → Off or Off → On.",
+    "Das Bedingungsgerät muss sich vom Triggergerät unterscheiden.": "The condition device must be different from the trigger device.",
+    "Der ausgewählte Triggerzustand ist für dieses Gerät nicht verfügbar.": "The selected trigger state is not available for this device.",
+    "Das ausgewählte Tasterereignis ist für dieses Gerät nicht verfügbar.": "The selected button event is not available for this device.",
+    "Maximal acht ODER-Auslöser sind pro Automation möglich.": "A maximum of eight OR triggers is allowed per automation.",
+    "Derselbe Auslöser ist mehrfach eingetragen.": "The same trigger is configured more than once.",
+    "Bitte eine gültige Uhrzeit im Format HH:MM auswählen.": "Please select a valid time in HH:MM format.",
+    "Ein Uhrzeittrigger kann in dieser Version nicht mit zusätzlichen ODER-Gerätetriggern kombiniert werden.": "In this version, a time trigger cannot be combined with additional OR device triggers.",
+    "Der ausgewählte Bedingungszustand ist für dieses Gerät nicht verfügbar.": "The selected condition state is not available for this device.",
+    "Maximal acht UND-Bedingungen sind pro Automation möglich.": "A maximum of eight AND conditions is allowed per automation.",
+    "Maximal acht Ziele sind pro Automation möglich.": "A maximum of eight targets is allowed per automation.",
+    "Die SALTA-Systemaktion Heizmodus ist derzeit nicht verfügbar.": "The SALTA system action Heating mode is currently unavailable.",
+    "Das ausgewählte Ziel unterstützt diese Aktion nicht.": "The selected target does not support this action.",
+    "Die Solltemperatur liegt außerhalb des unterstützten Bereichs dieses Thermostats.": "The target temperature is outside the supported range of this thermostat.",
+    "Automation konnte nicht gespeichert werden.": "Automation could not be saved.",
+    "In SALTA ausgeblendet": "Hidden in SALTA",
+    "Noch nicht unterstützt": "Not supported yet",
+    "HomeKit-kompatibel, aber ausgeblendet": "HomeKit compatible, but hidden",
+    "Das Zigbee-Gerät wird erst veröffentlicht, wenn „Gerät ausblenden“ deaktiviert ist.": "The Zigbee device will only be published after “Hide device” is disabled.",
+    "Aktuelle Warnungen": "Current warnings",
+    "Positionssteuerung ist erst nach der Kalibrierung verfügbar.": "Position control is available only after calibration.",
+    "SALTA sucht per mDNS im lokalen Netzwerk nach Philips Hue Bridges …": "SALTA is searching the local network for Philips Hue bridges via mDNS …",
+    "Abwesend nach": "Away after",
+    "Shelly-Weboberfläche öffnen": "Open Shelly web interface",
+    "Letzte Batteriewarnung": "Last battery warning",
+    "frühestens wieder": "next eligible",
+    "Synchronisiert": "Synchronized",
+    "zuletzt angewendet": "last applied",
+    "Thermostaten unterstützt": "thermostats supported",
+    "Temperatur": "Temperature",
+    "Wasser": "Water",
+    "Feuer": "Fire",
+    "Kohlenmonoxid": "Carbon monoxide",
+    "Vibration": "Vibration",
+    "HomeKit-Dateien": "HomeKit files"
   },
   "patterns": [
+    {
+      "match": "^(.+) · Realtime: Eventstream verbunden · Letztes Event (.+)$",
+      "replace": "$1 · Realtime: event stream connected · Last event $2"
+    },
+    {
+      "match": "^(.+) · Realtime: Eventstream verbunden$",
+      "replace": "$1 · Realtime: event stream connected"
+    },
+    {
+      "match": "^(.+) · Realtime: WebSocket verbunden · Letztes Tasterevent (.+)$",
+      "replace": "$1 · Realtime: WebSocket connected · Last button event $2"
+    },
+    {
+      "match": "^(.+) · Realtime: WebSocket verbunden$",
+      "replace": "$1 · Realtime: WebSocket connected"
+    },
+    {
+      "match": "^(.+) · Realtime: Fallback-Abfrage aktiv$",
+      "replace": "$1 · Realtime: fallback polling active"
+    },
+    {
+      "match": "^(.+) · Realtime: nicht verbunden$",
+      "replace": "$1 · Realtime: not connected"
+    },
+    {
+      "match": "^(.+) · (\\d+) Geräte · Synchronisiert (.+)$",
+      "replace": "$1 · $2 devices · Synchronized $3"
+    },
+    {
+      "match": "^Realtime: WebSocket verbunden · Letztes Tasterevent (.+)$",
+      "replace": "Realtime: WebSocket connected · Last button event $1"
+    },
+    {
+      "match": "^SALTA (.+) · (\\d+) Räume · (\\d+) Geräte · (\\d+) Automationen · (\\d+) HomeKit-Dateien$",
+      "replace": "SALTA $1 · $2 rooms · $3 devices · $4 automations · $5 HomeKit files"
+    },
+    {
+      "match": "^Wiederherstellung abgeschlossen · (\\d+) Räume · (\\d+) Geräte · (\\d+) Automationen · (\\d+) HomeKit-Dateien\\. SALTA startet neu\\.$",
+      "replace": "Restore completed · $1 rooms · $2 devices · $3 automations · $4 HomeKit files. SALTA is restarting."
+    },
+    {
+      "match": "^Wiederherstellung abgeschlossen · (\\d+) Räume · (\\d+) Geräte · (\\d+) Automationen · (\\d+) HomeKit-Dateien · (\\d+) Host-Einstellung\\(en\\) prüfen\\. SALTA startet neu\\.$",
+      "replace": "Restore completed · $1 rooms · $2 devices · $3 automations · $4 HomeKit files · review $5 host setting(s). SALTA is restarting."
+    },
+    {
+      "match": "^Schnittstelle (.+) · (\\d+) Einträge · Remote-Code (.+) · (.+)$",
+      "replace": "Interface $1 · $2 entries · Remote code $3 · $4"
+    },
+    {
+      "match": "^Schnittstelle (.+) · (\\d+) Einträge · Remote-Code (.+)$",
+      "replace": "Interface $1 · $2 entries · Remote code $3"
+    },
+    {
+      "match": "^Schnittstelle (.+) · (\\d+) Einträge$",
+      "replace": "Interface $1 · $2 entries"
+    },
+    {
+      "match": "^(\\d+) Heimnetzgeräte · Automatische TR-064-Abfrage aktiv · zuletzt geprüft (.+)$",
+      "replace": "$1 home-network devices · automatic TR-064 polling active · last checked $2"
+    },
+    {
+      "match": "^Verbindungstest erfolgreich · (\\d+) Heimnetzgeräte · getestet (.+) · (.+)$",
+      "replace": "Connection test successful · $1 home-network devices · tested $2 · $3"
+    },
+    {
+      "match": "^IP (.+) · (.+) · zuletzt gesehen (.+)$",
+      "replace": "IP $1 · $2 · last seen $3"
+    },
     {
       "match": "^(\\d+) Geräte$",
       "replace": "$1 devices"
@@ -880,6 +1195,142 @@
     {
       "match": "^Wintermodus angewendet: (\\d+) Thermostate erfolgreich(?:, (\\d+) fehlgeschlagen)?\\.$",
       "replace": "Winter mode applied: $1 thermostats successful, $2 failed."
+    },
+    {
+      "match": "^DEBUG · FEHLER$",
+      "replace": "DEBUG · ERROR"
+    },
+    {
+      "match": "^DEBUG · VERBOSE$",
+      "replace": "DEBUG · VERBOSE"
+    },
+    {
+      "match": "^Realtime: Eventstream verbunden · Letztes Event (.+)$",
+      "replace": "Realtime: event stream connected · Last event $1"
+    },
+    {
+      "match": "^Realtime: WebSocket verbunden · (.+)$",
+      "replace": "Realtime: WebSocket connected · $1"
+    },
+    {
+      "match": "^Letztes Event (.+)$",
+      "replace": "Last event $1"
+    },
+    {
+      "match": "^Letztes Tasterevent (.+)$",
+      "replace": "Last button event $1"
+    },
+    {
+      "match": "^Synchronisiert (.+)$",
+      "replace": "Synchronized $1"
+    },
+    {
+      "match": "^(\\d+) Geräte · Synchronisiert (.+)$",
+      "replace": "$1 devices · Synchronized $2"
+    },
+    {
+      "match": "^Aktuell: Sommer · Winter: Handbetrieb$",
+      "replace": "Current: Summer · Winter: Manual"
+    },
+    {
+      "match": "^Aktuell: Sommer · Winter: Automatik$",
+      "replace": "Current: Summer · Winter: Automatic"
+    },
+    {
+      "match": "^Aktuell: Winter · Winter: Handbetrieb$",
+      "replace": "Current: Winter · Winter: Manual"
+    },
+    {
+      "match": "^Aktuell: Winter · Winter: Automatik$",
+      "replace": "Current: Winter · Winter: Automatic"
+    },
+    {
+      "match": "^(\\d+) von (\\d+) Thermostaten unterstützt · zuletzt angewendet (.+) · (\\d+) erfolgreich$",
+      "replace": "$1 of $2 thermostats supported · last applied $3 · $4 successful"
+    },
+    {
+      "match": "^(\\d+) von (\\d+) Thermostaten unterstützt · zuletzt angewendet (.+) · (\\d+) erfolgreich · (\\d+) fehlgeschlagen$",
+      "replace": "$1 of $2 thermostats supported · last applied $3 · $4 successful · $5 failed"
+    },
+    {
+      "match": "^Letzte Batteriewarnung (.+) · frühestens wieder (.+)$",
+      "replace": "Last battery warning $1 · next eligible $2"
+    },
+    {
+      "match": "^Letzte Batteriewarnung (.+)$",
+      "replace": "Last battery warning $1"
+    },
+    {
+      "match": "^Zuletzt gesehen: (.+)$",
+      "replace": "Last seen: $1"
+    },
+    {
+      "match": "^(\\d+) von (\\d+) unterstützten Geräten für HomeKit freigegeben$",
+      "replace": "$1 of $2 supported devices enabled for HomeKit"
+    },
+    {
+      "match": "^Grenzwert (\\d+) % · aktuell alles im grünen Bereich$",
+      "replace": "Threshold $1% · everything currently OK"
+    },
+    {
+      "match": "^Zusätzlich sind (\\d+) gerätespezifische Zugangsdaten betroffen\\.$",
+      "replace": "In addition, $1 device-specific credential sets are affected."
+    },
+    {
+      "match": "^(\\d+) Shelly-Kanäle wurden als getrennte Geräte hinzugefügt\\.$",
+      "replace": "$1 Shelly channels were added as separate devices."
+    },
+    {
+      "match": "^(\\d+) Heimnetzgeräte$",
+      "replace": "$1 home-network devices"
+    },
+    {
+      "match": "^zuletzt geprüft (.+)$",
+      "replace": "last checked $1"
+    },
+    {
+      "match": "^getestet (.+)$",
+      "replace": "tested $1"
+    },
+    {
+      "match": "^Abwesend nach (.+)$",
+      "replace": "Away after $1"
+    },
+    {
+      "match": "^(\\d+) Ereignisse ausgewählt$",
+      "replace": "$1 events selected"
+    },
+    {
+      "match": "^Auslöser (\\d+)$",
+      "replace": "Trigger $1"
+    },
+    {
+      "match": "^Bedingung (\\d+)$",
+      "replace": "Condition $1"
+    },
+    {
+      "match": "^Ziel (\\d+)$",
+      "replace": "Target $1"
+    },
+    {
+      "match": "^Täglich · (.+) Uhr$",
+      "replace": "Daily · $1"
+    },
+    {
+      "match": "^Letztes Event: (.+)$",
+      "replace": "Last event: $1"
+    },
+    {
+      "match": "^Schnittstelle (.+)$",
+      "replace": "Interface $1"
+    },
+    {
+      "match": "^(\\d+) Einträge$",
+      "replace": "$1 entries"
+    },
+    {
+      "match": "^Remote-Code (.+)$",
+      "replace": "Remote code $1"
     }
   ],
   "tokens": {

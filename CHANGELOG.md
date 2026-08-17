@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.90
+
+- Completed a second German/English localization audit focused on dynamic runtime text rather than only static HTML.
+- Expanded the catalogues to 930 explicit phrases and 97 dynamic patterns, covering DEBUG, adapter credentials/realtime status, HomeKit, Heating mode, battery warnings, device information, OpenCCU diagnostics, Presence and Automation messages.
+- Fixed the remaining OpenCCU `toLocaleString()` calls so diagnostic and synchronization timestamps follow the selected SALTA language.
+- Added phrase/pattern parity checks plus dynamic localization regression and release-validator contracts.
+- Carries forward the v0.8.89 compact sidebar language selector and v0.8.88 CodeQL hardening.
+- No database schema migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.89
 
 - Refined the compact sidebar language selector so its label and dropdown no longer fight for horizontal space.
