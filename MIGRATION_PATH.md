@@ -1,6 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.84 update
+## Current v0.8.85 update
+
+v0.8.85 fixes the client-side Appearance profile preview/application path. No persistence format, database schema or environment variable changes are introduced. Existing saved Appearance palettes remain compatible.
 
 v0.8.84 changes only frontend regression tests and release metadata after the configurable Appearance integration. No runtime, persistence, schema or environment-variable migration is required.
 

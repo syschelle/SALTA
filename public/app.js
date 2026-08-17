@@ -26,7 +26,7 @@ let appearanceDraft=null,appearancePreviewData=null;
 function normalizeHexColor(value,fallback){const text=String(value||'').trim();return /^#[0-9a-f]{6}$/i.test(text)?text.toLowerCase():fallback}
 function normalizeAppearanceSettings(data){const profile=Object.hasOwn(APPEARANCE_PROFILES,data?.profile)?data.profile:'standard';const base=APPEARANCE_PROFILES[profile==='custom'?'standard':profile]||APPEARANCE_PROFILES.standard;const normalizePalette=(input,defaults)=>Object.fromEntries(APPEARANCE_COLOR_FIELDS.map(([key])=>[key,normalizeHexColor(input?.[key],defaults[key])]));return {profile,light:normalizePalette(data?.light,base.light),dark:normalizePalette(data?.dark,base.dark)}}
 function activeAppearanceSettings(){return appearancePreviewData||appearanceData||normalizeAppearanceSettings({profile:'standard'})}
-function applyAppearancePalette(theme){const settings=activeAppearanceSettings();const palette=settings[theme]||settings.light;for(const [key,,cssVar] of APPEARANCE_COLOR_FIELDS)document.documentElement.style.setProperty(cssVar,palette[key]);document.querySelector('meta[name="theme-color"]')?.setAttribute('content',palette.background)}
+function applyAppearancePalette(theme,settings=activeAppearanceSettings()){const normalized=normalizeAppearanceSettings(settings);const palette=normalized[theme]||normalized.light;for(const [key,,cssVar] of APPEARANCE_COLOR_FIELDS)document.documentElement.style.setProperty(cssVar,palette[key]);document.querySelector('meta[name="theme-color"]')?.setAttribute('content',palette.background)}
 function normalizeTheme(value){return value==='dark'?'dark':'light'}
 function readThemeCookie(){const prefix=`${THEME_COOKIE}=`;const entry=document.cookie.split('; ').find(value=>value.startsWith(prefix));return entry?normalizeTheme(decodeURIComponent(entry.slice(prefix.length))):normalizeTheme(document.documentElement.dataset.theme)}
 function writeThemeCookie(theme){const secure=location.protocol==='https:'?'; Secure':'';document.cookie=`${THEME_COOKIE}=${encodeURIComponent(theme)}; Max-Age=${THEME_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}`}
@@ -284,7 +284,7 @@ function renderAppearanceSettings(){
   renderAppearanceColorGrid('light',appearanceDraft.light);
   renderAppearanceColorGrid('dark',appearanceDraft.dark);
 }
-function previewAppearanceDraft(){appearancePreviewData=appearanceDraft?normalizeAppearanceSettings(appearanceDraft):null;applyTheme(document.documentElement.dataset.theme)}
+function previewAppearanceDraft(){appearancePreviewData=appearanceDraft?normalizeAppearanceSettings(appearanceDraft):null;if(appearancePreviewData)applyAppearancePalette(normalizeTheme(document.documentElement.dataset.theme),appearancePreviewData);else applyTheme(document.documentElement.dataset.theme)}
 function setAppearanceDraftColor(mode,key,value){
   if(!appearanceDraft||!APPEARANCE_COLOR_FIELDS.some(([field])=>field===key))return;
   const normalized=normalizeHexColor(value,'');if(!normalized)return;
@@ -293,10 +293,15 @@ function setAppearanceDraftColor(mode,key,value){
   if(color&&color.value!==normalized)color.value=normalized;if(text&&text.value.toLowerCase()!==normalized)text.value=normalized.toUpperCase();
   previewAppearanceDraft();
 }
-function applySelectedAppearanceProfile(){
+function applySelectedAppearanceProfile({announce=false}={}){
   const profile=appearanceProfile.value;
-  if(profile==='custom'){previewAppearanceDraft();return}
-  const preset=APPEARANCE_PROFILES[profile]||APPEARANCE_PROFILES.standard;appearanceDraft={profile,light:{...preset.light},dark:{...preset.dark}};renderAppearanceColorGrid('light',appearanceDraft.light);renderAppearanceColorGrid('dark',appearanceDraft.dark);previewAppearanceDraft();
+  if(profile==='custom'){previewAppearanceDraft();if(announce)notify('Benutzerdefinierte Palette als Vorschau angewendet.');return}
+  const preset=normalizeAppearanceSettings({profile,light:APPEARANCE_PROFILES[profile]?.light,dark:APPEARANCE_PROFILES[profile]?.dark});
+  appearanceDraft={profile:preset.profile,light:{...preset.light},dark:{...preset.dark}};
+  appearancePreviewData={profile:preset.profile,light:{...preset.light},dark:{...preset.dark}};
+  renderAppearanceColorGrid('light',appearanceDraft.light);renderAppearanceColorGrid('dark',appearanceDraft.dark);
+  applyAppearancePalette(normalizeTheme(document.documentElement.dataset.theme),appearancePreviewData);
+  if(announce)notify(`Farbprofil ${appearanceProfile.options[appearanceProfile.selectedIndex]?.text||profile} als Vorschau angewendet.`);
 }
 async function loadAppearanceSettings(){appearanceData=normalizeAppearanceSettings(await api('/api/settings/appearance'));appearancePreviewData=null;applyTheme(document.documentElement.dataset.theme);if(document.querySelector('[data-settings-content="appearance"]')&&!document.querySelector('[data-settings-content="appearance"]').hidden)renderAppearanceSettings();return appearanceData}
 async function saveAppearanceSettings(){
@@ -845,7 +850,8 @@ homeKitForm.addEventListener('submit',event=>{event.preventDefault();saveHomeKit
 climateSettingsForm.addEventListener('submit',event=>{event.preventDefault();saveClimateSettings().catch(e=>notify(e.message,true))});
 generalSettingsForm.addEventListener('submit',event=>{event.preventDefault();saveGeneralSettings().catch(e=>notify(e.message,true))});
 appearanceSettingsForm.addEventListener('submit',event=>{event.preventDefault();saveAppearanceSettings().catch(e=>notify(e.message,true))});
-appearanceApplyProfileButton.addEventListener('click',applySelectedAppearanceProfile);
+appearanceProfile.addEventListener('change',()=>applySelectedAppearanceProfile());
+appearanceApplyProfileButton.addEventListener('click',()=>applySelectedAppearanceProfile({announce:true}));
 appearanceReloadButton.addEventListener('click',()=>loadAppearanceSettings().then(renderAppearanceSettings).catch(e=>notify(e.message,true)));
 document.querySelectorAll('[data-appearance-preview]').forEach(button=>button.addEventListener('click',()=>applyTheme(button.dataset.appearancePreview)));
 appearanceSettingsForm.addEventListener('input',event=>{const input=event.target;if(!(input instanceof HTMLInputElement)||!input.dataset.appearanceMode||!input.dataset.appearanceKey)return;if(input.type==='color'||/^#[0-9a-f]{6}$/i.test(input.value))setAppearanceDraftColor(input.dataset.appearanceMode,input.dataset.appearanceKey,input.value)});

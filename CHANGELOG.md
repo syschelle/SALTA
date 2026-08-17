@@ -1,11 +1,20 @@
+# Changelog
+
+## v0.8.85
+
+- Fixed Appearance profile preview so selecting or explicitly applying a profile writes that profile palette directly to the active CSS theme variables.
+- Selecting Standard, Ocean, Forest, Warm or Graphite now immediately previews the profile on the current page.
+- **Profil anwenden** uses the same direct palette path and confirms which profile is being previewed.
+- Individual color editing and server-side Appearance persistence remain unchanged.
+- Added regression coverage for the direct profile-to-CSS application path.
+- No database schema migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.84
 
 - Fixed the two v0.8.83 frontend CI regressions caused by stale test expectations after the configurable Appearance integration.
 - The authenticated application startup test now expects the saved Appearance palette to load after session authentication and before normal application data/navigation startup.
-- The overview room-group test now verifies `#eef2ff` as the default `--overview-room-bg` theme token and verifies that room blocks consume that configurable CSS variable instead of requiring a hard-coded background value.
+- The overview room-group test verifies `#eef2ff` as the default `--overview-room-bg` theme token and verifies that room blocks consume that configurable CSS variable.
 - No runtime code, database schema, Appearance behavior, automation behavior, HomeKit behavior, dependency or deployment-topology change is required.
-
-# Changelog
 
 ## v0.8.83
 

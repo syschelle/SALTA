@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { functionCallsWithStringArgument, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
+import { functionCalls, functionCallsWithStringArgument, functionSource, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const source = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
@@ -30,13 +30,22 @@ describe("configurable SALTA appearance", () => {
     expect(styles).toContain("background:var(--overview-room-bg)");
   });
 
-  it("loads, previews and persists appearance through the authenticated settings API", () => {
+  it("loads, directly previews and persists appearance through the authenticated settings API", () => {
     expect(hasFunction(app, "loadAppearanceSettings")).toBe(true);
     expect(hasFunction(app, "saveAppearanceSettings")).toBe(true);
     expect(hasFunction(app, "applyAppearancePalette")).toBe(true);
     expect(functionCallsWithStringArgument(app, "loadAppearanceSettings", "api", "/api/settings/appearance")).toBe(true);
     expect(functionCallsWithStringArgument(app, "saveAppearanceSettings", "api", "/api/settings/appearance")).toBe(true);
-    expect(source).toContain("applyAppearancePalette(theme)");
+    expect(functionSource(app, "applyAppearancePalette")).toContain("settings=activeAppearanceSettings()");
+    expect(functionCalls(app, "previewAppearanceDraft", "applyAppearancePalette", 2)).toBe(true);
+  });
+
+  it("applies a selected profile immediately and keeps the apply button as an explicit preview action", () => {
+    expect(functionSource(app, "applySelectedAppearanceProfile")).toContain("appearancePreviewData={profile:preset.profile,light:{...preset.light},dark:{...preset.dark}}");
+    expect(functionCalls(app, "applySelectedAppearanceProfile", "applyAppearancePalette", 2)).toBe(true);
+    expect(source).toContain("appearanceProfile.addEventListener('change',()=>applySelectedAppearanceProfile())");
+    expect(source).toContain("appearanceApplyProfileButton.addEventListener('click',()=>applySelectedAppearanceProfile({announce:true}))");
+    expect(source).toContain("Farbprofil ${appearanceProfile.options[appearanceProfile.selectedIndex]?.text||profile} als Vorschau angewendet.");
   });
 
   it("persists appearance in the already backed-up notification state instead of adding schema", () => {
