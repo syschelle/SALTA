@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.91
+
+- Fixed an intermittent Phoscon/deCONZ button-event race between the 15-second normal reconcile and the 2-second fallback button poll.
+- Normal reconcile now emits a newly discovered button revision instead of silently updating the stored `buttonEventLastUpdated` value and consuming the automation trigger.
+- Added cross-transport exact-once deduplication for WebSocket, fallback poll and reconcile using resource ID, button-event value and deCONZ `lastupdated`.
+- Added pending-event claims and a bounded recent-event cache so concurrent or delayed deliveries cannot double-trigger an automation.
+- Preserved button transport diagnostics and mark events recovered by normal reconciliation with `buttonEventTransport: "reconcile"`.
+- Added runtime race regression coverage and release-validator contracts for missed-event recovery and duplicate suppression.
+- Carries forward the v0.8.90 localization-completeness audit unchanged.
+- No database schema migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.90
 
 - Completed a second German/English localization audit focused on dynamic runtime text rather than only static HTML.

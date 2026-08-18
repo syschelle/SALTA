@@ -65,7 +65,9 @@ export class PhosconAdapter {
   private socketUrl?: string;
   private reconnectAttempt = 0;
   private stopped = true;
-  private readonly lastButtonEventSignature = new Map<string, string>();
+  private readonly processedButtonEventSignatures = new Set<string>();
+  private readonly pendingButtonEventSignatures = new Set<string>();
+  private readonly processedButtonEventOrder: string[] = [];
 
   constructor(private readonly registry: DeviceRegistry) {}
 
@@ -201,11 +203,12 @@ export class PhosconAdapter {
     const lastUpdated = stringValue(rawState.lastupdated);
     const receivedAt = now();
     const priorLastUpdated = stringValue(current.adapterData?.buttonEventLastUpdated);
-    const signature = eventValue === undefined ? undefined : `${eventValue}:${lastUpdated ?? receivedAt}`;
-    const previousSignature = this.lastButtonEventSignature.get(resourceId);
-    const shouldEmit = eventValue !== undefined && signature !== previousSignature && (
+    const shouldConsiderEvent = eventValue !== undefined && (
       transport === "websocket" || (Boolean(lastUpdated) && lastUpdated !== priorLastUpdated)
     );
+    const claimedSignature = shouldConsiderEvent && eventValue !== undefined
+      ? this.claimButtonEvent(resourceId, eventValue, lastUpdated, receivedAt)
+      : undefined;
 
     const reachable = typeof rawConfig.reachable === "boolean" ? rawConfig.reachable : current.reachable;
     const updated: Device = {
@@ -223,18 +226,56 @@ export class PhosconAdapter {
       lastSeen: receivedAt,
       lastEvent: eventValue !== undefined ? receivedAt : current.lastEvent
     };
-    await this.registry.set(updated);
+    try {
+      await this.registry.set(updated);
+    } catch (error) {
+      if (claimedSignature) this.releaseButtonEvent(claimedSignature);
+      throw error;
+    }
 
-    if (signature) this.lastButtonEventSignature.set(resourceId, signature);
-    if (!shouldEmit || eventValue === undefined) return;
+    if (!claimedSignature || eventValue === undefined) return;
+    this.commitButtonEvent(claimedSignature);
+    this.emitButtonEvent(updated.id, eventValue, receivedAt);
+  }
 
+  private buttonEventSignature(resourceId: string, eventValue: number, lastUpdated: string | undefined, receivedAt: string): string {
+    return `${resourceId}:${eventValue}:${lastUpdated ?? receivedAt}`;
+  }
+
+  private claimButtonEvent(resourceId: string, eventValue: number, lastUpdated: string | undefined, receivedAt: string): string | undefined {
+    const signature = this.buttonEventSignature(resourceId, eventValue, lastUpdated, receivedAt);
+    if (this.processedButtonEventSignatures.has(signature) || this.pendingButtonEventSignatures.has(signature)) return undefined;
+    this.pendingButtonEventSignatures.add(signature);
+    return signature;
+  }
+
+  private commitButtonEvent(signature: string): void {
+    this.pendingButtonEventSignatures.delete(signature);
+    if (this.processedButtonEventSignatures.has(signature)) return;
+    this.processedButtonEventSignatures.add(signature);
+    this.processedButtonEventOrder.push(signature);
+    while (this.processedButtonEventOrder.length > 256) {
+      const expired = this.processedButtonEventOrder.shift();
+      if (expired) this.processedButtonEventSignatures.delete(expired);
+    }
+  }
+
+  private releaseButtonEvent(signature: string): void {
+    this.pendingButtonEventSignatures.delete(signature);
+  }
+
+  private rememberButtonEvent(resourceId: string, eventValue: number, lastUpdated: string): void {
+    this.commitButtonEvent(this.buttonEventSignature(resourceId, eventValue, lastUpdated, lastUpdated));
+  }
+
+  private emitButtonEvent(deviceId: string, eventValue: number, receivedAt: string): void {
     this.status = {
       ...this.status,
       realtimeLastEvent: receivedAt,
       realtimeLastError: undefined
     };
     this.registry.emitDeviceEvent({
-      deviceId: updated.id,
+      deviceId,
       source: "phoscon",
       key: "buttonEvent",
       value: eventValue,
@@ -380,7 +421,14 @@ export class PhosconAdapter {
         const discoveredButtonUpdated = stringValue(discovered.adapterData?.buttonEventLastUpdated);
         const existingButtonUpdated = stringValue(existing?.adapterData?.buttonEventLastUpdated);
         const buttonEventChanged = discovered.type === "button" && Boolean(existingButtonUpdated) && Boolean(discoveredButtonUpdated) && discoveredButtonUpdated !== existingButtonUpdated;
-        await this.registry.set({
+        const resourceId = discovered.type === "button" ? stringValue(discovered.adapterData?.buttonEventResourceId) : undefined;
+        const eventValue = discovered.type === "button" ? numberValue(discovered.state.buttonEvent) : undefined;
+        const receivedAt = now();
+        const claimedSignature = buttonEventChanged && resourceId && eventValue !== undefined && discoveredButtonUpdated
+          ? this.claimButtonEvent(resourceId, eventValue, discoveredButtonUpdated, receivedAt)
+          : undefined;
+        const existingTransport = stringValue(existing?.adapterData?.buttonEventTransport);
+        const updated: Device = {
           ...discovered,
           name: existing?.name ?? discovered.name,
           roomId: existing?.roomId,
@@ -388,13 +436,25 @@ export class PhosconAdapter {
           presentationType: existing?.presentationType ?? discovered.presentationType,
           homekitEnabled: existing?.homekitEnabled ?? false,
           hidden: existing?.hidden ?? false,
-          lastEvent: buttonEventChanged ? discovered.lastEvent : existing && JSON.stringify(existing.state) === JSON.stringify(discovered.state) ? existing.lastEvent : discovered.lastEvent
-        });
-        if (discovered.type === "button") {
-          const resourceId = stringValue(discovered.adapterData?.buttonEventResourceId);
-          const eventValue = numberValue(discovered.state.buttonEvent);
-          if (resourceId && eventValue !== undefined && discoveredButtonUpdated) {
-            this.lastButtonEventSignature.set(resourceId, `${eventValue}:${discoveredButtonUpdated}`);
+          ...(discovered.type === "button" ? {
+            adapterData: {
+              ...(discovered.adapterData ?? {}),
+              ...(claimedSignature ? { buttonEventTransport: "reconcile" } : existingTransport ? { buttonEventTransport: existingTransport } : {})
+            }
+          } : {}),
+          lastEvent: buttonEventChanged ? receivedAt : existing && JSON.stringify(existing.state) === JSON.stringify(discovered.state) ? existing.lastEvent : discovered.lastEvent
+        };
+        try {
+          await this.registry.set(updated);
+        } catch (error) {
+          if (claimedSignature) this.releaseButtonEvent(claimedSignature);
+          throw error;
+        }
+        if (resourceId && eventValue !== undefined && discoveredButtonUpdated) {
+          if (!buttonEventChanged) this.rememberButtonEvent(resourceId, eventValue, discoveredButtonUpdated);
+          if (claimedSignature) {
+            this.commitButtonEvent(claimedSignature);
+            this.emitButtonEvent(updated.id, eventValue, receivedAt);
           }
         }
       }

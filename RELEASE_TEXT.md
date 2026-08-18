@@ -1,26 +1,28 @@
-# SALTA v0.8.90
+# SALTA v0.8.91
 
-SALTA v0.8.90 completes a second localization audit after the German/English UI rollout. Dynamic status lines, credential notices, diagnostics, device-information labels and several adapter-specific messages that could still remain German in an English browser are now covered. OpenCCU timestamps also follow the selected SALTA locale consistently.
+SALTA v0.8.91 fixes an intermittent Phoscon/deCONZ button-event race that could cause automations to miss physical button presses. The issue occurred when the 15-second normal Phoscon reconcile observed a new `buttonevent` before the 2-second fallback button poll: the reconcile updated the stored button revision but did not emit an automation event, so the later fallback poll considered the event already consumed.
+
+## v0.8.91 Phoscon button-event reliability
+
+- Fixed the confirmed race between the normal Phoscon reconcile and the 2-second button fallback poll.
+- A newly discovered `buttonevent` revision found by the normal reconcile now emits the same `deviceEvent` used by realtime/fallback handling instead of silently consuming the revision.
+- Added cross-transport event deduplication so the same deCONZ button event is emitted only once when WebSocket, fallback polling and reconcile observe it in different orders.
+- Event identity uses the Phoscon sensor resource, button-event value and deCONZ `lastupdated` revision.
+- Added pending-event tracking so concurrent reconcile and fallback processing cannot both emit the same event while Registry persistence is still in flight.
+- Added a bounded recent-event cache to suppress delayed duplicates without allowing unbounded memory growth.
+- If Registry persistence fails while an event is pending, the claim is released so a later transport can recover the event instead of losing it permanently.
+- The Phoscon device metadata now records `buttonEventTransport: "reconcile"` when the normal reconcile is the path that recovers a missed event; existing `poll` and `websocket` transport reporting remains supported.
+- Normal reconcile preserves the previous button-event transport when no new button revision was detected.
+- Added runtime regression tests for a button revision recovered by normal reconcile, fallback poll winning before reconcile, and reconcile/fallback observing the same event concurrently.
+- Strengthened release validation so the cross-transport deduplication and reconcile recovery path cannot be removed accidentally.
+- No database schema migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.90 localization completeness audit
 
-- Expanded the external German/English catalogues from the initial localization set to **930 explicit UI phrases** and **97 dynamic translation patterns**.
-- Added English coverage for the reported DEBUG status and Pushover diagnostic descriptions, including **DEBUG enabled** and **DEBUG · ERROR**.
-- Added translations for encrypted API-key/password state messages used by Phoscon, Hue, OpenCCU and FRITZ!Box Presence.
-- Added compound realtime translations for Philips Hue and Phoscon/deCONZ, including connected event streams, WebSocket status and last-event timestamps even when bridge/gateway metadata precedes them.
-- Added OpenCCU gateway translations for device counts and synchronization timestamps, including interface-name prefixes.
-- Added complete Heating-mode status translations such as **Current: Summer · Winter: Manual** and the supported-thermostat / last-applied / success-failure summary.
-- Added notification summary translations for the last battery warning and next eligible notification time.
-- Added translations for device-dialog information labels such as **Source**, **Device type**, **Password stored**, **Model**, **Channels**, **Device address**, OpenCCU channel metadata and last-seen/last-event fields.
-- Added translations for the **DIAGNOSTICS & TROUBLESHOOTING** system-log heading and OpenCCU diagnostic result/detail structures.
-- Added missing HomeKit pairing/compatibility messages, backup/restore status text, Presence connection states and remaining Automation validation/status messages.
-- Added translations for controlled device/state labels that were still missing from the catalogue, including temperature, water, fire and carbon monoxide.
-- Fixed the two remaining locale-unaware OpenCCU timestamp paths: diagnostic completion time and last synchronization now explicitly use the selected SALTA locale instead of the host/browser default locale.
-- German and English phrase catalogues now contain the same source keys, and German/English dynamic pattern keys are kept in parity.
-- Strengthened frontend regression coverage with representative dynamic strings from DEBUG, adapter credentials, realtime status, Heating mode, battery warnings, device metadata and diagnostics.
-- Strengthened the release validator so future releases reject missing critical dynamic translations, mismatched phrase keys and locale-unaware frontend `toLocaleString()` calls.
-- User-defined device, room, person, automation and HomeKit display names remain outside automatic translation.
-- No database schema migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
+- Completed the second German/English localization audit for dynamic runtime text.
+- Expanded translation coverage for DEBUG, credentials, realtime adapter state, HomeKit, Heating mode, battery warnings, device information, OpenCCU diagnostics, Presence and Automation messages.
+- Fixed the remaining locale-unaware OpenCCU timestamps so they follow the selected SALTA language.
+- Added phrase/pattern parity and dynamic localization release gates.
 
 ## v0.8.89 sidebar selector compactness
 
@@ -33,22 +35,12 @@ SALTA v0.8.90 completes a second localization audit after the German/English UI 
 - Fixed the OpenCCU XML-RPC incomplete multi-character sanitization finding by rejecting unknown typed markup instead of stripping tags and decoding the remainder.
 - Centralized FRITZ!Box protocol-required MD5 content-authentication calculations through the scoped digest helper while preserving protocol compatibility.
 
-## v0.8.87 localized formatter regression-test fix
-
-- Fixed the isolated device-energy formatter regression test so it injects the i18n number-formatting dependency used by the real browser runtime.
-
-## v0.8.86 German/English localization
-
-- Added browser-localized German and English UI support with **Automatic**, **Deutsch** and **English** language choices.
-- Added the shared `public/i18n.js` runtime plus external German and English translation catalogues.
-- Language preference remains browser/device-local through the `salta_language` cookie.
-
 ## Compatibility
 
-- v0.8.90 does not add or alter database schema.
-- Existing browser language selections remain compatible.
-- Existing Appearance settings remain independent of language selection.
-- Existing device, room, person, automation and HomeKit names are not translated or rewritten.
+- v0.8.91 does not add or alter database schema.
+- Existing Phoscon/deCONZ configuration and API credentials remain compatible.
+- Existing button automation trigger values such as `event:buttonEvent:1002` remain unchanged.
+- Existing browser language selections and Appearance settings remain compatible.
 - Existing Favorites, Presence profiles, OpenCCU realtime button events, Vacation mode, Heating mode, multi-condition automations and daily time triggers remain unchanged.
 - Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
 - No manual database migration is required.

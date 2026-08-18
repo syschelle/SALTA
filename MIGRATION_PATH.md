@@ -1,6 +1,10 @@
 # SALTA migration paths
 
-## Current v0.8.90 update
+## Current v0.8.91 update
+
+v0.8.91 fixes Phoscon/deCONZ button-event delivery inside the existing adapter runtime. No database, persistence, environment-variable or deployment migration is required. Existing Phoscon credentials, button devices and automation trigger definitions remain compatible.
+
+v0.8.90 completed the dynamic German/English localization audit. No database, persistence, environment-variable or deployment migration is required.
 
 v0.8.88 hardens the OpenCCU XML-RPC parser and centralizes FRITZ!Box protocol digest handling. No database, persistence, environment-variable or deployment migration is required. Existing FRITZ!Box credentials and Presence configuration remain compatible.
 

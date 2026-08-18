@@ -17,6 +17,21 @@ describe("Phoscon realtime button events", () => {
     expect(adapter).toContain("pollButtonSensors");
     expect(adapter).toContain("buttonEventLastUpdated");
     expect(adapter).toContain('transport: "websocket" | "poll"');
+    expect(adapter).toContain("processedButtonEventSignatures");
+    expect(adapter).toContain("pendingButtonEventSignatures");
+    expect(adapter).toContain("this.claimButtonEvent(resourceId, eventValue, discoveredButtonUpdated, receivedAt)");
+    expect(adapter).toContain('buttonEventTransport: "reconcile"');
+    expect(adapter).toContain("this.commitButtonEvent(claimedSignature)");
+    expect(adapter).toContain("processedButtonEventSignatures");
+    expect(adapter).toContain("pendingButtonEventSignatures");
+    expect(adapter).toContain("this.claimButtonEvent(resourceId, eventValue, discoveredButtonUpdated, receivedAt)");
+    expect(adapter).toContain('buttonEventTransport: "reconcile"');
+    expect(adapter).toContain("this.commitButtonEvent(claimedSignature)");
+    expect(adapter).toContain("processedButtonEventSignatures");
+    expect(adapter).toContain("pendingButtonEventSignatures");
+    expect(adapter).toContain("this.claimButtonEvent(resourceId, eventValue, discoveredButtonUpdated, receivedAt)");
+    expect(adapter).toContain('buttonEventTransport: "reconcile"');
+    expect(adapter).toContain("this.commitButtonEvent(claimedSignature)");
   });
 
   it("updates regular and daylight sensor state through the deCONZ websocket", () => {
