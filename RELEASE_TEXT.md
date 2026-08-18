@@ -1,6 +1,15 @@
-# SALTA v0.8.91
+# SALTA v0.8.92
 
-SALTA v0.8.91 fixes an intermittent Phoscon/deCONZ button-event race that could cause automations to miss physical button presses. The issue occurred when the 15-second normal Phoscon reconcile observed a new `buttonevent` before the 2-second fallback button poll: the reconcile updated the stored button revision but did not emit an automation event, so the later fallback poll considered the event already consumed.
+SALTA v0.8.92 is a test-maintenance release for the v0.8.91 Phoscon button-event reliability fix. GitHub CI showed that the runtime, TypeScript build, release validation, preflight checks and the new Phoscon race tests all passed, while one older source-inspection assertion in `phoscon-websocket.test.ts` still expected the pre-v0.8.91 `shouldEmit` implementation detail. The stale assertion is now aligned with the new exact-once `claimedSignature` gate. Runtime behavior is unchanged from v0.8.91.
+
+## v0.8.92 Phoscon websocket regression-test alignment
+
+- Fixed the single failing `phoscon-websocket.test.ts` assertion reported by the v0.8.91 `npm run check` CI run.
+- Replaced the obsolete expectation for `if (!shouldEmit || eventValue === undefined) return` with the active v0.8.91 exact-once gate `if (!claimedSignature || eventValue === undefined) return`.
+- Removed duplicate copies of the new v0.8.91 deduplication source assertions while keeping each contract covered once.
+- No Phoscon adapter runtime code was changed in v0.8.92.
+- The full v0.8.91 button-event recovery and cross-transport deduplication behavior is carried forward unchanged.
+- No database schema migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.91 Phoscon button-event reliability
 
@@ -11,11 +20,10 @@ SALTA v0.8.91 fixes an intermittent Phoscon/deCONZ button-event race that could 
 - Added pending-event tracking so concurrent reconcile and fallback processing cannot both emit the same event while Registry persistence is still in flight.
 - Added a bounded recent-event cache to suppress delayed duplicates without allowing unbounded memory growth.
 - If Registry persistence fails while an event is pending, the claim is released so a later transport can recover the event instead of losing it permanently.
-- The Phoscon device metadata now records `buttonEventTransport: "reconcile"` when the normal reconcile is the path that recovers a missed event; existing `poll` and `websocket` transport reporting remains supported.
+- The Phoscon device metadata records `buttonEventTransport: "reconcile"` when normal reconciliation recovers a missed event; existing `poll` and `websocket` reporting remains supported.
 - Normal reconcile preserves the previous button-event transport when no new button revision was detected.
-- Added runtime regression tests for a button revision recovered by normal reconcile, fallback poll winning before reconcile, and reconcile/fallback observing the same event concurrently.
+- Added runtime regression tests for missed-event recovery and duplicate suppression across reconcile, fallback polling and realtime delivery.
 - Strengthened release validation so the cross-transport deduplication and reconcile recovery path cannot be removed accidentally.
-- No database schema migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.90 localization completeness audit
 
@@ -24,20 +32,9 @@ SALTA v0.8.91 fixes an intermittent Phoscon/deCONZ button-event race that could 
 - Fixed the remaining locale-unaware OpenCCU timestamps so they follow the selected SALTA language.
 - Added phrase/pattern parity and dynamic localization release gates.
 
-## v0.8.89 sidebar selector compactness
-
-- Refined the sidebar language selector so its label and dropdown no longer compete for horizontal space.
-- The compact sidebar control uses a stacked layout with a constrained right-aligned selector.
-- The full-size language selector under **Settings → Appearance** remains unchanged.
-
-## v0.8.88 CodeQL security hardening
-
-- Fixed the OpenCCU XML-RPC incomplete multi-character sanitization finding by rejecting unknown typed markup instead of stripping tags and decoding the remainder.
-- Centralized FRITZ!Box protocol-required MD5 content-authentication calculations through the scoped digest helper while preserving protocol compatibility.
-
 ## Compatibility
 
-- v0.8.91 does not add or alter database schema.
+- v0.8.92 changes test/release metadata only; runtime behavior is unchanged from v0.8.91.
 - Existing Phoscon/deCONZ configuration and API credentials remain compatible.
 - Existing button automation trigger values such as `event:buttonEvent:1002` remain unchanged.
 - Existing browser language selections and Appearance settings remain compatible.

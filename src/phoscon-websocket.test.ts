@@ -9,7 +9,7 @@ describe("Phoscon realtime button events", () => {
     expect(adapter).toContain("new WebSocket(target)");
     expect(adapter).toContain('event.resource !== "sensors"');
     expect(adapter).toContain("const eventValue = numberValue(statePatch.buttonEvent)");
-    expect(adapter).toContain("if (!shouldEmit || eventValue === undefined) return");
+    expect(adapter).toContain("if (!claimedSignature || eventValue === undefined) return");
     expect(adapter).toContain("this.registry.emitDeviceEvent({");
     expect(adapter).toContain('key: "buttonEvent"');
     expect(adapter).toContain("this.scheduleReconnect(generation)");
@@ -17,16 +17,6 @@ describe("Phoscon realtime button events", () => {
     expect(adapter).toContain("pollButtonSensors");
     expect(adapter).toContain("buttonEventLastUpdated");
     expect(adapter).toContain('transport: "websocket" | "poll"');
-    expect(adapter).toContain("processedButtonEventSignatures");
-    expect(adapter).toContain("pendingButtonEventSignatures");
-    expect(adapter).toContain("this.claimButtonEvent(resourceId, eventValue, discoveredButtonUpdated, receivedAt)");
-    expect(adapter).toContain('buttonEventTransport: "reconcile"');
-    expect(adapter).toContain("this.commitButtonEvent(claimedSignature)");
-    expect(adapter).toContain("processedButtonEventSignatures");
-    expect(adapter).toContain("pendingButtonEventSignatures");
-    expect(adapter).toContain("this.claimButtonEvent(resourceId, eventValue, discoveredButtonUpdated, receivedAt)");
-    expect(adapter).toContain('buttonEventTransport: "reconcile"');
-    expect(adapter).toContain("this.commitButtonEvent(claimedSignature)");
     expect(adapter).toContain("processedButtonEventSignatures");
     expect(adapter).toContain("pendingButtonEventSignatures");
     expect(adapter).toContain("this.claimButtonEvent(resourceId, eventValue, discoveredButtonUpdated, receivedAt)");

@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.92
+
+- Fixed the single stale `phoscon-websocket.test.ts` source-inspection assertion left behind by the v0.8.91 Phoscon button-event deduplication refactor.
+- The test now validates the active `claimedSignature` exact-once gate instead of the removed `shouldEmit` implementation detail.
+- Removed duplicate copies of the v0.8.91 deduplication assertions from that test while preserving their coverage once.
+- Runtime Phoscon behavior is unchanged from v0.8.91.
+- Carries forward the complete v0.8.91 Phoscon button-event reliability fix unchanged.
+- No database schema migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.91
 
 - Fixed an intermittent Phoscon/deCONZ button-event race between the 15-second normal reconcile and the 2-second fallback button poll.

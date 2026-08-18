@@ -1,6 +1,6 @@
 # SALTA migration paths
 
-## Current v0.8.91 update
+## Current v0.8.92 update
 
 v0.8.91 fixes Phoscon/deCONZ button-event delivery inside the existing adapter runtime. No database, persistence, environment-variable or deployment migration is required. Existing Phoscon credentials, button devices and automation trigger definitions remain compatible.
 
