@@ -1,42 +1,43 @@
-# SALTA v0.8.92
+# SALTA v0.8.93
 
-SALTA v0.8.92 is a test-maintenance release for the v0.8.91 Phoscon button-event reliability fix. GitHub CI showed that the runtime, TypeScript build, release validation, preflight checks and the new Phoscon race tests all passed, while one older source-inspection assertion in `phoscon-websocket.test.ts` still expected the pre-v0.8.91 `shouldEmit` implementation detail. The stale assertion is now aligned with the new exact-once `claimedSignature` gate. Runtime behavior is unchanged from v0.8.91.
+SALTA v0.8.93 adds bounded retention for the persistent device-command history. The existing `commands` table is now automatically limited to the most recent 90 days and, independently, to the 10,000 newest records. This prevents an unusual command loop or very long-running installation from growing command history without limit while preserving ample diagnostics for normal use.
+
+## v0.8.93 bounded command-history retention
+
+- Added automatic cleanup for records in the existing `commands` table.
+- Command records older than **90 days** are removed automatically.
+- A hard upper bound retains only the **10,000 newest command records**, even if many commands are generated in a short period.
+- Retention runs during normal database/schema initialization so an existing installation is cleaned automatically on startup.
+- Retention also runs after each newly persisted API command, so the table remains bounded while SALTA runs continuously and does not depend on a restart for cleanup.
+- Cleanup is intentionally best-effort in the command request path: a transient cleanup failure does not change an otherwise successful device command into a failed command.
+- The existing `/api/commands` response remains limited to the latest 100 records; this release changes storage retention, not the API display contract.
+- Added regression tests and release-validator contracts for the 90-day limit, the 10,000-row hard cap and the runtime retention hook.
+- No `ALTER TABLE`, new database table, manual SQL migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.92 Phoscon websocket regression-test alignment
 
-- Fixed the single failing `phoscon-websocket.test.ts` assertion reported by the v0.8.91 `npm run check` CI run.
-- Replaced the obsolete expectation for `if (!shouldEmit || eventValue === undefined) return` with the active v0.8.91 exact-once gate `if (!claimedSignature || eventValue === undefined) return`.
-- Removed duplicate copies of the new v0.8.91 deduplication source assertions while keeping each contract covered once.
-- No Phoscon adapter runtime code was changed in v0.8.92.
-- The full v0.8.91 button-event recovery and cross-transport deduplication behavior is carried forward unchanged.
-- No database schema migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
+- Fixed the single stale `phoscon-websocket.test.ts` source-inspection assertion left behind by the v0.8.91 Phoscon button-event deduplication refactor.
+- Runtime Phoscon behavior remained unchanged from v0.8.91.
 
 ## v0.8.91 Phoscon button-event reliability
 
 - Fixed the confirmed race between the normal Phoscon reconcile and the 2-second button fallback poll.
-- A newly discovered `buttonevent` revision found by the normal reconcile now emits the same `deviceEvent` used by realtime/fallback handling instead of silently consuming the revision.
-- Added cross-transport event deduplication so the same deCONZ button event is emitted only once when WebSocket, fallback polling and reconcile observe it in different orders.
-- Event identity uses the Phoscon sensor resource, button-event value and deCONZ `lastupdated` revision.
-- Added pending-event tracking so concurrent reconcile and fallback processing cannot both emit the same event while Registry persistence is still in flight.
-- Added a bounded recent-event cache to suppress delayed duplicates without allowing unbounded memory growth.
-- If Registry persistence fails while an event is pending, the claim is released so a later transport can recover the event instead of losing it permanently.
-- The Phoscon device metadata records `buttonEventTransport: "reconcile"` when normal reconciliation recovers a missed event; existing `poll` and `websocket` reporting remains supported.
-- Normal reconcile preserves the previous button-event transport when no new button revision was detected.
-- Added runtime regression tests for missed-event recovery and duplicate suppression across reconcile, fallback polling and realtime delivery.
-- Strengthened release validation so the cross-transport deduplication and reconcile recovery path cannot be removed accidentally.
+- A newly discovered `buttonevent` revision found by normal reconcile now emits the same `deviceEvent` used by realtime/fallback handling instead of silently consuming the revision.
+- Added cross-transport exact-once deduplication for WebSocket, fallback polling and reconcile using the Phoscon resource ID, button-event value and deCONZ `lastupdated` revision.
+- Added pending-event tracking and a bounded recent-event cache so concurrent or delayed deliveries do not double-trigger an automation.
+- Reconcile can recover a missed button event and records `buttonEventTransport: "reconcile"` when it does so.
 
 ## v0.8.90 localization completeness audit
 
 - Completed the second German/English localization audit for dynamic runtime text.
-- Expanded translation coverage for DEBUG, credentials, realtime adapter state, HomeKit, Heating mode, battery warnings, device information, OpenCCU diagnostics, Presence and Automation messages.
-- Fixed the remaining locale-unaware OpenCCU timestamps so they follow the selected SALTA language.
-- Added phrase/pattern parity and dynamic localization release gates.
+- Expanded translation coverage for DEBUG, credentials, realtime adapter status, HomeKit, Heating mode, battery warnings, device information, OpenCCU diagnostics, Presence and Automation messages.
+- Fixed the remaining locale-unaware OpenCCU timestamps.
 
 ## Compatibility
 
-- v0.8.92 changes test/release metadata only; runtime behavior is unchanged from v0.8.91.
-- Existing Phoscon/deCONZ configuration and API credentials remain compatible.
-- Existing button automation trigger values such as `event:buttonEvent:1002` remain unchanged.
+- v0.8.93 reuses the existing `commands` table and does not alter database schema.
+- Existing command records newer than 90 days are preserved unless more than 10,000 newer records exist.
+- Existing Phoscon/deCONZ configuration, credentials and button automation trigger values remain compatible.
 - Existing browser language selections and Appearance settings remain compatible.
 - Existing Favorites, Presence profiles, OpenCCU realtime button events, Vacation mode, Heating mode, multi-condition automations and daily time triggers remain unchanged.
 - Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.

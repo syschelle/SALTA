@@ -1,6 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.92 update
+## Current v0.8.93 update
+
+v0.8.93 adds automatic retention for the existing `commands` table: records older than 90 days are removed and only the 10,000 newest command records are retained. This uses the existing table and requires no `ALTER TABLE`, manual SQL migration or volume replacement. Existing command history inside those limits is preserved.
 
 v0.8.91 fixes Phoscon/deCONZ button-event delivery inside the existing adapter runtime. No database, persistence, environment-variable or deployment migration is required. Existing Phoscon credentials, button devices and automation trigger definitions remain compatible.
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.93
+
+- Added bounded retention for the persistent `commands` history so long-running SALTA installations cannot grow that table without limit.
+- Command records older than 90 days are removed automatically.
+- A hard cap keeps only the 10,000 newest command records even if an unusual command loop generates records much faster than normal.
+- Retention runs during database initialization and after each newly persisted API command, so protection remains active without requiring restarts.
+- Cleanup failures do not turn an otherwise successful device command into a command failure.
+- Added regression and release-validator coverage for both retention limits and the runtime cleanup hook.
+- Carries forward the v0.8.92 Phoscon test alignment and the v0.8.91 Phoscon button-event reliability fix unchanged.
+- No table alteration, manual SQL migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.92
 
 - Fixed the single stale `phoscon-websocket.test.ts` source-inspection assertion left behind by the v0.8.91 Phoscon button-event deduplication refactor.

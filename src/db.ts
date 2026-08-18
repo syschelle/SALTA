@@ -152,6 +152,8 @@ export async function initializeDatabaseSchema(): Promise<void> {
       updated_at timestamptz NOT NULL DEFAULT now()
     );
     CREATE INDEX IF NOT EXISTS commands_device_idx ON commands(device_id, created_at DESC);
+    DELETE FROM commands WHERE created_at < now() - interval '90 days';
+    DELETE FROM commands WHERE id IN (SELECT id FROM commands ORDER BY created_at DESC, id DESC OFFSET 10000);
     CREATE TABLE IF NOT EXISTS automations (
       id uuid PRIMARY KEY,
       name text NOT NULL,
@@ -1182,6 +1184,11 @@ export async function getNotificationLastSent(key: string): Promise<string | und
 export async function setNotificationLastSent(key: string, at: string, details: Record<string, unknown> = {}): Promise<void> {
   await pool.query(`INSERT INTO notification_state(key,last_sent_at,details,updated_at) VALUES($1,$2,$3::jsonb,now())
     ON CONFLICT(key) DO UPDATE SET last_sent_at=EXCLUDED.last_sent_at,details=EXCLUDED.details,updated_at=now()`,[key,at,JSON.stringify(details)]);
+}
+
+export async function pruneCommandHistory(): Promise<void> {
+  await pool.query("DELETE FROM commands WHERE created_at < now() - interval '90 days'");
+  await pool.query("DELETE FROM commands WHERE id IN (SELECT id FROM commands ORDER BY created_at DESC, id DESC OFFSET 10000)");
 }
 
 export async function writeSystemLog(

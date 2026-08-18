@@ -17,7 +17,7 @@ import type { ClimateModeManager } from "./climate-mode.js";
 import type { BatteryMonitor } from "./battery-monitor.js";
 import type { VacationModeManager } from "./vacation-mode.js";
 import type { HomeKitBridge } from "./homekit.js";
-import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getAppearanceSettings, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getHueSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, reorderRooms, updateAppearanceSettings, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
+import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getAppearanceSettings, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getHueSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, pruneCommandHistory, reorderRooms, updateAppearanceSettings, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
 import { isHomeKitSupportedDevice, supportsPresentationOverride } from "./device-presentation.js";
 import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
@@ -670,9 +670,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.92" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.93" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.92", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.93", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1060,6 +1060,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const id = randomUUID();
     try {
       await pool.query("insert into commands(id,device_id,capability,value,source,status) values($1,$2,$3,$4,$5,$6)", [id, request.params.id, parsed.data.capability, JSON.stringify(parsed.data.value ?? null), "api", "requested"]);
+      await pruneCommandHistory().catch(() => undefined);
       const current=registry.get(request.params.id); if(!current) throw new Error("DEVICE_NOT_FOUND");
       const command = { deviceId: request.params.id, capability: parsed.data.capability, value: parsed.data.value, source: "api" as const };
       let device;
@@ -1315,7 +1316,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.92", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.93", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

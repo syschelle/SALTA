@@ -130,6 +130,13 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS notification_state");
   });
 
+  it("keeps persistent command history bounded without a schema migration", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS commands");
+    expect(databaseSource).toContain("created_at < now() - interval '90 days'");
+    expect(databaseSource).toContain("ORDER BY created_at DESC, id DESC OFFSET 10000");
+    expect(databaseSource).toContain("export async function pruneCommandHistory(): Promise<void>");
+  });
+
   it("stores a bounded persistent system log", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS system_logs");
     expect(databaseSource).toContain("CHECK(level IN ('info','warning','error'))");
