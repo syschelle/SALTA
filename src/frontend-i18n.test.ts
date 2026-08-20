@@ -93,6 +93,9 @@ describe("browser-localized SALTA UI", () => {
       ["Realtime: WebSocket verbunden", "Realtime: WebSocket connected"],
       ["Kein Trigger verfügbar", "No trigger available"],
       ["Automation konnte nicht gespeichert werden.", "Automation could not be saved."],
+      ["deCONZ-Oberfläche öffnen", "Open deCONZ interface"],
+      ["deCONZ-Verbindung wurde gespeichert und geprüft.", "deCONZ connection was saved and verified."],
+      ["Die deCONZ-Adresse ist ungültig. Beispiel: http://192.168.178.20:8080", "The deCONZ address is invalid. Example: http://192.168.178.20:8080"],
     ];
     for (const [source, expected] of samples) expect(translateEnglish(source), source).toBe(expected);
   });

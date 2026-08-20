@@ -275,9 +275,9 @@ Shelly authentication supports:
 
 Passwords are stored as `v2` AES-256-GCM values using a per-secret random salt and a `scrypt`-derived key. Removed legacy credential formats are not accepted.
 
-## Phoscon and Zigbee support
+## deCONZ and Zigbee support
 
-SALTA can connect to one local Phoscon/deCONZ instance through its REST API and the deCONZ WebSocket event stream. Configure the connection under **Settings → Phoscon** using the gateway base address and either an existing API key or the guided app-pairing workflow.
+SALTA can connect to one local deCONZ instance through its REST API and the deCONZ WebSocket event stream. Configure the connection under **Settings → deCONZ** using the gateway base address and either an existing API key or the guided app-pairing workflow. The settings panel also provides a direct browser link to the configured local deCONZ web interface.
 
 For automatic pairing, temporarily enable third-party app authentication in the Phoscon gateway settings and request the API key from SALTA within the displayed authorization window. The key is encrypted in PostgreSQL with `SALTA_ENCRYPTION_KEY` and is never returned to the browser after it has been stored.
 

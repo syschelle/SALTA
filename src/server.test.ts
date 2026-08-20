@@ -964,7 +964,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.93" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.94" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -1127,7 +1127,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.93", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.94", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -1138,7 +1138,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.93", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.94", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {

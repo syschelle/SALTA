@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.8.94
+
+- Renamed the visible Phoscon integration settings to **deCONZ** while keeping internal `phoscon` adapter/source/API identifiers unchanged for compatibility.
+- Added a direct **deCONZ-Oberfläche öffnen** / **Open deCONZ interface** link to the settings panel.
+- The link follows the configured base address, opens in a new tab/window and accepts only HTTP/HTTPS URLs with `noopener noreferrer` protection.
+- Added German/English translations, frontend regression coverage and release-validator contracts for the new settings naming and link behavior.
+- Carries forward the v0.8.93 command-history retention and v0.8.91/v0.8.92 Phoscon/deCONZ button-event reliability fixes unchanged.
+- No database schema migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.93
 
 - Added bounded retention for the persistent `commands` history so long-running SALTA installations cannot grow that table without limit.

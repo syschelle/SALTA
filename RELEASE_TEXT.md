@@ -1,43 +1,47 @@
-# SALTA v0.8.93
+# SALTA v0.8.94
 
-SALTA v0.8.93 adds bounded retention for the persistent device-command history. The existing `commands` table is now automatically limited to the most recent 90 days and, independently, to the 10,000 newest records. This prevents an unusual command loop or very long-running installation from growing command history without limit while preserving ample diagnostics for normal use.
+SALTA v0.8.94 renames the visible Phoscon integration settings to **deCONZ** and adds a direct link from the settings panel to the configured local deCONZ web interface. The link opens in a new browser tab/window and is only exposed for a valid HTTP or HTTPS base address. Internal adapter identifiers and REST endpoints remain unchanged for compatibility.
+
+## v0.8.94 deCONZ settings naming and direct UI link
+
+- Renamed the **Settings → Phoscon** navigation entry to **Settings → deCONZ**.
+- Renamed the visible integration heading, address label, pairing instructions, credential/error messages and connection notifications in that settings workflow from Phoscon wording to deCONZ wording.
+- Added **Open deCONZ interface** / **deCONZ-Oberfläche öffnen** to the deCONZ settings actions.
+- The direct UI link uses the configured deCONZ base address and opens with `target="_blank"` plus `rel="noopener noreferrer"`.
+- The link is shown only when the configured/entered URL parses as HTTP or HTTPS; other URL schemes are rejected client-side.
+- Editing the deCONZ address updates the direct UI link immediately, and loading saved settings restores the link automatically.
+- Added German/English catalogue entries for the new deCONZ settings wording and direct-link label.
+- Added frontend regression coverage and release-validator contracts for the deCONZ labels, safe external-link attributes, URL-scheme guard and live link update path.
+- Internal compatibility identifiers such as `/api/settings/phoscon`, the `phoscon` device source and existing stored settings remain unchanged.
+- No database schema migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
 
 ## v0.8.93 bounded command-history retention
 
 - Added automatic cleanup for records in the existing `commands` table.
 - Command records older than **90 days** are removed automatically.
-- A hard upper bound retains only the **10,000 newest command records**, even if many commands are generated in a short period.
-- Retention runs during normal database/schema initialization so an existing installation is cleaned automatically on startup.
-- Retention also runs after each newly persisted API command, so the table remains bounded while SALTA runs continuously and does not depend on a restart for cleanup.
-- Cleanup is intentionally best-effort in the command request path: a transient cleanup failure does not change an otherwise successful device command into a failed command.
-- The existing `/api/commands` response remains limited to the latest 100 records; this release changes storage retention, not the API display contract.
-- Added regression tests and release-validator contracts for the 90-day limit, the 10,000-row hard cap and the runtime retention hook.
-- No `ALTER TABLE`, new database table, manual SQL migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
+- A hard upper bound retains only the **10,000 newest command records**.
+- Retention runs during startup and after newly persisted API commands, so command history remains bounded during continuous operation.
+- No schema change or manual SQL migration is required.
 
 ## v0.8.92 Phoscon websocket regression-test alignment
 
-- Fixed the single stale `phoscon-websocket.test.ts` source-inspection assertion left behind by the v0.8.91 Phoscon button-event deduplication refactor.
-- Runtime Phoscon behavior remained unchanged from v0.8.91.
+- Fixed the stale source-inspection assertion left behind by the v0.8.91 button-event deduplication refactor.
+- Runtime Phoscon/deCONZ behavior remained unchanged from v0.8.91.
 
-## v0.8.91 Phoscon button-event reliability
+## v0.8.91 Phoscon/deCONZ button-event reliability
 
-- Fixed the confirmed race between the normal Phoscon reconcile and the 2-second button fallback poll.
+- Fixed the confirmed race between the normal deCONZ reconcile and the 2-second button fallback poll.
 - A newly discovered `buttonevent` revision found by normal reconcile now emits the same `deviceEvent` used by realtime/fallback handling instead of silently consuming the revision.
-- Added cross-transport exact-once deduplication for WebSocket, fallback polling and reconcile using the Phoscon resource ID, button-event value and deCONZ `lastupdated` revision.
-- Added pending-event tracking and a bounded recent-event cache so concurrent or delayed deliveries do not double-trigger an automation.
+- Added cross-transport exact-once deduplication for WebSocket, fallback polling and reconcile.
 - Reconcile can recover a missed button event and records `buttonEventTransport: "reconcile"` when it does so.
-
-## v0.8.90 localization completeness audit
-
-- Completed the second German/English localization audit for dynamic runtime text.
-- Expanded translation coverage for DEBUG, credentials, realtime adapter status, HomeKit, Heating mode, battery warnings, device information, OpenCCU diagnostics, Presence and Automation messages.
-- Fixed the remaining locale-unaware OpenCCU timestamps.
 
 ## Compatibility
 
-- v0.8.93 reuses the existing `commands` table and does not alter database schema.
-- Existing command records newer than 90 days are preserved unless more than 10,000 newer records exist.
-- Existing Phoscon/deCONZ configuration, credentials and button automation trigger values remain compatible.
+- v0.8.94 is a frontend/settings naming and navigation enhancement only.
+- Existing deCONZ API keys and saved base addresses remain compatible.
+- Existing internal `phoscon` adapter/source identifiers and API routes remain unchanged.
+- Existing command-history retention from v0.8.93 remains unchanged.
+- Existing button automation trigger values such as `event:buttonEvent:1002` remain unchanged.
 - Existing browser language selections and Appearance settings remain compatible.
 - Existing Favorites, Presence profiles, OpenCCU realtime button events, Vacation mode, Heating mode, multi-condition automations and daily time triggers remain unchanged.
 - Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.

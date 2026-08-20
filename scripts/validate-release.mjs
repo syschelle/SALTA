@@ -66,6 +66,8 @@ if (publicIndex.indexOf(automationUiScript) > publicIndex.indexOf(appScript)) fa
 const i18nScript = '<script src="/i18n.js"></script>';
 if (!publicIndex.includes(i18nScript) || publicIndex.indexOf(i18nScript) > publicIndex.indexOf(appScript)) fail("public/index.html must load i18n.js before app.js");
 if (!publicIndex.includes('id="languageSelector"') || !publicIndex.includes('id="appearanceLanguage"')) fail("Per-browser language selectors are missing");
+if (!publicIndex.includes('data-settings-panel="phoscon" onclick="showSettingsPanel(\'phoscon\')">deCONZ</button>') || !publicIndex.includes('<h2>deCONZ-Instanz</h2>') || !publicIndex.includes('>deCONZ-Adresse<input id="phosconBaseUrl"')) fail("deCONZ settings labels are incomplete");
+if (!publicIndex.includes('id="deconzUiLink"') || !publicIndex.includes('target="_blank" rel="noopener noreferrer" hidden') || !publicIndex.includes('deCONZ-Oberfläche öffnen</a>')) fail("deCONZ settings direct UI link is missing or unsafe");
 const loginIndex = read("public/login.html");
 if (!loginIndex.includes(i18nScript) || !loginIndex.includes('id="loginLanguage"')) fail("Login localization controls are incomplete");
 const i18nSource = read("public/i18n.js");
@@ -90,6 +92,7 @@ const requiredDynamicEnglish = new Map([
   ["DIAGNOSE & FEHLERSUCHE", "DIAGNOSTICS & TROUBLESHOOTING"],
 ]);
 for (const [source, expected] of requiredDynamicEnglish) if (englishI18n?.phrases?.[source] !== expected) fail(`Required dynamic English translation is missing: ${source}`);
+if (englishI18n?.phrases?.["deCONZ-Oberfläche öffnen"] !== "Open deCONZ interface" || englishI18n?.phrases?.["deCONZ-Verbindung wurde gespeichert und geprüft."] !== "deCONZ connection was saved and verified.") fail("deCONZ settings English translations are incomplete");
 const requiredDynamicPatterns = [
   "^DEBUG · FEHLER$",
   "^(.+) · Realtime: Eventstream verbunden · Letztes Event (.+)$",
@@ -107,6 +110,7 @@ if (!serverSource.includes('immutableVendorAsset ? "public, max-age=31536000, im
 
 
 const virtualFrontend = read("public/app.js");
+if (!virtualFrontend.includes("function deconzUiUrl(value)") || !virtualFrontend.includes("if(url.protocol!=='http:'&&url.protocol!=='https:')return undefined") || !virtualFrontend.includes("deconzUiLink.href=href") || !virtualFrontend.includes("phosconBaseUrl.addEventListener('input',updateDeconzUiLink)")) fail("deCONZ settings direct UI-link runtime is incomplete");
 if (virtualFrontend.includes(".toLocaleString()")) fail("Frontend contains locale-unaware toLocaleString() calls");
 if (!virtualFrontend.includes("new Date(report.completedAt).toLocaleString(appLocale())") || !virtualFrontend.includes("new Date(gateway.lastSync).toLocaleString(appLocale())")) fail("OpenCCU timestamps do not follow the selected SALTA language");
 if (!virtualFrontend.includes("function liveRefreshAllowedForRoute(route){return route!=='automations'&&route!=='settings'}")) fail("Periodic live refresh must be paused on Automations and Settings pages");
