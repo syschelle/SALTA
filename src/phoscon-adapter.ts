@@ -65,6 +65,9 @@ export class PhosconAdapter {
   private socketUrl?: string;
   private reconnectAttempt = 0;
   private stopped = true;
+  private buttonRecoveryBaselinePending = true;
+  private buttonRecoveryReason = "startup";
+  private buttonRecoveryEpoch = 0;
   private readonly processedButtonEventSignatures = new Set<string>();
   private readonly pendingButtonEventSignatures = new Set<string>();
   private readonly processedButtonEventOrder: string[] = [];
@@ -73,6 +76,7 @@ export class PhosconAdapter {
 
   start(): void {
     this.stopped = false;
+    this.requireButtonRecoveryBaseline("adapter-start");
     void this.reconcile().catch(() => undefined);
     this.timer = setInterval(() => void this.reconcile().catch(() => undefined), pollIntervalMs);
     this.timer.unref();
@@ -97,6 +101,7 @@ export class PhosconAdapter {
     const configPayload = await requestJson(`${baseUrl}/api/${encodeURIComponent(key)}/config`);
     await updatePhosconSettings(baseUrl, providedKey ? key : undefined);
     this.configurationGeneration += 1;
+    this.requireButtonRecoveryBaseline("configuration-change");
     this.closeWebSocket();
     this.status = gatewayStatus(configPayload);
     if (this.reconcileTask) await this.reconcileTask.catch(() => undefined);
@@ -140,6 +145,12 @@ export class PhosconAdapter {
       catch { /* The REST reconciliation can recover if the socket was already invalid. */ }
     }
     this.status = { ...this.status, realtimeConnected: false, realtimeFallbackPolling: false };
+  }
+
+  private requireButtonRecoveryBaseline(reason: string): void {
+    this.buttonRecoveryBaselinePending = true;
+    this.buttonRecoveryReason = reason;
+    this.buttonRecoveryEpoch += 1;
   }
 
   private stopButtonFallbackPolling(): void {
@@ -203,9 +214,8 @@ export class PhosconAdapter {
     const lastUpdated = stringValue(rawState.lastupdated);
     const receivedAt = now();
     const priorLastUpdated = stringValue(current.adapterData?.buttonEventLastUpdated);
-    const shouldConsiderEvent = eventValue !== undefined && (
-      transport === "websocket" || (Boolean(lastUpdated) && lastUpdated !== priorLastUpdated)
-    );
+    const hasNewRevision = Boolean(lastUpdated) && lastUpdated !== priorLastUpdated;
+    const shouldConsiderEvent = eventValue !== undefined && hasNewRevision && !this.buttonRecoveryBaselinePending;
     const claimedSignature = shouldConsiderEvent && eventValue !== undefined
       ? this.claimButtonEvent(resourceId, eventValue, lastUpdated, receivedAt)
       : undefined;
@@ -224,7 +234,7 @@ export class PhosconAdapter {
         buttonEventTransport: transport
       },
       lastSeen: receivedAt,
-      lastEvent: eventValue !== undefined ? receivedAt : current.lastEvent
+      lastEvent: claimedSignature ? receivedAt : current.lastEvent
     };
     try {
       await this.registry.set(updated);
@@ -233,6 +243,9 @@ export class PhosconAdapter {
       throw error;
     }
 
+    if (eventValue !== undefined && lastUpdated && this.buttonRecoveryBaselinePending) {
+      this.rememberButtonEvent(resourceId, eventValue, lastUpdated);
+    }
     if (!claimedSignature || eventValue === undefined) return;
     this.commitButtonEvent(claimedSignature);
     this.emitButtonEvent(updated.id, eventValue, receivedAt);
@@ -331,7 +344,7 @@ export class PhosconAdapter {
       this.reconnectAttempt = 0;
       this.stopButtonFallbackPolling();
       this.status = { ...this.status, realtimeConnected: true, realtimeUrl: target, realtimeLastError: undefined };
-      void writeSystemLog("info", "phoscon", "PHOSCON_WEBSOCKET_CONNECTED", "Phoscon realtime WebSocket connected", { target }).catch(() => undefined);
+      void writeSystemLog("info", "phoscon", "DECONZ_WEBSOCKET_CONNECTED", "deCONZ realtime WebSocket connected", { target }).catch(() => undefined);
     });
     socket.addEventListener("message", event => {
       if (this.socket !== socket || generation !== this.configurationGeneration) return;
@@ -339,7 +352,9 @@ export class PhosconAdapter {
     });
     socket.addEventListener("error", () => {
       if (this.socket !== socket) return;
+      this.requireButtonRecoveryBaseline("websocket-error");
       this.status = { ...this.status, realtimeConnected: false, realtimeLastError: "PHOSCON_WEBSOCKET_ERROR" };
+      void writeSystemLog("warning", "phoscon", "DECONZ_WEBSOCKET_ERROR", "deCONZ realtime WebSocket reported an error", { target }).catch(() => undefined);
       this.startButtonFallbackPolling(generation);
       try { socket.close(); }
       catch { this.scheduleReconnect(generation); }
@@ -347,7 +362,9 @@ export class PhosconAdapter {
     socket.addEventListener("close", () => {
       if (this.socket !== socket) return;
       this.socket = undefined;
+      this.requireButtonRecoveryBaseline("websocket-closed");
       this.status = { ...this.status, realtimeConnected: false, realtimeLastError: "PHOSCON_WEBSOCKET_CLOSED" };
+      void writeSystemLog("warning", "phoscon", "DECONZ_WEBSOCKET_CLOSED", "deCONZ realtime WebSocket closed", { target }).catch(() => undefined);
       this.startButtonFallbackPolling(generation);
       this.scheduleReconnect(generation);
     });
@@ -402,6 +419,10 @@ export class PhosconAdapter {
 
   private async performReconcile(): Promise<void> {
     const generation = this.configurationGeneration;
+    const recoveryBaseline = this.buttonRecoveryBaselinePending;
+    const recoveryEpoch = this.buttonRecoveryEpoch;
+    const recoveryReason = this.buttonRecoveryReason;
+    let recoveryButtonCount = 0;
     const connection = await getPhosconConnection();
     if (!connection.baseUrl || !connection.apiKey) {
       this.closeWebSocket();
@@ -424,7 +445,7 @@ export class PhosconAdapter {
         const resourceId = discovered.type === "button" ? stringValue(discovered.adapterData?.buttonEventResourceId) : undefined;
         const eventValue = discovered.type === "button" ? numberValue(discovered.state.buttonEvent) : undefined;
         const receivedAt = now();
-        const claimedSignature = buttonEventChanged && resourceId && eventValue !== undefined && discoveredButtonUpdated
+        const claimedSignature = !recoveryBaseline && buttonEventChanged && resourceId && eventValue !== undefined && discoveredButtonUpdated
           ? this.claimButtonEvent(resourceId, eventValue, discoveredButtonUpdated, receivedAt)
           : undefined;
         const existingTransport = stringValue(existing?.adapterData?.buttonEventTransport);
@@ -442,7 +463,7 @@ export class PhosconAdapter {
               ...(claimedSignature ? { buttonEventTransport: "reconcile" } : existingTransport ? { buttonEventTransport: existingTransport } : {})
             }
           } : {}),
-          lastEvent: buttonEventChanged ? receivedAt : existing && JSON.stringify(existing.state) === JSON.stringify(discovered.state) ? existing.lastEvent : discovered.lastEvent
+          lastEvent: claimedSignature ? receivedAt : existing && JSON.stringify(existing.state) === JSON.stringify(discovered.state) ? existing.lastEvent : discovered.lastEvent
         };
         try {
           await this.registry.set(updated);
@@ -451,7 +472,8 @@ export class PhosconAdapter {
           throw error;
         }
         if (resourceId && eventValue !== undefined && discoveredButtonUpdated) {
-          if (!buttonEventChanged) this.rememberButtonEvent(resourceId, eventValue, discoveredButtonUpdated);
+          if (recoveryBaseline || !buttonEventChanged) this.rememberButtonEvent(resourceId, eventValue, discoveredButtonUpdated);
+          if (recoveryBaseline) recoveryButtonCount += 1;
           if (claimedSignature) {
             this.commitButtonEvent(claimedSignature);
             this.emitButtonEvent(updated.id, eventValue, receivedAt);
@@ -472,10 +494,19 @@ export class PhosconAdapter {
           realtimeFallbackPolling: this.status.realtimeFallbackPolling ?? false
         };
         this.ensureWebSocket(baseUrl, payload, generation);
+        if (recoveryBaseline && this.buttonRecoveryBaselinePending && this.buttonRecoveryEpoch === recoveryEpoch) {
+          this.buttonRecoveryBaselinePending = false;
+          this.buttonRecoveryReason = "steady-state";
+          void writeSystemLog("info", "phoscon", "DECONZ_RECOVERY_BASELINE", "deCONZ button state baseline accepted after connectivity recovery", {
+            reason: recoveryReason,
+            buttonDevices: recoveryButtonCount
+          }).catch(() => undefined);
+        }
       }
     } catch (error) {
       if (generation !== this.configurationGeneration) return;
       const message = error instanceof Error ? error.message : "PHOSCON_SYNC_FAILED";
+      this.requireButtonRecoveryBaseline("rest-sync-failed");
       this.status = { ...this.status, connected: false, lastError: message, lastSync: now() };
       for (const existing of this.registry.all().filter(device => device.source === "phoscon")) {
         await this.registry.set({ ...existing, reachable: false, lastSeen: now() });

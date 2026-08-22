@@ -9,6 +9,8 @@ describe("Phoscon realtime button events", () => {
     expect(adapter).toContain("new WebSocket(target)");
     expect(adapter).toContain('event.resource !== "sensors"');
     expect(adapter).toContain("const eventValue = numberValue(statePatch.buttonEvent)");
+    expect(adapter).toContain("const hasNewRevision = Boolean(lastUpdated) && lastUpdated !== priorLastUpdated");
+    expect(adapter).toContain("const shouldConsiderEvent = eventValue !== undefined && hasNewRevision && !this.buttonRecoveryBaselinePending");
     expect(adapter).toContain("if (!claimedSignature || eventValue === undefined) return");
     expect(adapter).toContain("this.registry.emitDeviceEvent({");
     expect(adapter).toContain('key: "buttonEvent"');
@@ -22,6 +24,10 @@ describe("Phoscon realtime button events", () => {
     expect(adapter).toContain("this.claimButtonEvent(resourceId, eventValue, discoveredButtonUpdated, receivedAt)");
     expect(adapter).toContain('buttonEventTransport: "reconcile"');
     expect(adapter).toContain("this.commitButtonEvent(claimedSignature)");
+    expect(adapter).toContain('this.requireButtonRecoveryBaseline("websocket-closed")');
+    expect(adapter).toContain('"DECONZ_WEBSOCKET_CLOSED"');
+    expect(adapter).toContain('"DECONZ_WEBSOCKET_CONNECTED"');
+    expect(adapter).toContain('"DECONZ_RECOVERY_BASELINE"');
   });
 
   it("updates regular and daylight sensor state through the deCONZ websocket", () => {

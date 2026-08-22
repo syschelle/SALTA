@@ -1,8 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.94 update
+## Current v0.8.95 update
 
-v0.8.94 renames the visible Phoscon integration settings to **deCONZ** and adds a direct browser link to the configured deCONZ base address. The internal adapter/API identifiers remain `phoscon` for compatibility. This is a frontend-only configuration UX change and requires no database, environment-variable, persistence or deployment migration.
+v0.8.95 adds deCONZ reconnect/recovery protection for button automations. After a detected REST/WebSocket connectivity interruption, the first successful full reconcile establishes a button revision baseline without emitting automation events; subsequent genuinely new revisions resume normal processing. Existing internal `phoscon` identifiers, persistence, database schema, environment variables and deployment topology remain unchanged.
 
 v0.8.93 adds automatic retention for the existing `commands` table: records older than 90 days are removed and only the 10,000 newest command records are retained. This uses the existing table and requires no `ALTER TABLE`, manual SQL migration or volume replacement. Existing command history inside those limits is preserved.
 

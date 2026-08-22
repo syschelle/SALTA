@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.95
+
+- Prevented deCONZ button-state replays after network, router, VM or gateway connectivity interruptions from triggering SALTA automations.
+- Added a recovery-baseline state: the first successful full reconcile after a detected interruption stores current button revisions without emitting `deviceEvent` automation triggers.
+- WebSocket button messages now require a non-empty, genuinely changed deCONZ `lastupdated` revision before they can be considered a new press.
+- Kept the v0.8.91 poll/WebSocket/reconcile exact-once deduplication active for normal steady-state missed-event recovery.
+- Added `DECONZ_WEBSOCKET_CONNECTED`, `DECONZ_WEBSOCKET_ERROR`, `DECONZ_WEBSOCKET_CLOSED` and `DECONZ_RECOVERY_BASELINE` diagnostics under the existing internal `phoscon` log source.
+- Added regression and release-validator coverage for reconnect baselining and duplicate/revision-less WebSocket event suppression.
+- Carries forward the v0.8.94 deCONZ settings rename/link and v0.8.93 command-history retention unchanged.
+- No database schema migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.94
 
 - Renamed the visible Phoscon integration settings to **deCONZ** while keeping internal `phoscon` adapter/source/API identifiers unchanged for compatibility.
