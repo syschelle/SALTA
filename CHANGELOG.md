@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.98
+
+- Fixed the two isolated automation frontend VM tests that failed after the weekday UI introduced `document.querySelectorAll()`.
+- Added the minimal `querySelectorAll: () => []` DOM stub to both affected test sandboxes; production automation code remains unchanged.
+- Carries forward the v0.8.97 weekday API type fix and v0.8.96 weekday/weekend scheduling feature unchanged.
+- No database schema, runtime behavior, environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.97
 
 - Fixed the v0.8.96 TypeScript build regression where Zod inferred automation `executionDays` as `number[]` while `AutomationInput` requires `AutomationWeekday[]`.

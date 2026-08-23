@@ -240,6 +240,8 @@ if (!automationFrontend.includes("automationSelectedExecutionDays") || !automati
 if (!configurationBackupSource.includes("automation_schedule_preferences: backupRows().optional()") || !configurationBackupSource.includes('automation_schedule_preferences: "SELECT * FROM automation_schedule_preferences ORDER BY automation_id"')) fail("Configuration backup does not preserve automation execution days");
 const automationWeekdaysTest = read("src/automation-weekdays.test.ts");
 if (!automationWeekdaysTest.includes("blocks device-triggered automations on unselected days and allows the next selected weekday") || !automationWeekdaysTest.includes("supports weekend-only execution")) fail("Automation weekday/weekend regression coverage is missing");
+const frontendAutomationsTest = read("src/frontend-automations.test.ts");
+if (!frontendAutomationsTest.includes("document: { getElementById: () => null, querySelectorAll: () => [] }") || !frontendAutomationsTest.includes("document: { getElementById: (id: string) => elements[id] ?? null, querySelectorAll: () => [] }")) fail("Automation frontend VM sandboxes must provide the weekday querySelectorAll DOM stub");
 if (!publicIndex.includes('id="automationAdditionalTriggers"') || !publicIndex.includes('id="automationAddTriggerButton"')) fail("Compact OR-trigger editor controls are missing");
 if (!publicIndex.includes('id="automationAdditionalActions"') || !publicIndex.includes('id="automationAddActionButton"')) fail("Multi-target automation action controls are missing");
 if (!automationFrontend.includes("automationAdditionalTriggerPayload()") || !automationFrontend.includes("additionalTriggers:")) fail("Automation OR triggers are not included in the frontend payload");

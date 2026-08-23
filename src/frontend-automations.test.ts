@@ -152,7 +152,7 @@ describe("automation frontend", () => {
 
   it("shows every OR-trigger device in the rule summary and groups events from the same device", () => {
     const sandbox: Record<string, unknown> = {
-      document: { getElementById: () => null },
+      document: { getElementById: () => null, querySelectorAll: () => [] },
       all: [
         { id: "left", name: "ZB_SW_LINKS", type: "button", state: { buttonEvent: 1002 } },
         { id: "right", name: "ZB_SW_RECHTS", type: "button", state: { buttonEvent: 1002 } },
@@ -202,7 +202,7 @@ describe("automation frontend", () => {
       automationActionDevice: { value: "", addEventListener() {} },
     };
     const sandbox: Record<string, unknown> = {
-      document: { getElementById: (id: string) => elements[id] ?? null },
+      document: { getElementById: (id: string) => elements[id] ?? null, querySelectorAll: () => [] },
       all: [
         { id: "virtual-geofence", name: "Geofence", source: "virtual", type: "switch", state: { on: true }, capabilities: ["turnOn", "turnOff", "toggle"] },
         { id: "physical", name: "Physical", source: "shelly", type: "switch", state: { on: true }, capabilities: ["turnOn", "turnOff", "toggle"] },

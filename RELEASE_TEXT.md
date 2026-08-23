@@ -1,16 +1,20 @@
-# SALTA v0.8.97
+# SALTA v0.8.98
 
-SALTA v0.8.97 fixes the TypeScript build regression introduced with the v0.8.96 weekday execution schedule API. The runtime schedule behavior is unchanged: the API schema now preserves the literal weekday type `1 | 2 | 3 | 4 | 5 | 6 | 7` instead of widening validated values to `number[]`, so the parsed request is assignable to `AutomationWeekday[]` without casts.
+SALTA v0.8.98 fixes the two remaining frontend Vitest regressions from the v0.8.96 weekday schedule UI. The production automation runtime and weekday scheduling logic are unchanged. Two isolated `vm` test sandboxes loaded the complete `public/automation-ui.js` source but mocked only `document.getElementById()`. Since the weekday UI now initializes through `document.querySelectorAll()`, those sandboxes failed before their actual assertions could run. They now provide the minimal empty `querySelectorAll()` DOM stub required by the current frontend module.
+
+## v0.8.98 isolated frontend test sandbox fix
+
+- Fixed the two failing `frontend-automations.test.ts` cases reported by the v0.8.97 GitHub CI run.
+- Added `document.querySelectorAll: () => []` to the two intentionally minimal VM sandboxes that execute the complete automation frontend source without a browser DOM.
+- The empty result accurately represents those tests: they exercise trigger-summary and virtual-target logic and do not create weekday checkbox elements.
+- No production JavaScript, automation runtime, weekday evaluation, database schema, API contract, mandatory environment variable, dependency or deployment topology changed in v0.8.98.
+- The existing tests now continue to act as regressions for loading `automation-ui.js` in the isolated sandbox while preserving their original behavioral assertions.
 
 ## v0.8.97 weekday API type-safety build fix
 
-- Fixed the GitHub CI TypeScript errors in `src/server.ts` when creating or updating an automation with `executionDays`.
-- Replaced the broad `z.number().int().min(1).max(7)` execution-day element schema with an explicit Zod literal union for values `1` through `7`.
-- The inferred Zod request type now matches `AutomationWeekday[]` directly.
-- Added an explicit `AutomationInput` return type to `normalizeAutomationInput()` so future API/engine type drift is caught at the normalization boundary.
-- Added a regression test that requires the literal weekday schema and rejects a return to the broad `number[]` schema.
-- Strengthened release validation for the same contract.
-- No runtime scheduling semantics, database schema, frontend behavior, mandatory environment variable, dependency or deployment topology changed.
+- Fixed the TypeScript build regression in the v0.8.96 weekday schedule API by preserving `executionDays` as the literal weekday union `1 | 2 | 3 | 4 | 5 | 6 | 7` instead of widening it to `number[]`.
+- Added a typed API normalization boundary and regression coverage for the weekday schema.
+- Runtime weekday scheduling behavior remained unchanged.
 
 ## v0.8.96 optional weekday and weekend automation schedules
 
@@ -24,19 +28,16 @@ SALTA v0.8.97 fixes the TypeScript build regression introduced with the v0.8.96 
 - Added a recovery baseline after deCONZ/network interruptions so replayed button states do not trigger automations.
 - Required genuinely new deCONZ `lastupdated` revisions for WebSocket button delivery while preserving exact-once recovery.
 
-## v0.8.94 deCONZ settings naming and direct UI link
-
-- Renamed the visible Phoscon settings to **deCONZ** while preserving internal compatibility identifiers.
-- Added a safe direct link to the configured deCONZ web interface.
-
 ## Compatibility
 
+- v0.8.98 changes test and release metadata only; production runtime behavior is unchanged from v0.8.97.
 - Existing weekday schedules created with v0.8.96 remain compatible.
 - Existing automations without schedule preferences still run on all seven days.
-- No database migration is required.
+- Existing deCONZ, OpenCCU, Shelly, Hue, HomeKit, Presence, Vacation mode and Heating mode behavior remains compatible.
+- Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
+- No manual database migration is required.
 - No new mandatory environment variable is required.
 - No new npm dependency is introduced.
-- Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
 
 ## Production update
 
