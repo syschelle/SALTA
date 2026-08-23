@@ -1,6 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.95 update
+## Current v0.8.96 update
+
+v0.8.96 adds the additive `automation_schedule_preferences` table for optional per-automation weekday/weekend execution restrictions. Existing automations without a row in this table automatically run on all seven days, so no manual migration is required. Configuration backups preserve the new table, and older signed format-v1 backups without it remain compatible.
 
 v0.8.95 adds deCONZ reconnect/recovery protection for button automations. After a detected REST/WebSocket connectivity interruption, the first successful full reconcile establishes a button revision baseline without emitting automation events; subsequent genuinely new revisions resume normal processing. Existing internal `phoscon` identifiers, persistence, database schema, environment variables and deployment topology remain unchanged.
 

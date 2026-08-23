@@ -97,6 +97,7 @@ const automationSchema = z.object({
   roomId: z.string().uuid().nullable().optional(),
   triggerType: z.enum(["device", "time"]).default("device"),
   triggerTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+  executionDays: z.array(z.number().int().min(1).max(7)).min(1).max(7).refine(days => new Set(days).size === days.length, "Execution days must be unique.").default([1,2,3,4,5,6,7]),
   triggerDeviceId: z.string().min(1).max(255).optional(),
   triggerStateKey: z.string().trim().min(1).max(80).optional(),
   triggerValue: z.boolean().optional(),
@@ -391,6 +392,7 @@ function automationError(error: unknown): { status: number; code: string; messag
     AUTOMATION_TRIGGER_LIMIT: "An automation can use at most eight OR triggers.",
     AUTOMATION_TRIGGER_DUPLICATE: "The same trigger is configured more than once.",
     AUTOMATION_TRIGGER_TIME_INVALID: "Enter a valid daily trigger time in HH:MM format.",
+    AUTOMATION_EXECUTION_DAYS_REQUIRED: "Select at least one execution day.",
     AUTOMATION_TIME_TRIGGER_OR_NOT_SUPPORTED: "A daily time trigger cannot be combined with OR device triggers in this release.",
     AUTOMATION_ACTION_DEVICE_NOT_FOUND: "The action device no longer exists.",
     AUTOMATION_ACTION_LIMIT: "An automation can control at most eight target devices.",
@@ -417,6 +419,7 @@ function normalizeAutomationInput(data: z.infer<typeof automationSchema>) {
     roomId: data.roomId ?? undefined,
     triggerType: timeTrigger ? "time" as const : "device" as const,
     triggerTime: timeTrigger ? data.triggerTime : undefined,
+    executionDays: data.executionDays,
     triggerDeviceId: timeTrigger ? data.actionDeviceId : data.triggerDeviceId!,
     triggerStateKey: timeTrigger ? "__time__" : data.triggerStateKey!,
     triggerValue: timeTrigger ? true : data.triggerValue!,
@@ -670,9 +673,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.95" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.96" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.95", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.96", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1316,7 +1319,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.95", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.96", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

@@ -93,6 +93,7 @@ const requiredDynamicEnglish = new Map([
 ]);
 for (const [source, expected] of requiredDynamicEnglish) if (englishI18n?.phrases?.[source] !== expected) fail(`Required dynamic English translation is missing: ${source}`);
 if (englishI18n?.phrases?.["deCONZ-Oberfläche öffnen"] !== "Open deCONZ interface" || englishI18n?.phrases?.["deCONZ-Verbindung wurde gespeichert und geprüft."] !== "deCONZ connection was saved and verified.") fail("deCONZ settings English translations are incomplete");
+if (englishI18n?.phrases?.["Ausführungstage"] !== "Execution days" || englishI18n?.phrases?.["Am Wochenende ausführen"] !== "Run on weekends" || englishI18n?.phrases?.["Bitte mindestens einen Ausführungstag auswählen."] !== "Please select at least one execution day.") fail("Automation execution-day English translations are incomplete");
 const requiredDynamicPatterns = [
   "^DEBUG · FEHLER$",
   "^(.+) · Realtime: Eventstream verbunden · Letztes Event (.+)$",
@@ -227,6 +228,15 @@ if (!automationFrontend.includes("function automationTimeTriggerActive()") || !a
 if (!automationEngineSource.includes("checkTimeTriggers()") || !automationEngineSource.includes("localAutomationTime") || !automationEngineSource.includes('rule.triggerType !== "time"')) fail("Automation daily-time scheduler is missing");
 if (!mainSource.includes("timeZone: config.TZ") || !configSource.includes('TZ: z.string().trim().min(1).max(120).default("Europe/Berlin")')) fail("Automation scheduler is not wired to the configured SALTA timezone");
 if (!configurationBackupSource.includes("automation_time_triggers: backupRows().optional()") || !configurationBackupSource.includes('automation_time_triggers: "SELECT * FROM automation_time_triggers ORDER BY automation_id"')) fail("Configuration backup does not preserve automation time schedules");
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS automation_schedule_preferences") || !databaseSource.includes("monday boolean NOT NULL DEFAULT true") || !databaseSource.includes("sunday boolean NOT NULL DEFAULT true")) fail("Automation execution-day persistence table is missing");
+if (!databaseSource.includes("writeAutomationSchedulePreferences") || !databaseSource.includes("LEFT JOIN automation_schedule_preferences sched ON sched.automation_id=a.id")) fail("Automation execution-day schedules are not persisted and loaded");
+if (!automationEngineSource.includes("localAutomationWeekday") || !automationEngineSource.includes("executionDayAllows") || !automationEngineSource.includes("if (!this.executionDayAllows(rule)) return")) fail("Automation execution-day gate is missing from the trigger queue");
+if (!serverSource.includes("executionDays: z.array(z.number().int().min(1).max(7))") || !serverSource.includes("executionDays: data.executionDays")) fail("Automation execution-day API validation is incomplete");
+if (!publicIndex.includes('id="automationScheduleEnabled"') || !publicIndex.includes('name="automationWeekday" value="1"') || !publicIndex.includes('name="automationWeekday" value="7"') || !publicIndex.includes('id="automationWeekendEnabled"')) fail("Automation weekday/weekend editor is missing");
+if (!automationFrontend.includes("automationSelectedExecutionDays") || !automationFrontend.includes("executionDays:automationElements.scheduleEnabled.checked?automationSelectedExecutionDays():automationAllExecutionDays")) fail("Automation execution-day frontend payload is missing");
+if (!configurationBackupSource.includes("automation_schedule_preferences: backupRows().optional()") || !configurationBackupSource.includes('automation_schedule_preferences: "SELECT * FROM automation_schedule_preferences ORDER BY automation_id"')) fail("Configuration backup does not preserve automation execution days");
+const automationWeekdaysTest = read("src/automation-weekdays.test.ts");
+if (!automationWeekdaysTest.includes("blocks device-triggered automations on unselected days and allows the next selected weekday") || !automationWeekdaysTest.includes("supports weekend-only execution")) fail("Automation weekday/weekend regression coverage is missing");
 if (!publicIndex.includes('id="automationAdditionalTriggers"') || !publicIndex.includes('id="automationAddTriggerButton"')) fail("Compact OR-trigger editor controls are missing");
 if (!publicIndex.includes('id="automationAdditionalActions"') || !publicIndex.includes('id="automationAddActionButton"')) fail("Multi-target automation action controls are missing");
 if (!automationFrontend.includes("automationAdditionalTriggerPayload()") || !automationFrontend.includes("additionalTriggers:")) fail("Automation OR triggers are not included in the frontend payload");

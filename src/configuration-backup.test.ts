@@ -28,6 +28,7 @@ function rowsFor(sql: string): Record<string, unknown>[] {
   if (sql.includes("FROM adapter_settings")) return [{ adapter_id: "shelly", username: "admin", encrypted_password: encrypted }];
   if (sql.includes("FROM automations ")) return [{ id: "22222222-2222-4222-8222-222222222222", name: "Test" }];
   if (sql.includes("FROM automation_time_triggers")) return [{ automation_id: "22222222-2222-4222-8222-222222222222", time_of_day: "07:30" }];
+  if (sql.includes("FROM automation_schedule_preferences")) return [{ automation_id: "22222222-2222-4222-8222-222222222222", monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false, sunday: false }];
   if (sql.includes("FROM presence_target_profiles")) return [{ target_id: "44444444-4444-4444-8444-444444444444", person_name: "Martin" }];
   if (sql.includes("FROM automation_conditions")) return [{ automation_id: "22222222-2222-4222-8222-222222222222", position: 1, condition_device_id: "virtual:test", condition_state_key: "on", condition_value: true }];
   if (sql.includes("FROM automation_targets")) return [
@@ -80,12 +81,14 @@ describe("configuration backup", () => {
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_actions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_conditions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_time_triggers");
+    expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_schedule_preferences");
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO notification_state SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO rooms SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO devices SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO device_favorites SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO presence_target_profiles SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_time_triggers SELECT * FROM jsonb_populate_recordset"))).toBe(true);
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_schedule_preferences SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_conditions SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_actions SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_targets SELECT * FROM jsonb_populate_recordset"))).toBe(true);
@@ -129,6 +132,7 @@ describe("configuration backup", () => {
     delete data.device_favorites;
     delete data.presence_target_profiles;
     delete data.automation_time_triggers;
+    delete data.automation_schedule_preferences;
     delete data.automation_conditions;
     delete data.automation_actions;
     delete data.automation_targets;
@@ -148,9 +152,11 @@ describe("configuration backup", () => {
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_actions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_conditions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_time_triggers");
+    expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_schedule_preferences");
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO device_favorites SELECT"))).toBe(false);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO presence_target_profiles SELECT"))).toBe(false);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_time_triggers SELECT"))).toBe(false);
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_schedule_preferences SELECT"))).toBe(false);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_actions SELECT"))).toBe(false);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_targets SELECT"))).toBe(false);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_system_actions SELECT"))).toBe(false);

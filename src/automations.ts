@@ -10,6 +10,8 @@ export interface AutomationSystemActions {
 }
 
 export type AutomationTriggerType = "device" | "time";
+export type AutomationWeekday = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+export const ALL_AUTOMATION_WEEKDAYS: AutomationWeekday[] = [1, 2, 3, 4, 5, 6, 7];
 
 export interface AutomationTargetAction {
   deviceId: string;
@@ -36,6 +38,7 @@ export interface AutomationRule {
   roomId?: string;
   triggerType?: AutomationTriggerType;
   triggerTime?: string;
+  executionDays?: AutomationWeekday[];
   triggerDeviceId: string;
   triggerStateKey: string;
   triggerValue: boolean;
@@ -59,6 +62,7 @@ export interface AutomationInput {
   roomId?: string;
   triggerType?: AutomationTriggerType;
   triggerTime?: string;
+  executionDays?: AutomationWeekday[];
   triggerDeviceId: string;
   triggerStateKey: string;
   triggerValue: boolean;
@@ -211,12 +215,27 @@ function timeAutomation(input: Pick<AutomationInput, "triggerType" | "triggerTim
   return input.triggerType === "time";
 }
 
+function normalizeExecutionDays(value: readonly number[] | undefined): AutomationWeekday[] {
+  if (value === undefined) return [...ALL_AUTOMATION_WEEKDAYS];
+  return [...new Set(value)]
+    .filter((day): day is AutomationWeekday => Number.isInteger(day) && day >= 1 && day <= 7)
+    .sort((left, right) => left - right);
+}
+
+export function localAutomationWeekday(date: Date, timeZone: string): AutomationWeekday {
+  const { dateKey } = localAutomationTime(date, timeZone);
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year!, month! - 1, day!)).getUTCDay();
+  return (weekday === 0 ? 7 : weekday) as AutomationWeekday;
+}
+
 function cloneInput(input: AutomationInput): AutomationInput {
   return {
     ...input,
     name: input.name.trim(),
     triggerType: timeAutomation(input) ? "time" : "device",
     triggerTime: timeAutomation(input) ? normalizeTriggerTime(input.triggerTime) : undefined,
+    executionDays: normalizeExecutionDays(input.executionDays),
     triggerStateKey: input.triggerStateKey.trim(),
     additionalTriggers: (input.additionalTriggers ?? []).map(trigger => ({
       deviceId: trigger.deviceId,
@@ -413,6 +432,7 @@ export class AutomationEngine {
   private assertValidInput(input: AutomationInput, currentId?: string): void {
     if (!input.name.trim()) throw new Error("AUTOMATION_NAME_REQUIRED");
     const isTimeTrigger = timeAutomation(input);
+    if (normalizeExecutionDays(input.executionDays).length === 0) throw new Error("AUTOMATION_EXECUTION_DAYS_REQUIRED");
     if (isTimeTrigger) {
       if (!normalizeTriggerTime(input.triggerTime)) throw new Error("AUTOMATION_TRIGGER_TIME_INVALID");
       if ((input.additionalTriggers ?? []).length > 0) throw new Error("AUTOMATION_TIME_TRIGGER_OR_NOT_SUPPORTED");
@@ -506,6 +526,7 @@ export class AutomationEngine {
       roomId: current.roomId,
       triggerType: current.triggerType,
       triggerTime: current.triggerTime,
+      executionDays: current.executionDays,
       triggerDeviceId: current.triggerDeviceId,
       triggerStateKey: current.triggerStateKey,
       triggerValue: current.triggerValue,
@@ -532,6 +553,11 @@ export class AutomationEngine {
     this.timeTriggerKeys.delete(id);
   }
 
+  private executionDayAllows(rule: AutomationRule): boolean {
+    const allowed = rule.executionDays?.length ? rule.executionDays : ALL_AUTOMATION_WEEKDAYS;
+    return allowed.includes(localAutomationWeekday(this.schedulerNow(), this.schedulerTimeZone));
+  }
+
   private conditionAllows(rule: AutomationRule): boolean {
     const conditions = automationRuleConditions(rule);
     return conditions.every(condition => {
@@ -541,6 +567,7 @@ export class AutomationEngine {
   }
 
   private queueRule(rule: AutomationRule, trigger: Record<string, unknown>): void {
+    if (!this.executionDayAllows(rule)) return;
     const previous = this.executionQueues.get(rule.id) ?? Promise.resolve();
     const next = previous
       .catch(() => undefined)

@@ -966,7 +966,23 @@
     "deCONZ-Verbindung wurde gespeichert und geprüft.": "deCONZ-Verbindung wurde gespeichert und geprüft.",
     "SALTA wurde mit deCONZ verbunden.": "SALTA wurde mit deCONZ verbunden.",
     "deCONZ-Verbindung trennen? Die synchronisierten Zigbee-Geräte werden aus SALTA entfernt, aber nicht aus deCONZ gelöscht.": "deCONZ-Verbindung trennen? Die synchronisierten Zigbee-Geräte werden aus SALTA entfernt, aber nicht aus deCONZ gelöscht.",
-    "deCONZ-Verbindung wurde getrennt.": "deCONZ-Verbindung wurde getrennt."
+    "deCONZ-Verbindung wurde getrennt.": "deCONZ-Verbindung wurde getrennt.",
+    "Ausführungstage": "Ausführungstage",
+    "Ausführungstage einschränken": "Ausführungstage einschränken",
+    "Standardmäßig wird die Automation an jedem Wochentag ausgeführt.": "Standardmäßig wird die Automation an jedem Wochentag ausgeführt.",
+    "Ausführungstage auswählen": "Ausführungstage auswählen",
+    "Am Wochenende ausführen": "Am Wochenende ausführen",
+    "Schaltet Samstag und Sonntag gemeinsam ein oder aus.": "Schaltet Samstag und Sonntag gemeinsam ein oder aus.",
+    "Bitte mindestens einen Ausführungstag auswählen.": "Bitte mindestens einen Ausführungstag auswählen.",
+    "Mo": "Mo",
+    "Di": "Di",
+    "Mi": "Mi",
+    "Do": "Do",
+    "Fr": "Fr",
+    "Sa": "Sa",
+    "So": "So",
+    "Ausführung": "Ausführung",
+    "Zur gewählten Uhrzeit in der SALTA-Zeitzone (TZ).": "Zur gewählten Uhrzeit in der SALTA-Zeitzone (TZ)."
   },
   "patterns": [
     {
@@ -1356,6 +1372,14 @@
     {
       "match": "^Remote-Code (.+)$",
       "replace": "$&"
+    },
+    {
+      "match": "^Uhrzeit · (.+) Uhr$",
+      "replace": "Uhrzeit · $1 Uhr"
+    },
+    {
+      "match": "^Ausführung: (.+)$",
+      "replace": "Ausführung: $1"
     }
   ],
   "tokens": {}

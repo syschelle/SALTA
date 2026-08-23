@@ -1,4 +1,4 @@
-# SALTA v0.8.95 Git commands
+# SALTA v0.8.96 Git commands
 
 ## Commit and push
 
@@ -8,7 +8,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(deconz): suppress replayed button events after reconnect"
+git commit -m "feat(automations): add weekday execution schedules"
 git push origin main
 ```
 
@@ -19,33 +19,33 @@ git fetch origin
 
 git show origin/main:package.json | grep '"version"'
 
-git show origin/main:src/phoscon-adapter.ts \
-  | grep -F 'const hasNewRevision = Boolean(lastUpdated) && lastUpdated !== priorLastUpdated'
+git show origin/main:src/db.ts \
+  | grep -F 'CREATE TABLE IF NOT EXISTS automation_schedule_preferences'
 
-git show origin/main:src/phoscon-adapter.ts \
-  | grep -F 'const shouldConsiderEvent = eventValue !== undefined && hasNewRevision && !this.buttonRecoveryBaselinePending'
+git show origin/main:src/automations.ts \
+  | grep -F 'if (!this.executionDayAllows(rule)) return'
 
-git show origin/main:src/phoscon-adapter.ts \
-  | grep -F 'this.requireButtonRecoveryBaseline("rest-sync-failed")'
+git show origin/main:src/server.ts \
+  | grep -F 'executionDays: z.array(z.number().int().min(1).max(7))'
 
-git show origin/main:src/phoscon-adapter.ts \
-  | grep -F 'this.requireButtonRecoveryBaseline("websocket-closed")'
+git show origin/main:public/index.html \
+  | grep -F 'id="automationWeekendEnabled"'
 
-git show origin/main:src/phoscon-adapter.ts \
-  | grep -F '"DECONZ_RECOVERY_BASELINE"'
+git show origin/main:public/automation-ui.js \
+  | grep -F 'executionDays:automationElements.scheduleEnabled.checked?automationSelectedExecutionDays():automationAllExecutionDays'
 
-git show origin/main:src/phoscon-recovery.test.ts \
-  | grep -F 'baselines button revisions after a REST connectivity failure without replaying an automation event'
+git show origin/main:src/automation-weekdays.test.ts \
+  | grep -F 'blocks device-triggered automations on unselected days and allows the next selected weekday'
 
 git show origin/main:docker-compose.image.yml \
-  | grep -F 'ghcr.io/syschelle/salta:0.8.95'
+  | grep -F 'ghcr.io/syschelle/salta:0.8.96'
 ```
 
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.95 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.95.
+Release validator contract: SALTA v0.8.96 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.96.
 ```
 
 Wait for GitHub CI and CodeQL to be green before tagging.
@@ -56,14 +56,14 @@ Wait for GitHub CI and CodeQL to be green before tagging.
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.95 -m "SALTA v0.8.95"
-git push origin v0.8.95
+git tag -a v0.8.96 -m "SALTA v0.8.96"
+git push origin v0.8.96
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.95 \
-  --title "SALTA v0.8.95" \
+gh release create v0.8.96 \
+  --title "SALTA v0.8.96" \
   --notes-file RELEASE_TEXT.md
 ```

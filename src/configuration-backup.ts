@@ -26,6 +26,7 @@ const backupDataSchema = z.object({
   automations: backupRows(),
   automation_preferences: backupRows(),
   automation_time_triggers: backupRows().optional(),
+  automation_schedule_preferences: backupRows().optional(),
   automation_conditions: backupRows().optional(),
   automation_triggers: backupRows(),
   automation_actions: backupRows().optional(),
@@ -50,7 +51,7 @@ const backupSchema = z.object({
 export type ConfigurationBackup = z.infer<typeof backupSchema>;
 
 type BackupData = z.infer<typeof backupDataSchema>;
-type NormalizedBackupData = Omit<BackupData, "device_favorites" | "presence_target_profiles" | "automation_time_triggers" | "automation_conditions" | "automation_actions" | "automation_targets" | "automation_system_actions"> & { device_favorites: Record<string, unknown>[]; presence_target_profiles: Record<string, unknown>[]; automation_time_triggers: Record<string, unknown>[]; automation_conditions: Record<string, unknown>[]; automation_actions: Record<string, unknown>[]; automation_targets: Record<string, unknown>[]; automation_system_actions: Record<string, unknown>[] };
+type NormalizedBackupData = Omit<BackupData, "device_favorites" | "presence_target_profiles" | "automation_time_triggers" | "automation_schedule_preferences" | "automation_conditions" | "automation_actions" | "automation_targets" | "automation_system_actions"> & { device_favorites: Record<string, unknown>[]; presence_target_profiles: Record<string, unknown>[]; automation_time_triggers: Record<string, unknown>[]; automation_schedule_preferences: Record<string, unknown>[]; automation_conditions: Record<string, unknown>[]; automation_actions: Record<string, unknown>[]; automation_targets: Record<string, unknown>[]; automation_system_actions: Record<string, unknown>[] };
 type BackupRow = Record<string, unknown>;
 
 const exportQueries: Readonly<Record<keyof NormalizedBackupData, string>> = {
@@ -69,6 +70,7 @@ const exportQueries: Readonly<Record<keyof NormalizedBackupData, string>> = {
   automations: "SELECT * FROM automations ORDER BY name,id",
   automation_preferences: "SELECT * FROM automation_preferences ORDER BY automation_id",
   automation_time_triggers: "SELECT * FROM automation_time_triggers ORDER BY automation_id",
+  automation_schedule_preferences: "SELECT * FROM automation_schedule_preferences ORDER BY automation_id",
   automation_conditions: "SELECT * FROM automation_conditions ORDER BY automation_id,position",
   automation_triggers: "SELECT * FROM automation_triggers ORDER BY automation_id,position",
   automation_actions: "SELECT * FROM automation_actions ORDER BY automation_id,position",
@@ -95,6 +97,7 @@ const insertStatements: Readonly<Record<keyof NormalizedBackupData, string>> = {
   automations: "INSERT INTO automations SELECT * FROM jsonb_populate_recordset(NULL::automations, $1::jsonb)",
   automation_preferences: "INSERT INTO automation_preferences SELECT * FROM jsonb_populate_recordset(NULL::automation_preferences, $1::jsonb)",
   automation_time_triggers: "INSERT INTO automation_time_triggers SELECT * FROM jsonb_populate_recordset(NULL::automation_time_triggers, $1::jsonb)",
+  automation_schedule_preferences: "INSERT INTO automation_schedule_preferences SELECT * FROM jsonb_populate_recordset(NULL::automation_schedule_preferences, $1::jsonb)",
   automation_conditions: "INSERT INTO automation_conditions SELECT * FROM jsonb_populate_recordset(NULL::automation_conditions, $1::jsonb)",
   automation_triggers: "INSERT INTO automation_triggers SELECT * FROM jsonb_populate_recordset(NULL::automation_triggers, $1::jsonb)",
   automation_actions: "INSERT INTO automation_actions SELECT * FROM jsonb_populate_recordset(NULL::automation_actions, $1::jsonb)",
@@ -108,7 +111,7 @@ const insertStatements: Readonly<Record<keyof NormalizedBackupData, string>> = {
 const insertOrder: readonly (keyof NormalizedBackupData)[] = [
   "rooms", "devices", "device_preferences", "device_favorites", "device_homekit_settings", "adapter_settings", "openccu_settings",
   "fritzbox_presence_settings", "fritzbox_presence_transport_settings", "presence_targets", "presence_target_profiles", "device_adapter_data",
-  "automations", "automation_preferences", "automation_time_triggers", "automation_conditions", "automation_triggers", "automation_actions", "automation_targets", "automation_system_actions", "climate_mode_settings", "notification_settings", "notification_state"
+  "automations", "automation_preferences", "automation_time_triggers", "automation_schedule_preferences", "automation_conditions", "automation_triggers", "automation_actions", "automation_targets", "automation_system_actions", "climate_mode_settings", "notification_settings", "notification_state"
 ];
 
 const deleteStatements = [
@@ -119,6 +122,7 @@ const deleteStatements = [
   "DELETE FROM automation_triggers",
   "DELETE FROM automation_conditions",
   "DELETE FROM automation_time_triggers",
+  "DELETE FROM automation_schedule_preferences",
   "DELETE FROM automation_preferences",
   "DELETE FROM automations",
   "DELETE FROM device_adapter_data",
@@ -254,6 +258,7 @@ export async function importConfigurationBackup(input: unknown, signingKey = con
     device_favorites: backup.data.device_favorites ?? [],
     presence_target_profiles: backup.data.presence_target_profiles ?? [],
     automation_time_triggers: backup.data.automation_time_triggers ?? [],
+    automation_schedule_preferences: backup.data.automation_schedule_preferences ?? [],
     automation_conditions: backup.data.automation_conditions ?? [],
     automation_actions: backup.data.automation_actions ?? [],
     automation_targets: backup.data.automation_targets ?? [],
@@ -265,7 +270,7 @@ export async function importConfigurationBackup(input: unknown, signingKey = con
   let committed = false;
   try {
     await client.query("BEGIN");
-    await client.query("LOCK TABLE rooms, devices, device_preferences, device_favorites, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, presence_target_profiles, device_adapter_data, automations, automation_preferences, automation_time_triggers, automation_conditions, automation_triggers, automation_actions, automation_targets, automation_system_actions, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
+    await client.query("LOCK TABLE rooms, devices, device_preferences, device_favorites, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, presence_target_profiles, device_adapter_data, automations, automation_preferences, automation_time_triggers, automation_schedule_preferences, automation_conditions, automation_triggers, automation_actions, automation_targets, automation_system_actions, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
     for (const statement of deleteStatements) await client.query(statement);
     for (const table of insertOrder) {
       const rows = restoreData[table];

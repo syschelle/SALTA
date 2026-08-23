@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.96
+
+- Added optional execution-day restrictions for automations, with Monday-through-Sunday selection and a weekend convenience control.
+- Existing automations remain unrestricted by default and continue to run every day.
+- Execution-day checks use the configured SALTA timezone and are evaluated when a trigger is queued, covering state, event and time triggers consistently.
+- Added the additive `automation_schedule_preferences` table without altering the existing `automations` table.
+- Added configuration-backup compatibility for the new schedule table; older backups without it restore with all days enabled.
+- Added frontend/API validation, German/English translations and regression coverage for weekday-only and weekend-only execution.
+- Carries forward the v0.8.95 deCONZ reconnect safety, v0.8.94 deCONZ settings/link and v0.8.93 command retention unchanged.
+- No manual database migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.95
 
 - Prevented deCONZ button-state replays after network, router, VM or gateway connectivity interruptions from triggering SALTA automations.

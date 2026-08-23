@@ -564,3 +564,21 @@ html[data-theme="dark"] .homekit-device-item.enabled{border-color:rgba(93,132,25
 .language-control-label .mdi{font-size:16px;color:var(--accent)}
 .language-control select{min-width:112px;border:1px solid var(--line);border-radius:8px;background:var(--input-bg);color:var(--text);padding:7px 28px 7px 8px;font:inherit;font-size:11px}.sidebar-footer .language-control select{justify-self:end;width:120px;max-width:100%;min-width:0}
 @media(max-width:1000px){.language-control{grid-template-columns:1fr auto}}
+
+/* Optional automation execution-day schedule */
+.automation-schedule{border:1px solid var(--line);border-radius:12px;padding:12px;margin:0;display:grid;gap:10px;background:var(--subtle-bg)}
+.automation-schedule legend{font-weight:800;padding:0 7px;display:flex;align-items:center;gap:7px}
+.automation-schedule legend small{font-weight:500;color:var(--muted)}
+.automation-schedule-toggle,.automation-weekend-toggle{display:flex!important;align-items:center;justify-content:space-between;gap:14px;margin:0!important;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.automation-schedule-toggle>span,.automation-weekend-toggle>span{display:grid;gap:2px}
+.automation-schedule-toggle small,.automation-weekend-toggle small{color:var(--muted);font-weight:500;font-size:11px}
+.automation-schedule-toggle input,.automation-weekend-toggle input{width:18px;height:18px;flex:0 0 auto}
+.automation-schedule-fields{display:grid;gap:10px}
+.automation-schedule-fields[hidden]{display:none}
+.automation-weekday-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.automation-weekday-grid label{margin:0;position:relative}
+.automation-weekday-grid input{position:absolute;opacity:0;pointer-events:none}
+.automation-weekday-grid span{height:34px;border:1px solid var(--line);border-radius:9px;background:var(--input-bg);display:grid;place-items:center;font-size:12px;font-weight:800;cursor:pointer;user-select:none}
+.automation-weekday-grid input:checked+span{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+.automation-weekday-grid input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:620px){.automation-weekday-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}

@@ -183,6 +183,17 @@ export async function initializeDatabaseSchema(): Promise<void> {
       time_of_day text NOT NULL CHECK(time_of_day ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS automation_schedule_preferences (
+      automation_id uuid PRIMARY KEY REFERENCES automations(id) ON DELETE CASCADE,
+      monday boolean NOT NULL DEFAULT true,
+      tuesday boolean NOT NULL DEFAULT true,
+      wednesday boolean NOT NULL DEFAULT true,
+      thursday boolean NOT NULL DEFAULT true,
+      friday boolean NOT NULL DEFAULT true,
+      saturday boolean NOT NULL DEFAULT true,
+      sunday boolean NOT NULL DEFAULT true,
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS automation_conditions (
       automation_id uuid NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
       position smallint NOT NULL CHECK(position BETWEEN 1 AND 7),
@@ -488,6 +499,10 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
     roomId: row.roomId ? String(row.roomId) : undefined,
     triggerType: row.triggerType === "time" ? "time" : "device",
     triggerTime: row.triggerTime ? String(row.triggerTime) : undefined,
+    executionDays: [
+      [1, row.scheduleMonday], [2, row.scheduleTuesday], [3, row.scheduleWednesday], [4, row.scheduleThursday],
+      [5, row.scheduleFriday], [6, row.scheduleSaturday], [7, row.scheduleSunday]
+    ].flatMap(([day, enabled]) => enabled === false ? [] : [day as 1 | 2 | 3 | 4 | 5 | 6 | 7]),
     triggerDeviceId: String(row.triggerDeviceId),
     triggerStateKey: String(row.triggerStateKey),
     triggerValue: Boolean(row.triggerValue),
@@ -506,7 +521,7 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
   };
 }
 
-const automationColumns = `a.id,a.name,a.enabled,p.room_id as "roomId",CASE WHEN s.automation_id IS NULL THEN 'device' ELSE 'time' END as "triggerType",s.time_of_day as "triggerTime",a.trigger_device_id as "triggerDeviceId",a.trigger_state_key as "triggerStateKey",a.trigger_value as "triggerValue",
+const automationColumns = `a.id,a.name,a.enabled,p.room_id as "roomId",CASE WHEN s.automation_id IS NULL THEN 'device' ELSE 'time' END as "triggerType",s.time_of_day as "triggerTime",COALESCE(sched.monday,true) as "scheduleMonday",COALESCE(sched.tuesday,true) as "scheduleTuesday",COALESCE(sched.wednesday,true) as "scheduleWednesday",COALESCE(sched.thursday,true) as "scheduleThursday",COALESCE(sched.friday,true) as "scheduleFriday",COALESCE(sched.saturday,true) as "scheduleSaturday",COALESCE(sched.sunday,true) as "scheduleSunday",a.trigger_device_id as "triggerDeviceId",a.trigger_state_key as "triggerStateKey",a.trigger_value as "triggerValue",
   COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',t.trigger_device_id,'stateKey',t.trigger_state_key,'value',t.trigger_value) ORDER BY t.position) FROM automation_triggers t WHERE t.automation_id=a.id),'[]'::jsonb) as "additionalTriggers",
   a.condition_device_id as "conditionDeviceId",a.condition_state_key as "conditionStateKey",a.condition_value as "conditionValue",
   COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',c.condition_device_id,'stateKey',c.condition_state_key,'value',c.condition_value) ORDER BY c.position) FROM automation_conditions c WHERE c.automation_id=a.id),'[]'::jsonb) as "additionalConditions",
@@ -521,6 +536,7 @@ export async function listAutomations(): Promise<AutomationRule[]> {
     FROM automations a
     LEFT JOIN automation_preferences p ON p.automation_id=a.id
     LEFT JOIN automation_time_triggers s ON s.automation_id=a.id
+    LEFT JOIN automation_schedule_preferences sched ON sched.automation_id=a.id
     ORDER BY a.name,a.id`);
   return result.rows.map(row => automationRow(row));
 }
@@ -574,6 +590,14 @@ async function writeAutomationConditions(client: PoolClient, automationId: strin
   }
 }
 
+async function writeAutomationSchedulePreferences(client: PoolClient, automationId: string, input: AutomationInput): Promise<void> {
+  const days = new Set(input.executionDays ?? [1,2,3,4,5,6,7]);
+  await client.query(`INSERT INTO automation_schedule_preferences(automation_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,updated_at)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,now())
+    ON CONFLICT(automation_id) DO UPDATE SET monday=EXCLUDED.monday,tuesday=EXCLUDED.tuesday,wednesday=EXCLUDED.wednesday,thursday=EXCLUDED.thursday,friday=EXCLUDED.friday,saturday=EXCLUDED.saturday,sunday=EXCLUDED.sunday,updated_at=now()`,
+    [automationId,days.has(1),days.has(2),days.has(3),days.has(4),days.has(5),days.has(6),days.has(7)]);
+}
+
 async function writeAutomationTimeTrigger(client: PoolClient, automationId: string, input: AutomationInput): Promise<void> {
   if (input.triggerType === "time" && input.triggerTime) {
     await client.query(`INSERT INTO automation_time_triggers(automation_id,time_of_day,updated_at) VALUES($1,$2,now())
@@ -605,6 +629,7 @@ export async function createAutomation(input: AutomationInput): Promise<Automati
       [id,input.name,input.enabled,primaryTrigger.deviceId,primaryTrigger.stateKey,primaryTrigger.value,input.conditionDeviceId??null,input.conditionStateKey??null,input.conditionValue??null,input.actionDeviceId,legacyAutomationAction(input.action)]);
     await client.query(`INSERT INTO automation_preferences(automation_id,room_id) VALUES($1,$2)
       ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()`, [id,input.roomId??null]);
+    await writeAutomationSchedulePreferences(client, id, input);
     await writeAutomationTimeTrigger(client, id, input);
     await writeAutomationConditions(client, id, input);
     for (const [index, trigger] of (input.additionalTriggers ?? []).entries()) {
@@ -612,7 +637,7 @@ export async function createAutomation(input: AutomationInput): Promise<Automati
         [id,index+1,trigger.deviceId,trigger.stateKey,trigger.value]);
     }
     await writeAutomationTargets(client, id, input);
-    const result = await client.query(`SELECT ${automationColumns} FROM automations a LEFT JOIN automation_preferences p ON p.automation_id=a.id LEFT JOIN automation_time_triggers s ON s.automation_id=a.id WHERE a.id=$1`, [id]);
+    const result = await client.query(`SELECT ${automationColumns} FROM automations a LEFT JOIN automation_preferences p ON p.automation_id=a.id LEFT JOIN automation_time_triggers s ON s.automation_id=a.id LEFT JOIN automation_schedule_preferences sched ON sched.automation_id=a.id WHERE a.id=$1`, [id]);
     await client.query("COMMIT");
     return automationRow(result.rows[0]);
   } catch (error) {
@@ -638,6 +663,7 @@ export async function updateAutomation(id: string, input: AutomationInput): Prom
     }
     await client.query(`INSERT INTO automation_preferences(automation_id,room_id) VALUES($1,$2)
       ON CONFLICT(automation_id) DO UPDATE SET room_id=EXCLUDED.room_id,updated_at=now()`, [id,input.roomId??null]);
+    await writeAutomationSchedulePreferences(client, id, input);
     await writeAutomationTimeTrigger(client, id, input);
     await writeAutomationConditions(client, id, input);
     await client.query("DELETE FROM automation_triggers WHERE automation_id=$1", [id]);
@@ -646,7 +672,7 @@ export async function updateAutomation(id: string, input: AutomationInput): Prom
         [id,index+1,trigger.deviceId,trigger.stateKey,trigger.value]);
     }
     await writeAutomationTargets(client, id, input);
-    const result = await client.query(`SELECT ${automationColumns} FROM automations a LEFT JOIN automation_preferences p ON p.automation_id=a.id LEFT JOIN automation_time_triggers s ON s.automation_id=a.id WHERE a.id=$1`, [id]);
+    const result = await client.query(`SELECT ${automationColumns} FROM automations a LEFT JOIN automation_preferences p ON p.automation_id=a.id LEFT JOIN automation_time_triggers s ON s.automation_id=a.id LEFT JOIN automation_schedule_preferences sched ON sched.automation_id=a.id WHERE a.id=$1`, [id]);
     await client.query("COMMIT");
     return result.rows[0] ? automationRow(result.rows[0]) : undefined;
   } catch (error) {

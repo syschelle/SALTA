@@ -28,15 +28,29 @@ describe("automation frontend", () => {
     expect(html).toContain('id="automationTriggerType"');
     expect(html).toContain('<option value="time">Uhrzeit</option>');
     expect(html).toContain('id="automationTriggerTime" type="time"');
-    expect(html).toContain('Täglich in der SALTA-Zeitzone (TZ).');
+    expect(html).toContain('Zur gewählten Uhrzeit in der SALTA-Zeitzone (TZ).');
     expect(hasFunction(uiAst, "updateAutomationTriggerMode")).toBe(true);
     expect(hasFunction(uiAst, "automationTimeTriggerActive")).toBe(true);
     expect(ui).toContain("triggerType:timeTrigger?'time':'device'");
     expect(ui).toContain("timeTrigger?{triggerTime:automationElements.triggerTime.value}");
-    expect(ui).toContain("Täglich · ${rule.triggerTime||'–'} Uhr");
+    expect(ui).toContain("automationScheduleRestricted(rule)?'Uhrzeit':'Täglich'");
     expect(ui).toContain("automationElements.additionalTriggers.hidden=timeTrigger");
     expect(cssRuleContains(styles, ".automation-trigger-type-row", "grid-template-columns:minmax(0,1fr) minmax(0,1fr)")).toBe(true);
     expect(cssRuleContains(styles, ".automation-additional-triggers[hidden]", "display:none")).toBe(true);
+  });
+
+  it("offers optional weekday and weekend execution restrictions", () => {
+    expect(html).toContain('id="automationScheduleEnabled"');
+    expect(html).toContain('name="automationWeekday" value="1"');
+    expect(html).toContain('name="automationWeekday" value="7"');
+    expect(html).toContain('id="automationWeekendEnabled"');
+    expect(html).toContain('Am Wochenende ausführen');
+    expect(hasFunction(uiAst, "automationSelectedExecutionDays")).toBe(true);
+    expect(hasFunction(uiAst, "automationScheduleRestricted")).toBe(true);
+    expect(ui).toContain("executionDays:automationElements.scheduleEnabled.checked?automationSelectedExecutionDays():automationAllExecutionDays");
+    expect(ui).toContain("automationElements.weekendEnabled.checked");
+    expect(ui).toContain("Bitte mindestens einen Ausführungstag auswählen.");
+    expect(styles).toContain(".automation-weekday-grid");
   });
 
   it("offers the global SALTA heating mode as an automation target", () => {

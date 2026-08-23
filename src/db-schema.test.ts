@@ -19,6 +19,14 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("LEFT JOIN automation_time_triggers s ON s.automation_id=a.id");
   });
 
+  it("stores optional automation execution days in an additive schedule table", () => {
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_schedule_preferences");
+    expect(databaseSource).toContain("monday boolean NOT NULL DEFAULT true");
+    expect(databaseSource).toContain("sunday boolean NOT NULL DEFAULT true");
+    expect(databaseSource).toContain("LEFT JOIN automation_schedule_preferences sched ON sched.automation_id=a.id");
+    expect(databaseSource).toContain("INSERT INTO automation_schedule_preferences(automation_id,monday,tuesday,wednesday,thursday,friday,saturday,sunday,updated_at)");
+  });
+
   it("does not restore the removed duplicate room-name column", () => {
     const devicesTable = databaseSource.match(/CREATE TABLE IF NOT EXISTS devices \(([\s\S]*?)\n    \);/i)?.[1] ?? "";
     expect(devicesTable).toContain("room_id uuid");

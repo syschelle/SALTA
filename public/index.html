@@ -35,7 +35,7 @@
     </button>
     <label class="language-control" for="languageSelector"><span class="language-control-label"><span class="mdi mdi-translate" aria-hidden="true"></span><span>Sprache</span></span><select id="languageSelector" aria-label="Sprache dieses Browsers"><option value="auto">Automatisch</option><option value="de">Deutsch</option><option value="en">English</option></select></label>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.95</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.96</strong></div>
   </div>
 </aside>
 
@@ -191,10 +191,26 @@
             <label>Raum<select id="automationRoom"><option value="">Keinem Raum zugeordnet</option></select></label>
             <label class="automation-enabled-row"><span><strong>Aktiv</strong><small>Regel automatisch ausführen</small></span><input id="automationEnabled" type="checkbox" checked></label>
           </div>
+          <fieldset class="automation-schedule">
+            <legend>Ausführungstage <small>optional</small></legend>
+            <label class="automation-schedule-toggle"><input id="automationScheduleEnabled" type="checkbox"><span><strong>Ausführungstage einschränken</strong><small>Standardmäßig wird die Automation an jedem Wochentag ausgeführt.</small></span></label>
+            <div id="automationScheduleFields" class="automation-schedule-fields" hidden>
+              <div class="automation-weekday-grid" aria-label="Ausführungstage auswählen">
+                <label><input type="checkbox" name="automationWeekday" value="1" checked><span>Mo</span></label>
+                <label><input type="checkbox" name="automationWeekday" value="2" checked><span>Di</span></label>
+                <label><input type="checkbox" name="automationWeekday" value="3" checked><span>Mi</span></label>
+                <label><input type="checkbox" name="automationWeekday" value="4" checked><span>Do</span></label>
+                <label><input type="checkbox" name="automationWeekday" value="5" checked><span>Fr</span></label>
+                <label><input type="checkbox" name="automationWeekday" value="6" checked><span>Sa</span></label>
+                <label><input type="checkbox" name="automationWeekday" value="7" checked><span>So</span></label>
+              </div>
+              <label class="automation-weekend-toggle"><input id="automationWeekendEnabled" type="checkbox" checked><span><strong>Am Wochenende ausführen</strong><small>Schaltet Samstag und Sonntag gemeinsam ein oder aus.</small></span></label>
+            </div>
+          </fieldset>
           <fieldset class="automation-step"><legend><span>1</span>Wenn <small>Auslöser wählen</small></legend>
             <div class="automation-trigger-type-row">
               <label>Auslösertyp<select id="automationTriggerType"><option value="device">Gerät</option><option value="time">Uhrzeit</option></select></label>
-              <label id="automationTriggerTimeField" class="automation-time-trigger-field" hidden>Uhrzeit<input id="automationTriggerTime" type="time" step="60" value="07:00"><small>Täglich in der SALTA-Zeitzone (TZ).</small></label>
+              <label id="automationTriggerTimeField" class="automation-time-trigger-field" hidden>Uhrzeit<input id="automationTriggerTime" type="time" step="60" value="07:00"><small>Zur gewählten Uhrzeit in der SALTA-Zeitzone (TZ).</small></label>
             </div>
             <div id="automationDeviceTriggerFields">
               <div class="automation-device-field"><label for="automationTriggerDevice">Gerät</label><div class="automation-device-picker"><div class="search automation-device-search"><span class="mdi mdi-magnify" aria-hidden="true"></span><input id="automationTriggerDeviceSearch" type="search" placeholder="Gerät suchen …" autocomplete="off" aria-label="Triggergerät nach Name, Raum oder Quelle suchen"></div><select id="automationTriggerDevice" required></select><small id="automationTriggerDeviceCount" class="automation-device-match-count" aria-live="polite"></small></div></div>
