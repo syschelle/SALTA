@@ -1,6 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.96 update
+## Current v0.8.97 update
+
+v0.8.97 fixes only the TypeScript API typing boundary for the v0.8.96 weekday schedule feature. No runtime scheduling behavior, database schema, persistence format, environment variable or deployment topology changes are introduced. Existing v0.8.96 schedule rows remain compatible.
 
 v0.8.96 adds the additive `automation_schedule_preferences` table for optional per-automation weekday/weekend execution restrictions. Existing automations without a row in this table automatically run on all seven days, so no manual migration is required. Configuration backups preserve the new table, and older signed format-v1 backups without it remain compatible.
 

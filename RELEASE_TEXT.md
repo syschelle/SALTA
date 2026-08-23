@@ -1,52 +1,42 @@
-# SALTA v0.8.96
+# SALTA v0.8.97
 
-SALTA v0.8.96 adds optional execution-day restrictions to automations. Existing rules continue to run every day by default, while individual automations can now be limited to selected weekdays and optionally to weekends. The restriction is evaluated in the configured SALTA timezone at the moment the trigger is received, so device events, button events and daily time triggers all follow the same local-day rule.
+SALTA v0.8.97 fixes the TypeScript build regression introduced with the v0.8.96 weekday execution schedule API. The runtime schedule behavior is unchanged: the API schema now preserves the literal weekday type `1 | 2 | 3 | 4 | 5 | 6 | 7` instead of widening validated values to `number[]`, so the parsed request is assignable to `AutomationWeekday[]` without casts.
+
+## v0.8.97 weekday API type-safety build fix
+
+- Fixed the GitHub CI TypeScript errors in `src/server.ts` when creating or updating an automation with `executionDays`.
+- Replaced the broad `z.number().int().min(1).max(7)` execution-day element schema with an explicit Zod literal union for values `1` through `7`.
+- The inferred Zod request type now matches `AutomationWeekday[]` directly.
+- Added an explicit `AutomationInput` return type to `normalizeAutomationInput()` so future API/engine type drift is caught at the normalization boundary.
+- Added a regression test that requires the literal weekday schema and rejects a return to the broad `number[]` schema.
+- Strengthened release validation for the same contract.
+- No runtime scheduling semantics, database schema, frontend behavior, mandatory environment variable, dependency or deployment topology changed.
 
 ## v0.8.96 optional weekday and weekend automation schedules
 
-- Added optional **execution days** to every automation without changing the existing `automations` table.
-- Existing automations default to **all seven days** and therefore keep their previous behavior automatically.
-- Added weekday selection for **Monday through Sunday** in the automation editor.
-- Added a dedicated **Run on weekends / Am Wochenende ausführen** control that toggles Saturday and Sunday together while still allowing individual day selection.
-- A restricted automation is skipped when its trigger arrives on a non-selected local day.
-- Day evaluation uses the configured SALTA timezone (`TZ`) and is performed when the trigger is queued, preventing a delayed execution from crossing midnight and being evaluated against the wrong day.
-- The same execution-day gate applies to device state transitions, deCONZ/OpenCCU button events and daily time triggers.
-- Automation cards show the selected execution days when a rule is restricted; unrestricted rules remain visually compact.
-- Daily time-trigger helper text no longer implies unconditional daily execution when a weekday restriction is active.
-- Added the additive `automation_schedule_preferences` table with one boolean per weekday. No `ALTER TABLE` is used.
-- Configuration/disaster-recovery backups preserve the new schedule table, while older signed format-v1 backups without it remain compatible and restore as all-days schedules.
-- Added API validation, frontend validation and regression coverage for local weekday calculation, weekday-only execution, weekend-only execution, persistence and UI payload handling.
-- Added German/English translations for the new execution-day controls and summaries.
-- No manual database migration, new mandatory environment variable, npm dependency or deployment-topology change is required.
+- Added optional per-automation execution-day restrictions for Monday through Sunday.
+- Existing automations continue to run on all seven days by default.
+- Added the weekend convenience control and local-timezone day evaluation for device, event and time triggers.
+- Added the additive `automation_schedule_preferences` table and backup/restore support without altering the existing `automations` table.
 
 ## v0.8.95 deCONZ reconnect button-event safety
 
-- Prevented deCONZ button-state replays after network, router, VM or gateway connectivity interruptions from being interpreted as fresh physical button presses.
-- Added a recovery baseline after connectivity loss and required genuinely new deCONZ `lastupdated` revisions for WebSocket button delivery.
-- Added reconnect/recovery diagnostics while preserving the v0.8.91 exact-once button-event deduplication.
+- Added a recovery baseline after deCONZ/network interruptions so replayed button states do not trigger automations.
+- Required genuinely new deCONZ `lastupdated` revisions for WebSocket button delivery while preserving exact-once recovery.
 
 ## v0.8.94 deCONZ settings naming and direct UI link
 
-- Renamed the visible Phoscon integration settings to **deCONZ** while preserving internal compatibility identifiers.
-- Added a safe direct link to the configured local deCONZ web interface in a new browser tab/window.
-
-## v0.8.93 bounded command-history retention
-
-- Added automatic retention for the existing `commands` table.
-- Commands older than **90 days** are removed and only the **10,000 newest records** are retained as a hard upper bound.
-- Retention runs at startup and during continued operation without altering the existing table.
+- Renamed the visible Phoscon settings to **deCONZ** while preserving internal compatibility identifiers.
+- Added a safe direct link to the configured deCONZ web interface.
 
 ## Compatibility
 
-- Existing automations without an `automation_schedule_preferences` row run on all seven days.
-- Existing device, event and time triggers remain unchanged.
-- Existing deCONZ, OpenCCU, Shelly, Hue, HomeKit, Presence, Vacation mode and Heating mode behavior remains compatible.
-- The new schedule persistence is additive and created idempotently during normal schema initialization.
-- Existing configuration backups remain compatible; missing execution-day data defaults to all days.
-- Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
-- No manual database migration is required.
+- Existing weekday schedules created with v0.8.96 remain compatible.
+- Existing automations without schedule preferences still run on all seven days.
+- No database migration is required.
 - No new mandatory environment variable is required.
 - No new npm dependency is introduced.
+- Existing `salta_postgres_data` and `salta_runtime_data` volumes remain compatible.
 
 ## Production update
 

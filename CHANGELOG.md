@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.97
+
+- Fixed the v0.8.96 TypeScript build regression where Zod inferred automation `executionDays` as `number[]` while `AutomationInput` requires `AutomationWeekday[]`.
+- Changed the API execution-day element schema to the literal union `1 | 2 | 3 | 4 | 5 | 6 | 7`, preserving the validated runtime range while keeping the inferred type exact.
+- Added an explicit `AutomationInput` return type to the request normalization boundary.
+- Added regression and release-validator coverage preventing the API schema from widening back to `number[]`.
+- Runtime weekday/weekend scheduling behavior is unchanged from v0.8.96.
+- Carries forward the v0.8.96 schedule feature, v0.8.95 deCONZ reconnect safety and v0.8.94 deCONZ settings/link unchanged.
+- No database schema migration, new mandatory environment variable, dependency or deployment-topology change is required.
+
 ## v0.8.96
 
 - Added optional execution-day restrictions for automations, with Monday-through-Sunday selection and a weekend convenience control.

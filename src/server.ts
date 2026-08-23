@@ -12,7 +12,7 @@ import { openCcuErrorInfo, type OpenCcuAdapter } from "./openccu-adapter.js";
 import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import { normalizeFritzBoxBaseUrl, normalizePresenceMac, type FritzBoxPresenceAdapter } from "./fritzbox-presence.js";
 import type { DeviceCommandRouter } from "./device-command-router.js";
-import type { AutomationEngine } from "./automations.js";
+import type { AutomationEngine, AutomationInput } from "./automations.js";
 import type { ClimateModeManager } from "./climate-mode.js";
 import type { BatteryMonitor } from "./battery-monitor.js";
 import type { VacationModeManager } from "./vacation-mode.js";
@@ -91,13 +91,17 @@ const automationConditionSchema = z.object({
   value: z.boolean()
 }).strict();
 
+const automationWeekdaySchema = z.union([
+  z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5), z.literal(6), z.literal(7)
+]);
+
 const automationSchema = z.object({
   name: z.string().trim().min(1).max(120),
   enabled: z.boolean().default(true),
   roomId: z.string().uuid().nullable().optional(),
   triggerType: z.enum(["device", "time"]).default("device"),
   triggerTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
-  executionDays: z.array(z.number().int().min(1).max(7)).min(1).max(7).refine(days => new Set(days).size === days.length, "Execution days must be unique.").default([1,2,3,4,5,6,7]),
+  executionDays: z.array(automationWeekdaySchema).min(1).max(7).refine(days => new Set(days).size === days.length, "Execution days must be unique.").default([1,2,3,4,5,6,7]),
   triggerDeviceId: z.string().min(1).max(255).optional(),
   triggerStateKey: z.string().trim().min(1).max(80).optional(),
   triggerValue: z.boolean().optional(),
@@ -411,7 +415,7 @@ function automationError(error: unknown): { status: number; code: string; messag
   return { status: code === "AUTOMATION_NOT_FOUND" ? 404 : code.endsWith("_NOT_FOUND") ? 404 : 400, code, message: messages[code] ?? "The automation could not be saved." };
 }
 
-function normalizeAutomationInput(data: z.infer<typeof automationSchema>) {
+function normalizeAutomationInput(data: z.infer<typeof automationSchema>): AutomationInput {
   const timeTrigger = data.triggerType === "time";
   return {
     name: data.name,
@@ -673,9 +677,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.96" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.97" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.96", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.97", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1319,7 +1323,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.96", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.97", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);
