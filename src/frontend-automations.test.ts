@@ -79,7 +79,7 @@ describe("automation frontend", () => {
   });
 
   it("offers boolean state transitions and deCONZ button-event triggers", () => {
-    expect(ui).toContain("turnOn:'An',turnOff:'Aus',toggle:'Toggle'");
+    expect(ui).toContain("turnOn:'An',turnOnForSeconds:'An für Sekunden',turnOff:'Aus',toggle:'Toggle'");
     expect(ui).toContain("typeof value==='boolean'");
     expect(ui).toContain("automationButtonEventMarker='event:buttonEvent'");
     expect(ui).toContain("triggerStateKey:eventTrigger?`event:buttonEvent:${eventValue}`");

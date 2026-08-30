@@ -234,6 +234,25 @@ describe("ShellyAdapter multi-profile onboarding", () => {
     expect(commandBodies).toContainEqual({ id: 1, on: true });
   });
 
+  it("uses Switch.Set toggle_after for a timed Gen2+ switch command", async () => {
+    const commandBodies: unknown[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/shelly")) return jsonResponse({ id: "plus1-timed", app: "Plus1", gen: 2, profile: "switch" });
+      if (url.endsWith("/rpc/Shelly.GetStatus")) return jsonResponse({ "switch:0": { id: 0, output: false } });
+      if (url.endsWith("/rpc/Shelly.GetConfig")) return jsonResponse({});
+      if (url.endsWith("/rpc/Switch.Set") && init?.method === "POST") { commandBodies.push(JSON.parse(String(init.body))); return jsonResponse({ was_on: false }); }
+      return jsonResponse({}, 404);
+    }));
+
+    const registry = new DeviceRegistry();
+    const adapter = new ShellyAdapter(registry);
+    const device = (await adapter.add("192.168.1.73", "", "", undefined, undefined, undefined, "none"))[0]!;
+    await adapter.command({ deviceId: device.id, capability: "turnOnForSeconds", value: 23, source: "automation" });
+
+    expect(commandBodies).toContainEqual({ id: 0, on: true, toggle_after: 23 });
+  });
+
   it("registers one window covering for a 2PM in cover profile", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
@@ -291,6 +310,28 @@ describe("ShellyAdapter cover position commands", () => {
     const device = (await adapter.add("192.168.1.81", "", "", undefined, undefined, undefined, "none"))[0]!;
 
     await expect(adapter.command({ deviceId: device.id, capability: "setTargetPosition", value: 120, source: "api" })).rejects.toThrow("INVALID_POSITION");
+  });
+});
+
+describe("ShellyAdapter Gen1 timed commands", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("uses the relay one-shot timer for Gen1", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input); calls.push(url);
+      if (url.endsWith("/settings")) return jsonResponse({ device: { type: "SHSW-1", hostname: "shelly1-test" }, name: "Pump" });
+      if (url.endsWith("/status")) return jsonResponse({ relays: [{ ison: false }], meters: [{}] });
+      if (url.includes("/relay/0?turn=on&timer=11")) return jsonResponse({ ison: true, has_timer: true });
+      return jsonResponse({}, 404);
+    }));
+
+    const registry = new DeviceRegistry();
+    const adapter = new ShellyAdapter(registry);
+    const device = (await adapter.add("192.168.1.74", "", "", undefined, undefined, undefined, "none"))[0]!;
+    await adapter.command({ deviceId: device.id, capability: "turnOnForSeconds", value: 11, source: "automation" });
+
+    expect(calls.some(url => url.endsWith("/relay/0?turn=on&timer=11"))).toBe(true);
   });
 });
 

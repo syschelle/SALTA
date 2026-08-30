@@ -86,6 +86,8 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("CREATE INDEX IF NOT EXISTS automation_actions_device_idx");
     expect(databaseSource).toContain('as "additionalActions"');
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_targets");
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_timed_actions");
+    expect(databaseSource).toContain("seconds integer NOT NULL CHECK(seconds BETWEEN 1 AND 86400)");
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS automation_system_actions");
     expect(databaseSource).toContain("CHECK(action IN ('climateSummer','climateWinter'))");
     expect(databaseSource).toContain("INSERT INTO automation_system_actions(automation_id,position,target,action)");
@@ -101,6 +103,9 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain('as "targetActions"');
     expect(databaseSource).toContain("INSERT INTO automation_targets(automation_id,position,action_device_id,action,value)");
     expect(databaseSource).toContain("DELETE FROM automation_targets WHERE automation_id=$1");
+    expect(databaseSource).toContain("INSERT INTO automation_timed_actions(automation_id,position,seconds)");
+    expect(databaseSource).toContain("DELETE FROM automation_timed_actions WHERE automation_id=$1");
+    expect(databaseSource).toContain('as "timedActions"');
   });
 
   it("stores FRITZ!Box presence settings and monitored MAC addresses additively", () => {

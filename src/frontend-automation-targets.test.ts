@@ -21,6 +21,18 @@ describe("automation target catalog", () => {
     expect(actions("virtual:legacy")).toEqual(["turnOn", "turnOff", "toggle"]);
   });
 
+  it("offers native timed turn-on only for Shelly switch components", () => {
+    const actions = actionResolver([
+      { id: "shelly:switch", source: "shelly", type: "switch", componentKind: "switch", state: { on: false }, capabilities: ["turnOn", "turnOff", "toggle"], adapterData: {}, name: "Relay" },
+      { id: "shelly:light", source: "shelly", type: "light", componentKind: "light", state: { on: false }, capabilities: ["turnOn", "turnOff", "toggle"], adapterData: {}, name: "Light" },
+      { id: "virtual:switch", source: "virtual", type: "switch", state: { on: false }, capabilities: ["turnOn", "turnOff", "toggle"], adapterData: {}, name: "Virtual" }
+    ]);
+
+    expect(actions("shelly:switch")).toEqual(["turnOn", "turnOnForSeconds", "turnOff", "toggle"]);
+    expect(actions("shelly:light")).toEqual(["turnOn", "turnOff", "toggle"]);
+    expect(actions("virtual:switch")).toEqual(["turnOn", "turnOff", "toggle"]);
+  });
+
   it("does not turn an unrelated read-only OpenCCU contact into a target", () => {
     const actions = actionResolver([{
       id: "openccu:contact", source: "openccu", type: "contactSensor",

@@ -632,6 +632,41 @@ describe("AutomationEngine", () => {
     engine.stop();
   });
 
+  it("executes Shelly timed turn-on with the configured seconds", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { motion: false }));
+    registry.devices.set("shelly", {
+      ...device("shelly", { on: false }, ["turnOn", "turnOff", "toggle"]),
+      source: "shelly",
+      componentKind: "switch"
+    });
+    const command = vi.fn(async commandInput => registry.get(commandInput.deviceId)!);
+    const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+    await engine.start();
+    await engine.create({
+      name: "Pulse", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "motion", triggerValue: true,
+      actionDeviceId: "shelly", action: "turnOnForSeconds", actionValue: 17
+    });
+
+    registry.publish(device("trigger", { motion: true }));
+    await tick();
+    await tick();
+    expect(command).toHaveBeenCalledWith({ deviceId: "shelly", capability: "turnOnForSeconds", value: 17, source: "automation" });
+    engine.stop();
+  });
+
+  it("rejects timed turn-on for non-Shelly targets and invalid seconds", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { motion: false }));
+    registry.devices.set("shelly", { ...device("shelly", { on: false }, ["turnOn", "turnOff", "toggle"]), source: "shelly", componentKind: "switch" });
+    registry.devices.set("virtual", device("virtual", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const engine = new AutomationEngine(registry as never, { command: vi.fn(async commandInput => registry.get(commandInput.deviceId)!) }, memoryStore());
+    await engine.start();
+    await expect(engine.create({ name: "Bad seconds", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "shelly", action: "turnOnForSeconds", actionValue: 0 })).rejects.toThrow("AUTOMATION_ACTION_TIMER_INVALID");
+    await expect(engine.create({ name: "Wrong target", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "virtual", action: "turnOnForSeconds", actionValue: 10 })).rejects.toThrow("AUTOMATION_ACTION_TIMER_INVALID");
+    engine.stop();
+  });
+
   it("includes additional target devices in cycle protection", async () => {
     const registry = new TestRegistry();
     for (const id of ["a", "b", "c"]) registry.devices.set(id, device(id, { on: false }, ["turnOn", "turnOff", "toggle"]));

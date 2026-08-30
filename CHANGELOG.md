@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.99
+
+- Added the Shelly automation action **On for seconds** with a freely configurable whole-number duration from 1 to 86400 seconds.
+- Uses the Shelly-native one-shot timer: Gen1 sends `turn=on&timer=<seconds>` and Gen2/Gen3/Gen4 RPC devices send `Switch.Set` with `toggle_after`.
+- Restricts the action to Shelly switch/relay components and validates target type and duration in the API and automation engine.
+- Added additive `automation_timed_actions` persistence plus configuration backup/restore compatibility without altering the existing automation target table.
+- Added regression coverage for frontend visibility, automation execution and both Shelly protocol generations.
+- Carries forward the v0.8.98 frontend test fix and the v0.8.97/v0.8.96 weekday scheduling improvements.
+- No manual database migration, new mandatory environment variable or new npm dependency is required.
+
 ## v0.8.98
 
 - Fixed the two isolated automation frontend VM tests that failed after the weekday UI introduced `document.querySelectorAll()`.

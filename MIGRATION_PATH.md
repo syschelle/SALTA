@@ -1,8 +1,10 @@
 # SALTA migration paths
 
-## Current v0.8.98 update
+## Current v0.8.99 update
 
-v0.8.98 updates only two isolated frontend test DOM mocks after the v0.8.96 weekday UI added `document.querySelectorAll()`. Production runtime behavior, weekday schedules, database schema, persistence format, environment variables and deployment topology are unchanged from v0.8.97.
+v0.8.99 adds the Shelly automation action **On for seconds**. The duration is stored in the additive `automation_timed_actions` table. SALTA creates this table automatically during normal database initialization; no manual SQL migration is required.
+
+Existing automation, PostgreSQL and runtime data remains in place. Do not remove Docker volumes during the update. Older configuration backups remain compatible because the new timed-action backup section is optional during import.
 
 ## Legacy HomeKit migration (pre-v0.8.41 pairing only)
 

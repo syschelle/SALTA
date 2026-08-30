@@ -238,6 +238,12 @@ export async function initializeDatabaseSchema(): Promise<void> {
       )
     );
     CREATE INDEX IF NOT EXISTS automation_targets_device_idx ON automation_targets(action_device_id,automation_id);
+    CREATE TABLE IF NOT EXISTS automation_timed_actions (
+      automation_id uuid NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+      position smallint NOT NULL CHECK(position BETWEEN 0 AND 7),
+      seconds integer NOT NULL CHECK(seconds BETWEEN 1 AND 86400),
+      PRIMARY KEY(automation_id,position)
+    );
     CREATE TABLE IF NOT EXISTS automation_system_actions (
       automation_id uuid NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
       position smallint NOT NULL CHECK(position BETWEEN 0 AND 7),
@@ -460,15 +466,24 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
     ...(Array.isArray(row.targetActions) ? row.targetActions : []),
     ...(Array.isArray(row.systemActions) ? row.systemActions : [])
   ];
+  const timedActions = new Map<number, number>((Array.isArray(row.timedActions) ? row.timedActions : []).flatMap(value => {
+    if (!value || typeof value !== "object") return [];
+    const timed = value as Record<string, unknown>;
+    const position = Number(timed.position);
+    const seconds = Number(timed.seconds);
+    return Number.isInteger(position) && Number.isSafeInteger(seconds) && seconds >= 1 && seconds <= 86400 ? [[position, seconds] as [number, number]] : [];
+  }));
   const parsedTargets = rawTargets.flatMap(value => {
     if (!value || typeof value !== "object") return [];
     const target = value as Record<string, unknown>;
-    const action = String(target.action ?? "");
-    if (!target.deviceId || !["turnOn", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature", "climateSummer", "climateWinter"].includes(action)) return [];
-    const numericValue = target.value === null || target.value === undefined ? undefined : Number(target.value);
-    if (action === "setTargetTemperature" && !Number.isFinite(numericValue)) return [];
+    const position = Number(target.position ?? 0);
+    const timedSeconds = timedActions.get(position);
+    const action = timedSeconds !== undefined ? "turnOnForSeconds" : String(target.action ?? "");
+    if (!target.deviceId || !["turnOn", "turnOnForSeconds", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature", "climateSummer", "climateWinter"].includes(action)) return [];
+    const numericValue = timedSeconds ?? (target.value === null || target.value === undefined ? undefined : Number(target.value));
+    if (["setTargetTemperature", "turnOnForSeconds"].includes(action) && !Number.isFinite(numericValue)) return [];
     return [{
-      position: Number(target.position ?? 0),
+      position,
       deviceId: String(target.deviceId),
       action: action as AutomationRule["action"],
       ...(numericValue !== undefined ? { value: numericValue } : {})
@@ -528,6 +543,7 @@ const automationColumns = `a.id,a.name,a.enabled,p.room_id as "roomId",CASE WHEN
   a.action_device_id as "actionDeviceId",a.action,
   COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',x.action_device_id,'action',x.action) ORDER BY x.position) FROM automation_actions x WHERE x.automation_id=a.id),'[]'::jsonb) as "additionalActions",
   COALESCE((SELECT jsonb_agg(jsonb_build_object('position',x.position,'deviceId',x.action_device_id,'action',x.action,'value',x.value) ORDER BY x.position) FROM automation_targets x WHERE x.automation_id=a.id),'[]'::jsonb) as "targetActions",
+  COALESCE((SELECT jsonb_agg(jsonb_build_object('position',x.position,'seconds',x.seconds) ORDER BY x.position) FROM automation_timed_actions x WHERE x.automation_id=a.id),'[]'::jsonb) as "timedActions",
   COALESCE((SELECT jsonb_agg(jsonb_build_object('position',x.position,'deviceId','system:climate-mode','action',x.action) ORDER BY x.position) FROM automation_system_actions x WHERE x.automation_id=a.id),'[]'::jsonb) as "systemActions",
   a.last_triggered_at as "lastTriggeredAt",a.created_at as "createdAt",a.updated_at as "updatedAt"`;
 
@@ -542,6 +558,7 @@ export async function listAutomations(): Promise<AutomationRule[]> {
 }
 
 function legacyAutomationAction(action: AutomationRule["action"]): "turnOn" | "turnOff" | "toggle" {
+  if (action === "turnOnForSeconds") return "turnOn";
   return action === "turnOn" || action === "turnOff" || action === "toggle" ? action : "turnOff";
 }
 
@@ -553,6 +570,7 @@ function canonicalAutomationTargets(input: AutomationInput): AutomationTargetAct
 }
 
 async function writeAutomationTargets(client: PoolClient, automationId: string, input: AutomationInput): Promise<void> {
+  await client.query("DELETE FROM automation_timed_actions WHERE automation_id=$1", [automationId]);
   await client.query("DELETE FROM automation_targets WHERE automation_id=$1", [automationId]);
   await client.query("DELETE FROM automation_system_actions WHERE automation_id=$1", [automationId]);
   for (const [position, target] of canonicalAutomationTargets(input).entries()) {
@@ -563,10 +581,17 @@ async function writeAutomationTargets(client: PoolClient, automationId: string, 
       );
       continue;
     }
+    const storedAction = target.action === "turnOnForSeconds" ? "turnOn" : target.action;
     await client.query(
       `INSERT INTO automation_targets(automation_id,position,action_device_id,action,value) VALUES($1,$2,$3,$4,$5)`,
-      [automationId,position,target.deviceId,target.action,target.action === "setTargetTemperature" ? target.value ?? null : null]
+      [automationId,position,target.deviceId,storedAction,target.action === "setTargetTemperature" ? target.value ?? null : null]
     );
+    if (target.action === "turnOnForSeconds") {
+      await client.query(
+        `INSERT INTO automation_timed_actions(automation_id,position,seconds) VALUES($1,$2,$3)`,
+        [automationId,position,target.value]
+      );
+    }
   }
 
   await client.query("DELETE FROM automation_actions WHERE automation_id=$1", [automationId]);

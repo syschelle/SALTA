@@ -606,7 +606,11 @@ export class ShellyAdapter {
   async command(command: DeviceCommand): Promise<Device> {
     const device = this.registry.get(command.deviceId);
     if (!device || device.source !== "shelly" || !device.host) throw new Error("DEVICE_NOT_FOUND");
-    if (!device.capabilities.includes(command.capability)) throw new Error("CAPABILITY_NOT_SUPPORTED");
+    const timedTurnOn = command.capability === "turnOnForSeconds";
+    if (!timedTurnOn && !device.capabilities.includes(command.capability)) throw new Error("CAPABILITY_NOT_SUPPORTED");
+    if (timedTurnOn && (device.componentKind !== "switch" || !device.capabilities.includes("turnOn"))) throw new Error("CAPABILITY_NOT_SUPPORTED");
+    const timedSeconds = timedTurnOn ? Number(command.value) : undefined;
+    if (timedTurnOn && (!Number.isSafeInteger(timedSeconds!) || timedSeconds! < 1 || timedSeconds! > 86400)) throw new Error("INVALID_TIMER_SECONDS");
 
     const credentials = await getDeviceCredentials(device.id);
     const host = `http://${device.host}`;
@@ -618,6 +622,10 @@ export class ShellyAdapter {
       const params: Record<string, unknown> = { id: componentId };
       if (command.capability === "toggle") {
         method = `${namespace}.Toggle`;
+      } else if (timedTurnOn) {
+        method = "Switch.Set";
+        params.on = true;
+        params.toggle_after = timedSeconds;
       } else if (command.capability === "turnOn" || command.capability === "turnOff") {
         method = `${namespace}.Set`;
         params.on = command.capability === "turnOn";
@@ -649,8 +657,9 @@ export class ShellyAdapter {
       const gain = command.capability === "setBrightness" ? `&brightness=${Number(command.value)}` : "";
       await requestJson(`${host}/light/${componentId}?turn=${turn}${gain}`, credentials.username, credentials.password);
     } else {
-      const turn = command.capability === "turnOn" ? "on" : command.capability === "turnOff" ? "off" : "toggle";
-      await requestJson(`${host}/relay/${componentId}?turn=${turn}`, credentials.username, credentials.password);
+      const turn = timedTurnOn ? "on" : command.capability === "turnOn" ? "on" : command.capability === "turnOff" ? "off" : "toggle";
+      const timer = timedTurnOn ? `&timer=${timedSeconds}` : "";
+      await requestJson(`${host}/relay/${componentId}?turn=${turn}${timer}`, credentials.username, credentials.password);
     }
 
     return this.refresh(device);

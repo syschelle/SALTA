@@ -1,7 +1,7 @@
 import type { Device, DeviceCommand, DeviceEvent, DeviceState } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 
-export type AutomationAction = "turnOn" | "turnOff" | "toggle" | "open" | "close" | "thermostatOff" | "thermostatAuto" | "thermostatManual" | "setTargetTemperature" | "climateSummer" | "climateWinter";
+export type AutomationAction = "turnOn" | "turnOnForSeconds" | "turnOff" | "toggle" | "open" | "close" | "thermostatOff" | "thermostatAuto" | "thermostatManual" | "setTargetTemperature" | "climateSummer" | "climateWinter";
 
 export const CLIMATE_MODE_AUTOMATION_DEVICE_ID = "system:climate-mode";
 
@@ -155,6 +155,7 @@ function booleanState(state: DeviceState, key: string): boolean | undefined {
 }
 
 function actionCommand(target: Pick<AutomationTargetAction, "action" | "value">): { capability: string; value?: string | number } {
+  if (target.action === "turnOnForSeconds") return { capability: "turnOnForSeconds", value: target.value };
   if (target.action === "thermostatOff") return { capability: "setThermostatMode", value: "off" };
   if (target.action === "thermostatAuto") return { capability: "setThermostatMode", value: "auto" };
   if (target.action === "thermostatManual") return { capability: "setThermostatMode", value: "manual" };
@@ -186,6 +187,15 @@ function actionCapabilitySupported(device: Device, target: AutomationTargetActio
       && device.capabilities.includes("setClimateMode");
   }
   const command = actionCommand(target);
+  if (action === "turnOnForSeconds") {
+    const seconds = Number(target.value);
+    return device.source === "shelly"
+      && device.componentKind === "switch"
+      && device.capabilities.includes("turnOn")
+      && Number.isSafeInteger(seconds)
+      && seconds >= 1
+      && seconds <= 86400;
+  }
   if (action === "setTargetTemperature") {
     if (!device.capabilities.includes("setTargetTemperature")) return false;
     const value = Number(target.value);
@@ -248,11 +258,11 @@ function cloneInput(input: AutomationInput): AutomationInput {
       stateKey: condition.stateKey.trim(),
       value: condition.value
     })),
-    actionValue: input.action === "setTargetTemperature" ? Number(input.actionValue) : undefined,
+    actionValue: ["setTargetTemperature", "turnOnForSeconds"].includes(input.action) ? Number(input.actionValue) : undefined,
     additionalActions: (input.additionalActions ?? []).map(target => ({
       deviceId: target.deviceId,
       action: target.action,
-      value: target.action === "setTargetTemperature" ? Number(target.value) : undefined
+      value: ["setTargetTemperature", "turnOnForSeconds"].includes(target.action) ? Number(target.value) : undefined
     }))
   };
 }
@@ -469,7 +479,7 @@ export class AutomationEngine {
         throw new Error("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
       }
       if (climateModeAction(actionInput) && !this.systemActions) throw new Error("AUTOMATION_SYSTEM_ACTION_UNAVAILABLE");
-      if (!actionCapabilitySupported(target, actionInput)) throw new Error(actionInput.action === "setTargetTemperature" ? "AUTOMATION_ACTION_TEMPERATURE_INVALID" : "AUTOMATION_ACTION_UNSUPPORTED");
+      if (!actionCapabilitySupported(target, actionInput)) throw new Error(actionInput.action === "setTargetTemperature" ? "AUTOMATION_ACTION_TEMPERATURE_INVALID" : actionInput.action === "turnOnForSeconds" ? "AUTOMATION_ACTION_TIMER_INVALID" : "AUTOMATION_ACTION_UNSUPPORTED");
     }
 
     const conditions = automationRuleConditions(input);
