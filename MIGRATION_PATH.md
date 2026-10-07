@@ -1,10 +1,12 @@
 # SALTA migration paths
 
-## Current v0.8.99 update
+## Current v0.8.100 update
 
-v0.8.99 adds the Shelly automation action **On for seconds**. The duration is stored in the additive `automation_timed_actions` table. SALTA creates this table automatically during normal database initialization; no manual SQL migration is required.
+v0.8.100 adds the automation trigger option **Closed for 10 seconds** for window and door contact sensors. The delayed trigger is stored through the existing automation trigger state key and therefore requires no new table, no `ALTER TABLE` statement and no manual SQL migration.
 
-Existing automation, PostgreSQL and runtime data remains in place. Do not remove Docker volumes during the update. Older configuration backups remain compatible because the new timed-action backup section is optional during import.
+Existing automations keep their current immediate trigger behavior unless the new 10-second option is explicitly selected. Existing PostgreSQL and runtime data remains in place. Do not remove Docker volumes during the update.
+
+The additive `automation_timed_actions` table introduced in v0.8.99 for Shelly **On for seconds** actions remains unchanged and continues to be created automatically by normal database initialization when required.
 
 ## Legacy HomeKit migration (pre-v0.8.41 pairing only)
 

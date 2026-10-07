@@ -1,11 +1,11 @@
-# SALTA v0.8.99 release manifest
+# SALTA v0.8.100 release manifest
 
 This manifest is intended for post-push verification before tagging the release.
 
 ## Production deployment file
 
 ```text
-docker-compose.image.yml  SHA-256  e78c9d6eea559c979866c794493546e26919ed492f251ebcf1f16f7078ce1460
+docker-compose.image.yml  SHA-256  b6730d27506dad963838bcf19b968a3d520e4a77b6a04ef53ef95ecc3eb1cc70
 ```
 
 Required topology:
@@ -14,12 +14,6 @@ Required topology:
 - PostgreSQL uses Docker's normal bridge network.
 - PostgreSQL is published only on `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`.
 - No custom `networks:` section or `internal: true` network exists in the production Compose file.
-
-## Automation persistence
-
-- `automation_timed_actions` is additive and references `automations(id)` with cascade deletion.
-- Timed Shelly durations are limited to whole seconds from 1 through 86400.
-- Configuration backup/restore includes the new table while accepting older backups without it.
 
 ## Legacy HomeKit migration helper
 

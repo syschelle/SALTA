@@ -100,7 +100,13 @@ export interface AutomationEventTrigger {
   value: number;
 }
 
+export interface AutomationHeldStateTrigger {
+  key: string;
+  seconds: number;
+}
+
 const eventTriggerPrefix = "event:";
+const heldStateTriggerPrefix = "hold:";
 const noOpLogger: AutomationLogger = {
   async write(): Promise<void> {
     // Core automation logic is infrastructure-independent by default.
@@ -147,6 +153,22 @@ export function parseAutomationEventTrigger(value: string): AutomationEventTrigg
   const eventValue = Number(match[2]);
   if (!Number.isSafeInteger(eventValue)) return undefined;
   return { key: match[1], value: eventValue };
+}
+
+export function encodeAutomationHeldStateTrigger(key: string, seconds: number): string {
+  const normalizedKey = key.trim();
+  if (!/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(normalizedKey) || !Number.isSafeInteger(seconds) || seconds < 1 || seconds > 86400) {
+    throw new Error("AUTOMATION_HELD_STATE_TRIGGER_INVALID");
+  }
+  return `${heldStateTriggerPrefix}${normalizedKey}:${seconds}`;
+}
+
+export function parseAutomationHeldStateTrigger(value: string): AutomationHeldStateTrigger | undefined {
+  const match = /^hold:([a-zA-Z][a-zA-Z0-9_-]{0,63}):(\d+)$/.exec(value.trim());
+  if (!match?.[1] || match[2] === undefined) return undefined;
+  const seconds = Number(match[2]);
+  if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > 86400) return undefined;
+  return { key: match[1], seconds };
 }
 
 function booleanState(state: DeviceState, key: string): boolean | undefined {
@@ -368,6 +390,7 @@ export class AutomationEngine {
   private readonly snapshots = new Map<string, DeviceState>();
   private readonly executionQueues = new Map<string, Promise<void>>();
   private readonly timeTriggerKeys = new Map<string, string>();
+  private readonly heldTriggerTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly schedulerNow: () => Date;
   private readonly schedulerIntervalMs: number;
   private readonly schedulerTimeZone: string;
@@ -388,6 +411,9 @@ export class AutomationEngine {
 
   private readonly onDeviceRemoved = (device: Device): void => {
     this.snapshots.delete(device.id);
+    for (const rule of this.rules) {
+      if (automationRuleTriggers(rule).some(trigger => trigger.deviceId === device.id)) this.clearHeldTriggerTimersForRule(rule.id);
+    }
     this.rules = this.rules.flatMap(rule => {
       if (rule.triggerDeviceId === device.id || rule.conditionDeviceId === device.id || rule.additionalConditions?.some(condition => condition.deviceId === device.id) || rule.actionDeviceId === device.id) return [];
       const additionalTriggers = (rule.additionalTriggers ?? []).filter(trigger => trigger.deviceId !== device.id);
@@ -431,6 +457,8 @@ export class AutomationEngine {
     if (this.schedulerTimer) clearInterval(this.schedulerTimer);
     this.schedulerTimer = undefined;
     this.timeTriggerKeys.clear();
+    for (const timer of this.heldTriggerTimers.values()) clearTimeout(timer);
+    this.heldTriggerTimers.clear();
     this.executionQueues.clear();
     this.started = false;
   }
@@ -462,8 +490,13 @@ export class AutomationEngine {
       const trigger = this.registry.get(triggerInput.deviceId);
       if (!trigger) throw new Error("AUTOMATION_TRIGGER_DEVICE_NOT_FOUND");
       const eventTrigger = parseAutomationEventTrigger(triggerInput.stateKey);
+      const heldTrigger = parseAutomationHeldStateTrigger(triggerInput.stateKey);
       if (eventTrigger) {
         if (!eventStateKeys(trigger).includes(eventTrigger.key)) throw new Error("AUTOMATION_TRIGGER_EVENT_UNSUPPORTED");
+      } else if (heldTrigger) {
+        if (trigger.type !== "contactSensor" || heldTrigger.key !== "open" || triggerInput.value !== false || heldTrigger.seconds !== 10 || !booleanStateKeys(trigger).includes(heldTrigger.key)) {
+          throw new Error("AUTOMATION_TRIGGER_STATE_UNSUPPORTED");
+        }
       } else if (!booleanStateKeys(trigger).includes(triggerInput.stateKey)) {
         throw new Error("AUTOMATION_TRIGGER_STATE_UNSUPPORTED");
       }
@@ -523,6 +556,7 @@ export class AutomationEngine {
     this.assertValidInput(normalized, id);
     const updated = await this.store.update(id, normalized);
     if (!updated) throw new Error("AUTOMATION_NOT_FOUND");
+    this.clearHeldTriggerTimersForRule(id);
     this.rules = this.rules.map(rule => rule.id === id ? updated : rule);
     return updated;
   }
@@ -559,8 +593,51 @@ export class AutomationEngine {
   async remove(id: string): Promise<void> {
     if (!await this.store.remove(id)) throw new Error("AUTOMATION_NOT_FOUND");
     this.rules = this.rules.filter(rule => rule.id !== id);
+    this.clearHeldTriggerTimersForRule(id);
     this.executionQueues.delete(id);
     this.timeTriggerKeys.delete(id);
+  }
+
+  private clearHeldTriggerTimersForRule(ruleId: string): void {
+    const prefix = `${ruleId}\u0000`;
+    for (const [key, timer] of this.heldTriggerTimers) {
+      if (!key.startsWith(prefix)) continue;
+      clearTimeout(timer);
+      this.heldTriggerTimers.delete(key);
+    }
+  }
+
+  private heldTriggerTimerKey(ruleId: string, trigger: AutomationTrigger): string {
+    return `${ruleId}\u0000${triggerIdentity(trigger)}`;
+  }
+
+  private cancelHeldTrigger(ruleId: string, trigger: AutomationTrigger): void {
+    const key = this.heldTriggerTimerKey(ruleId, trigger);
+    const timer = this.heldTriggerTimers.get(key);
+    if (!timer) return;
+    clearTimeout(timer);
+    this.heldTriggerTimers.delete(key);
+  }
+
+  private scheduleHeldTrigger(rule: AutomationRule, trigger: AutomationTrigger, held: AutomationHeldStateTrigger): void {
+    const key = this.heldTriggerTimerKey(rule.id, trigger);
+    if (this.heldTriggerTimers.has(key)) return;
+    const timer = setTimeout(() => {
+      this.heldTriggerTimers.delete(key);
+      const currentRule = this.rules.find(item => item.id === rule.id);
+      if (!currentRule?.enabled || !automationRuleTriggers(currentRule).some(item => triggerIdentity(item) === triggerIdentity(trigger))) return;
+      const device = this.registry.get(trigger.deviceId);
+      if (!device?.reachable || booleanState(device.state, held.key) !== trigger.value) return;
+      this.queueRule(currentRule, {
+        triggerType: "state-held",
+        triggerDeviceId: trigger.deviceId,
+        triggerStateKey: held.key,
+        triggerValue: trigger.value,
+        triggerHeldSeconds: held.seconds
+      });
+    }, held.seconds * 1000);
+    timer.unref?.();
+    this.heldTriggerTimers.set(key, timer);
   }
 
   private executionDayAllows(rule: AutomationRule): boolean {
@@ -695,8 +772,18 @@ export class AutomationEngine {
       if (!rule.enabled) continue;
       for (const trigger of automationRuleTriggers(rule)) {
         if (trigger.deviceId !== device.id || parseAutomationEventTrigger(trigger.stateKey)) continue;
-        const before = booleanState(previous, trigger.stateKey);
-        const current = booleanState(device.state, trigger.stateKey);
+        const heldTrigger = parseAutomationHeldStateTrigger(trigger.stateKey);
+        const stateKey = heldTrigger?.key ?? trigger.stateKey;
+        const before = booleanState(previous, stateKey);
+        const current = booleanState(device.state, stateKey);
+        if (heldTrigger) {
+          if (current !== trigger.value) {
+            this.cancelHeldTrigger(rule.id, trigger);
+            continue;
+          }
+          if (current !== undefined && before !== current) this.scheduleHeldTrigger(rule, trigger, heldTrigger);
+          continue;
+        }
         if (current === undefined || current !== trigger.value || before === current) continue;
         this.queueRule(rule, {
           triggerType: "state",

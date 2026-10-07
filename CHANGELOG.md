@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.100
+
+- Added a contact-sensor automation trigger option **Closed for 10 seconds** for window and door contacts.
+- The timer starts only on the transition to the closed state and fires only if the same contact remains closed for the full 10 seconds.
+- Reopening the contact before the 10-second interval expires cancels the pending trigger, preventing short closures or contact bounce from executing the automation.
+- The delayed trigger is restricted to `contactSensor` devices using the canonical `open` state and the closed (`false`) value.
+- Existing immediate **Open** and **Closed** triggers remain unchanged.
+- The delayed state is persisted through the existing automation trigger state key, so no database schema change, `ALTER TABLE`, manual migration or new dependency is required.
+- Added automation-engine, frontend and release-validator regression coverage for the 10-second contact trigger and its cancellation behavior.
+- Carries forward the v0.8.99 Shelly **On for seconds** action and the v0.8.98/v0.8.97/v0.8.96 automation test and scheduling improvements unchanged.
+- No new mandatory environment variable or deployment-topology change is required.
+
 ## v0.8.99
 
 - Added the Shelly automation action **On for seconds** with a freely configurable whole-number duration from 1 to 86400 seconds.

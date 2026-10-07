@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { AutomationEngine, encodeAutomationEventTrigger, localAutomationTime, type AutomationInput, type AutomationRule, type AutomationStore } from "./automations.js";
+import { AutomationEngine, encodeAutomationEventTrigger, encodeAutomationHeldStateTrigger, localAutomationTime, type AutomationInput, type AutomationRule, type AutomationStore } from "./automations.js";
 import type { Device, DeviceState } from "./types.js";
 
 function device(id: string, state: DeviceState, capabilities: string[] = []): Device {
@@ -19,6 +19,14 @@ function device(id: string, state: DeviceState, capabilities: string[] = []): De
     passwordConfigured: false,
     lastSeen: new Date().toISOString(),
     lastEvent: new Date().toISOString()
+  };
+}
+
+function contactDevice(id: string, open: boolean): Device {
+  return {
+    ...device(id, { open }),
+    source: "phoscon",
+    type: "contactSensor"
   };
 }
 
@@ -86,6 +94,82 @@ describe("AutomationEngine", () => {
     registry.publish(device("motion", { motion: true }));
     await tick();
     expect(command).toHaveBeenCalledTimes(1);
+    engine.stop();
+  });
+
+  it("triggers a contact automation only after the contact stays closed for 10 seconds", async () => {
+    vi.useFakeTimers();
+    try {
+      const registry = new TestRegistry();
+      registry.devices.set("window", contactDevice("window", true));
+      registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+      const command = vi.fn(async () => registry.get("target")!);
+      const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+      await engine.start();
+      await engine.create({
+        name: "Window closed", enabled: true,
+        triggerDeviceId: "window", triggerStateKey: encodeAutomationHeldStateTrigger("open", 10), triggerValue: false,
+        actionDeviceId: "target", action: "turnOn"
+      });
+
+      registry.publish(contactDevice("window", false));
+      await vi.advanceTimersByTimeAsync(9_999);
+      expect(command).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      await Promise.resolve();
+      expect(command).toHaveBeenCalledTimes(1);
+      expect(command).toHaveBeenCalledWith({ deviceId: "target", capability: "turnOn", source: "automation" });
+      engine.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cancels the 10-second contact trigger when the window opens again", async () => {
+    vi.useFakeTimers();
+    try {
+      const registry = new TestRegistry();
+      registry.devices.set("window", contactDevice("window", true));
+      registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+      const command = vi.fn(async () => registry.get("target")!);
+      const engine = new AutomationEngine(registry as never, { command }, memoryStore());
+      await engine.start();
+      await engine.create({
+        name: "Window closed", enabled: true,
+        triggerDeviceId: "window", triggerStateKey: encodeAutomationHeldStateTrigger("open", 10), triggerValue: false,
+        actionDeviceId: "target", action: "turnOn"
+      });
+
+      registry.publish(contactDevice("window", false));
+      await vi.advanceTimersByTimeAsync(5_000);
+      registry.publish(contactDevice("window", true));
+      await vi.advanceTimersByTimeAsync(10_000);
+      await Promise.resolve();
+      expect(command).not.toHaveBeenCalled();
+      engine.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restricts held-state triggers to a closed contact for exactly 10 seconds", async () => {
+    const registry = new TestRegistry();
+    registry.devices.set("window", contactDevice("window", true));
+    registry.devices.set("motion", device("motion", { motion: false }));
+    registry.devices.set("target", device("target", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const engine = new AutomationEngine(registry as never, { command: vi.fn(async commandInput => registry.get(commandInput.deviceId)!) }, memoryStore());
+    await engine.start();
+
+    await expect(engine.create({
+      name: "Wrong duration", enabled: true, triggerDeviceId: "window", triggerStateKey: encodeAutomationHeldStateTrigger("open", 5), triggerValue: false, actionDeviceId: "target", action: "turnOn"
+    })).rejects.toThrow("AUTOMATION_TRIGGER_STATE_UNSUPPORTED");
+    await expect(engine.create({
+      name: "Wrong state", enabled: true, triggerDeviceId: "window", triggerStateKey: encodeAutomationHeldStateTrigger("open", 10), triggerValue: true, actionDeviceId: "target", action: "turnOn"
+    })).rejects.toThrow("AUTOMATION_TRIGGER_STATE_UNSUPPORTED");
+    await expect(engine.create({
+      name: "Wrong device", enabled: true, triggerDeviceId: "motion", triggerStateKey: encodeAutomationHeldStateTrigger("motion", 10), triggerValue: false, actionDeviceId: "target", action: "turnOn"
+    })).rejects.toThrow("AUTOMATION_TRIGGER_STATE_UNSUPPORTED");
     engine.stop();
   });
 

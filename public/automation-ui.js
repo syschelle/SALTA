@@ -60,6 +60,7 @@ const automationElements={
 const automationStatePriority=['on','vacationActive','present','anyHome','nobodyHome','motion','open','water','fire','alarm','vibration','dark','daylight','tampered','lowBattery'];
 const automationActionLabels={turnOn:'An',turnOnForSeconds:'An für Sekunden',turnOff:'Aus',toggle:'Toggle',open:'Öffnen',close:'Schließen',thermostatOff:'Thermostat Aus',thermostatAuto:'Thermostat Automatik',thermostatManual:'Thermostat Manuell',setTargetTemperature:'Solltemperatur setzen',climateSummer:'Sommermodus',climateWinter:'Wintermodus'};
 const automationButtonEventMarker='event:buttonEvent';
+const automationHeldContactClosed10Value='false:10';
 const automationCommonButtonEvents=[1000,1001,1002,1003,1004,1005,1006,1007,1010];
 const automationModelButtonEvents={
   'lumi.remote.b1acn01':[1002,1004,1001,1003],
@@ -79,9 +80,10 @@ function automationBooleanStateKeys(device){
 function automationEventStateKeys(device){return device&&(device.type==='button'||typeof device.state?.buttonEvent==='number'||device.adapterData?.buttonEventProtocol==='deconz')?['buttonEvent']:[]}
 function automationStateLabel(key){return key===automationButtonEventMarker?'Tasterereignis':key==='winterActive'?'Heizmodus':key==='vacationActive'?'Urlaubsmodus':labels?.[key]||key}
 function automationValueLabel(key,value){
+  if(key==='open'&&value===automationHeldContactClosed10Value)return 'Geschlossen für 10 Sekunden';
   const states={on:['An','Aus'],motion:['Bewegung erkannt','Keine Bewegung'],open:['Offen','Geschlossen'],water:['Wasser erkannt','Trocken'],fire:['Alarm','Normal'],alarm:['Alarm','Normal'],vibration:['Erkannt','Ruhe'],lowBattery:['Niedrig','OK'],tampered:['Erkannt','OK'],dark:['Dunkel','Hell'],daylight:['Tageslicht','Kein Tageslicht'],present:['Anwesend','Abwesend'],anyHome:['Jemand zuhause','Niemand zuhause'],nobodyHome:['Niemand zuhause','Jemand zuhause'],winterActive:['Wintermodus','Sommermodus'],vacationActive:['Aktiv','Inaktiv']};
   const pair=states[key]||['Aktiv','Inaktiv'];
-  return value?pair[0]:pair[1];
+  return value===true||value==='true'?pair[0]:pair[1];
 }
 function automationButtonEventLabel(value){
   const numeric=Number(value);if(!Number.isFinite(numeric))return String(value);
@@ -99,6 +101,9 @@ function automationButtonEventValues(device){
   return values;
 }
 function automationParseStoredEventTrigger(value){const match=/^event:buttonEvent:(-?\d+)$/.exec(String(value||''));if(!match)return null;const eventValue=Number(match[1]);return Number.isSafeInteger(eventValue)?{key:'buttonEvent',value:eventValue}:null}
+function automationParseStoredHeldTrigger(value){const match=/^hold:([a-zA-Z][a-zA-Z0-9_-]{0,63}):(\d+)$/.exec(String(value||''));if(!match)return null;const seconds=Number(match[2]);return Number.isSafeInteger(seconds)&&seconds>=1&&seconds<=86400?{key:match[1],seconds}:null}
+function automationTriggerBooleanValue(value){return value===true||value==='true'}
+function automationStoredTriggerStateKey(deviceId,stateKey,value){const device=automationDeviceById(deviceId);return device?.type==='contactSensor'&&stateKey==='open'&&value===automationHeldContactClosed10Value?'hold:open:10':stateKey}
 function automationAdditionalEventValues(trigger){
   const device=automationDeviceById(trigger?.deviceId);const allowed=automationButtonEventValues(device);
   const raw=Array.isArray(trigger?.eventValues)?trigger.eventValues:[trigger?.value];
@@ -157,8 +162,8 @@ function automationAllActionDeviceIds(excludedId=null){return new Set([automatio
 function automationCurrentTriggerDefinitions(){
   if(automationTimeTriggerActive())return [];
   const definitions=[];const primaryDeviceId=automationElements.triggerDevice?.value;const primaryStateKey=automationElements.triggerState?.value;
-  if(primaryDeviceId&&primaryStateKey)definitions.push({deviceId:primaryDeviceId,stateKey:primaryStateKey,value:primaryStateKey===automationButtonEventMarker?true:automationElements.triggerValue?.value==='true'});
-  for(const trigger of automationAdditionalTriggers)definitions.push({deviceId:trigger.deviceId,stateKey:trigger.stateKey,value:trigger.value===true||trigger.value==='true'});
+  if(primaryDeviceId&&primaryStateKey){const rawValue=automationElements.triggerValue?.value;definitions.push({deviceId:primaryDeviceId,stateKey:primaryStateKey===automationButtonEventMarker?primaryStateKey:automationStoredTriggerStateKey(primaryDeviceId,primaryStateKey,rawValue),value:primaryStateKey===automationButtonEventMarker?true:automationTriggerBooleanValue(rawValue)})}
+  for(const trigger of automationAdditionalTriggers)definitions.push({deviceId:trigger.deviceId,stateKey:automationStoredTriggerStateKey(trigger.deviceId,trigger.stateKey,trigger.value),value:automationTriggerBooleanValue(trigger.value)});
   return definitions;
 }
 function automationVirtualSelfResetAction(deviceId){
@@ -200,8 +205,9 @@ function fillAutomationValueSelect(select,stateKey,selected,deviceId=automationE
     const device=automationDeviceById(deviceId);const values=automationButtonEventValues(device);const numeric=Number(selected);const current=Number.isSafeInteger(numeric)&&values.includes(numeric)?numeric:values[0];
     select.innerHTML=values.map(value=>`<option value="${value}"${value===current?' selected':''}>${escapeHtml(automationButtonEventLabel(value))}</option>`).join('');return;
   }
-  const current=selected===undefined?true:selected===true||selected==='true';
-  select.innerHTML=[true,false].map(value=>`<option value="${value}"${value===current?' selected':''}>${escapeHtml(automationValueLabel(stateKey,value))}</option>`).join('');
+  const device=automationDeviceById(deviceId);const options=[true,false];if(device?.type==='contactSensor'&&stateKey==='open')options.push(automationHeldContactClosed10Value);
+  const current=selected===automationHeldContactClosed10Value?automationHeldContactClosed10Value:selected===undefined?true:automationTriggerBooleanValue(selected);
+  select.innerHTML=options.map(value=>`<option value="${value}"${value===current?' selected':''}>${escapeHtml(automationValueLabel(stateKey,value))}</option>`).join('');
 }
 function automationThermostatRange(device){
   const metadata=device?.adapterData||{};const min=Number(metadata.targetTemperatureMin??4.5);const max=Number(metadata.targetTemperatureMax??30);const step=Number(metadata.targetTemperatureStep??0.5);
@@ -266,12 +272,13 @@ function updateAutomationTriggerMode(values={}){
 function updateAutomationFormOptions(values={}){
   updateAutomationTriggerMode(values);
   const storedEvent=automationTimeTriggerActive()?null:automationParseStoredEventTrigger(values.triggerStateKey);
+  const storedHeld=automationTimeTriggerActive()?null:automationParseStoredHeldTrigger(values.triggerStateKey);
   const triggerSelected=values.triggerDeviceId??automationElements.triggerDevice.value;
   fillAutomationSelect(automationElements.triggerDevice,automationTriggerDevices(),triggerSelected,'Triggergerät wählen',automationElements.triggerSearch?.value,automationElements.triggerCount);
   const triggerId=automationElements.triggerDevice.value||triggerSelected;
-  const triggerState=storedEvent?automationButtonEventMarker:(values.triggerStateKey??automationElements.triggerState.value);
+  const triggerState=storedEvent?automationButtonEventMarker:(storedHeld?.key??values.triggerStateKey??automationElements.triggerState.value);
   fillAutomationStateSelect(automationElements.triggerState,triggerId,triggerState,true);
-  const triggerValue=storedEvent?.value??values.triggerValue??automationElements.triggerValue.value;
+  const triggerValue=storedEvent?.value??(storedHeld?.seconds===10&&values.triggerValue===false?automationHeldContactClosed10Value:values.triggerValue??automationElements.triggerValue.value);
   fillAutomationValueSelect(automationElements.triggerValue,automationElements.triggerState.value,triggerValue,triggerId);
   if(automationElements.triggerState.value===automationButtonEventMarker&&!automationPrimaryEventValues.length)automationSetPrimaryEventValues([Number(triggerValue)]);
   renderAutomationPrimaryEventPicker();
@@ -295,9 +302,9 @@ function updateAutomationFormOptions(values={}){
   updateAutomationTriggerMode(values);
 }
 function automationStoredAdditionalTrigger(trigger){
-  const storedEvent=automationParseStoredEventTrigger(trigger?.stateKey);
+  const storedEvent=automationParseStoredEventTrigger(trigger?.stateKey);const storedHeld=automationParseStoredHeldTrigger(trigger?.stateKey);
   const eventValues=storedEvent?[storedEvent.value]:[];
-  return {id:++automationAdditionalTriggerSequence,deviceId:String(trigger?.deviceId||''),stateKey:storedEvent?automationButtonEventMarker:String(trigger?.stateKey||''),value:storedEvent?.value??trigger?.value??true,eventValues,query:'',expanded:false};
+  return {id:++automationAdditionalTriggerSequence,deviceId:String(trigger?.deviceId||''),stateKey:storedEvent?automationButtonEventMarker:storedHeld?.key??String(trigger?.stateKey||''),value:storedEvent?.value??(storedHeld?.seconds===10&&trigger?.value===false?automationHeldContactClosed10Value:trigger?.value??true),eventValues,query:'',expanded:false};
 }
 function automationStoredAdditionalTriggers(triggers){
   const grouped=[];const eventGroups=new Map();
@@ -315,7 +322,7 @@ function automationStoredAdditionalTriggers(triggers){
 function automationAdditionalTriggerSummary(trigger){
   const device=automationDeviceById(trigger.deviceId);if(!device)return 'Auslöser noch nicht vollständig';
   if(trigger.stateKey===automationButtonEventMarker){const values=automationAdditionalEventValues(trigger);return values.length===1?`${device.name} · ${automationButtonEventLabel(values[0])}`:`${device.name} · ${values.length} Ereignisse`}
-  return `${device.name} · ${automationStateLabel(trigger.stateKey)} = ${automationValueLabel(trigger.stateKey,trigger.value===true||trigger.value==='true')}`;
+  return `${device.name} · ${automationStateLabel(trigger.stateKey)} = ${automationValueLabel(trigger.stateKey,trigger.value)}`;
 }
 function refreshAutomationAdditionalTriggerSummary(trigger){const summary=document.getElementById(`automationExtraSummary-${trigger.id}`);if(summary)summary.textContent=automationAdditionalTriggerSummary(trigger)}
 function renderAutomationAdditionalEventPicker(trigger){
@@ -343,7 +350,7 @@ function renderAutomationAdditionalTriggers(){
     const stateSelect=document.getElementById(`automationExtraState-${trigger.id}`);const valueSelect=document.getElementById(`automationExtraValue-${trigger.id}`);
     fillAutomationStateSelect(stateSelect,trigger.deviceId,trigger.stateKey,true);trigger.stateKey=stateSelect.value;
     fillAutomationValueSelect(valueSelect,trigger.stateKey,trigger.value,trigger.deviceId);
-    if(trigger.stateKey===automationButtonEventMarker){trigger.eventValues=automationAdditionalEventValues(trigger);trigger.value=trigger.eventValues[0]}else{trigger.eventValues=[];trigger.value=valueSelect.value==='true'}
+    if(trigger.stateKey===automationButtonEventMarker){trigger.eventValues=automationAdditionalEventValues(trigger);trigger.value=trigger.eventValues[0]}else{trigger.eventValues=[];trigger.value=valueSelect.value===automationHeldContactClosed10Value?automationHeldContactClosed10Value:valueSelect.value==='true'}
     renderAutomationAdditionalEventPicker(trigger);
   }
   refreshAutomationAddTriggerAvailability();
@@ -360,8 +367,8 @@ function toggleAutomationAdditionalTrigger(id){const trigger=automationAdditiona
 function searchAutomationAdditionalTrigger(id,query){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.query=query;const select=document.getElementById(`automationExtraDevice-${id}`);const count=document.getElementById(`automationExtraCount-${id}`);const actionIds=automationAllActionDeviceIds();const candidates=automationTriggerDevices().filter(device=>!actionIds.has(device.id)||device.id===trigger.deviceId);if(select)fillAutomationSelect(select,candidates,trigger.deviceId,'Triggergerät wählen',query,count)}
 function changeAutomationAdditionalTriggerDevice(id,deviceId){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.deviceId=deviceId;trigger.query='';const device=automationDeviceById(deviceId);trigger.stateKey=automationBooleanStateKeys(device)[0]||(automationEventStateKeys(device).length?automationButtonEventMarker:'');trigger.value=trigger.stateKey===automationButtonEventMarker?(automationButtonEventValues(device)[0]??1000):true;trigger.eventValues=trigger.stateKey===automationButtonEventMarker?[trigger.value]:[];updateAutomationFormOptions()}
 function changeAutomationAdditionalTriggerState(id,stateKey){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.stateKey=stateKey;const device=automationDeviceById(trigger.deviceId);trigger.value=stateKey===automationButtonEventMarker?(automationButtonEventValues(device)[0]??1000):true;trigger.eventValues=stateKey===automationButtonEventMarker?[trigger.value]:[];renderAutomationAdditionalTriggers()}
-function changeAutomationAdditionalTriggerValue(id,value){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.value=trigger.stateKey===automationButtonEventMarker?Number(value):value==='true';if(trigger.stateKey===automationButtonEventMarker)trigger.eventValues=[trigger.value];renderAutomationAdditionalTriggers()}
-function automationAdditionalTriggerPayload(){return automationAdditionalTriggers.flatMap(trigger=>trigger.stateKey===automationButtonEventMarker?automationAdditionalEventValues(trigger).map(value=>({deviceId:trigger.deviceId,stateKey:`event:buttonEvent:${value}`,value:true})):[{deviceId:trigger.deviceId,stateKey:trigger.stateKey,value:trigger.value===true||trigger.value==='true'}])}
+function changeAutomationAdditionalTriggerValue(id,value){const trigger=automationAdditionalTriggers.find(item=>item.id===id);if(!trigger)return;trigger.value=trigger.stateKey===automationButtonEventMarker?Number(value):value===automationHeldContactClosed10Value?automationHeldContactClosed10Value:value==='true';if(trigger.stateKey===automationButtonEventMarker)trigger.eventValues=[trigger.value];renderAutomationAdditionalTriggers()}
+function automationAdditionalTriggerPayload(){return automationAdditionalTriggers.flatMap(trigger=>trigger.stateKey===automationButtonEventMarker?automationAdditionalEventValues(trigger).map(value=>({deviceId:trigger.deviceId,stateKey:`event:buttonEvent:${value}`,value:true})):[{deviceId:trigger.deviceId,stateKey:automationStoredTriggerStateKey(trigger.deviceId,trigger.stateKey,trigger.value),value:automationTriggerBooleanValue(trigger.value)}])}
 function automationStoredAdditionalConditions(conditions){return (conditions||[]).map(condition=>({id:++automationAdditionalConditionSequence,deviceId:String(condition?.deviceId||''),stateKey:String(condition?.stateKey||''),value:condition?.value===true,query:'',expanded:false}))}
 function automationAdditionalConditionSummary(condition){const device=automationDeviceById(condition.deviceId);if(!device)return 'Bedingung noch nicht vollständig';return automationIsClimateModeDevice(device)?`Heizmodus = ${automationValueLabel(condition.stateKey,condition.value)}`:automationIsVacationModeDevice(device)?`Urlaubsmodus = ${automationValueLabel(condition.stateKey,condition.value)}`:`${device.name} · ${automationStateLabel(condition.stateKey)} = ${automationValueLabel(condition.stateKey,condition.value)}`}
 function refreshAutomationAddConditionAvailability(){if(!automationElements.addCondition)return;const enabled=automationElements.conditionEnabled?.checked;automationElements.addCondition.hidden=!enabled||automationAdditionalConditions.length>=7;automationElements.addCondition.disabled=!enabled||automationAdditionalConditions.length>=7||automationConditionDevices().filter(device=>!automationAllTriggerDeviceIds().has(device.id)).length===0}
@@ -456,16 +463,16 @@ function automationTriggerSummaryItems(rule){
   const definitions=[{deviceId:rule.triggerDeviceId,stateKey:rule.triggerStateKey,value:rule.triggerValue},...(rule.additionalTriggers||[])];
   const groups=[];const eventGroups=new Map();
   for(const definition of definitions){
-    const device=automationDeviceById(definition.deviceId);const name=device?.name||'Unbekannt';const event=automationParseStoredEventTrigger(definition.stateKey);
+    const device=automationDeviceById(definition.deviceId);const name=device?.name||'Unbekannt';const event=automationParseStoredEventTrigger(definition.stateKey);const held=automationParseStoredHeldTrigger(definition.stateKey);
     if(event){
       const key=String(definition.deviceId||'');let group=eventGroups.get(key);
       if(!group){group={kind:'event',name,values:[]};eventGroups.set(key,group);groups.push(group)}
       if(!group.values.includes(event.value))group.values.push(event.value);
       continue;
     }
-    groups.push({kind:'state',name,stateKey:definition.stateKey,value:definition.value});
+    groups.push({kind:'state',name,stateKey:held?.key??definition.stateKey,value:held?.seconds===10&&definition.value===false?automationHeldContactClosed10Value:definition.value});
   }
-  return groups.map(group=>group.kind==='event'?`${group.name} · ${group.values.map(automationButtonEventLabel).join(' / ')}`:`${group.name} · ${automationStateLabel(group.stateKey)} = ${automationValueLabel(group.stateKey,group.value===true||group.value==='true')}`);
+  return groups.map(group=>group.kind==='event'?`${group.name} · ${group.values.map(automationButtonEventLabel).join(' / ')}`:`${group.name} · ${automationStateLabel(group.stateKey)} = ${automationValueLabel(group.stateKey,group.value)}`);
 }
 function automationActionSummaryItems(rule){return [{deviceId:rule.actionDeviceId,action:rule.action,value:rule.actionValue},...(rule.additionalActions||[])].map(target=>{const device=automationDeviceById(target.deviceId);const valueLabel=automationActionValueLabel(target);return `${device?.name||'Unbekannt'} → ${automationActionLabels[target.action]||target.action}${valueLabel?` · ${valueLabel}`:''}`})}
 function automationConditionSummaryItems(rule){
@@ -497,7 +504,7 @@ function automationPayload(){
   const useCondition=automationElements.conditionEnabled.checked;const timeTrigger=automationTimeTriggerActive();const eventTrigger=!timeTrigger&&automationElements.triggerState.value===automationButtonEventMarker;
   const eventValues=eventTrigger?(automationPrimaryEventValues.length?automationPrimaryEventValues:[Number(automationElements.triggerValue.value)]):[];
   const eventValue=eventValues[0];const sameDeviceEventTriggers=eventValues.slice(1).map(value=>({deviceId:automationElements.triggerDevice.value,stateKey:`event:buttonEvent:${value}`,value:true}));
-  return {name:automationElements.name.value.trim(),enabled:automationElements.enabled.checked,roomId:automationElements.room?.value||null,executionDays:automationElements.scheduleEnabled.checked?automationSelectedExecutionDays():automationAllExecutionDays,triggerType:timeTrigger?'time':'device',...(timeTrigger?{triggerTime:automationElements.triggerTime.value}:{triggerDeviceId:automationElements.triggerDevice.value,triggerStateKey:eventTrigger?`event:buttonEvent:${eventValue}`:automationElements.triggerState.value,triggerValue:eventTrigger?true:automationElements.triggerValue.value==='true'}),additionalTriggers:timeTrigger?[]:[...sameDeviceEventTriggers,...automationAdditionalTriggerPayload()],conditionDeviceId:useCondition?automationElements.conditionDevice.value:null,conditionStateKey:useCondition?automationElements.conditionState.value:null,conditionValue:useCondition?automationElements.conditionValue.value==='true':null,additionalConditions:useCondition?automationAdditionalConditionPayload():[],actionDeviceId:automationElements.actionDevice.value,action:automationElements.action.value,...(automationElements.action.value==='setTargetTemperature'?{actionValue:automationNormalizeTemperature(automationDeviceById(automationElements.actionDevice.value),automationElements.actionValue.value)}:automationElements.action.value==='turnOnForSeconds'?{actionValue:automationNormalizeSeconds(automationElements.actionValue.value)}:{}),additionalActions:automationAdditionalActionPayload()};
+  return {name:automationElements.name.value.trim(),enabled:automationElements.enabled.checked,roomId:automationElements.room?.value||null,executionDays:automationElements.scheduleEnabled.checked?automationSelectedExecutionDays():automationAllExecutionDays,triggerType:timeTrigger?'time':'device',...(timeTrigger?{triggerTime:automationElements.triggerTime.value}:{triggerDeviceId:automationElements.triggerDevice.value,triggerStateKey:eventTrigger?`event:buttonEvent:${eventValue}`:automationStoredTriggerStateKey(automationElements.triggerDevice.value,automationElements.triggerState.value,automationElements.triggerValue.value),triggerValue:eventTrigger?true:automationTriggerBooleanValue(automationElements.triggerValue.value)}),additionalTriggers:timeTrigger?[]:[...sameDeviceEventTriggers,...automationAdditionalTriggerPayload()],conditionDeviceId:useCondition?automationElements.conditionDevice.value:null,conditionStateKey:useCondition?automationElements.conditionState.value:null,conditionValue:useCondition?automationElements.conditionValue.value==='true':null,additionalConditions:useCondition?automationAdditionalConditionPayload():[],actionDeviceId:automationElements.actionDevice.value,action:automationElements.action.value,...(automationElements.action.value==='setTargetTemperature'?{actionValue:automationNormalizeTemperature(automationDeviceById(automationElements.actionDevice.value),automationElements.actionValue.value)}:automationElements.action.value==='turnOnForSeconds'?{actionValue:automationNormalizeSeconds(automationElements.actionValue.value)}:{}),additionalActions:automationAdditionalActionPayload()};
 }
 
 function friendlyAutomationError(error){const messages={AUTOMATION_ROOM_NOT_FOUND:'Der ausgewählte Raum existiert nicht mehr.',AUTOMATION_CYCLE_NOT_ALLOWED:'Diese Regel würde einen Schaltkreis zwischen Automationen erzeugen. Zyklische Regeln sind nicht erlaubt.',AUTOMATION_TRIGGER_ACTION_SAME_DEVICE:'Trigger- und Zielgerät müssen unterschiedlich sein. Ausnahme: Ein virtueller Schalter darf sich mit An → Aus bzw. Aus → An selbst zurücksetzen.',AUTOMATION_CONDITION_TRIGGER_SAME_DEVICE:'Das Bedingungsgerät muss sich vom Triggergerät unterscheiden.',AUTOMATION_TRIGGER_STATE_UNSUPPORTED:'Der ausgewählte Triggerzustand ist für dieses Gerät nicht verfügbar.',AUTOMATION_TRIGGER_EVENT_UNSUPPORTED:'Das ausgewählte Tasterereignis ist für dieses Gerät nicht verfügbar.',AUTOMATION_TRIGGER_LIMIT:'Maximal acht ODER-Auslöser sind pro Automation möglich.',AUTOMATION_TRIGGER_DUPLICATE:'Derselbe Auslöser ist mehrfach eingetragen.',AUTOMATION_TRIGGER_TIME_INVALID:'Bitte eine gültige Uhrzeit im Format HH:MM auswählen.',AUTOMATION_EXECUTION_DAYS_REQUIRED:'Bitte mindestens einen Ausführungstag auswählen.',AUTOMATION_TIME_TRIGGER_OR_NOT_SUPPORTED:'Ein Uhrzeittrigger kann in dieser Version nicht mit zusätzlichen ODER-Gerätetriggern kombiniert werden.',AUTOMATION_CONDITION_STATE_UNSUPPORTED:'Der ausgewählte Bedingungszustand ist für dieses Gerät nicht verfügbar.',AUTOMATION_CONDITION_LIMIT:'Maximal acht UND-Bedingungen sind pro Automation möglich.',AUTOMATION_CONDITION_DUPLICATE:'Dieselbe UND-Bedingung ist mehrfach eingetragen.',AUTOMATION_ACTION_LIMIT:'Maximal acht Ziele sind pro Automation möglich.',AUTOMATION_ACTION_DUPLICATE_DEVICE:'Jedes Ziel darf pro Automation nur einmal vorkommen.',AUTOMATION_SYSTEM_ACTION_UNAVAILABLE:'Die SALTA-Systemaktion Heizmodus ist derzeit nicht verfügbar.',AUTOMATION_ACTION_UNSUPPORTED:'Das ausgewählte Ziel unterstützt diese Aktion nicht.',AUTOMATION_ACTION_TEMPERATURE_INVALID:'Die Solltemperatur liegt außerhalb des unterstützten Bereichs dieses Thermostats.',AUTOMATION_ACTION_TIMER_INVALID:'Für „An für Sekunden“ sind bei Shelly-Schaltausgängen ganze Sekunden von 1 bis 86400 erlaubt.'};return messages[error?.code]||error?.message||'Automation konnte nicht gespeichert werden.'}

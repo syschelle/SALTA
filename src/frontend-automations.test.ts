@@ -78,6 +78,15 @@ describe("automation frontend", () => {
     expect(html).toContain('aria-label="Bedingung nach Name, Raum, Quelle oder SALTA-Funktion suchen"');
   });
 
+  it("offers a 10-second closed trigger only for contact sensors", () => {
+    expect(ui).toContain("automationHeldContactClosed10Value='false:10'");
+    expect(ui).toContain("device?.type==='contactSensor'&&stateKey==='open'");
+    expect(ui).toContain("'Geschlossen für 10 Sekunden'");
+    expect(ui).toContain("'hold:open:10'");
+    expect(hasFunction(uiAst, "automationParseStoredHeldTrigger")).toBe(true);
+    expect(hasFunction(uiAst, "automationStoredTriggerStateKey")).toBe(true);
+  });
+
   it("offers boolean state transitions and deCONZ button-event triggers", () => {
     expect(ui).toContain("turnOn:'An',turnOnForSeconds:'An für Sekunden',turnOff:'Aus',toggle:'Toggle'");
     expect(ui).toContain("typeof value==='boolean'");
