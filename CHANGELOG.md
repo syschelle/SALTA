@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.8.101
+
+- Added a fixed IP address to FRITZ!Box Wi-Fi presence targets alongside the existing MAC address.
+- Presence reconciliation still checks the configured MAC first, then uses the configured fixed IP as a recovery identity if that MAC is inactive or resolves to a different address.
+- Added AVM `X_AVM-DE_GetSpecificHostEntyByIP` support plus a rights-free `GetGenericHostEntry` enumeration fallback for FRITZ!OS versions or user permissions where the AVM-specific IP action is unavailable.
+- If the fixed IP resolves to a different valid MAC address, SALTA updates the stored presence MAC automatically so iPhone/iPad private Wi-Fi MAC changes do not permanently break presence detection.
+- Added the fixed-IP field, configured/observed IP display and an explicit iPhone/iPad private-MAC warning to the Presence configuration UI.
+- Existing presence targets remain compatible and continue to work MAC-only until a fixed IP is configured.
+- Added the additive `presence_target_network` table and configuration/disaster-recovery backup support without modifying `presence_targets`, using `ALTER TABLE`, or requiring manual migration.
+- Added regression coverage for IP validation, AVM IP lookup, generic-host fallback, automatic MAC replacement, UI persistence and backup/schema compatibility.
+- Carries forward the v0.8.100 **Closed for 10 seconds** contact trigger and the v0.8.99 Shelly **On for seconds** action unchanged.
+- No new mandatory environment variable, npm dependency or deployment-topology change is required.
+
 ## v0.8.100
 
 - Added a contact-sensor automation trigger option **Closed for 10 seconds** for window and door contacts.

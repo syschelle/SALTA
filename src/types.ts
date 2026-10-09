@@ -146,6 +146,7 @@ export interface PresenceTarget {
   name: string;
   personName: string;
   macAddress: string;
+  ipAddress?: string | null;
   absenceDelaySeconds?: number | null;
   createdAt: string;
   updatedAt: string;

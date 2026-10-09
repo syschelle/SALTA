@@ -115,16 +115,22 @@
     "„Anwesend“, „Jemand zuhause“ und „Niemand zuhause“ stehen als Auslöser oder Bedingung zur Verfügung.": "“Present”, “Someone home” and “Nobody home” are available as triggers or conditions.",
     "Überwachte Personen": "Monitored people",
     "Verwende die MAC-Adresse, die deine FRITZ!Box für das Handy im Heim-WLAN anzeigt.": "Use the MAC address shown by your FRITZ!Box for the phone on your home Wi‑Fi.",
+    "Verwende die feste IP-Adresse und die MAC-Adresse, die deine FRITZ!Box für das Handy im Heim-WLAN anzeigt.": "Use the fixed IP address and MAC address shown by your FRITZ!Box for the phone on your home Wi‑Fi.",
     "Eine bekannte WLAN-MAC-Adresse wird als eigener schreibgeschützter Präsenzsensor angelegt.": "A known Wi‑Fi MAC address is created as a dedicated read-only presence sensor.",
+    "SALTA verwendet MAC- und feste IP-Adresse gemeinsam für eine robustere Präsenzerkennung.": "SALTA uses the MAC address and fixed IP address together for more robust presence detection.",
     "Personenname": "Person name",
     "Dieser Name wird in der Übersicht bei anwesenden Personen angezeigt.": "This name is shown on the overview when the person is present.",
     "Gerätename": "Device name",
+    "Feste IP-Adresse": "Fixed IP address",
+    "Die IP-Adresse muss in der FRITZ!Box dauerhaft diesem Gerät zugewiesen sein.": "The IP address must be permanently assigned to this device in the FRITZ!Box.",
     "MAC-Adresse": "MAC address",
     "Auch Bindestriche, Cisco-Notation oder eine MAC ohne Trennzeichen werden akzeptiert.": "Hyphens, Cisco notation and MAC addresses without separators are also accepted.",
     "Individuell abwesend nach": "Individual absent-after delay",
     "Standard verwenden": "Use default",
     "Person hinzufügen": "Add person",
     "Bei Smartphones sollte die für dieses Heim-WLAN verwendete private MAC-Adresse stabil bleiben. Eine kurze Abwesenheitsverzögerung verhindert Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.": "For smartphones, the private MAC used for this home Wi‑Fi should remain stable. A short absence delay prevents false changes caused by Wi‑Fi roaming or power-saving modes.",
+    "Hinweis für iPhone/iPad:": "Note for iPhone/iPad:",
+    "Apple-Geräte können für ein WLAN eine private und gegebenenfalls wechselnde MAC-Adresse verwenden. Weise dem Gerät deshalb in der FRITZ!Box eine feste IP-Adresse zu. Erkennt SALTA an dieser IP eine neue MAC-Adresse, wird die gespeicherte MAC automatisch aktualisiert. Eine kurze Abwesenheitsverzögerung verhindert zusätzlich Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.": "Apple devices can use a private and potentially changing MAC address for a Wi‑Fi network. Therefore assign the device a fixed IP address in the FRITZ!Box. If SALTA detects a new MAC address at this IP, the stored MAC address is updated automatically. A short absence delay additionally prevents false changes caused by Wi‑Fi roaming or power-saving modes.",
     "Reagiere lokal auf Geräteereignisse und schalte andere Geräte abhängig von ihrem aktuellen Zustand.": "React locally to device events and control other devices based on their current state.",
     "Eine Regel wird bei einem echten Zustandswechsel, einem empfangenen Tasterereignis oder täglich zu einer festgelegten Uhrzeit ausgeführt.": "A rule runs on a real state change, a received button event, or daily at a configured time.",
     "Automation hinzufügen": "Add automation",
@@ -704,6 +710,10 @@
     "Kein Phoscon-Daylight-Sensor gefunden": "No Phoscon daylight sensor found",
     "Phoscon-Daylight nicht erreichbar": "Phoscon daylight unavailable",
     "nicht konfiguriert": "not configured",
+    "Feste IP": "Fixed IP",
+    "Die feste IP-Adresse ist ungültig.": "The fixed IP address is invalid.",
+    "Diese feste IP-Adresse wird bereits überwacht.": "This fixed IP address is already monitored.",
+    "Füge rechts die erste feste IP- und MAC-Adresse hinzu.": "Add the first fixed IP and MAC address on the right.",
     "noch nicht angewendet": "not applied yet",
     "FEHLER": "ERROR",
     "DEBUG aktiv": "DEBUG enabled",
@@ -983,7 +993,10 @@
     "Sa": "Sat",
     "So": "Sun",
     "Ausführung": "Execution",
-    "Zur gewählten Uhrzeit in der SALTA-Zeitzone (TZ).": "At the selected time in the SALTA timezone (TZ)."
+    "Zur gewählten Uhrzeit in der SALTA-Zeitzone (TZ).": "At the selected time in the SALTA timezone (TZ).",
+    "Erkenne Personen lokal anhand fester IP- und bekannter WLAN-MAC-Adressen und verwende die Anwesenheit direkt in SALTA-Automationen.": "Detect people locally using fixed IP addresses and known Wi-Fi MAC addresses and use presence directly in SALTA automations.",
+    "SALTA gleicht die hinterlegten MAC- und festen IP-Adressen über die lokale TR-064-Hosts-Schnittstelle ab.": "SALTA matches the configured MAC and fixed IP addresses through the local TR-064 hosts interface.",
+    "Apple-Geräte können für ein WLAN eine private und gegebenenfalls wechselnde MAC-Adresse verwenden. Stelle sicher, dass das Gerät auch nach einem MAC-Wechsel dieselbe feste IP-Adresse behält; bei iPhone/iPad ist für das Heim-WLAN „Private WLAN-Adresse: Statisch“ sinnvoller als „Rotierend“. Erkennt SALTA an der konfigurierten IP eine neue MAC-Adresse, wird die gespeicherte MAC automatisch aktualisiert. Eine kurze Abwesenheitsverzögerung verhindert zusätzlich Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.": "Apple devices can use a private and potentially changing MAC address for a Wi‑Fi network. Make sure the device keeps the same fixed IP address even after a MAC change; for the home Wi‑Fi, “Private Wi‑Fi Address: Fixed” is preferable to “Rotating” on iPhone/iPad. If SALTA detects a new MAC address at the configured IP, the stored MAC address is updated automatically. A short absence delay additionally prevents false changes caused by Wi‑Fi roaming or power-saving modes."
   },
   "patterns": [
     {
@@ -1381,6 +1394,14 @@
     {
       "match": "^Ausführung: (.+)$",
       "replace": "Execution: $1"
+    },
+    {
+      "match": "^Feste IP (.+)$",
+      "replace": "Fixed IP $1"
+    },
+    {
+      "match": "^Erkannt (.+) · (.+) · zuletzt gesehen (.+)$",
+      "replace": "Detected $1 · $2 · last seen $3"
     }
   ],
   "tokens": {

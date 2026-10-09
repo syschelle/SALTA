@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import { request as httpRequest, type IncomingHttpHeaders, type IncomingMessage } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { getFritzBoxPresenceConnection, listPresenceTargets, writeSystemLog } from "./db.js";
+import { isIP } from "node:net";
+import { getFritzBoxPresenceConnection, listPresenceTargets, updatePresenceTargetMacAddress, writeSystemLog } from "./db.js";
 import type { Device, FritzBoxPresenceStatus, PresenceTarget, SystemLogLevel } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 
@@ -12,7 +13,7 @@ const houseDeviceId = "presence:house";
 
 type DigestChallenge = { realm: string; nonce: string; algorithm: string; qop?: string; opaque?: string };
 type ContentAuthChallenge = { realm: string; nonce: string; status?: string };
-type HostEntry = { active: boolean; ipAddress?: string; interfaceType?: string; hostName?: string };
+type HostEntry = { active: boolean; macAddress?: string; ipAddress?: string; interfaceType?: string; hostName?: string };
 
 function now(): string { return new Date().toISOString(); }
 function xmlEscape(value: string): string { return value.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;"); }
@@ -40,6 +41,12 @@ export function normalizePresenceMac(value: string): string {
   const compact = value.trim().replace(/[^0-9A-Fa-f]/g, "").toUpperCase();
   if (!/^[0-9A-F]{12}$/.test(compact)) throw new Error("PRESENCE_MAC_INVALID");
   return compact.match(/.{2}/g)!.join(":");
+}
+
+export function normalizePresenceIp(value: string): string {
+  const normalized = value.trim();
+  if (!normalized || isIP(normalized) === 0) throw new Error("PRESENCE_IP_INVALID");
+  return normalized;
 }
 
 function digestAttributes(input: string): Record<string,string> {
@@ -314,11 +321,43 @@ export async function fritzBoxHostCount(baseUrl: string, username = "", password
 }
 
 export async function fritzBoxHostByMac(baseUrl: string, username: string, password: string, macAddress: string, tlsInsecure = false): Promise<HostEntry> {
-  const xml = await requestSoap(baseUrl,username,password,"GetSpecificHostEntry",{NewMACAddress:normalizePresenceMac(macAddress)},tlsInsecure);
+  const normalizedMac=normalizePresenceMac(macAddress);
+  const xml = await requestSoap(baseUrl,username,password,"GetSpecificHostEntry",{NewMACAddress:normalizedMac},tlsInsecure);
   if (xmlValue(xml,"errorCode") === "714") return {active:false};
   const activeRaw = xmlValue(xml,"NewActive");
   if (activeRaw === undefined) throw new Error("FRITZBOX_INVALID_RESPONSE");
   return { active: activeRaw === "1" || activeRaw.toLowerCase() === "true", ipAddress: xmlValue(xml,"NewIPAddress"), interfaceType: xmlValue(xml,"NewInterfaceType"), hostName: xmlValue(xml,"NewHostName") };
+}
+
+async function fritzBoxHostByIndex(baseUrl: string, username: string, password: string, index: number, tlsInsecure = false): Promise<HostEntry> {
+  const xml=await requestSoap(baseUrl,username,password,"GetGenericHostEntry",{NewIndex:String(index)},tlsInsecure);
+  if(xmlValue(xml,"errorCode")==="713") return {active:false};
+  const activeRaw=xmlValue(xml,"NewActive");
+  if(activeRaw===undefined) throw new Error("FRITZBOX_INVALID_RESPONSE");
+  const rawMac=xmlValue(xml,"NewMACAddress");
+  return {active:activeRaw==="1"||activeRaw.toLowerCase()==="true",macAddress:rawMac?normalizePresenceMac(rawMac):undefined,ipAddress:xmlValue(xml,"NewIPAddress"),interfaceType:xmlValue(xml,"NewInterfaceType"),hostName:xmlValue(xml,"NewHostName")};
+}
+
+export async function fritzBoxHostByIp(baseUrl: string, username: string, password: string, ipAddress: string, tlsInsecure = false): Promise<HostEntry> {
+  const normalizedIp=normalizePresenceIp(ipAddress);
+  try {
+    const xml=await requestSoap(baseUrl,username,password,"X_AVM-DE_GetSpecificHostEntyByIP",{NewIPAddress:normalizedIp},tlsInsecure);
+    if(xmlValue(xml,"errorCode")==="714") return {active:false,ipAddress:normalizedIp};
+    const activeRaw=xmlValue(xml,"NewActive");
+    if(activeRaw===undefined) throw new Error("FRITZBOX_INVALID_RESPONSE");
+    const rawMac=xmlValue(xml,"NewMACAddress");
+    return {active:activeRaw==="1"||activeRaw.toLowerCase()==="true",macAddress:rawMac?normalizePresenceMac(rawMac):undefined,ipAddress:xmlValue(xml,"NewIPAddress")??normalizedIp,interfaceType:xmlValue(xml,"NewInterfaceType"),hostName:xmlValue(xml,"NewHostName")};
+  } catch(error) {
+    const code=error instanceof Error?error.message:"";
+    const genericFallbackCodes=new Set(["FRITZBOX_AUTHENTICATION_REQUIRED","FRITZBOX_AUTHENTICATION_FAILED","FRITZBOX_AUTHORIZATION_FAILED","FRITZBOX_SOAP_401"]);
+    if(!genericFallbackCodes.has(code)) throw error;
+    const hostCount=await fritzBoxHostCount(baseUrl,username,password,tlsInsecure);
+    for(let index=0;index<hostCount;index+=1) {
+      const host=await fritzBoxHostByIndex(baseUrl,username,password,index,tlsInsecure);
+      if(host.ipAddress===normalizedIp) return host;
+    }
+    return {active:false,ipAddress:normalizedIp};
+  }
 }
 
 export class FritzBoxPresenceAdapter {
@@ -370,6 +409,7 @@ export class FritzBoxPresenceAdapter {
       targetId:target.id,
       targetName:target.name,
       macAddress:target.macAddress,
+      ipAddress:target.ipAddress,
       errorCode:code
     });
   }
@@ -380,7 +420,8 @@ export class FritzBoxPresenceAdapter {
       baseUrl:normalizeFritzBoxBaseUrl(baseUrl),
       targetId:target.id,
       targetName:target.name,
-      macAddress:target.macAddress
+      macAddress:target.macAddress,
+      ipAddress:target.ipAddress
     });
   }
 
@@ -428,9 +469,34 @@ export class FritzBoxPresenceAdapter {
     try {
       const hostCount=await fritzBoxHostCount(connection.baseUrl,connection.username,connection.password,connection.tlsInsecure);
       this.logConnectionRecovery(connection.baseUrl,connection.tlsInsecure,hostCount);
-      for(const target of targets) {
+      for(const configuredTarget of targets) {
+        let target=configuredTarget;
         try {
-          const host=await fritzBoxHostByMac(connection.baseUrl,connection.username,connection.password,target.macAddress,connection.tlsInsecure);
+          const macHost=await fritzBoxHostByMac(connection.baseUrl,connection.username,connection.password,target.macAddress,connection.tlsInsecure);
+          let host=macHost;
+          if(target.ipAddress && (!macHost.active || (macHost.ipAddress && macHost.ipAddress!==target.ipAddress))) {
+            try {
+              const ipHost=await fritzBoxHostByIp(connection.baseUrl,connection.username,connection.password,target.ipAddress,connection.tlsInsecure);
+              if(ipHost.active || !macHost.active) host=ipHost;
+              const discoveredMac=ipHost.macAddress;
+              if(discoveredMac && discoveredMac!==target.macAddress) {
+                try {
+                  const oldMacAddress=target.macAddress;
+                  const updated=await updatePresenceTargetMacAddress(target.id,oldMacAddress,discoveredMac);
+                  if(updated) {
+                    target={...target,macAddress:discoveredMac};
+                    this.log("info","FRITZBOX_PRESENCE_MAC_UPDATED","Presence target MAC address updated from configured fixed IP",{targetId:target.id,targetName:target.name,ipAddress:target.ipAddress,oldMacAddress,newMacAddress:discoveredMac});
+                  }
+                } catch(macUpdateError) {
+                  const code=this.errorCode(macUpdateError);
+                  this.log("warning",code,"Presence target MAC address could not be updated",{targetId:target.id,targetName:target.name,ipAddress:target.ipAddress,oldMacAddress:target.macAddress,newMacAddress:discoveredMac,errorCode:code});
+                }
+              }
+            } catch(ipError) {
+              if(!macHost.active) throw ipError;
+              this.log("warning",this.errorCode(ipError),"FRITZ!Box presence IP fallback query failed; active MAC result retained",{targetId:target.id,targetName:target.name,macAddress:target.macAddress,ipAddress:target.ipAddress,errorCode:this.errorCode(ipError)});
+            }
+          }
           await this.applyTarget(target,host,connection.absenceDelaySeconds);
           this.logTargetRecovery(target,connection.baseUrl);
         } catch(error) {
@@ -451,8 +517,8 @@ export class FritzBoxPresenceAdapter {
     const targetIds=new Set(targets.map(target=>`presence:${target.id}`));
     for(const existing of this.registry.all().filter(device=>device.source==="presence"&&device.id!==houseDeviceId&&!targetIds.has(device.id))) await this.registry.remove(existing.id);
     for(const target of targets) {
-      const id=`presence:${target.id}`; const existing=this.registry.get(id); if(existing&&existing.name===target.name&&existing.macAddress===target.macAddress&&existing.adapterData?.personName===target.personName) continue;
-      const stamp=now(); await this.registry.set({id,source:"presence",sourceId:target.id,type:"genericSensor",presentationType:"auto",name:target.name,model:"FRITZ!Box Wi-Fi Presence",macAddress:target.macAddress,profile:"presence",reachable:existing?.reachable??false,state:existing?.state??{present:false},capabilities:[],homekitEnabled:false,hidden:false,credentialMode:"none",passwordConfigured:false,lastSeen:existing?.lastSeen??stamp,lastEvent:existing?.lastEvent??stamp,adapterData:{...(existing?.adapterData??{}),targetId:target.id,personName:target.personName}});
+      const id=`presence:${target.id}`; const existing=this.registry.get(id); if(existing&&existing.name===target.name&&existing.macAddress===target.macAddress&&existing.adapterData?.personName===target.personName&&existing.adapterData?.configuredIpAddress===target.ipAddress) continue;
+      const stamp=now(); await this.registry.set({id,source:"presence",sourceId:target.id,type:"genericSensor",presentationType:"auto",name:target.name,model:"FRITZ!Box Wi-Fi Presence",macAddress:target.macAddress,profile:"presence",reachable:existing?.reachable??false,state:existing?.state??{present:false},capabilities:[],homekitEnabled:false,hidden:false,credentialMode:"none",passwordConfigured:false,lastSeen:existing?.lastSeen??stamp,lastEvent:existing?.lastEvent??stamp,adapterData:{...(existing?.adapterData??{}),targetId:target.id,personName:target.personName,configuredIpAddress:target.ipAddress??null}});
     }
   }
 
@@ -463,7 +529,7 @@ export class FritzBoxPresenceAdapter {
     else if(previous) { missingSince=missingSince??stamp; present=(Date.now()-Date.parse(missingSince))<delay*1000; }
     const changed=present!==previous;
     const adapterData={...(existing.adapterData??{})}; delete adapterData.lastError;
-    await this.registry.set({...existing,reachable:true,hostname:host.hostName||existing.hostname,state:{...existing.state,present,...(host.ipAddress?{ipAddress:host.ipAddress}:{}),...(host.interfaceType?{interfaceType:host.interfaceType}:{}),...(host.hostName?{hostName:host.hostName}:{})},lastSeen:host.active?stamp:existing.lastSeen,lastEvent:changed?stamp:existing.lastEvent,adapterData:{...adapterData,targetId:target.id,absenceDelaySeconds:delay,...(missingSince?{missingSince}:{})}});
+    await this.registry.set({...existing,macAddress:target.macAddress,reachable:true,hostname:host.hostName||existing.hostname,state:{...existing.state,present,...(host.ipAddress?{ipAddress:host.ipAddress}:{}),...(host.interfaceType?{interfaceType:host.interfaceType}:{}),...(host.hostName?{hostName:host.hostName}:{})},lastSeen:host.active?stamp:existing.lastSeen,lastEvent:changed?stamp:existing.lastEvent,adapterData:{...adapterData,targetId:target.id,configuredIpAddress:target.ipAddress??null,absenceDelaySeconds:delay,...(missingSince?{missingSince}:{})}});
   }
 
   private async markTargetUnavailable(target: PresenceTarget, error: unknown): Promise<void> {

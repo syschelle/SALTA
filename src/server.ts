@@ -10,7 +10,7 @@ import type { PhosconAdapter } from "./phoscon-adapter.js";
 import type { HueAdapter } from "./hue-adapter.js";
 import { openCcuErrorInfo, type OpenCcuAdapter } from "./openccu-adapter.js";
 import type { VirtualDeviceAdapter } from "./virtual-adapter.js";
-import { normalizeFritzBoxBaseUrl, normalizePresenceMac, type FritzBoxPresenceAdapter } from "./fritzbox-presence.js";
+import { normalizeFritzBoxBaseUrl, normalizePresenceIp, normalizePresenceMac, type FritzBoxPresenceAdapter } from "./fritzbox-presence.js";
 import type { DeviceCommandRouter } from "./device-command-router.js";
 import type { AutomationEngine, AutomationInput } from "./automations.js";
 import type { ClimateModeManager } from "./climate-mode.js";
@@ -61,7 +61,7 @@ const fritzBoxPresenceSettingsSchema = z.object({
   tlsInsecure: z.boolean().default(false)
 }).strict();
 const fritzBoxPresenceTestSchema = z.object({ baseUrl: z.string().trim().min(1).max(512), username: z.string().trim().max(120).default(""), password: z.string().max(512).optional(), tlsInsecure: z.boolean().default(false) }).strict();
-const presenceTargetSchema = z.object({ name: z.string().trim().min(1).max(120), personName: z.string().trim().min(1).max(80).optional(), macAddress: z.string().trim().min(12).max(32), absenceDelaySeconds: z.number().int().min(0).max(86400).nullable().optional() }).strict();
+const presenceTargetSchema = z.object({ name: z.string().trim().min(1).max(120), personName: z.string().trim().min(1).max(80).optional(), macAddress: z.string().trim().min(12).max(32), ipAddress: z.string().trim().max(64).nullable().optional(), absenceDelaySeconds: z.number().int().min(0).max(86400).nullable().optional() }).strict();
 const openCcuDiagnosticSchema = z.object({ baseUrl: z.string().trim().min(1).max(512).optional(), username: z.string().trim().min(1).max(120).optional(), password: z.string().max(512).optional() }).strict();
 const virtualDeviceSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -454,6 +454,7 @@ function fritzBoxRequestError(error: unknown): { status: number; code: string; m
   if(code==="FRITZBOX_URL_INVALID") return {status:400,code,message:"Enter a valid FRITZ!Box TR-064 address using HTTP or HTTPS and port 49000 or 49443."};
   if(code==="FRITZBOX_TLS_CERTIFICATE") return {status:422,code,message:"The FRITZ!Box HTTPS certificate could not be verified. Enable the explicit certificate-check bypass only if you trust this local FRITZ!Box."};
   if(code==="PRESENCE_MAC_INVALID") return {status:400,code,message:"Enter a valid MAC address in the format AA:BB:CC:DD:EE:FF."};
+  if(code==="PRESENCE_IP_INVALID") return {status:400,code,message:"Enter a valid fixed IP address."};
   if(code==="FRITZBOX_AUTHENTICATION_REQUIRED") return {status:422,code,message:"The FRITZ!Box TR-064 Hosts service requires authentication. Enter a FRITZ!Box username and password."};
   if(code==="FRITZBOX_AUTHENTICATION_FAILED") return {status:422,code,message:"TR-064 is reachable, but the FRITZ!Box rejected the configured username or password."};
   if(code==="FRITZBOX_HTTP_411") return {status:502,code,message:"The FRITZ!Box rejected the TR-064 SOAP request with HTTP 411 (Length Required)."};
@@ -683,9 +684,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.100" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.101" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.100", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.101", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -771,12 +772,12 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
 
   app.post<{Body:unknown}>("/api/presence/devices", { config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "presence-device-create" } } }, async(request,reply)=>{
     const parsed=presenceTargetSchema.safeParse(request.body); if(!parsed.success) return securityError(reply,request,400,"INVALID_REQUEST","Invalid presence device.");
-    try {const target=await createPresenceTarget(parsed.data.name,parsed.data.personName??parsed.data.name,normalizePresenceMac(parsed.data.macAddress),parsed.data.absenceDelaySeconds??undefined);if(presenceAdapter)await presenceAdapter.reload();return reply.code(201).send(target);}catch(error){if((error as {code?:string})?.code==="23505")return securityError(reply,request,409,"PRESENCE_MAC_EXISTS","This MAC address is already monitored.");const response=fritzBoxRequestError(error);return securityError(reply,request,response.status,response.code,response.message);}
+    try {const ipAddress=parsed.data.ipAddress?normalizePresenceIp(parsed.data.ipAddress):undefined;const target=await createPresenceTarget(parsed.data.name,parsed.data.personName??parsed.data.name,normalizePresenceMac(parsed.data.macAddress),ipAddress,parsed.data.absenceDelaySeconds??undefined);if(presenceAdapter)await presenceAdapter.reload();return reply.code(201).send(target);}catch(error){if((error as {code?:string})?.code==="23505"){const constraint=String((error as {constraint?:string}).constraint??"");if(constraint.includes("presence_target_network"))return securityError(reply,request,409,"PRESENCE_IP_EXISTS","This IP address is already monitored.");return securityError(reply,request,409,"PRESENCE_MAC_EXISTS","This MAC address is already monitored.");}const response=fritzBoxRequestError(error);return securityError(reply,request,response.status,response.code,response.message);}
   });
 
   app.put<{Params:{id:string};Body:unknown}>("/api/presence/devices/:id", { config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "presence-device-update" } } }, async(request,reply)=>{
     const parsed=presenceTargetSchema.safeParse(request.body); if(!parsed.success) return securityError(reply,request,400,"INVALID_REQUEST","Invalid presence device.");
-    try {const target=await updatePresenceTarget(request.params.id,parsed.data.name,parsed.data.personName??parsed.data.name,normalizePresenceMac(parsed.data.macAddress),parsed.data.absenceDelaySeconds??undefined);if(!target)return securityError(reply,request,404,"PRESENCE_DEVICE_NOT_FOUND","Presence device not found.");if(presenceAdapter)await presenceAdapter.reload();return target;}catch(error){if((error as {code?:string})?.code==="23505")return securityError(reply,request,409,"PRESENCE_MAC_EXISTS","This MAC address is already monitored.");const response=fritzBoxRequestError(error);return securityError(reply,request,response.status,response.code,response.message);}
+    try {const ipAddress=parsed.data.ipAddress?normalizePresenceIp(parsed.data.ipAddress):undefined;const target=await updatePresenceTarget(request.params.id,parsed.data.name,parsed.data.personName??parsed.data.name,normalizePresenceMac(parsed.data.macAddress),ipAddress,parsed.data.absenceDelaySeconds??undefined);if(!target)return securityError(reply,request,404,"PRESENCE_DEVICE_NOT_FOUND","Presence device not found.");if(presenceAdapter)await presenceAdapter.reload();return target;}catch(error){if((error as {code?:string})?.code==="23505"){const constraint=String((error as {constraint?:string}).constraint??"");if(constraint.includes("presence_target_network"))return securityError(reply,request,409,"PRESENCE_IP_EXISTS","This IP address is already monitored.");return securityError(reply,request,409,"PRESENCE_MAC_EXISTS","This MAC address is already monitored.");}const response=fritzBoxRequestError(error);return securityError(reply,request,response.status,response.code,response.message);}
   });
 
   app.delete<{Params:{id:string} }>("/api/presence/devices/:id", { config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "presence-device-delete" } } }, async(request,reply)=>{
@@ -1329,7 +1330,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.100", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.101", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

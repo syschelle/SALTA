@@ -1,12 +1,12 @@
 # SALTA migration paths
 
-## Current v0.8.100 update
+## Current v0.8.101 update
 
-v0.8.100 adds the automation trigger option **Closed for 10 seconds** for window and door contact sensors. The delayed trigger is stored through the existing automation trigger state key and therefore requires no new table, no `ALTER TABLE` statement and no manual SQL migration.
+v0.8.101 adds fixed-IP identity support to FRITZ!Box Wi-Fi presence. Presence targets can now store a fixed IP address alongside the MAC address. When the stored MAC is no longer active, SALTA resolves the configured IP through the FRITZ!Box Hosts service and can automatically replace the stored MAC if the same fixed IP is now associated with a different private Wi-Fi MAC.
 
-Existing automations keep their current immediate trigger behavior unless the new 10-second option is explicitly selected. Existing PostgreSQL and runtime data remains in place. Do not remove Docker volumes during the update.
+Persistence is additive: v0.8.101 creates `presence_target_network` with `CREATE TABLE IF NOT EXISTS`. It does not modify `presence_targets`, does not use `ALTER TABLE`, and requires no manual SQL migration. Existing presence targets continue to work by MAC address until an administrator edits them and adds a fixed IP. Configuration/disaster-recovery backups include the new table while older format-v1 backups without it remain restorable.
 
-The additive `automation_timed_actions` table introduced in v0.8.99 for Shelly **On for seconds** actions remains unchanged and continues to be created automatically by normal database initialization when required.
+Existing PostgreSQL and SALTA runtime volumes must be preserved during the update. Do not use `docker compose down -v`.
 
 ## Legacy HomeKit migration (pre-v0.8.41 pairing only)
 

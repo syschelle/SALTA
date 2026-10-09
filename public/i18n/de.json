@@ -115,16 +115,22 @@
     "„Anwesend“, „Jemand zuhause“ und „Niemand zuhause“ stehen als Auslöser oder Bedingung zur Verfügung.": "„Anwesend“, „Jemand zuhause“ und „Niemand zuhause“ stehen als Auslöser oder Bedingung zur Verfügung.",
     "Überwachte Personen": "Überwachte Personen",
     "Verwende die MAC-Adresse, die deine FRITZ!Box für das Handy im Heim-WLAN anzeigt.": "Verwende die MAC-Adresse, die deine FRITZ!Box für das Handy im Heim-WLAN anzeigt.",
+    "Verwende die feste IP-Adresse und die MAC-Adresse, die deine FRITZ!Box für das Handy im Heim-WLAN anzeigt.": "Verwende die feste IP-Adresse und die MAC-Adresse, die deine FRITZ!Box für das Handy im Heim-WLAN anzeigt.",
     "Eine bekannte WLAN-MAC-Adresse wird als eigener schreibgeschützter Präsenzsensor angelegt.": "Eine bekannte WLAN-MAC-Adresse wird als eigener schreibgeschützter Präsenzsensor angelegt.",
+    "SALTA verwendet MAC- und feste IP-Adresse gemeinsam für eine robustere Präsenzerkennung.": "SALTA verwendet MAC- und feste IP-Adresse gemeinsam für eine robustere Präsenzerkennung.",
     "Personenname": "Personenname",
     "Dieser Name wird in der Übersicht bei anwesenden Personen angezeigt.": "Dieser Name wird in der Übersicht bei anwesenden Personen angezeigt.",
     "Gerätename": "Gerätename",
+    "Feste IP-Adresse": "Feste IP-Adresse",
+    "Die IP-Adresse muss in der FRITZ!Box dauerhaft diesem Gerät zugewiesen sein.": "Die IP-Adresse muss in der FRITZ!Box dauerhaft diesem Gerät zugewiesen sein.",
     "MAC-Adresse": "MAC-Adresse",
     "Auch Bindestriche, Cisco-Notation oder eine MAC ohne Trennzeichen werden akzeptiert.": "Auch Bindestriche, Cisco-Notation oder eine MAC ohne Trennzeichen werden akzeptiert.",
     "Individuell abwesend nach": "Individuell abwesend nach",
     "Standard verwenden": "Standard verwenden",
     "Person hinzufügen": "Person hinzufügen",
     "Bei Smartphones sollte die für dieses Heim-WLAN verwendete private MAC-Adresse stabil bleiben. Eine kurze Abwesenheitsverzögerung verhindert Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.": "Bei Smartphones sollte die für dieses Heim-WLAN verwendete private MAC-Adresse stabil bleiben. Eine kurze Abwesenheitsverzögerung verhindert Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.",
+    "Hinweis für iPhone/iPad:": "Hinweis für iPhone/iPad:",
+    "Apple-Geräte können für ein WLAN eine private und gegebenenfalls wechselnde MAC-Adresse verwenden. Weise dem Gerät deshalb in der FRITZ!Box eine feste IP-Adresse zu. Erkennt SALTA an dieser IP eine neue MAC-Adresse, wird die gespeicherte MAC automatisch aktualisiert. Eine kurze Abwesenheitsverzögerung verhindert zusätzlich Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.": "Apple-Geräte können für ein WLAN eine private und gegebenenfalls wechselnde MAC-Adresse verwenden. Weise dem Gerät deshalb in der FRITZ!Box eine feste IP-Adresse zu. Erkennt SALTA an dieser IP eine neue MAC-Adresse, wird die gespeicherte MAC automatisch aktualisiert. Eine kurze Abwesenheitsverzögerung verhindert zusätzlich Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.",
     "Reagiere lokal auf Geräteereignisse und schalte andere Geräte abhängig von ihrem aktuellen Zustand.": "Reagiere lokal auf Geräteereignisse und schalte andere Geräte abhängig von ihrem aktuellen Zustand.",
     "Eine Regel wird bei einem echten Zustandswechsel, einem empfangenen Tasterereignis oder täglich zu einer festgelegten Uhrzeit ausgeführt.": "Eine Regel wird bei einem echten Zustandswechsel, einem empfangenen Tasterereignis oder täglich zu einer festgelegten Uhrzeit ausgeführt.",
     "Automation hinzufügen": "Automation hinzufügen",
@@ -704,6 +710,10 @@
     "Kein Phoscon-Daylight-Sensor gefunden": "Kein Phoscon-Daylight-Sensor gefunden",
     "Phoscon-Daylight nicht erreichbar": "Phoscon-Daylight nicht erreichbar",
     "nicht konfiguriert": "nicht konfiguriert",
+    "Feste IP": "Feste IP",
+    "Die feste IP-Adresse ist ungültig.": "Die feste IP-Adresse ist ungültig.",
+    "Diese feste IP-Adresse wird bereits überwacht.": "Diese feste IP-Adresse wird bereits überwacht.",
+    "Füge rechts die erste feste IP- und MAC-Adresse hinzu.": "Füge rechts die erste feste IP- und MAC-Adresse hinzu.",
     "noch nicht angewendet": "noch nicht angewendet",
     "FEHLER": "FEHLER",
     "DEBUG aktiv": "DEBUG aktiv",
@@ -983,7 +993,10 @@
     "Sa": "Sa",
     "So": "So",
     "Ausführung": "Ausführung",
-    "Zur gewählten Uhrzeit in der SALTA-Zeitzone (TZ).": "Zur gewählten Uhrzeit in der SALTA-Zeitzone (TZ)."
+    "Zur gewählten Uhrzeit in der SALTA-Zeitzone (TZ).": "Zur gewählten Uhrzeit in der SALTA-Zeitzone (TZ).",
+    "Erkenne Personen lokal anhand fester IP- und bekannter WLAN-MAC-Adressen und verwende die Anwesenheit direkt in SALTA-Automationen.": "Erkenne Personen lokal anhand fester IP- und bekannter WLAN-MAC-Adressen und verwende die Anwesenheit direkt in SALTA-Automationen.",
+    "SALTA gleicht die hinterlegten MAC- und festen IP-Adressen über die lokale TR-064-Hosts-Schnittstelle ab.": "SALTA gleicht die hinterlegten MAC- und festen IP-Adressen über die lokale TR-064-Hosts-Schnittstelle ab.",
+    "Apple-Geräte können für ein WLAN eine private und gegebenenfalls wechselnde MAC-Adresse verwenden. Stelle sicher, dass das Gerät auch nach einem MAC-Wechsel dieselbe feste IP-Adresse behält; bei iPhone/iPad ist für das Heim-WLAN „Private WLAN-Adresse: Statisch“ sinnvoller als „Rotierend“. Erkennt SALTA an der konfigurierten IP eine neue MAC-Adresse, wird die gespeicherte MAC automatisch aktualisiert. Eine kurze Abwesenheitsverzögerung verhindert zusätzlich Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.": "Apple-Geräte können für ein WLAN eine private und gegebenenfalls wechselnde MAC-Adresse verwenden. Stelle sicher, dass das Gerät auch nach einem MAC-Wechsel dieselbe feste IP-Adresse behält; bei iPhone/iPad ist für das Heim-WLAN „Private WLAN-Adresse: Statisch“ sinnvoller als „Rotierend“. Erkennt SALTA an der konfigurierten IP eine neue MAC-Adresse, wird die gespeicherte MAC automatisch aktualisiert. Eine kurze Abwesenheitsverzögerung verhindert zusätzlich Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen."
   },
   "patterns": [
     {
@@ -1381,6 +1394,14 @@
     {
       "match": "^Ausführung: (.+)$",
       "replace": "Ausführung: $1"
+    },
+    {
+      "match": "^Feste IP (.+)$",
+      "replace": "Feste IP $1"
+    },
+    {
+      "match": "^Erkannt (.+) · (.+) · zuletzt gesehen (.+)$",
+      "replace": "Erkannt $1 · $2 · zuletzt gesehen $3"
     }
   ],
   "tokens": {}

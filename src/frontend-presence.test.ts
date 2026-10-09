@@ -15,6 +15,9 @@ describe("presence page", () => {
     expect(html).toContain('id="presenceTargetList"');
     expect(html).toContain('id="presenceTargetForm"');
     expect(html).toContain('id="presenceTargetPersonName"');
+    expect(html).toContain('id="presenceTargetIp"');
+    expect(html).toContain('Hinweis für iPhone/iPad:');
+    expect(html).toContain('Erkennt SALTA an der konfigurierten IP eine neue MAC-Adresse, wird die gespeicherte MAC automatisch aktualisiert.');
     expect(html).toContain('id="presenceProtocol"');
     expect(html).toContain('id="presenceHost"');
     expect(html).toContain('id="presencePort"');
@@ -30,7 +33,11 @@ describe("presence page", () => {
     expect(app).toContain("'/api/presence/devices'");
     expect(app).toContain("presenceTargetDelay");
     expect(app).toContain("personName:presenceTargetPersonName.value.trim()");
+    expect(app).toContain("ipAddress:presenceTargetIp.value.trim()");
     expect(app).toContain("presenceTargetPersonName.value=target.personName||target.name");
+    expect(app).toContain("presenceTargetIp.value=target.ipAddress||''");
+    expect(app).toContain("PRESENCE_IP_INVALID");
+    expect(app).toContain("PRESENCE_IP_EXISTS");
     expect(app).toContain("presenceNamesFromHouse");
     expect(app).toContain("compactPresenceNames");
     expect(app).toContain("presentNames.length?compactPresenceNames(presentNames)");

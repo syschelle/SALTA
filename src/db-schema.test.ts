@@ -108,12 +108,16 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain('as "timedActions"');
   });
 
-  it("stores FRITZ!Box presence settings and monitored MAC addresses additively", () => {
+  it("stores FRITZ!Box presence settings and monitored MAC/IP identities additively", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings");
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS presence_targets");
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS presence_target_profiles");
+    expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS presence_target_network");
+    expect(databaseSource).toContain("ip_address text NOT NULL UNIQUE");
     expect(databaseSource).toContain("person_name text NOT NULL");
     expect(databaseSource).toContain("LEFT JOIN presence_target_profiles p ON p.target_id=t.id");
+    expect(databaseSource).toContain("LEFT JOIN presence_target_network n ON n.target_id=t.id");
+    expect(databaseSource).toContain('n.ip_address as "ipAddress"');
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS fritzbox_presence_transport_settings");
     expect(databaseSource).toContain("tls_insecure boolean NOT NULL DEFAULT false");
     expect(databaseSource).toContain("poll_interval_seconds integer NOT NULL DEFAULT 30");

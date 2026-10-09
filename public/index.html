@@ -35,7 +35,7 @@
     </button>
     <label class="language-control" for="languageSelector"><span class="language-control-label"><span class="mdi mdi-translate" aria-hidden="true"></span><span>Sprache</span></span><select id="languageSelector" aria-label="Sprache dieses Browsers"><option value="auto">Automatisch</option><option value="de">Deutsch</option><option value="en">English</option></select></label>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.100</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.101</strong></div>
   </div>
 </aside>
 
@@ -135,10 +135,10 @@
   </section>
 
   <section class="page" data-page="presence" aria-labelledby="presence-title" hidden>
-    <header class="page-header"><div><p class="eyebrow">FRITZ!BOX / WLAN-PRÄSENZ</p><h1 id="presence-title">Präsenz</h1><p class="muted">Erkenne Personen lokal anhand bekannter WLAN-MAC-Adressen und verwende die Anwesenheit direkt in SALTA-Automationen.</p></div><div class="header-actions"><button class="secondary" type="button" onclick="refreshPresence()"><span class="mdi mdi-refresh" aria-hidden="true"></span>Jetzt prüfen</button></div></header>
+    <header class="page-header"><div><p class="eyebrow">FRITZ!BOX / WLAN-PRÄSENZ</p><h1 id="presence-title">Präsenz</h1><p class="muted">Erkenne Personen lokal anhand fester IP- und bekannter WLAN-MAC-Adressen und verwende die Anwesenheit direkt in SALTA-Automationen.</p></div><div class="header-actions"><button class="secondary" type="button" onclick="refreshPresence()"><span class="mdi mdi-refresh" aria-hidden="true"></span>Jetzt prüfen</button></div></header>
     <section class="presence-top-grid">
       <article class="panel presence-connection-panel">
-        <div class="panel-head"><div><h2>FRITZ!Box-Verbindung</h2><p class="muted">SALTA fragt die lokale TR-064-Hosts-Schnittstelle gezielt nach den hinterlegten MAC-Adressen ab.</p></div><span class="adapter-badge">TR-064</span></div>
+        <div class="panel-head"><div><h2>FRITZ!Box-Verbindung</h2><p class="muted">SALTA gleicht die hinterlegten MAC- und festen IP-Adressen über die lokale TR-064-Hosts-Schnittstelle ab.</p></div><span class="adapter-badge">TR-064</span></div>
         <div class="presence-connection-status-row">
           <div id="presenceGatewayStatus" class="gateway-status"></div>
           <button id="presenceTestButton" type="button" class="secondary" onclick="testPresenceConnection()"><span class="mdi mdi-lan-connect" aria-hidden="true"></span>Verbindung testen</button>
@@ -167,13 +167,14 @@
       </article>
     </section>
     <section class="presence-devices-layout">
-      <article class="panel presence-target-list-panel"><div class="panel-head"><div><h2>Überwachte Personen</h2><p class="muted">Verwende die MAC-Adresse, die deine FRITZ!Box für das Handy im Heim-WLAN anzeigt.</p></div><span id="presenceTargetCount" class="count-badge">0</span></div><div id="presenceTargetList" class="presence-target-list"></div></article>
-      <article class="panel sticky-panel presence-target-form-panel"><h2 id="presenceTargetFormTitle">Person hinzufügen</h2><p class="muted">Eine bekannte WLAN-MAC-Adresse wird als eigener schreibgeschützter Präsenzsensor angelegt.</p>
+      <article class="panel presence-target-list-panel"><div class="panel-head"><div><h2>Überwachte Personen</h2><p class="muted">Verwende die feste IP-Adresse und die MAC-Adresse, die deine FRITZ!Box für das Handy im Heim-WLAN anzeigt.</p></div><span id="presenceTargetCount" class="count-badge">0</span></div><div id="presenceTargetList" class="presence-target-list"></div></article>
+      <article class="panel sticky-panel presence-target-form-panel"><h2 id="presenceTargetFormTitle">Person hinzufügen</h2><p class="muted">SALTA verwendet MAC- und feste IP-Adresse gemeinsam für eine robustere Präsenzerkennung.</p>
         <form id="presenceTargetForm" class="page-form">
           <label>Personenname<input id="presenceTargetPersonName" maxlength="80" placeholder="z. B. Martin" required><small>Dieser Name wird in der Übersicht bei anwesenden Personen angezeigt.</small></label><label>Gerätename<input id="presenceTargetName" maxlength="120" placeholder="z. B. Martins iPhone" required></label>
+          <label>Feste IP-Adresse<input id="presenceTargetIp" maxlength="64" placeholder="192.168.178.42" inputmode="text" spellcheck="false" required><small>Die IP-Adresse muss in der FRITZ!Box dauerhaft diesem Gerät zugewiesen sein.</small></label>
           <label>MAC-Adresse<input id="presenceTargetMac" maxlength="32" placeholder="AA:BB:CC:DD:EE:FF" autocapitalize="characters" spellcheck="false" required><small>Auch Bindestriche, Cisco-Notation oder eine MAC ohne Trennzeichen werden akzeptiert.</small></label>
           <label>Individuell abwesend nach<select id="presenceTargetDelay"><option value="">Standard verwenden</option><option value="0">sofort</option><option value="60">1 Minute</option><option value="180">3 Minuten</option><option value="300">5 Minuten</option><option value="600">10 Minuten</option><option value="900">15 Minuten</option></select></label>
-          <p class="setting-note">Bei Smartphones sollte die für dieses Heim-WLAN verwendete private MAC-Adresse stabil bleiben. Eine kurze Abwesenheitsverzögerung verhindert Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.</p>
+          <p class="setting-note"><strong>Hinweis für iPhone/iPad:</strong> Apple-Geräte können für ein WLAN eine private und gegebenenfalls wechselnde MAC-Adresse verwenden. Stelle sicher, dass das Gerät auch nach einem MAC-Wechsel dieselbe feste IP-Adresse behält; bei iPhone/iPad ist für das Heim-WLAN „Private WLAN-Adresse: Statisch“ sinnvoller als „Rotierend“. Erkennt SALTA an der konfigurierten IP eine neue MAC-Adresse, wird die gespeicherte MAC automatisch aktualisiert. Eine kurze Abwesenheitsverzögerung verhindert zusätzlich Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.</p>
           <div class="form-actions split-actions"><button id="presenceTargetCancelButton" type="button" class="secondary" onclick="cancelPresenceTargetEdit()" hidden>Abbrechen</button><button id="presenceTargetSaveButton" type="submit">Person hinzufügen</button></div>
         </form>
       </article>

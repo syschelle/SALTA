@@ -5,11 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 vi.mock("./db.js", () => ({
   getFritzBoxPresenceConnection: vi.fn(),
   listPresenceTargets: vi.fn(async () => []),
+  updatePresenceTargetMacAddress: vi.fn(async () => true),
   writeSystemLog: vi.fn(async () => undefined)
 }));
 
-import { FritzBoxPresenceAdapter, fritzBoxHostByMac, fritzBoxHostCount, normalizeFritzBoxBaseUrl, normalizePresenceMac } from "./fritzbox-presence.js";
-import { writeSystemLog } from "./db.js";
+import { FritzBoxPresenceAdapter, fritzBoxHostByIp, fritzBoxHostByMac, fritzBoxHostCount, normalizeFritzBoxBaseUrl, normalizePresenceIp, normalizePresenceMac } from "./fritzbox-presence.js";
+import { getFritzBoxPresenceConnection, listPresenceTargets, updatePresenceTargetMacAddress, writeSystemLog } from "./db.js";
 import type { DeviceRegistry } from "./registry.js";
 
 const soap = (body: string) => `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>${body}</s:Body></s:Envelope>`;
@@ -55,6 +56,9 @@ describe("FRITZ!Box presence transport", () => {
     expect(normalizePresenceMac("AABB.CCDD.EEFF")).toBe("AA:BB:CC:DD:EE:FF");
     expect(normalizePresenceMac("aabbccddeeff")).toBe("AA:BB:CC:DD:EE:FF");
     expect(() => normalizePresenceMac("not-a-mac")).toThrow("PRESENCE_MAC_INVALID");
+    expect(normalizePresenceIp(" 192.168.178.42 ")).toBe("192.168.178.42");
+    expect(normalizePresenceIp("fd00::42")).toBe("fd00::42");
+    expect(() => normalizePresenceIp("not-an-ip")).toThrow("PRESENCE_IP_INVALID");
   });
 
   it("sends SOAP bodies with an explicit UTF-8 Content-Length instead of chunked transfer encoding", async () => {
@@ -138,6 +142,81 @@ describe("FRITZ!Box presence transport", () => {
     expect(body).toContain("<NewMACAddress>AA:BB:CC:DD:EE:FF</NewMACAddress>");
   });
 
+
+
+  it("queries a fixed IP with the AVM Hosts action and returns the current MAC", async () => {
+    let soapAction = "";
+    let body = "";
+    const baseUrl = await localServer(async (request, response) => {
+      soapAction=String(request.headers.soapaction??"");
+      body=await requestBody(request);
+      response.writeHead(200,{"content-type":"text/xml"});
+      response.end(soap("<u:X_AVM-DE_GetSpecificHostEntyByIPResponse><NewMACAddress>11:22:33:44:55:66</NewMACAddress><NewIPAddress>192.168.178.42</NewIPAddress><NewInterfaceType>802.11</NewInterfaceType><NewActive>1</NewActive><NewHostName>iphone</NewHostName></u:X_AVM-DE_GetSpecificHostEntyByIPResponse>"));
+    });
+    await expect(fritzBoxHostByIp(baseUrl,"user","password","192.168.178.42")).resolves.toEqual({active:true,macAddress:"11:22:33:44:55:66",ipAddress:"192.168.178.42",interfaceType:"802.11",hostName:"iphone"});
+    expect(soapAction).toBe('"urn:dslforum-org:service:Hosts:1#X_AVM-DE_GetSpecificHostEntyByIP"');
+    expect(body).toContain("<NewIPAddress>192.168.178.42</NewIPAddress>");
+  });
+
+  it("falls back to rights-free generic host enumeration when IP lookup is unavailable", async () => {
+    let genericQueries=0;
+    const baseUrl=await localServer(async (request,response)=>{
+      const action=String(request.headers.soapaction??"");
+      if(action.includes("X_AVM-DE_GetSpecificHostEntyByIP")) {
+        response.writeHead(500,{"content-type":"text/xml"});
+        response.end(soap("<s:Fault><errorCode>401</errorCode><errorDescription>Invalid Action</errorDescription></s:Fault>"));
+        return;
+      }
+      if(action.includes("GetHostNumberOfEntries")) {
+        response.writeHead(200,{"content-type":"text/xml"});
+        response.end(soap("<u:GetHostNumberOfEntriesResponse><NewHostNumberOfEntries>2</NewHostNumberOfEntries></u:GetHostNumberOfEntriesResponse>"));
+        return;
+      }
+      genericQueries+=1;
+      const body=await requestBody(request);
+      const second=body.includes("<NewIndex>1</NewIndex>");
+      response.writeHead(200,{"content-type":"text/xml"});
+      response.end(soap(`<u:GetGenericHostEntryResponse><NewMACAddress>${second?'AA:BB:CC:DD:EE:99':'AA:BB:CC:DD:EE:01'}</NewMACAddress><NewIPAddress>${second?'192.168.178.42':'192.168.178.10'}</NewIPAddress><NewInterfaceType>802.11</NewInterfaceType><NewActive>${second?'1':'0'}</NewActive><NewHostName>${second?'iphone':'other'}</NewHostName></u:GetGenericHostEntryResponse>`));
+    });
+    await expect(fritzBoxHostByIp(baseUrl,"","","192.168.178.42")).resolves.toMatchObject({active:true,macAddress:"AA:BB:CC:DD:EE:99",ipAddress:"192.168.178.42"});
+    expect(genericQueries).toBe(2);
+  });
+
+  it("updates a changed iPhone MAC from the configured fixed IP during reconciliation", async () => {
+    let requestNumber=0;
+    const baseUrl=await localServer(async (request,response)=>{
+      requestNumber+=1;
+      const action=String(request.headers.soapaction??"");
+      if(action.includes("GetHostNumberOfEntries")) {
+        response.writeHead(200,{"content-type":"text/xml"});
+        response.end(soap("<u:GetHostNumberOfEntriesResponse><NewHostNumberOfEntries>1</NewHostNumberOfEntries></u:GetHostNumberOfEntriesResponse>"));
+        return;
+      }
+      if(action.includes("GetSpecificHostEntry")) {
+        response.writeHead(200,{"content-type":"text/xml"});
+        response.end(soap("<u:GetSpecificHostEntryResponse><NewIPAddress>192.168.178.42</NewIPAddress><NewInterfaceType>802.11</NewInterfaceType><NewActive>0</NewActive><NewHostName>iphone</NewHostName></u:GetSpecificHostEntryResponse>"));
+        return;
+      }
+      response.writeHead(200,{"content-type":"text/xml"});
+      response.end(soap("<u:X_AVM-DE_GetSpecificHostEntyByIPResponse><NewMACAddress>22:33:44:55:66:77</NewMACAddress><NewIPAddress>192.168.178.42</NewIPAddress><NewInterfaceType>802.11</NewInterfaceType><NewActive>1</NewActive><NewHostName>iphone</NewHostName></u:X_AVM-DE_GetSpecificHostEntyByIPResponse>"));
+    });
+    vi.mocked(getFritzBoxPresenceConnection).mockResolvedValue({baseUrl,username:"user",password:"password",enabled:true,pollIntervalSeconds:30,absenceDelaySeconds:300,tlsInsecure:false});
+    vi.mocked(listPresenceTargets).mockResolvedValue([{id:"target-1",name:"iPhone",personName:"Martin",macAddress:"11:22:33:44:55:66",ipAddress:"192.168.178.42",absenceDelaySeconds:null,createdAt:"",updatedAt:""}]);
+    const devices=new Map<string,any>();
+    const registry={
+      all:()=>[...devices.values()],
+      get:(id:string)=>devices.get(id),
+      set:vi.fn(async(device:any)=>{devices.set(device.id,device)}),
+      remove:vi.fn(async(id:string)=>devices.delete(id))
+    } as unknown as DeviceRegistry;
+    const adapter=new FritzBoxPresenceAdapter(registry);
+    await adapter.reconcile();
+    expect(updatePresenceTargetMacAddress).toHaveBeenCalledWith("target-1","11:22:33:44:55:66","22:33:44:55:66:77");
+    expect(devices.get("presence:target-1")?.macAddress).toBe("22:33:44:55:66:77");
+    expect(devices.get("presence:target-1")?.state?.present).toBe(true);
+    expect(devices.get("presence:target-1")?.adapterData?.configuredIpAddress).toBe("192.168.178.42");
+    expect(requestNumber).toBeGreaterThanOrEqual(3);
+  });
 
   it("tries the rights-free Hosts action without authentication even when credentials are configured", async () => {
     let body = "";

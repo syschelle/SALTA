@@ -328,16 +328,20 @@ if (!virtualFrontend.includes("split(' + ').includes('Daylight')?5:4")) fail("Ph
 const presenceSource = read("src/fritzbox-presence.ts");
 const securitySource = read("SECURITY.md");
 if (!publicIndex.includes('data-nav="presence"') || !publicIndex.includes('data-page="presence"')) fail("Dedicated Presence navigation/page is missing");
-for (const id of ["presenceSettingsForm", "presenceHouseSummary", "presenceTargetList", "presenceTargetForm", "presenceProtocol", "presenceHost", "presencePort", "presenceTlsInsecure"]) {
+for (const id of ["presenceSettingsForm", "presenceHouseSummary", "presenceTargetList", "presenceTargetForm", "presenceTargetIp", "presenceProtocol", "presenceHost", "presencePort", "presenceTlsInsecure"]) {
   if (!publicIndex.includes(`id="${id}"`)) fail(`Presence page section is missing: ${id}`);
 }
-if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_targets") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_target_profiles") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_transport_settings")) fail("Presence persistence tables are missing");
+if (!databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_settings") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_targets") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_target_profiles") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS presence_target_network") || !databaseSource.includes("CREATE TABLE IF NOT EXISTS fritzbox_presence_transport_settings")) fail("Presence persistence tables are missing");
 if (!databaseSource.includes('as "personName"') || !databaseSource.includes("LEFT JOIN presence_target_profiles p ON p.target_id=t.id")) fail("Presence person-name persistence/fallback is missing");
+if (!databaseSource.includes('n.ip_address as "ipAddress"') || !databaseSource.includes("LEFT JOIN presence_target_network n ON n.target_id=t.id") || !databaseSource.includes("ip_address text NOT NULL UNIQUE")) fail("Presence fixed-IP persistence is missing");
 if (!publicIndex.includes('id="presenceTargetPersonName"') || !virtualFrontend.includes("personName:presenceTargetPersonName.value.trim()")) fail("Presence person-name editor is missing");
+if (!publicIndex.includes('id="presenceTargetIp"') || !virtualFrontend.includes("ipAddress:presenceTargetIp.value.trim()") || !publicIndex.includes("Hinweis für iPhone/iPad:")) fail("Presence fixed-IP editor or private-MAC guidance is missing");
 if (!presenceSource.includes("presentNames:JSON.stringify(presentNames)") || !virtualFrontend.includes("presenceNamesFromHouse") || !virtualFrontend.includes("compactPresenceNames")) fail("Named house-presence overview is incomplete");
 if (!configurationBackupSource.includes("presence_target_profiles: backupRows(1000).optional()") || !configurationBackupSource.includes("presence_target_profiles: backup.data.presence_target_profiles ?? []")) fail("Presence person-name backup compatibility is missing");
+if (!configurationBackupSource.includes("presence_target_network: backupRows(1000).optional()") || !configurationBackupSource.includes("presence_target_network: backup.data.presence_target_network ?? []")) fail("Presence fixed-IP backup compatibility is missing");
 if (!databaseSource.includes("tls_insecure boolean NOT NULL DEFAULT false")) fail("FRITZ!Box TLS verification setting persistence is missing");
 if (!presenceSource.includes('urn:dslforum-org:service:Hosts:1') || !presenceSource.includes('GetSpecificHostEntry') || !presenceSource.includes('/upnp/control/hosts')) fail("FRITZ!Box TR-064 Hosts integration is incomplete");
+if (!presenceSource.includes("X_AVM-DE_GetSpecificHostEntyByIP") || !presenceSource.includes("GetGenericHostEntry") || !presenceSource.includes("updatePresenceTargetMacAddress") || !presenceSource.includes("FRITZBOX_PRESENCE_MAC_UPDATED")) fail("FRITZ!Box fixed-IP presence recovery and MAC refresh are incomplete");
 if (!presenceSource.includes('tr64desc.xml') || !presenceSource.includes('hostsControlUrlFromDescription') || !presenceSource.includes('controlURL')) fail("FRITZ!Box Hosts controlURL discovery from tr64desc.xml is missing");
 if (!presenceSource.includes('Always try the plain request first') || !presenceSource.includes('let response = await execute(normalBody)')) fail("FRITZ!Box rights-free Hosts requests must be attempted before authentication negotiation");
 if (!presenceSource.includes('errorCode:code')) fail("Presence system-log details do not expose the safe FRITZ!Box error code");
@@ -499,6 +503,9 @@ for (const [file, expected] of versionSurfaces) {
 }
 const releaseText = read("RELEASE_TEXT.md");
 if (!releaseText.includes(`\n\nSALTA v${version}`)) fail("RELEASE_TEXT.md introduction does not identify the current release version");
+const gitCommands = read("GIT_COMMANDS.md");
+if (!gitCommands.includes(`\"version\": \"${version}\"`)) fail("GIT_COMMANDS.md post-push package verification does not use the current release version");
+if (!gitCommands.includes(`ghcr.io/syschelle/salta:${version}`)) fail("GIT_COMMANDS.md post-push image verification does not use the current release version");
 const ghcrDocs = read("docs-ghcr.md");
 if (!ghcrDocs.startsWith(`# Publish SALTA v${version} to GHCR`)) fail("docs-ghcr.md heading does not match the current release version");
 if (!ghcrDocs.includes("pre-v0.8.41 container") || !ghcrDocs.includes("v0.8.41 and later store HomeKit pairing state")) {

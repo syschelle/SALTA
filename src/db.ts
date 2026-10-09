@@ -135,6 +135,11 @@ export async function initializeDatabaseSchema(): Promise<void> {
       person_name text NOT NULL CHECK(length(trim(person_name)) BETWEEN 1 AND 80),
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    CREATE TABLE IF NOT EXISTS presence_target_network (
+      target_id uuid PRIMARY KEY REFERENCES presence_targets(id) ON DELETE CASCADE,
+      ip_address text NOT NULL UNIQUE CHECK(length(trim(ip_address)) BETWEEN 2 AND 64),
+      updated_at timestamptz NOT NULL DEFAULT now()
+    );
     CREATE TABLE IF NOT EXISTS device_adapter_data (
       device_id text PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
       data jsonb NOT NULL DEFAULT '{}'::jsonb,
@@ -997,32 +1002,40 @@ export async function updateFritzBoxPresenceSettings(input: { baseUrl: string; u
 }
 
 export async function listPresenceTargets(): Promise<PresenceTarget[]> {
-  const result = await pool.query(`SELECT t.id,t.name,COALESCE(NULLIF(trim(p.person_name),''),t.name) as "personName",t.mac_address as "macAddress",t.absence_delay_seconds as "absenceDelaySeconds",t.created_at as "createdAt",t.updated_at as "updatedAt" FROM presence_targets t LEFT JOIN presence_target_profiles p ON p.target_id=t.id ORDER BY COALESCE(NULLIF(trim(p.person_name),''),t.name),t.name,t.id`);
+  const result = await pool.query(`SELECT t.id,t.name,COALESCE(NULLIF(trim(p.person_name),''),t.name) as "personName",t.mac_address as "macAddress",n.ip_address as "ipAddress",t.absence_delay_seconds as "absenceDelaySeconds",t.created_at as "createdAt",t.updated_at as "updatedAt" FROM presence_targets t LEFT JOIN presence_target_profiles p ON p.target_id=t.id LEFT JOIN presence_target_network n ON n.target_id=t.id ORDER BY COALESCE(NULLIF(trim(p.person_name),''),t.name),t.name,t.id`);
   return result.rows;
 }
 
-export async function createPresenceTarget(name: string, personName: string, macAddress: string, absenceDelaySeconds?: number): Promise<PresenceTarget> {
+export async function createPresenceTarget(name: string, personName: string, macAddress: string, ipAddress: string | undefined, absenceDelaySeconds?: number): Promise<PresenceTarget> {
   const id=randomUUID();
   const client=await pool.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query(`INSERT INTO presence_targets(id,name,mac_address,absence_delay_seconds) VALUES($1,$2,$3,$4) RETURNING id,name,mac_address as "macAddress",absence_delay_seconds as "absenceDelaySeconds",created_at as "createdAt",updated_at as "updatedAt"`, [id,name,macAddress,absenceDelaySeconds??null]);
     await client.query(`INSERT INTO presence_target_profiles(target_id,person_name) VALUES($1,$2)`,[id,personName]);
+    if(ipAddress) await client.query(`INSERT INTO presence_target_network(target_id,ip_address) VALUES($1,$2)`,[id,ipAddress]);
     await client.query("COMMIT");
-    return {...result.rows[0],personName};
+    return {...result.rows[0],personName,ipAddress:ipAddress??null};
   } catch(error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
 }
 
-export async function updatePresenceTarget(id: string, name: string, personName: string, macAddress: string, absenceDelaySeconds?: number): Promise<PresenceTarget | undefined> {
+export async function updatePresenceTarget(id: string, name: string, personName: string, macAddress: string, ipAddress: string | undefined, absenceDelaySeconds?: number): Promise<PresenceTarget | undefined> {
   const client=await pool.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query(`UPDATE presence_targets SET name=$2,mac_address=$3,absence_delay_seconds=$4,updated_at=now() WHERE id=$1 RETURNING id,name,mac_address as "macAddress",absence_delay_seconds as "absenceDelaySeconds",created_at as "createdAt",updated_at as "updatedAt"`, [id,name,macAddress,absenceDelaySeconds??null]);
     if(!result.rows[0]) { await client.query("ROLLBACK"); return undefined; }
     await client.query(`INSERT INTO presence_target_profiles(target_id,person_name) VALUES($1,$2) ON CONFLICT(target_id) DO UPDATE SET person_name=EXCLUDED.person_name,updated_at=now()`,[id,personName]);
+    if(ipAddress) await client.query(`INSERT INTO presence_target_network(target_id,ip_address) VALUES($1,$2) ON CONFLICT(target_id) DO UPDATE SET ip_address=EXCLUDED.ip_address,updated_at=now()`,[id,ipAddress]);
+    else await client.query(`DELETE FROM presence_target_network WHERE target_id=$1`,[id]);
     await client.query("COMMIT");
-    return {...result.rows[0],personName};
+    return {...result.rows[0],personName,ipAddress:ipAddress??null};
   } catch(error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
+}
+
+export async function updatePresenceTargetMacAddress(id: string, expectedMacAddress: string, macAddress: string): Promise<boolean> {
+  const result = await pool.query(`UPDATE presence_targets SET mac_address=$3,updated_at=now() WHERE id=$1 AND mac_address=$2`,[id,expectedMacAddress,macAddress]);
+  return result.rowCount===1;
 }
 
 export async function deletePresenceTarget(id: string): Promise<boolean> {
