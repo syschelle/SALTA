@@ -55,13 +55,17 @@ describe("HomeKit bridge structure", () => {
     expect(source).toMatch(/homeKitAccessoryName\(device\)/);
   });
 
-  it("publishes the hidden SALTA heating mode as a HomeKit Winter mode switch", () => {
+  it("publishes the hidden SALTA system modes as HomeKit switches", () => {
     expect(source).toContain('device.id === "system:climate-mode"');
     expect(source).toContain('device.adapterData?.systemKind === "climateMode"');
     expect(source).toContain('return Boolean(value) ? "winter" : "summer"');
-    expect(source).toContain('(device.hidden && !climateModeSwitch)');
+    expect(source).toContain('(device.hidden && !systemSwitch)');
     expect(source).toContain('this.systemActions.applyClimateMode(climateMode)');
-    expect(databaseSource).toContain("VALUES('system:climate-mode',true,'Wintermodus',false,NULL)");
+    expect(databaseSource).toContain("VALUES('system:climate-mode',true,'Winter',false,NULL)");
+    expect(source).toContain('device.id === "system:vacation-mode"');
+    expect(source).toContain('device.adapterData?.systemKind === "vacationMode"');
+    expect(source).toContain('this.systemActions.applyVacationMode(vacationMode)');
+    expect(databaseSource).toContain("VALUES('system:vacation-mode',true,'Urlaub',false,NULL)");
     expect(databaseSource).toContain("jsonb_build_array('setClimateMode','turnOn','turnOff')");
     expect(databaseSource).toContain("'on',(mode='winter')");
   });

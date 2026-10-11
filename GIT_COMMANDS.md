@@ -1,4 +1,4 @@
-# SALTA v0.8.106 Git commands
+# SALTA v0.8.107 Git commands
 
 ## Local quality gate
 
@@ -17,7 +17,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(homekit): add Winter mode switch"
+git commit -m "feat(homekit): add vacation mode switch"
 git push origin main
 ```
 
@@ -26,12 +26,13 @@ git push origin main
 ```bash
 git fetch origin
 
-git show origin/main:package.json | grep -F '"version": "0.8.106"'
-git show origin/main:src/homekit.ts | grep -F 'return Boolean(value) ? "winter" : "summer"'
+git show origin/main:package.json | grep -F '"version": "0.8.107"'
+git show origin/main:src/db.ts | grep -F "VALUES('system:climate-mode',true,'Winter',false,NULL)"
+git show origin/main:src/db.ts | grep -F "VALUES('system:vacation-mode',true,'Urlaub',false,NULL)"
 git show origin/main:src/homekit.ts | grep -F 'this.systemActions.applyClimateMode(climateMode)'
-git show origin/main:src/climate-mode.ts | grep -F 'winterActive: settings.mode === "winter", on: settings.mode === "winter"'
-git show origin/main:src/db.ts | grep -F "VALUES('system:climate-mode',true,'Wintermodus',false,NULL)"
-git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.106'
+git show origin/main:src/homekit.ts | grep -F 'this.systemActions.applyVacationMode(vacationMode)'
+git show origin/main:src/vacation-mode.ts | grep -F 'vacationActive: this.enabled, on: this.enabled'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.107'
 ```
 
 Then run the complete quality gate again if the push came from a different checkout:
@@ -44,8 +45,8 @@ npm run check
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.106 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.106.
+Release validator contract: SALTA v0.8.107 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.107.
 ```
 
 Wait for GitHub CI and CodeQL to be green before tagging.
@@ -57,15 +58,15 @@ git checkout main
 git pull --ff-only origin main
 git fetch origin
 
-git tag -a v0.8.106 -m "SALTA v0.8.106"
-git push origin v0.8.106
+git tag -a v0.8.107 -m "SALTA v0.8.107"
+git push origin v0.8.107
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.106 \
-  --title "SALTA v0.8.106" \
+gh release create v0.8.107 \
+  --title "SALTA v0.8.107" \
   --notes-file RELEASE_TEXT.md
 ```
 

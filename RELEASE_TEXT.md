@@ -1,19 +1,27 @@
-# SALTA v0.8.106
+# SALTA v0.8.107
 
-SALTA v0.8.106 adds a bidirectional HomeKit switch for the existing global Summer/Winter heating mode. Apple Home now exposes a built-in switch named **Wintermodus**: On represents Winter mode and Off represents Summer mode.
+SALTA v0.8.107 expands the built-in HomeKit system controls. The heating-mode switch now uses the shorter **Winter** label, and SALTA vacation mode is available as a second bidirectional HomeKit switch named **Urlaub**.
 
-## v0.8.106 HomeKit Winter mode switch
+## v0.8.107 HomeKit Winter and vacation switches
 
-- Added the built-in HomeKit switch **Wintermodus**.
-- **On** means SALTA Winter mode is active.
-- **Off** means SALTA Summer mode is active.
-- Switching the HomeKit accessory On applies the existing SALTA Winter-mode action.
-- Switching the HomeKit accessory Off applies the existing SALTA Summer-mode action.
-- Heating-mode changes made from the SALTA web UI, REST API or automations update the same internal state and are reflected back into HomeKit.
-- Reuses the canonical `system:climate-mode` device instead of creating a second HomeKit-only state.
-- The climate-mode system device remains hidden from normal SALTA device lists while being explicitly published by the HomeKit bridge.
-- The HomeKit accessory is enabled automatically when HomeKit is enabled; no additional SALTA configuration or HomeKit re-pairing is required.
-- Added regression and release-validator coverage for the On=Winter / Off=Summer mapping, hidden-system-device publication and state synchronization.
+- Renamed the existing HomeKit heating-mode switch from **Wintermodus** to **Winter**.
+- **Winter On** means SALTA Winter mode is active.
+- **Winter Off** means SALTA Summer mode is active.
+- Added the built-in HomeKit switch **Urlaub**.
+- **Urlaub On** enables the existing SALTA vacation mode.
+- **Urlaub Off** disables the existing SALTA vacation mode.
+- HomeKit vacation-mode writes call the canonical `VacationModeManager`; no separate HomeKit-only vacation state is created.
+- Changes made from the SALTA web UI or REST API update `system:vacation-mode` and are reflected back into HomeKit.
+- The existing `system:climate-mode` and `system:vacation-mode` devices remain hidden from normal SALTA device lists while being explicitly published by the HomeKit bridge.
+- Database initialization upgrades both system devices idempotently and enables the HomeKit names **Winter** and **Urlaub**.
+- Existing HomeKit bridge pairing state is preserved; no HomeKit reset or re-pair is required.
+- Added regression and release-validator coverage for both system switches, their names and their bidirectional mappings.
+
+## v0.8.106 HomeKit heating-mode switch carried forward
+
+- The global Summer/Winter heating mode remains exposed through the canonical `system:climate-mode` device.
+- HomeKit writes continue to use the same central climate manager used by SALTA UI and automations.
+- The switch state remains synchronized through `state.on`, with On = Winter and Off = Summer.
 
 ## v0.8.105 HomeMatic heating-mode traffic reduction carried forward
 
@@ -41,9 +49,10 @@ SALTA v0.8.106 adds a bidirectional HomeKit switch for the existing global Summe
 
 - No new database table is required.
 - No `ALTER TABLE` statement or manual SQL migration is required.
-- Existing `system:climate-mode` data is upgraded idempotently during normal database initialization.
+- Existing `system:climate-mode` data is upgraded idempotently to the HomeKit name **Winter**.
+- Existing `system:vacation-mode` data is upgraded idempotently to a HomeKit-capable switch named **Urlaub**.
 - Existing HomeKit pairing state is preserved; HomeKit does not need to be reset or paired again.
-- No dependency change is introduced by v0.8.106.
+- No dependency change is introduced by v0.8.107.
 - No new mandatory environment variable is introduced.
 - Existing PostgreSQL and SALTA runtime volumes remain compatible and must be preserved.
 

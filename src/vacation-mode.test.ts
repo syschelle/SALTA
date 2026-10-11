@@ -36,7 +36,7 @@ describe("vacation mode security monitor", () => {
     const manager = new VacationModeManager(registry as never, "Europe/Berlin", vi.fn());
     await manager.initialize();
     expect(registry.get(VACATION_MODE_AUTOMATION_DEVICE_ID)).toEqual(expect.objectContaining({
-      source: "system", hidden: true, homekitEnabled: false, state: expect.objectContaining({ vacationActive: true }), adapterData: expect.objectContaining({ systemKind: "vacationMode" })
+      source: "system", type: "switch", presentationType: "switch", hidden: true, homekitEnabled: true, capabilities: ["setVacationMode", "turnOn", "turnOff"], state: expect.objectContaining({ vacationActive: true, on: true }), adapterData: expect.objectContaining({ systemKind: "vacationMode" })
     }));
   });
 

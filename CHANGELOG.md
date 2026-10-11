@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.107
+
+- Renamed the built-in HomeKit heating-mode switch from **Wintermodus** to the shorter **Winter** label while preserving On = Winter and Off = Summer.
+- Added the built-in HomeKit switch **Urlaub** for SALTA vacation mode. On enables vacation mode and Off disables it through the existing `VacationModeManager`.
+- Vacation-mode changes made from SALTA are mirrored back to HomeKit through the canonical `system:vacation-mode` state; HomeKit writes use the same central manager, so no parallel state is introduced.
+- Upgraded the existing hidden `system:vacation-mode` device idempotently to a HomeKit-capable switch with `vacationActive` and `on` synchronized to the same boolean value.
+- Both hidden system switches are explicitly allowed through the HomeKit publication filter while remaining hidden from normal SALTA device lists.
+- Existing HomeKit pairing state is preserved; no HomeKit reset or re-pair is required.
+- Added regression and release-validator coverage for the Winter/Urlaub HomeKit labels, hidden system-device publication and bidirectional vacation-mode mapping.
+- No new table, `ALTER TABLE`, manual SQL migration, dependency or mandatory environment variable is required.
+
 ## v0.8.106
 
 - Added the built-in HomeKit switch **Wintermodus** for SALTA's global Summer/Winter heating mode.

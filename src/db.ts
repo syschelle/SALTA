@@ -285,8 +285,8 @@ export async function initializeDatabaseSchema(): Promise<void> {
     INSERT INTO device_preferences(device_id,hidden) VALUES('system:climate-mode',true)
       ON CONFLICT(device_id) DO UPDATE SET hidden=true,updated_at=now();
     INSERT INTO device_homekit_settings(device_id,enabled,name_override,use_salta_room,room_id)
-      VALUES('system:climate-mode',true,'Wintermodus',false,NULL)
-      ON CONFLICT(device_id) DO UPDATE SET enabled=true,name_override='Wintermodus',use_salta_room=false,room_id=NULL,updated_at=now();
+      VALUES('system:climate-mode',true,'Winter',false,NULL)
+      ON CONFLICT(device_id) DO UPDATE SET enabled=true,name_override='Winter',use_salta_room=false,room_id=NULL,updated_at=now();
     INSERT INTO device_adapter_data(device_id,data) VALUES('system:climate-mode','{"systemKind":"climateMode"}'::jsonb)
       ON CONFLICT(device_id) DO UPDATE SET data=EXCLUDED.data,updated_at=now();
     CREATE TABLE IF NOT EXISTS notification_settings (
@@ -304,6 +304,21 @@ export async function initializeDatabaseSchema(): Promise<void> {
       details jsonb NOT NULL DEFAULT '{}'::jsonb,
       updated_at timestamptz NOT NULL DEFAULT now()
     );
+    INSERT INTO notification_state(key,details) VALUES('vacation-mode','{"enabled":false}'::jsonb)
+      ON CONFLICT(key) DO NOTHING;
+    INSERT INTO devices(id,source,source_id,type,presentation_type,name,reachable,state,capabilities,homekit_enabled,credential_mode,last_seen,last_event,updated_at)
+      SELECT 'system:vacation-mode','system','vacation-mode','switch','switch','Urlaubsmodus',true,
+        jsonb_build_object('vacationActive',COALESCE((details->>'enabled')::boolean,false),'on',COALESCE((details->>'enabled')::boolean,false)),
+        jsonb_build_array('setVacationMode','turnOn','turnOff'),true,'none',now(),now(),now()
+      FROM notification_state WHERE key='vacation-mode'
+      ON CONFLICT(id) DO UPDATE SET source=EXCLUDED.source,source_id=EXCLUDED.source_id,type=EXCLUDED.type,presentation_type=EXCLUDED.presentation_type,name=EXCLUDED.name,reachable=true,state=EXCLUDED.state,capabilities=EXCLUDED.capabilities,homekit_enabled=true,credential_mode='none',updated_at=now();
+    INSERT INTO device_preferences(device_id,hidden) VALUES('system:vacation-mode',true)
+      ON CONFLICT(device_id) DO UPDATE SET hidden=true,updated_at=now();
+    INSERT INTO device_homekit_settings(device_id,enabled,name_override,use_salta_room,room_id)
+      VALUES('system:vacation-mode',true,'Urlaub',false,NULL)
+      ON CONFLICT(device_id) DO UPDATE SET enabled=true,name_override='Urlaub',use_salta_room=false,room_id=NULL,updated_at=now();
+    INSERT INTO device_adapter_data(device_id,data) VALUES('system:vacation-mode','{"systemKind":"vacationMode"}'::jsonb)
+      ON CONFLICT(device_id) DO UPDATE SET data=EXCLUDED.data,updated_at=now();
     CREATE TABLE IF NOT EXISTS system_logs (
       id uuid PRIMARY KEY,
       level text NOT NULL CHECK(level IN ('info','warning','error')),

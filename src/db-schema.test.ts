@@ -94,9 +94,13 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("DELETE FROM automation_system_actions WHERE automation_id=$1");
     expect(databaseSource).toContain("'system:climate-mode','system','climate-mode'");
     expect(databaseSource).toContain("'switch','switch','Heizmodus'");
-    expect(databaseSource).toContain("VALUES('system:climate-mode',true,'Wintermodus',false,NULL)");
+    expect(databaseSource).toContain("VALUES('system:climate-mode',true,'Winter',false,NULL)");
     expect(databaseSource).toContain("jsonb_build_array('setClimateMode','turnOn','turnOff')");
     expect(databaseSource).toContain("'winterActive',(mode='winter'),'on',(mode='winter')");
+    expect(databaseSource).toContain("'system:vacation-mode','system','vacation-mode'");
+    expect(databaseSource).toContain("VALUES('system:vacation-mode',true,'Urlaub',false,NULL)");
+    expect(databaseSource).toContain("jsonb_build_array('setVacationMode','turnOn','turnOff')");
+    expect(databaseSource).toContain("'vacationActive',COALESCE((details->>'enabled')::boolean,false),'on',COALESCE((details->>'enabled')::boolean,false)");
     expect(databaseSource).not.toContain("ARRAY['setClimateMode']::text[]");
     expect(databaseSource).toContain("position smallint NOT NULL CHECK(position BETWEEN 0 AND 7)");
     expect(databaseSource).toContain("setTargetTemperature");

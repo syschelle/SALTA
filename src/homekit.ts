@@ -24,6 +24,7 @@ type Commander = { command(command: DeviceCommand): Promise<Device> };
 
 export interface HomeKitSystemActions {
   applyClimateMode(mode: "summer" | "winter"): Promise<void>;
+  applyVacationMode(enabled: boolean): Promise<void>;
 }
 
 export function isHomeKitClimateModeSwitch(device: Device): boolean {
@@ -35,6 +36,21 @@ export function isHomeKitClimateModeSwitch(device: Device): boolean {
 export function homeKitClimateModeForSwitchValue(device: Device, value: unknown): "summer" | "winter" | undefined {
   if (!isHomeKitClimateModeSwitch(device)) return undefined;
   return Boolean(value) ? "winter" : "summer";
+}
+
+export function isHomeKitVacationModeSwitch(device: Device): boolean {
+  return device.id === "system:vacation-mode"
+    && device.source === "system"
+    && device.adapterData?.systemKind === "vacationMode";
+}
+
+export function homeKitVacationModeForSwitchValue(device: Device, value: unknown): boolean | undefined {
+  if (!isHomeKitVacationModeSwitch(device)) return undefined;
+  return Boolean(value);
+}
+
+function isHomeKitSystemSwitch(device: Device): boolean {
+  return isHomeKitClimateModeSwitch(device) || isHomeKitVacationModeSwitch(device);
 }
 
 type HomeKitPrimaryService =
@@ -199,7 +215,7 @@ export class HomeKitBridge {
     bridge.getService(Service.AccessoryInformation)
       ?.setCharacteristic(Characteristic.Manufacturer, "SALTA")
       .setCharacteristic(Characteristic.Model, "SALTA HomeKit Bridge")
-      .setCharacteristic(Characteristic.FirmwareRevision, "0.8.106")
+      .setCharacteristic(Characteristic.FirmwareRevision, "0.8.107")
       .setCharacteristic(Characteristic.SerialNumber, settings.username.replace(/:/g, ""));
     bridge.on("listening", (port, address) => {
       this.listeningPort = port;
@@ -363,8 +379,8 @@ export class HomeKitBridge {
 
   private sync(device: Device): void {
     if (!this.bridge) return;
-    const climateModeSwitch = isHomeKitClimateModeSwitch(device);
-    if (!device.homekitEnabled || (device.hidden && !climateModeSwitch) || !isHomeKitSupportedDevice(device)) {
+    const systemSwitch = isHomeKitSystemSwitch(device);
+    if (!device.homekitEnabled || (device.hidden && !systemSwitch) || !isHomeKitSupportedDevice(device)) {
       this.remove(device.id);
       return;
     }
@@ -386,7 +402,7 @@ export class HomeKitBridge {
         ?.setCharacteristic(Characteristic.Manufacturer, "SALTA")
         .setCharacteristic(Characteristic.Model, device.model || `SALTA ${device.source}`)
         .setCharacteristic(Characteristic.SerialNumber, device.macAddress || device.sourceId)
-        .setCharacteristic(Characteristic.FirmwareRevision, device.firmwareVersion || "0.8.106");
+        .setCharacteristic(Characteristic.FirmwareRevision, device.firmwareVersion || "0.8.107");
       const primary = this.addService(accessory, device, serviceType, accessoryName);
       if (!primary) return;
       this.addBatteryService(accessory, device);
@@ -412,6 +428,11 @@ export class HomeKitBridge {
     if (climateMode) {
       if (!this.systemActions) return Promise.reject(new Error("HOMEKIT_SYSTEM_ACTION_UNAVAILABLE"));
       return this.systemActions.applyClimateMode(climateMode);
+    }
+    const vacationMode = homeKitVacationModeForSwitchValue(device, value);
+    if (vacationMode !== undefined) {
+      if (!this.systemActions) return Promise.reject(new Error("HOMEKIT_SYSTEM_ACTION_UNAVAILABLE"));
+      return this.systemActions.applyVacationMode(vacationMode);
     }
     return this.command(device, value ? "turnOn" : "turnOff");
   }

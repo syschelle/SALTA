@@ -14,7 +14,7 @@ function climateDevice(): Device {
     state: { mode: "winter", winterMode: "manual", winterActive: true, on: true },
     capabilities: ["setClimateMode", "turnOn", "turnOff"],
     homekitEnabled: true,
-    homekitName: "Wintermodus",
+    homekitName: "Winter",
     hidden: true,
     credentialMode: "none",
     passwordConfigured: false,

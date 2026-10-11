@@ -51,7 +51,10 @@ async function main(): Promise<void> {
   batteryMonitor.start();
   climate.start();
 
-  const homekit = new HomeKitBridge(registry, commands, { applyClimateMode: async mode => { await climate.apply(mode); } });
+  const homekit = new HomeKitBridge(registry, commands, {
+    applyClimateMode: async mode => { await climate.apply(mode); },
+    applyVacationMode: async enabled => { await vacation.setEnabled(enabled); }
+  });
   let homeKitStatus = await homekit.start().catch(async () => homekit.status());
 
   const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"), homekit, hue, vacation);

@@ -147,6 +147,7 @@ if (!openCcuAdapterSource.includes('key: "buttonEvent"') || !openCcuAdapterSourc
 if (!read("public/automation-ui.js").includes("'hm-pb-6-wm55':[1002,1001,1003]")) fail("HM-PB-6-WM55 automation event choices are missing");
 
 const climateModeSource = read("src/climate-mode.ts");
+const vacationModeSource = read("src/vacation-mode.ts");
 const batteryMonitorSource = read("src/battery-monitor.ts");
 const pushoverSource = read("src/pushover.ts");
 const climateDbSource = read("src/db.ts");
@@ -413,11 +414,14 @@ for (const method of ["async start()", "async stop()", "async configure(", "asyn
   if (!homeKitSource.includes(method)) fail(`HomeKit bridge is missing runtime method ${method}`);
 }
 if (!homeKitSource.includes('source: "homekit"') || !homeKitSource.includes("isHomeKitSupportedDevice(device)") || !homeKitSource.includes("homeKitAccessoryName(device)")) fail("HomeKit bridge does not use the shared command path and supported-device publication rules");
-if (!homeKitSource.includes('device.id === "system:climate-mode"') || !homeKitSource.includes('return Boolean(value) ? "winter" : "summer"') || !homeKitSource.includes("this.systemActions.applyClimateMode(climateMode)")) fail("HomeKit Winter mode switch is not wired to the SALTA climate manager");
-if (!homeKitSource.includes("(device.hidden && !climateModeSwitch)")) fail("Hidden SALTA climate system switch is not allowed through the HomeKit publication filter");
+if (!homeKitSource.includes('device.id === "system:climate-mode"') || !homeKitSource.includes('return Boolean(value) ? "winter" : "summer"') || !homeKitSource.includes("this.systemActions.applyClimateMode(climateMode)")) fail("HomeKit Winter switch is not wired to the SALTA climate manager");
+if (!homeKitSource.includes('device.id === "system:vacation-mode"') || !homeKitSource.includes('device.adapterData?.systemKind === "vacationMode"') || !homeKitSource.includes("this.systemActions.applyVacationMode(vacationMode)")) fail("HomeKit vacation switch is not wired to the SALTA vacation manager");
+if (!homeKitSource.includes("(device.hidden && !systemSwitch)")) fail("Hidden SALTA system switches are not allowed through the HomeKit publication filter");
 if (!climateModeSource.includes('winterActive: settings.mode === "winter", on: settings.mode === "winter"')) fail("Climate mode does not synchronize the HomeKit switch state");
-if (!databaseSource.includes("VALUES('system:climate-mode',true,'Wintermodus',false,NULL)") || !databaseSource.includes("jsonb_build_array('setClimateMode','turnOn','turnOff')")) fail("Database does not seed the HomeKit Winter mode system switch");
-if (!mainSource.includes("new HomeKitBridge(registry, commands, { applyClimateMode: async mode => { await climate.apply(mode); } })")) fail("Main does not wire HomeKit Winter mode switching to the climate manager");
+if (!vacationModeSource.includes('vacationActive: this.enabled, on: this.enabled') || !vacationModeSource.includes('capabilities: ["setVacationMode", "turnOn", "turnOff"]') || !vacationModeSource.includes('homekitEnabled: true')) fail("Vacation mode does not synchronize the HomeKit switch state");
+if (!databaseSource.includes("VALUES('system:climate-mode',true,'Winter',false,NULL)") || !databaseSource.includes("jsonb_build_array('setClimateMode','turnOn','turnOff')")) fail("Database does not seed the HomeKit Winter system switch");
+if (!databaseSource.includes("VALUES('system:vacation-mode',true,'Urlaub',false,NULL)") || !databaseSource.includes("jsonb_build_array('setVacationMode','turnOn','turnOff')") || !databaseSource.includes('"systemKind":"vacationMode"')) fail("Database does not seed the HomeKit vacation system switch");
+if (!mainSource.includes("applyClimateMode: async mode => { await climate.apply(mode); }") || !mainSource.includes("applyVacationMode: async enabled => { await vacation.setEnabled(enabled); }")) fail("Main does not wire HomeKit system switches to the canonical SALTA managers");
 for (const route of ["/api/settings/homekit", "/api/settings/homekit/reset"]) {
   if (!serverSource.includes(route)) fail(`HomeKit settings API is missing ${route}`);
 }
