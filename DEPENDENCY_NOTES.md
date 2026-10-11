@@ -15,6 +15,7 @@ SALTA removes deprecated code and dependency paths controlled directly by the pr
 - Development-only `postcss` is resolved to `8.5.29` through Vite/Vitest, remaining above the prior `8.5.23` security floor.
 - HomeKit QR-code pairing in v0.8.46 is implemented without a new npm dependency or external QR service; the encoder is restricted to the standardized HomeKit `X-HM://` alphanumeric setup-URI contract.
 - SALTA v0.8.108 ordered automation Wait/sequence support is implemented entirely in the existing application stack and introduces no new npm dependency.
+- SALTA v0.8.109 moves the automation editor to a dedicated internal SPA page using only the existing frontend stack and introduces no new npm dependency.
 
 ## Upstream HomeKit exception
 

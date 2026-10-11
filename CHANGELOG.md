@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.8.109
+
+- Moved automation creation and editing out of the narrow overview side panel into a dedicated full-width internal SPA page.
+- Added a clear **New automation** action to the automation overview; editing an existing rule opens the same dedicated editor and keeps the Automations navigation item active.
+- Reworked the editor hierarchy into separate Basics, execution-day, **When**, **Only if** and **Then** sections so triggers, conditions and actions no longer compete for space in one narrow column.
+- Reworked the **Then** sequence UI so the first action is rendered as explicit **Step 1**, matching later actions and Wait steps.
+- Renamed the sequence controls to **Next action** and **Insert wait** and made them visually prominent in the full-width sequence editor.
+- Added a dedicated save bar with clear cancel/back navigation; successful saves return to the automation overview.
+- Kept the v0.8.108 automation API, database sequence format and runtime semantics unchanged, so existing rules and backups remain compatible.
+- Added frontend/release-validator regression coverage for the dedicated automation editor route, navigation binding and full-width layout.
+- Updated German/English UI translations and documentation for the new editor workflow.
+- No database schema change, npm dependency, mandatory environment variable or deployment-topology change is introduced.
+
 ## v0.8.108
 
 - Added ordered automation action sequences with explicit **Wait** steps between device/system actions.

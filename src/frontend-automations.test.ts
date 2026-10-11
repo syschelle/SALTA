@@ -7,6 +7,7 @@ import { cssMediaRuleContains, cssRuleContains } from "../test-utils/style-inspe
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const ui = readFileSync(new URL("../public/automation-ui.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
+const app = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
 const uiAst = parseJavaScriptSource(ui, "automation-ui.js");
 
 describe("automation frontend", () => {
@@ -24,6 +25,25 @@ describe("automation frontend", () => {
     expect(html).toContain('id="automationRoom"');
   });
 
+
+  it("opens create and edit workflows on a dedicated full-width inline page", () => {
+    expect(html).toContain('data-page="automations"');
+    expect(html).toContain('onclick="openAutomationEditor()"');
+    expect(html).toContain('data-page="automation-editor"');
+    expect(html).toContain('class="page automation-editor-page"');
+    expect(html).toContain('class="page-form automation-form automation-editor-form"');
+    expect(html).toContain('Zur Übersicht');
+    expect(html).toContain('Baue den Ablauf von oben nach unten auf.');
+    expect(app).toContain("'automations','automation-editor','rooms'");
+    expect(app).toContain("page==='automation-editor'?'automations':page");
+    expect(hasFunction(uiAst, "openAutomationEditor")).toBe(true);
+    expect(hasFunction(uiAst, "automationNavigateToEditor")).toBe(true);
+    expect(ui).toContain("location.hash='automation-editor'");
+    expect(ui).toContain("location.hash='automations'");
+    expect(cssRuleContains(styles, ".automation-editor-form", "max-width:1120px")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-primary-action-body", "grid-template-columns:minmax(0,1.5fr) minmax(190px,.7fr) minmax(170px,.55fr)")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-editor-savebar", "justify-content:space-between")).toBe(true);
+  });
   it("offers a daily local-time trigger without requiring a device", () => {
     expect(html).toContain('id="automationTriggerType"');
     expect(html).toContain('<option value="time">Uhrzeit</option>');
@@ -108,7 +128,7 @@ describe("automation frontend", () => {
   });
 
   it("keeps the editor aligned, supports room assignment and formats the last event relatively", () => {
-    expect(html).toContain('class="page-form automation-form"');
+    expect(html).toContain('class="page-form automation-form automation-editor-form"');
     expect(html).toContain('class="automation-form-basics"');
     expect(html).toContain('class="automation-field-row"');
     expect(ui).toContain("roomId:automationElements.room?.value||null");
@@ -233,8 +253,8 @@ describe("automation frontend", () => {
     expect(html).toContain('id="automationAdditionalActions"');
     expect(html).toContain('id="automationAddActionButton"');
     expect(html).toContain('id="automationAddWaitButton"');
-    expect(html).toContain("Aktion hinzufügen");
-    expect(html).toContain("Warten hinzufügen");
+    expect(html).toContain("Nächste Aktion");
+    expect(html).toContain("Wartezeit einfügen");
     expect(html).toContain("Schritte werden der Reihe nach ausgeführt");
     expect(ui).toContain("automationAdditionalActions");
     expect(hasFunction(uiAst, "addAutomationAdditionalAction")).toBe(true);

@@ -1,82 +1,87 @@
-# SALTA v0.8.108
+# SALTA v0.8.109
 
-SALTA v0.8.108 completes the planned v0.8.x automation-engine sequence foundation by adding ordered **Wait** steps between normal actions. Automations can now express deterministic flows such as `Light On → Wait 30 s → Cover Close → Wait 5 s → Light Off` while unrelated rules continue to execute normally.
+SALTA v0.8.109 reorganizes automation creation and editing into a dedicated full-width internal editor page. The automation overview is now focused on existing rules, while **New automation** and **Edit** open a separate workflow editor with substantially more room for triggers, conditions and ordered action/Wait sequences.
 
-## v0.8.108 ordered automation sequences
+## v0.8.109 dedicated automation editor
 
-- Added explicit **Wait** steps to the **Then** sequence.
-- Wait values are whole seconds from `1` to `86400`.
-- Up to eight total sequence steps are supported per automation.
-- The first sequence step remains an action; following steps can be actions or waits.
-- The same target device may appear multiple times in one sequence, so a device can be switched on near the beginning and off again later.
-- Additional steps can be reordered with move-up/move-down controls in the automation editor.
-- The editor now provides separate **Add action** and **Add wait** controls.
-- Waits are asynchronous and do not block unrelated automation rules.
-- Conditions are evaluated when a sequence starts; they are not re-evaluated after every Wait step.
-- Existing `On for seconds` remains available as a separate native timed-device action and is not replaced by general Wait steps.
+- Removed the automation form from the narrow right-hand side panel of the rule overview.
+- Added a clear **New automation** button to the Automations page.
+- Creating a new rule now opens the dedicated internal `#automation-editor` SPA page.
+- Editing an existing rule opens the same dedicated editor page with the current rule loaded.
+- The **Automations** navigation item remains active while the editor page is open, so the editor still feels like part of the same SALTA section.
+- Added explicit **Back to overview** / cancel navigation.
+- After a successful save, SALTA returns automatically to the automation overview.
+- The editor uses a much wider content area instead of the previous narrow side column.
 
-## Persistence and restart behavior
+## Clearer workflow structure
 
-- Added the additive `automation_sequence_steps` table as the canonical ordered sequence representation.
-- Existing v0.8.x automation targets/system actions are migrated idempotently into the new table during normal database initialization.
-- No legacy automation table is altered or dropped.
-- Legacy target/action tables continue to receive a best-effort compatibility projection when sequences are saved.
-- Configuration/disaster-recovery backup now includes `automation_sequence_steps`.
-- Existing format-v1 backup files without the new table remain accepted and are upgraded into sequence storage during restore.
-- The automation trigger timestamp is persisted after the first successful action, before a potentially long Wait, reducing the risk of replaying a daily time rule solely because SALTA restarted later during the sequence.
-- Stopping the automation engine invalidates in-flight sequence execution, and Wait timers do not keep the Node.js process alive during shutdown.
+The editor is now visually separated into distinct sections:
 
-## Validation and safety
+1. **Basics** — name, room and enabled state.
+2. **Execution days** — optional weekday/weekend restriction.
+3. **When** — device/event or daily time trigger plus optional OR triggers.
+4. **Only if** — optional AND-linked conditions.
+5. **Then** — the ordered action sequence.
 
-- Existing automation cycle detection remains active for device action edges; Wait steps do not create graph edges.
-- Existing trigger/target safety rules remain active.
-- The deliberate virtual-switch self-reset exception remains supported and its reset action still runs after the other configured sequence steps.
-- Wait start/completion and completed action steps are written to the SALTA system log for easier diagnostics.
-- A failed target command is logged and later configured sequence steps continue, matching the existing multi-action behavior.
-- Added regression coverage for ordered action/wait execution, repeated targets, concurrent unrelated rules, Wait validation, API persistence and frontend sequence editing.
+The **Then** section now presents the first target action explicitly as **Step 1**, matching the numbered sequence used by later actions and Wait steps. This makes flows such as the following easier to read while editing:
 
-## Roadmap update
+`Light On → Wait 30 s → Cover Close → Wait 5 s → Light Off`
 
-The planned v0.8.x automation-engine delay/sequence foundation is now implemented. The previous LLM/assistant direction is removed from the roadmap. The next minor line is defined as:
+The sequence controls are renamed and emphasized as **Next action** and **Insert wait**. Existing move-up, move-down and remove controls remain available for later sequence steps.
 
-**v0.9.x — advanced automation, diagnostics and system orchestration**
+## Compatibility
 
-The focus remains deterministic local automation rather than an LLM dependency.
+- The automation REST API is unchanged from v0.8.108.
+- The ordered sequence persistence format is unchanged from v0.8.108.
+- Existing rules open directly in the new editor without a manual conversion.
+- Existing ordered action/Wait sequences remain fully compatible.
+- Existing configuration/disaster-recovery backups remain compatible.
+- No database schema migration is introduced by v0.8.109.
+- No `ALTER TABLE` statement or manual SQL migration is required.
 
-## v0.8.107 HomeKit system switches carried forward
+## v0.8.108 ordered automation sequences carried forward
 
-- The built-in **Winter** HomeKit switch remains bidirectional: On = Winter, Off = Summer.
-- The built-in **Urlaub** HomeKit switch remains bidirectional with SALTA vacation mode.
-- Both switches use the canonical SALTA managers and preserve the existing HomeKit pairing state.
+- Automations support up to eight ordered **Then** steps.
+- Later sequence steps can be normal actions or explicit **Wait** steps from `1` to `86400` seconds.
+- The same target can appear multiple times in one sequence.
+- Wait steps execute asynchronously and do not block unrelated automations.
+- `On for seconds` remains available as a separate native timed-device action where supported.
+- Ordered sequences remain persisted in the additive `automation_sequence_steps` table.
+- Backup/restore preserves the complete ordered sequence.
+- Wait start/completion and completed action steps remain available in the system log.
 
-## v0.8.105 HomeMatic Duty Cycle reduction carried forward
+## HomeKit system controls carried forward
+
+- **Winter** remains the bidirectional HomeKit switch for SALTA Summer/Winter heating mode.
+  - On = Winter.
+  - Off = Summer.
+- **Urlaub** remains the bidirectional HomeKit switch for SALTA vacation mode.
+- Existing HomeKit pairing state is unaffected by this release.
+
+## HomeMatic thermostat guard carried forward
 
 - The hourly Winter guard only corrects thermostats explicitly reported as `AUTO` back to manual/Handbetrieb.
 - Thermostats already in manual, OFF, Boost, Party or an unknown state are not rewritten by the Winter guard.
 - OpenCCU `VirtualDevices` heating groups remain excluded from global climate-mode commands.
 - Summer continues to enforce OFF for known non-OFF physical thermostat states.
 
-## v0.8.104 OpenCCU thermostat handling carried forward
+## Roadmap
 
-- Classic HomeMatic/BidCos thermostats continue to use their native `AUTO_MODE` / `MANU_MODE` command path.
-- HmIP-specific mode datapoint handling remains isolated to HmIP device families.
+SALTA remains on the deterministic local-first roadmap:
 
-## v0.8.103 security refresh carried forward
+- **v0.8.x — automation engine and workflow editor**
+- **v0.9.x — advanced automation, diagnostics and system orchestration**
+- **v1.0.0 — first stable release**
 
-- Fastify remains at `5.12.5`.
-- Patched `fast-uri` paths remain at `3.1.8` and `4.2.2`.
-- Vitest and `@vitest/mocker` remain at `4.1.11`.
-- `source-map-js` remains at `1.2.2`.
-- The vulnerable `tinypool@1.1.1` path remains absent from the resolved dependency tree.
+There is no planned LLM dependency for core SALTA operation.
 
-## Persistence and deployment compatibility
+## Dependencies and deployment compatibility
 
-- One new additive table, `automation_sequence_steps`, is created automatically.
-- No `ALTER TABLE` statement or manual SQL migration is required.
-- No npm dependency is added or changed by v0.8.108.
+- No npm dependency is added or changed by v0.8.109.
 - No new mandatory environment variable is introduced.
+- No deployment-topology change is introduced.
 - Existing PostgreSQL and SALTA runtime volumes remain compatible and must be preserved.
-- Existing HomeKit pairing state is unaffected.
+- Existing HomeKit pairing state remains compatible.
 
 ## Production update
 

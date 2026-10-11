@@ -1,16 +1,14 @@
 # SALTA migration paths
 
-## Current v0.8.108 update
+## Current v0.8.109 update
 
-v0.8.108 extends the existing v0.8.x automation engine with ordered action/wait sequences. The first **Then** step remains a normal action; later steps can be additional actions or explicit **Wait** steps from 1 to 86400 seconds. The same target device may appear more than once, which allows sequences such as `Light On → Wait 30 s → Cover Close → Wait 5 s → Light Off`.
+v0.8.109 is an automation-editor UX release. The automation overview now contains the rule list and a **New automation** button only; creating or editing a rule opens the dedicated internal `#automation-editor` SPA page. The editor uses the full content width and separates Basics, execution days, **When**, **Only if** and **Then** into distinct sections.
 
-Persistence is additive. SALTA creates the new `automation_sequence_steps` table during normal database initialization. Existing automation target rows from `automation_targets`, `automation_timed_actions` and `automation_system_actions` are copied idempotently into the new canonical sequence representation with `ON CONFLICT ... DO NOTHING`. Existing legacy tables are not altered or dropped and continue to receive a best-effort compatibility projection when a sequence is saved.
+The underlying automation contract is unchanged from v0.8.108. Ordered action/Wait sequences remain stored in `automation_sequence_steps`, existing automations continue to load without conversion, and the same REST payload format is used. No new table, `ALTER TABLE`, data rewrite or manual SQL is required for v0.8.109.
 
-No manual SQL is required and no `ALTER TABLE` statement is introduced. Existing automations continue to work after the update. Configuration/disaster-recovery backups now include `automation_sequence_steps`; older format-v1 backup files that do not contain that table remain accepted and are upgraded into the sequence representation during restore.
+Existing v0.8.108 sequence semantics are carried forward unchanged, including repeated targets, Wait steps from 1 to 86400 seconds, asynchronous waits, backup/restore support and compatibility projections to the legacy automation action tables. A downgrade below v0.8.108 is still not recommended after using those sequence features.
 
-A downgrade to a release before v0.8.108 is not recommended after creating sequences that use Wait steps or repeat the same target. The old runtime cannot interpret those new semantics even though the additive sequence rows remain in PostgreSQL. Upgrade forward again to v0.8.108 or newer to regain the complete sequence behavior.
-
-The update does not add an npm dependency, mandatory environment variable or deployment-topology change. Preserve the existing PostgreSQL and SALTA runtime volumes. Do not use `docker compose down -v`.
+The update adds no npm dependency, mandatory environment variable or deployment-topology change. Preserve the existing PostgreSQL and SALTA runtime volumes. Do not use `docker compose down -v`.
 
 ## v0.8.107 HomeKit system switches
 

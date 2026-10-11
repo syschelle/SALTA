@@ -582,3 +582,75 @@ html[data-theme="dark"] .homekit-device-item.enabled{border-color:rgba(93,132,25
 .automation-weekday-grid input:checked+span{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
 .automation-weekday-grid input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
 @media(max-width:620px){.automation-weekday-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* v0.8.109 full-width automation editor */
+.automation-overview-layout{margin-top:24px}
+.automation-list-panel{width:100%;padding:20px}
+.automation-editor-page{width:100%;max-width:1240px}
+.automation-editor-header{align-items:flex-end}
+.automation-editor-form{width:100%;max-width:1120px;margin:24px auto 0;gap:18px}
+.automation-editor-panel{margin:0;padding:20px;border-radius:16px;background:var(--card)}
+.automation-editor-section-head{display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}
+.automation-editor-section-head>.mdi{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:10px;background:var(--accent-bg);color:var(--accent);font-size:18px}
+.automation-editor-section-head h2{margin:0;font-size:17px;line-height:1.25}
+.automation-editor-section-head p{margin-top:3px;font-size:11px;line-height:1.4}
+.automation-editor-basics{display:grid;gap:0}
+.automation-editor-basics .automation-form-basics{grid-template-columns:minmax(0,1.4fr) minmax(220px,.6fr);gap:12px 16px}
+.automation-editor-basics .automation-name-field{grid-column:1/-1}
+.automation-editor-panel.automation-schedule{padding:18px 20px;background:var(--card);box-shadow:var(--shadow-card)}
+.automation-editor-step{padding:20px;background:var(--card);border-radius:16px;box-shadow:var(--shadow-card);gap:14px}
+.automation-editor-step legend{font-size:17px;padding:0 9px}
+.automation-editor-step legend>span{width:28px;height:28px;border-radius:9px;font-size:12px}
+.automation-editor-step legend small{font-size:11px}
+.automation-editor-step #automationDeviceTriggerFields{display:grid;gap:12px}
+.automation-editor-step .automation-field-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.automation-sequence-intro{display:flex;align-items:flex-start;gap:9px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--subtle-bg);color:var(--muted)}
+.automation-sequence-intro>.mdi{margin-top:1px;color:var(--accent);font-size:17px}
+.automation-sequence-intro p{margin:0;font-size:11px;line-height:1.45}
+.automation-primary-action{display:grid;gap:0;border:1px solid var(--line);border-radius:13px;background:var(--card);overflow:hidden}
+.automation-primary-action-head{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--subtle-bg)}
+.automation-primary-action-head>div{min-width:0}
+.automation-primary-action-head small,.automation-primary-action-head strong{display:block}
+.automation-primary-action-head small{font-size:9.5px;color:var(--muted);font-weight:650}
+.automation-primary-action-head strong{margin-top:1px;font-size:12px}
+.automation-step-number{display:inline-grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:8px;background:var(--accent-bg);color:var(--accent);font-size:11px;font-weight:850}
+.automation-primary-action-body{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(190px,.7fr) minmax(170px,.55fr);gap:12px;align-items:end;padding:14px}
+.automation-primary-action-body>label{display:grid;gap:7px;font-size:11.5px;font-weight:650;min-width:0}
+.automation-additional-actions{gap:10px}
+.automation-extra-action{border-radius:13px}
+.automation-extra-action-head{grid-template-columns:minmax(0,1fr) 34px 34px 38px}
+.automation-extra-action-summary{padding:10px 12px;gap:10px}
+.automation-extra-action-summary small{font-size:9.5px}
+.automation-extra-action-summary strong{font-size:12px}
+.automation-extra-action-move,.automation-extra-action-move-spacer{width:34px;min-width:34px}
+.automation-extra-action-remove{width:38px}
+.automation-extra-action-body{grid-template-columns:minmax(0,1.5fr) minmax(190px,.7fr) minmax(170px,.55fr);gap:12px;align-items:end;padding:14px}
+.automation-wait-step .automation-extra-action-body{grid-template-columns:minmax(220px,360px);align-items:start}
+.automation-wait-step .automation-step-number{background:var(--subtle-bg);color:var(--text)}
+.automation-sequence-add-buttons{gap:10px;margin-top:2px}
+.automation-sequence-add-buttons .automation-add-action{min-height:40px;padding:9px 13px;border-style:solid;border-radius:10px;font-size:11.5px}
+.automation-sequence-add-buttons #automationAddActionButton{background:var(--accent-bg);border-color:transparent;color:var(--accent)}
+.automation-sequence-add-buttons #automationAddWaitButton{background:var(--subtle-bg);color:var(--text)}
+.automation-editor-savebar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0;padding:16px 18px}
+.automation-editor-savebar>div:first-child{display:grid;gap:2px}
+.automation-editor-savebar>div:first-child strong{font-size:13px}
+.automation-editor-savebar>div:first-child small{color:var(--muted);font-size:10.5px}
+.automation-editor-savebar .automation-form-actions{margin:0;flex-wrap:wrap}
+.automation-editor-savebar #automationSaveButton{gap:7px}
+
+@media(max-width:900px){
+  .automation-editor-form{max-width:none}
+  .automation-primary-action-body,.automation-extra-action-body{grid-template-columns:1fr 1fr}
+  .automation-primary-action-body>.automation-device-field,.automation-extra-action-body>.automation-device-field{grid-column:1/-1}
+}
+@media(max-width:620px){
+  .automation-editor-page{max-width:none}
+  .automation-editor-panel,.automation-editor-step{padding:14px}
+  .automation-editor-basics .automation-form-basics,.automation-editor-step .automation-field-row,.automation-primary-action-body,.automation-extra-action-body{grid-template-columns:1fr}
+  .automation-primary-action-body>.automation-device-field,.automation-extra-action-body>.automation-device-field{grid-column:auto}
+  .automation-editor-savebar{align-items:stretch;flex-direction:column}
+  .automation-editor-savebar .automation-form-actions{display:grid;grid-template-columns:1fr;gap:8px;width:100%}
+  .automation-editor-savebar .automation-form-actions button{width:100%}
+  .automation-extra-action-head{grid-template-columns:minmax(0,1fr) 32px 32px 36px}
+  .automation-sequence-add-buttons{grid-template-columns:1fr}
+}

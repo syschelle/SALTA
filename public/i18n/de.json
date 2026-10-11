@@ -1006,7 +1006,19 @@
     "SALTA gleicht die hinterlegten MAC- und festen IP-Adressen über die lokale TR-064-Hosts-Schnittstelle ab.": "SALTA gleicht die hinterlegten MAC- und festen IP-Adressen über die lokale TR-064-Hosts-Schnittstelle ab.",
     "Apple-Geräte können für ein WLAN eine private und gegebenenfalls wechselnde MAC-Adresse verwenden. Stelle sicher, dass das Gerät auch nach einem MAC-Wechsel dieselbe feste IP-Adresse behält; bei iPhone/iPad ist für das Heim-WLAN „Private WLAN-Adresse: Statisch“ sinnvoller als „Rotierend“. Erkennt SALTA an der konfigurierten IP eine neue MAC-Adresse, wird die gespeicherte MAC automatisch aktualisiert. Eine kurze Abwesenheitsverzögerung verhindert zusätzlich Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.": "Apple-Geräte können für ein WLAN eine private und gegebenenfalls wechselnde MAC-Adresse verwenden. Stelle sicher, dass das Gerät auch nach einem MAC-Wechsel dieselbe feste IP-Adresse behält; bei iPhone/iPad ist für das Heim-WLAN „Private WLAN-Adresse: Statisch“ sinnvoller als „Rotierend“. Erkennt SALTA an der konfigurierten IP eine neue MAC-Adresse, wird die gespeicherte MAC automatisch aktualisiert. Eine kurze Abwesenheitsverzögerung verhindert zusätzlich Fehlschaltungen durch WLAN-Roaming oder Energiesparphasen.",
     "SALTA steuert die Betriebsart aller kompatiblen Thermostate zentral.": "SALTA steuert die Betriebsart aller kompatiblen Thermostate zentral.",
-    "Sommer setzt alle kompatiblen Thermostate auf Aus. Winter setzt alle kompatiblen Thermostate fest auf Handbetrieb. SALTA prüft den eingestellten Heizmodus anschließend stündlich und korrigiert abweichende Thermostate automatisch. Ein Automatikbetrieb der Thermostate wird vom Heizmodus nicht verwendet.": "Sommer setzt alle kompatiblen Thermostate auf Aus. Winter setzt alle kompatiblen Thermostate fest auf Handbetrieb. SALTA prüft den eingestellten Heizmodus anschließend stündlich und korrigiert abweichende Thermostate automatisch. Ein Automatikbetrieb der Thermostate wird vom Heizmodus nicht verwendet."
+    "Sommer setzt alle kompatiblen Thermostate auf Aus. Winter setzt alle kompatiblen Thermostate fest auf Handbetrieb. SALTA prüft den eingestellten Heizmodus anschließend stündlich und korrigiert abweichende Thermostate automatisch. Ein Automatikbetrieb der Thermostate wird vom Heizmodus nicht verwendet.": "Sommer setzt alle kompatiblen Thermostate auf Aus. Winter setzt alle kompatiblen Thermostate fest auf Handbetrieb. SALTA prüft den eingestellten Heizmodus anschließend stündlich und korrigiert abweichende Thermostate automatisch. Ein Automatikbetrieb der Thermostate wird vom Heizmodus nicht verwendet.",
+    "Reagiere lokal auf Geräteereignisse und führe klar definierte Abläufe aus.": "Reagiere lokal auf Geräteereignisse und führe klar definierte Abläufe aus.",
+    "Neue Automation": "Neue Automation",
+    "Übersicht aller Automationen. Neue Regeln und Änderungen werden in einer eigenen Editor-Seite geöffnet.": "Übersicht aller Automationen. Neue Regeln und Änderungen werden in einer eigenen Editor-Seite geöffnet.",
+    "Erstelle den Workflow Schritt für Schritt. Auslöser, Bedingungen und Aktionen bleiben klar voneinander getrennt.": "Erstelle den Workflow Schritt für Schritt. Auslöser, Bedingungen und Aktionen bleiben klar voneinander getrennt.",
+    "Zur Übersicht": "Zur Übersicht",
+    "Grundlagen": "Grundlagen",
+    "Name, Raum, Aktivierung und optionale Ausführungstage.": "Name, Raum, Aktivierung und optionale Ausführungstage.",
+    "Baue den Ablauf von oben nach unten auf. Aktionen und Wartezeiten werden exakt in dieser Reihenfolge ausgeführt.": "Baue den Ablauf von oben nach unten auf. Aktionen und Wartezeiten werden exakt in dieser Reihenfolge ausgeführt.",
+    "Nächste Aktion": "Nächste Aktion",
+    "Wartezeit einfügen": "Wartezeit einfügen",
+    "Die Regel wird erst nach dem Speichern aktiv bzw. aktualisiert.": "Die Regel wird erst nach dem Speichern aktiv bzw. aktualisiert.",
+    "Übersicht aller Automationen": "Übersicht aller Automationen"
   },
   "patterns": [
     {
