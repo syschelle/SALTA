@@ -1,12 +1,12 @@
 # SALTA migration paths
 
-## Current v0.8.102 update
+## Current v0.8.103 update
 
-v0.8.102 fixes the global heating-mode thermostat policy. Summer remains `off`, while Winter is now fixed to `manual` for all compatible thermostats. The old configurable automatic Winter thermostat mode is no longer used by the heating-mode UI or runtime.
+v0.8.103 is a dependency-security release. It refreshes the npm dependency graph to patched Fastify, fast-uri, Vitest/@vitest/mocker and source-map-js releases and removes the vulnerable Tinypool 1.x path that was pulled in by the previous Vitest 3.x toolchain.
 
-SALTA also replaces the former 12-hour Summer-only guard with an hourly global guard. Once per hour, SALTA checks compatible thermostats and repairs mode drift to `off` in Summer or `manual` in Winter. An existing `winter_mode='auto'` value is normalized to `manual` during normal database initialization with an idempotent `UPDATE`; the table schema is unchanged and no manual SQL migration is required.
+There is no database schema change, no `ALTER TABLE`, no data migration and no manual SQL step. The v0.8.102 thermostat policy, v0.8.101 presence persistence and all existing runtime data formats are unchanged.
 
-The v0.8.101 additive `presence_target_network` table and fixed-IP/MAC presence recovery remain unchanged. Existing PostgreSQL and SALTA runtime volumes must be preserved during the update. Do not use `docker compose down -v`.
+Existing PostgreSQL and SALTA runtime volumes must be preserved during the update. Do not use `docker compose down -v`.
 
 ## Legacy HomeKit migration (pre-v0.8.41 pairing only)
 

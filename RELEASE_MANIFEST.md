@@ -1,11 +1,22 @@
-# SALTA v0.8.102 release manifest
+# SALTA v0.8.103 release manifest
 
 This manifest is intended for post-push verification before tagging the release.
+
+## Security dependency baseline
+
+```text
+fastify       5.12.5
+fast-uri      3.1.8 / 4.2.2
+vitest        4.1.11
+@vitest/mocker 4.1.11
+source-map-js 1.2.2
+tinypool      not present
+```
 
 ## Production deployment file
 
 ```text
-docker-compose.image.yml  SHA-256  5323d17626f93a9e4e6c69fb9b156473929c61e7b173296f83a0ad4f325a4243
+docker-compose.image.yml  SHA-256  9c98f9f0ac338b822b86dbe9ebe17da969291dea170c2bbe91ecfe5543f51f6a
 ```
 
 Required topology:

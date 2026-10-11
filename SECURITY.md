@@ -2,6 +2,11 @@
 
 SALTA uses mandatory authentication and is designed to fail closed when required secrets or security settings are missing. This document describes the protections implemented by SALTA and the limits of those protections.
 
+
+## Dependency security baseline
+
+SALTA v0.8.103 refreshes the dependency graph after GitHub dependency alerts against the previous lockfile. The release requires Fastify `5.12.5` or newer within the supported 5.x line, patched `fast-uri` 3.x/4.x releases, Vitest/@vitest/mocker `4.1.11` or newer, and `source-map-js` `1.2.2` or newer. A release validator and regression tests enforce these floors. The vulnerable `tinypool@1.1.1` path from the previous Vitest 3.x toolchain is not present in the v0.8.103 lockfile.
+
 ## Network exposure and HTTPS
 
 SALTA does not terminate TLS itself.

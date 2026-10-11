@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.103
+
+- Security-only dependency refresh for the GitHub dependency alerts reported against the v0.8.102 lockfile; no SALTA runtime feature or database behavior is changed.
+- Updated Fastify to `5.12.5` and locked `fast-uri` to patched `3.1.8` / `4.2.2` paths.
+- Updated Vitest and `@vitest/mocker` to `4.1.11`; the old vulnerable `tinypool@1.1.1` dependency disappears from the resolved tree.
+- Updated `source-map-js` to `1.2.2` and retained the existing `find-my-way@9.7.0` and `@homebridge/dbus-native@0.7.7` security/reproducibility overrides.
+- Added release-validator and regression coverage that prevents Fastify, fast-uri, Vitest, Tinypool or source-map-js from falling below the patched security floors.
+- The refreshed lockfile was generated from the public npm registry and verified with `npm ci` plus the complete `npm run check` in GitHub Actions before packaging.
+- Carries forward v0.8.102 hourly thermostat-mode enforcement, v0.8.101 fixed-IP presence recovery, v0.8.100 delayed contact triggers and v0.8.99 native timed Shelly actions unchanged.
+- No database schema change, manual migration, new mandatory environment variable or deployment-topology change is required.
+
 ## v0.8.102
 
 - Winter heating mode now always sets every compatible thermostat to **manual/Handbetrieb**; the previous configurable automatic Winter mode has been removed from the heating-mode UI.

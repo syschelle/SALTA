@@ -8,8 +8,11 @@ SALTA removes deprecated code and dependency paths controlled directly by the pr
 - No SALTA direct dependency is marked as deprecated in `package-lock.json`.
 - `find-my-way` is pinned through an npm override to `9.7.0` to remediate CVE-2026-47219 / GHSA-c96f-x56v-gq3h. This keeps Docker builds using `npm ci` on the patched Fastify router release.
 - `@homebridge/dbus-native` is pinned to `0.7.7`. SALTA v0.7.8 accidentally changed its lockfile package version and URL to 0.7.8 while retaining the 0.7.7 integrity checksum, causing `npm ci` to stop with `EINTEGRITY`. The v0.7.9 lockfile restores one internally consistent package record.
-- `fast-uri` is resolved to `3.1.5` in the Fastify/AJV path and `4.1.2` below `fast-json-stringify`, remediating GHSA-7p8r-x3mc-p8w7 / CVE-2026-18446.
-- Development-only `postcss` is resolved to `8.5.23` through Vite/Vitest, remediating GHSA-fxqj-rqcc-2cmp / CVE-2026-69153.
+- SALTA v0.8.103 requires `fastify@^5.12.5`; the tested lockfile resolves Fastify to `5.12.5`.
+- `fast-uri` is resolved to patched `3.1.8` in the Fastify/AJV path and `4.2.2` below `fast-json-stringify`.
+- Vitest and `@vitest/mocker` are resolved to `4.1.11`. The old `tinypool@1.1.1` path used by Vitest 3.x is no longer present in the v0.8.103 lockfile.
+- `source-map-js` is pinned through an npm override to `1.2.2`, closing the indexed source-map event-loop denial-of-service alert.
+- Development-only `postcss` is resolved to `8.5.29` through Vite/Vitest, remaining above the prior `8.5.23` security floor.
 - HomeKit QR-code pairing in v0.8.46 is implemented without a new npm dependency or external QR service; the encoder is restricted to the standardized HomeKit `X-HM://` alphanumeric setup-URI contract.
 
 ## Upstream HomeKit exception
@@ -20,4 +23,4 @@ This upstream dependency is intentionally retained to preserve HomeKit support. 
 
 ## Release lockfile validation
 
-`npm run validate:release` verifies the exact security overrides, the patched `fast-uri`/PostCSS floors, and the Homebridge DBus tarball metadata before tests or container publication. Future SALTA version bumps must use `npm run version:set -- <version>` so only the root application version is changed in `package-lock.json`.
+`npm run validate:release` verifies the exact security overrides, patched Fastify/fast-uri/Vitest/Tinypool/source-map-js/PostCSS floors, and the Homebridge DBus tarball metadata before tests or container publication. Future SALTA version bumps must use `npm run version:set -- <version>` so only the root application version is changed in `package-lock.json`.
