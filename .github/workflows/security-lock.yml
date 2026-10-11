@@ -33,6 +33,14 @@ jobs:
       - name: Run complete SALTA quality gate
         run: npm run check
 
+      - name: Upload tested lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: salta-v0.8.103-tested-lockfile
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Commit refreshed lockfile
         shell: bash
         run: |
