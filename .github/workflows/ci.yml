@@ -50,6 +50,56 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
 
+      - name: Apply v0.8.111 TypeScript validation patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/automations.ts")
+          text = path.read_text()
+          old = '''function cloneInput(input: AutomationInput): AutomationInput {
+            const sequence = input.sequence?.map(step => automationWaitStep(step)
+              ? { action: "wait" as const, value: Number(step.value) }
+              : {
+                  deviceId: step.deviceId,
+                  action: step.action,
+                  value: ["setTargetTemperature", "turnOnForSeconds"].includes(step.action) ? Number(step.value) : undefined
+                });
+          '''
+          new = '''function cloneInput(input: AutomationInput): AutomationInput {
+            const sequence: AutomationSequenceStep[] | undefined = input.sequence?.map((step): AutomationSequenceStep => automationWaitStep(step)
+              ? { action: "wait", value: Number(step.value) }
+              : {
+                  deviceId: step.deviceId,
+                  action: step.action,
+                  value: ["setTargetTemperature", "turnOnForSeconds"].includes(step.action) ? Number(step.value) : undefined
+                });
+          '''
+          if old not in text:
+              raise SystemExit("automations.ts validation patch anchor not found")
+          path.write_text(text.replace(old, new, 1))
+
+          path = Path("src/server.ts")
+          text = path.read_text()
+          old = '''  const sequencePrimary = sequence?.find(step => step.action !== "wait");
+            const primaryDeviceId = sequencePrimary && sequencePrimary.action !== "wait" ? sequencePrimary.deviceId : data.actionDeviceId;
+            const primaryAction = sequencePrimary && sequencePrimary.action !== "wait" ? sequencePrimary.action : data.action;
+            const primaryValue = sequencePrimary && sequencePrimary.action !== "wait" && ["setTargetTemperature", "turnOnForSeconds"].includes(sequencePrimary.action)
+              ? sequencePrimary.value
+              : ["setTargetTemperature", "turnOnForSeconds"].includes(data.action) ? data.actionValue : undefined;
+          '''
+          new = '''  const sequencePrimary = sequence?.find(step => step.action !== "wait");
+            const primaryDeviceId = sequencePrimary?.deviceId ?? data.actionDeviceId;
+            const primaryAction = sequencePrimary?.action ?? data.action;
+            const primaryValue = sequencePrimary && ["setTargetTemperature", "turnOnForSeconds"].includes(sequencePrimary.action)
+              ? sequencePrimary.value
+              : ["setTargetTemperature", "turnOnForSeconds"].includes(data.action) ? data.actionValue : undefined;
+          '''
+          if old not in text:
+              raise SystemExit("server.ts validation patch anchor not found")
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Run complete quality gate
         run: npm run check
-
