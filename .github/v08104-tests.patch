@@ -11,7 +11,7 @@ index 1e743b4..23234b7 100644
          modeValueType: "int",
          modeAutoValue: 0,
          modeManualValue: 1
-@@ -313,11 +313,10 @@ describe("OpenCCU HomeMatic device mapping", () => {
+@@ -313,10 +313,9 @@ describe("OpenCCU HomeMatic device mapping", () => {
        state: { controlMode: "manual", targetTemperature: 21.5 },
        capabilities: ["setTargetTemperature", "setThermostatMode"],
        adapterData: {
@@ -25,7 +25,7 @@ index 1e743b4..23234b7 100644
        }
      });
    });
-@@ -389,7 +388,7 @@ describe("OpenCCU HomeMatic device mapping", () => {
+@@ -389,6 +388,6 @@ describe("OpenCCU HomeMatic device mapping", () => {
        targetTemperatureMax: 30.5
      }, { targetTemperature: 21 }, "auto")).toEqual({
 -      writes: [{ parameter: "SET_POINT_MODE", valueType: "int", value: 0 }],
