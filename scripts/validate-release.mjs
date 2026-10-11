@@ -153,7 +153,6 @@ const climateDbSource = read("src/db.ts");
 if (!publicIndex.includes('id="climateSummerButton"') || !publicIndex.includes('id="climateWinterButton"') || !publicIndex.includes('id="climateWinterModeDisplay"')) fail("Global summer/winter thermostat controls are missing");
 if (!publicIndex.includes('data-settings-panel="climate"') || !publicIndex.includes('id="climateApplyNowButton"')) fail("Climate mode settings are missing");
 if (publicIndex.includes('id="climateSettingsWinterMode"') || publicIndex.includes('<option value="auto">Automatik</option>')) fail("Climate mode must not expose an automatic winter thermostat mode");
-if (!publicIndex.includes('class="panel overview-system-card climate-mode-card" data-homekit-exposed="false"')) fail("Climate mode must remain excluded from HomeKit");
 if (publicIndex.includes('<span class="system-card-badge">Nur SALTA</span>')) fail("Climate overview must not show the removed Nur SALTA badge");
 if (!serverSource.includes('"/api/system/climate-mode"') || !serverSource.includes('"/api/settings/climate-mode"')) fail("Climate mode APIs are missing");
 if (!climateModeSource.includes('value: targetMode') || !climateModeSource.includes('source: "system"')) fail("Climate mode does not route thermostat mode commands through SALTA system commands");
@@ -414,6 +413,11 @@ for (const method of ["async start()", "async stop()", "async configure(", "asyn
   if (!homeKitSource.includes(method)) fail(`HomeKit bridge is missing runtime method ${method}`);
 }
 if (!homeKitSource.includes('source: "homekit"') || !homeKitSource.includes("isHomeKitSupportedDevice(device)") || !homeKitSource.includes("homeKitAccessoryName(device)")) fail("HomeKit bridge does not use the shared command path and supported-device publication rules");
+if (!homeKitSource.includes('device.id === "system:climate-mode"') || !homeKitSource.includes('return Boolean(value) ? "winter" : "summer"') || !homeKitSource.includes("this.systemActions.applyClimateMode(climateMode)")) fail("HomeKit Winter mode switch is not wired to the SALTA climate manager");
+if (!homeKitSource.includes("(device.hidden && !climateModeSwitch)")) fail("Hidden SALTA climate system switch is not allowed through the HomeKit publication filter");
+if (!climateModeSource.includes('winterActive: settings.mode === "winter", on: settings.mode === "winter"')) fail("Climate mode does not synchronize the HomeKit switch state");
+if (!databaseSource.includes("VALUES('system:climate-mode',true,'Wintermodus',false,NULL)") || !databaseSource.includes("jsonb_build_array('setClimateMode','turnOn','turnOff')")) fail("Database does not seed the HomeKit Winter mode system switch");
+if (!mainSource.includes("new HomeKitBridge(registry, commands, { applyClimateMode: async mode => { await climate.apply(mode); } })")) fail("Main does not wire HomeKit Winter mode switching to the climate manager");
 for (const route of ["/api/settings/homekit", "/api/settings/homekit/reset"]) {
   if (!serverSource.includes(route)) fail(`HomeKit settings API is missing ${route}`);
 }

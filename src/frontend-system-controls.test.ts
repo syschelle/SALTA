@@ -28,7 +28,7 @@ describe("system overview controls", () => {
     expect(html).not.toContain('id="climateSettingsWinterMode"');
     expect(html).not.toContain('<option value="auto">Automatik</option>');
     expect(html).toContain('id="climateApplyNowButton"');
-    expect(html).toContain('class="panel overview-system-card climate-mode-card" data-homekit-exposed="false"');
+    expect(html).toContain('class="panel overview-system-card climate-mode-card" data-homekit-exposed="true"');
     expect(html).not.toContain('<span class="system-card-badge">Nur SALTA</span>');
     expect(html).toContain("onclick=\"applyClimateMode('summer')\"");
     expect(html).toContain("onclick=\"applyClimateMode('winter')\"");

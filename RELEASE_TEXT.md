@@ -1,28 +1,33 @@
-# SALTA v0.8.105
+# SALTA v0.8.106
 
-SALTA v0.8.105 makes the global Summer/Winter thermostat guard conservative for classic HomeMatic/OpenCCU installations. The hourly check stays enabled, but Winter now writes to a thermostat only when OpenCCU explicitly reports that device as being in Auto mode.
+SALTA v0.8.106 adds a bidirectional HomeKit switch for the existing global Summer/Winter heating mode. Apple Home now exposes a built-in switch named **Wintermodus**: On represents Winter mode and Off represents Summer mode.
 
-## v0.8.105 HomeMatic heating-mode traffic reduction
+## v0.8.106 HomeKit Winter mode switch
+
+- Added the built-in HomeKit switch **Wintermodus**.
+- **On** means SALTA Winter mode is active.
+- **Off** means SALTA Summer mode is active.
+- Switching the HomeKit accessory On applies the existing SALTA Winter-mode action.
+- Switching the HomeKit accessory Off applies the existing SALTA Summer-mode action.
+- Heating-mode changes made from the SALTA web UI, REST API or automations update the same internal state and are reflected back into HomeKit.
+- Reuses the canonical `system:climate-mode` device instead of creating a second HomeKit-only state.
+- The climate-mode system device remains hidden from normal SALTA device lists while being explicitly published by the HomeKit bridge.
+- The HomeKit accessory is enabled automatically when HomeKit is enabled; no additional SALTA configuration or HomeKit re-pairing is required.
+- Added regression and release-validator coverage for the On=Winter / Off=Summer mapping, hidden-system-device publication and state synchronization.
+
+## v0.8.105 HomeMatic heating-mode traffic reduction carried forward
 
 - The hourly Winter guard remains active once per hour.
 - In Winter, only thermostats explicitly reported as `AUTO` are corrected to `manual`/Handbetrieb.
 - Thermostats reported as `manual`, `OFF`, Boost, Party or an unknown mode are not touched by the hourly Winter guard.
-- Explicitly applying Winter mode still switches physical thermostats that are not already manual to `manual`.
-- Summer mode continues to enforce `OFF`; the hourly Summer guard corrects known non-OFF states back to `OFF`.
-- Unknown/ambiguous thermostat states are not repeatedly written by the hourly guard.
-- Explicit Summer/Winter application skips thermostats that are already in the requested mode.
-- OpenCCU `VirtualDevices` heating groups are excluded from the global heating-mode target set to avoid sending the same logical mode change to a virtual group and its physical thermostat members.
-- This reduces unnecessary HomeMatic RF commands and therefore avoids needless Duty Cycle consumption during periodic verification.
-
-## Root cause
-
-The previous guard treated every state other than the configured target as drift. During Winter mode this meant that anything not reported exactly as `manual` was rewritten once per hour. A diagnostic run showed 10 of 11 thermostats classified as mismatched and corrected in one pass. On classic HomeMatic installations that can create a large burst of RF traffic even when the user's real requirement is only to recover from an accidental switch back to Auto mode.
+- Explicit Summer/Winter application skips physical thermostats already in the requested mode.
+- OpenCCU `VirtualDevices` heating groups remain excluded from global climate-mode commands to avoid duplicate HomeMatic radio traffic.
+- Summer continues to enforce `OFF` for known non-OFF thermostat modes.
 
 ## v0.8.104 OpenCCU thermostat synchronization carried forward
 
-- The OpenCCU thermostat mode mapping fixes from v0.8.104 remain present.
 - Classic HomeMatic/BidCos devices continue to use their native `AUTO_MODE` / `MANU_MODE` command path.
-- HmIP-specific status/command handling remains isolated to HmIP devices and does not replace classic HomeMatic command handling.
+- HmIP-specific mode datapoint handling remains isolated to HmIP devices.
 
 ## v0.8.103 dependency security refresh carried forward
 
@@ -34,9 +39,11 @@ The previous guard treated every state other than the configured target as drift
 
 ## Persistence and deployment compatibility
 
-- No database schema change is required.
+- No new database table is required.
 - No `ALTER TABLE` statement or manual SQL migration is required.
-- No dependency change is introduced by v0.8.105.
+- Existing `system:climate-mode` data is upgraded idempotently during normal database initialization.
+- Existing HomeKit pairing state is preserved; HomeKit does not need to be reset or paired again.
+- No dependency change is introduced by v0.8.106.
 - No new mandatory environment variable is introduced.
 - Existing PostgreSQL and SALTA runtime volumes remain compatible and must be preserved.
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.106
+
+- Added the built-in HomeKit switch **Wintermodus** for SALTA's global Summer/Winter heating mode.
+- The HomeKit switch is **On** while Winter mode is active and **Off** while Summer mode is active.
+- Switching **Wintermodus** on in Apple Home applies SALTA Winter mode through the existing central climate manager; switching it off applies Summer mode.
+- Changes made through the SALTA UI, REST API or automations update the same internal system state and are reflected back into the HomeKit switch.
+- Reuses the existing `system:climate-mode` system device instead of introducing a second independent heating-mode state.
+- The internal climate-mode system device remains hidden from normal SALTA device lists but is explicitly allowed through the HomeKit bridge publication filter.
+- Database initialization upgrades the existing climate-mode system record idempotently to a HomeKit-capable switch named `Wintermodus`; no new table, `ALTER TABLE`, manual SQL migration or HomeKit re-pairing is required.
+- Carries forward the v0.8.105 conservative HomeMatic thermostat guard and Duty Cycle reduction unchanged.
+- No dependency change, new mandatory environment variable or deployment-topology change is required.
+
 ## v0.8.105
 
 - Reduced HomeMatic thermostat radio traffic from the global Summer/Winter heating-mode routines.

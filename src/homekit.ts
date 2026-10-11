@@ -22,6 +22,21 @@ let hapStorageInitialized = false;
 
 type Commander = { command(command: DeviceCommand): Promise<Device> };
 
+export interface HomeKitSystemActions {
+  applyClimateMode(mode: "summer" | "winter"): Promise<void>;
+}
+
+export function isHomeKitClimateModeSwitch(device: Device): boolean {
+  return device.id === "system:climate-mode"
+    && device.source === "system"
+    && device.adapterData?.systemKind === "climateMode";
+}
+
+export function homeKitClimateModeForSwitchValue(device: Device, value: unknown): "summer" | "winter" | undefined {
+  if (!isHomeKitClimateModeSwitch(device)) return undefined;
+  return Boolean(value) ? "winter" : "summer";
+}
+
 type HomeKitPrimaryService =
   | "outlet"
   | "switch"
@@ -126,7 +141,11 @@ export class HomeKitBridge {
   private readonly onDevice = (device: Device) => this.sync(device);
   private readonly onDeviceRemoved = (device: Device) => this.remove(device.id);
 
-  constructor(private readonly registry: DeviceRegistry, private readonly commander: Commander) {
+  constructor(
+    private readonly registry: DeviceRegistry,
+    private readonly commander: Commander,
+    private readonly systemActions?: HomeKitSystemActions
+  ) {
     this.registry.on("device", this.onDevice);
     this.registry.on("deviceRemoved", this.onDeviceRemoved);
   }
@@ -180,7 +199,7 @@ export class HomeKitBridge {
     bridge.getService(Service.AccessoryInformation)
       ?.setCharacteristic(Characteristic.Manufacturer, "SALTA")
       .setCharacteristic(Characteristic.Model, "SALTA HomeKit Bridge")
-      .setCharacteristic(Characteristic.FirmwareRevision, "0.8.105")
+      .setCharacteristic(Characteristic.FirmwareRevision, "0.8.106")
       .setCharacteristic(Characteristic.SerialNumber, settings.username.replace(/:/g, ""));
     bridge.on("listening", (port, address) => {
       this.listeningPort = port;
@@ -344,7 +363,8 @@ export class HomeKitBridge {
 
   private sync(device: Device): void {
     if (!this.bridge) return;
-    if (!device.homekitEnabled || device.hidden || !isHomeKitSupportedDevice(device)) {
+    const climateModeSwitch = isHomeKitClimateModeSwitch(device);
+    if (!device.homekitEnabled || (device.hidden && !climateModeSwitch) || !isHomeKitSupportedDevice(device)) {
       this.remove(device.id);
       return;
     }
@@ -366,7 +386,7 @@ export class HomeKitBridge {
         ?.setCharacteristic(Characteristic.Manufacturer, "SALTA")
         .setCharacteristic(Characteristic.Model, device.model || `SALTA ${device.source}`)
         .setCharacteristic(Characteristic.SerialNumber, device.macAddress || device.sourceId)
-        .setCharacteristic(Characteristic.FirmwareRevision, device.firmwareVersion || "0.8.105");
+        .setCharacteristic(Characteristic.FirmwareRevision, device.firmwareVersion || "0.8.106");
       const primary = this.addService(accessory, device, serviceType, accessoryName);
       if (!primary) return;
       this.addBatteryService(accessory, device);
@@ -385,6 +405,15 @@ export class HomeKitBridge {
 
   private command(device: Device, capability: string, value?: string | number | boolean): Promise<void> {
     return this.commander.command({ deviceId: device.id, capability, value, source: "homekit" }).then(() => undefined);
+  }
+
+  private switchCommand(device: Device, value: unknown): Promise<void> {
+    const climateMode = homeKitClimateModeForSwitchValue(device, value);
+    if (climateMode) {
+      if (!this.systemActions) return Promise.reject(new Error("HOMEKIT_SYSTEM_ACTION_UNAVAILABLE"));
+      return this.systemActions.applyClimateMode(climateMode);
+    }
+    return this.command(device, value ? "turnOn" : "turnOff");
   }
 
   private addService(accessory: Accessory, device: Device, serviceType: ResolvedPresentationType, name: string): Service | undefined {
@@ -408,7 +437,7 @@ export class HomeKitBridge {
 
     if (device.capabilities.includes("turnOn")) {
       if (serviceType === "fan") service.getCharacteristic(Characteristic.Active).onSet(value => this.command(device, Number(value) === Characteristic.Active.ACTIVE ? "turnOn" : "turnOff"));
-      else if (["outlet", "switch", "light"].includes(serviceType)) service.getCharacteristic(Characteristic.On).onSet(value => this.command(device, value ? "turnOn" : "turnOff"));
+      else if (["outlet", "switch", "light"].includes(serviceType)) service.getCharacteristic(Characteristic.On).onSet(value => this.switchCommand(device, value));
     }
     if (serviceType === "light" && device.capabilities.includes("setBrightness")) {
       service.getCharacteristic(Characteristic.Brightness).onSet(value => this.command(device, "setBrightness", Number(value)));

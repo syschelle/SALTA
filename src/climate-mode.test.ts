@@ -77,7 +77,7 @@ describe("global climate mode", () => {
   it("synchronizes the boolean winterActive state used by automation conditions", async () => {
     let systemDevice: Device = {
       id: "system:climate-mode", source: "system", sourceId: "climate-mode", type: "genericSensor", name: "Heizmodus", reachable: true,
-      state: { mode: "winter", winterMode: "manual", winterActive: true }, capabilities: ["setClimateMode"],
+      state: { mode: "winter", winterMode: "manual", winterActive: true, on: true }, capabilities: ["setClimateMode", "turnOn", "turnOff"],
       homekitEnabled: false, hidden: true, credentialMode: "none", passwordConfigured: false,
       lastSeen: new Date().toISOString(), lastEvent: new Date().toISOString()
     };
@@ -85,7 +85,7 @@ describe("global climate mode", () => {
     const manager = new ClimateModeManager({ all: () => [systemDevice], get: () => systemDevice, set } as never, { command: vi.fn() as never });
     vi.mocked(getClimateModeSettings).mockResolvedValue({ mode: "winter", winterMode: "manual" });
     await manager.apply("summer");
-    expect(set).toHaveBeenCalledWith(expect.objectContaining({ state: expect.objectContaining({ mode: "summer", winterMode: "manual", winterActive: false }) }));
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({ state: expect.objectContaining({ mode: "summer", winterMode: "manual", winterActive: false, on: false }) }));
   });
 
   it("repairs thermostat mode drift to off while summer mode is active", async () => {

@@ -1,12 +1,12 @@
 # SALTA migration paths
 
-## Current v0.8.105 update
+## Current v0.8.106 update
 
-v0.8.105 reduces unnecessary OpenCCU/HomeMatic thermostat commands from SALTA's global heating-mode routines. The hourly Winter guard now writes `manual` only when OpenCCU explicitly reports a thermostat as `AUTO`. Explicit Summer/Winter application skips thermostats already in the requested state, and OpenCCU `VirtualDevices` heating groups are excluded from global mode writes to avoid duplicate commands to a group and its physical members.
+v0.8.106 exposes SALTA's existing global Summer/Winter heating mode to HomeKit as the built-in switch **Wintermodus**. The switch is On in Winter mode and Off in Summer mode. Toggling the switch in Apple Home calls the same central SALTA climate-mode manager used by the web UI and automations, so there is no separate HomeKit-only state.
 
-The hourly check remains enabled. Summer continues to enforce `OFF` for known non-OFF states. Winter continues to switch physical thermostats to `manual` when the user or an automation explicitly applies Winter mode, while the hourly safety check only repairs accidental Auto mode.
+Database initialization updates the existing `system:climate-mode` system record idempotently to a HomeKit-capable switch and enables it with the HomeKit name `Wintermodus`. The system device remains hidden from normal SALTA device lists. Existing HomeKit bridge pairing data is preserved; a HomeKit reset or re-pair is not required.
 
-There is no database schema change, no `ALTER TABLE`, no data migration and no manual SQL step. Existing PostgreSQL and SALTA runtime volumes must be preserved during the update. Do not use `docker compose down -v`.
+There is no new database table, no `ALTER TABLE`, no manual SQL step and no data migration command. Existing PostgreSQL and SALTA runtime volumes must be preserved during the update. Do not use `docker compose down -v`.
 
 ## Legacy HomeKit migration (pre-v0.8.41 pairing only)
 

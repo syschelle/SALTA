@@ -55,6 +55,17 @@ describe("HomeKit bridge structure", () => {
     expect(source).toMatch(/homeKitAccessoryName\(device\)/);
   });
 
+  it("publishes the hidden SALTA heating mode as a HomeKit Winter mode switch", () => {
+    expect(source).toContain('device.id === "system:climate-mode"');
+    expect(source).toContain('device.adapterData?.systemKind === "climateMode"');
+    expect(source).toContain('return Boolean(value) ? "winter" : "summer"');
+    expect(source).toContain('(device.hidden && !climateModeSwitch)');
+    expect(source).toContain('this.systemActions.applyClimateMode(climateMode)');
+    expect(databaseSource).toContain("VALUES('system:climate-mode',true,'Wintermodus',false,NULL)");
+    expect(databaseSource).toContain("jsonb_build_array('setClimateMode','turnOn','turnOff')");
+    expect(databaseSource).toContain("'on',(mode='winter')");
+  });
+
   it("persists additive per-device publication settings and target-room metadata", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS device_homekit_settings");
     expect(databaseSource).toContain('COALESCE(hk.enabled,d.homekit_enabled) as "homekitEnabled"');

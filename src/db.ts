@@ -277,14 +277,16 @@ export async function initializeDatabaseSchema(): Promise<void> {
     INSERT INTO climate_mode_settings(id) VALUES('global') ON CONFLICT(id) DO NOTHING;
     UPDATE climate_mode_settings SET winter_mode='manual',updated_at=now() WHERE id='global' AND winter_mode<>'manual';
     INSERT INTO devices(id,source,source_id,type,presentation_type,name,reachable,state,capabilities,homekit_enabled,credential_mode,last_seen,last_event,updated_at)
-      SELECT 'system:climate-mode','system','climate-mode','genericSensor','auto','Heizmodus',true,
-        jsonb_build_object('mode',mode,'winterMode',winter_mode,'winterActive',(mode='winter')),jsonb_build_array('setClimateMode'),false,'none',now(),now(),now()
+      SELECT 'system:climate-mode','system','climate-mode','switch','switch','Heizmodus',true,
+        jsonb_build_object('mode',mode,'winterMode',winter_mode,'winterActive',(mode='winter'),'on',(mode='winter')),
+        jsonb_build_array('setClimateMode','turnOn','turnOff'),true,'none',now(),now(),now()
       FROM climate_mode_settings WHERE id='global'
-      ON CONFLICT(id) DO UPDATE SET source=EXCLUDED.source,source_id=EXCLUDED.source_id,type=EXCLUDED.type,presentation_type=EXCLUDED.presentation_type,name=EXCLUDED.name,reachable=true,state=EXCLUDED.state,capabilities=EXCLUDED.capabilities,homekit_enabled=false,credential_mode='none',updated_at=now();
+      ON CONFLICT(id) DO UPDATE SET source=EXCLUDED.source,source_id=EXCLUDED.source_id,type=EXCLUDED.type,presentation_type=EXCLUDED.presentation_type,name=EXCLUDED.name,reachable=true,state=EXCLUDED.state,capabilities=EXCLUDED.capabilities,homekit_enabled=true,credential_mode='none',updated_at=now();
     INSERT INTO device_preferences(device_id,hidden) VALUES('system:climate-mode',true)
       ON CONFLICT(device_id) DO UPDATE SET hidden=true,updated_at=now();
-    INSERT INTO device_homekit_settings(device_id,enabled) VALUES('system:climate-mode',false)
-      ON CONFLICT(device_id) DO UPDATE SET enabled=false,updated_at=now();
+    INSERT INTO device_homekit_settings(device_id,enabled,name_override,use_salta_room,room_id)
+      VALUES('system:climate-mode',true,'Wintermodus',false,NULL)
+      ON CONFLICT(device_id) DO UPDATE SET enabled=true,name_override='Wintermodus',use_salta_room=false,room_id=NULL,updated_at=now();
     INSERT INTO device_adapter_data(device_id,data) VALUES('system:climate-mode','{"systemKind":"climateMode"}'::jsonb)
       ON CONFLICT(device_id) DO UPDATE SET data=EXCLUDED.data,updated_at=now();
     CREATE TABLE IF NOT EXISTS notification_settings (
