@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.112
+
+- Fixed classic HomeMatic thermostat night-setback writes so a target-temperature action no longer relies only on `SET_TEMPERATURE` while the device is in MANU/OFF semantics.
+- For classic BidCos/HomeMatic thermostats in `manual` or `off`, SALTA now writes the requested target directly through native `MANU_MODE=<temperature>`, which atomically restores/keeps manual mode and applies the requested setpoint.
+- A 15.0 °C setback therefore sends `MANU_MODE=15.0` instead of leaving the device in the HomeMatic OFF representation.
+- AUTO mode remains untouched by ordinary target-temperature writes; SALTA continues to use `SET_TEMPERATURE` there so an explicit Auto state is not silently overridden by a setpoint-only action.
+- HmIP devices remain on their existing datapoint path and are explicitly excluded from the classic `MANU_MODE` routing, even if stale metadata contains a manual-mode field.
+- Added regression coverage for classic manual, classic OFF, classic AUTO and HmIP target-temperature writes.
+- The exact functional fix passed the complete GitHub CI quality gate with a production TypeScript build and the full Vitest suite: 83 test files / 517 tests; dynamic CodeQL PR analysis also passed.
+- Carries forward the v0.8.111 TypeScript sequence fix and the v0.8.110 fully editable automation sequence editor.
+- No database schema, dependency, mandatory environment-variable or deployment-topology change is required.
+
 ## v0.8.111
 
 - Fixed the TypeScript build regression introduced by the canonical automation sequence handling in v0.8.110.

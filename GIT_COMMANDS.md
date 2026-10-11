@@ -1,4 +1,4 @@
-# SALTA v0.8.111 Git commands
+# SALTA v0.8.112 Git commands
 
 ## Local quality gate
 
@@ -17,7 +17,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(automations): correct sequence TypeScript narrowing"
+git commit -m "fix(openccu): preserve manual mode during thermostat setbacks"
 git push origin main
 ```
 
@@ -26,26 +26,12 @@ git push origin main
 ```bash
 git fetch origin
 
-git show origin/main:package.json | grep -F '"version": "0.8.111"'
-git show origin/main:src/automations.ts | grep -F 'const sequence: AutomationSequenceStep[] | undefined'
-git show origin/main:src/automations.ts | grep -F 'map((step): AutomationSequenceStep =>'
-git show origin/main:src/server.ts | grep -F 'const primaryDeviceId = sequencePrimary?.deviceId ?? data.actionDeviceId'
-git show origin/main:src/server.ts | grep -F 'const primaryAction = sequencePrimary?.action ?? data.action'
-git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.111'
-```
-
-Then run the complete quality gate again if the push came from a different checkout:
-
-```bash
-npm ci
-npm run check
-```
-
-Expected release-validator output:
-
-```text
-Release validator contract: SALTA v0.8.111 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.111.
+git show origin/main:package.json | grep -F '"version": "0.8.112"'
+git show origin/main:src/openccu-core.ts | grep -F 'export function openCcuTargetTemperaturePlan('
+git show origin/main:src/openccu-core.ts | grep -F 'manualModeParameter && (currentMode === "manual" || currentMode === "off")'
+git show origin/main:src/openccu-adapter.ts | grep -F 'openCcuTargetTemperaturePlan(metadata, device.state, command.value)'
+git show origin/main:src/openccu-v08112-regression.test.ts | grep -F 'keeps a classic HomeMatic thermostat in manual mode while applying night setback'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.112'
 ```
 
 Wait for GitHub CI and CodeQL to be green before tagging.
@@ -57,15 +43,15 @@ git checkout main
 git pull --ff-only origin main
 git fetch origin
 
-git tag -a v0.8.111 -m "SALTA v0.8.111"
-git push origin v0.8.111
+git tag -a v0.8.112 -m "SALTA v0.8.112"
+git push origin v0.8.112
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.111 \
-  --title "SALTA v0.8.111" \
+gh release create v0.8.112 \
+  --title "SALTA v0.8.112" \
   --notes-file RELEASE_TEXT.md
 ```
 
@@ -80,4 +66,4 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-Never use `docker compose down -v`; keep the existing PostgreSQL and SALTA runtime volumes.
+Do not use `docker compose down -v`.

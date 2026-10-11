@@ -18,7 +18,9 @@ describe("OpenCCU control and naming integration", () => {
 
   it("supports thermostat target-temperature commands and UI controls", () => {
     expect(adapter).toContain('command.capability === "setTargetTemperature"');
-    expect(adapter).toContain('metadata.targetTemperatureValueType ?? "float"');
+    expect(adapter).toContain('openCcuTargetTemperaturePlan(metadata, device.state, command.value)');
+    expect(core).toContain('valueType: stringValue(metadata.targetTemperatureValueType) ?? "float"');
+    expect(core).toContain('manualModeParameter && (currentMode === "manual" || currentMode === "off")');
     expect(hasFunction(frontendAst, "targetTemperatureControl")).toBe(true);
     expect(functionTransitivelyCalls(frontendAst, "deviceCard", "targetTemperatureControl", 1)).toBe(true);
     expect(functionSource(frontendAst, "targetTemperatureControl")).toContain(

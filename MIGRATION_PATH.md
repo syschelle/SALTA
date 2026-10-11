@@ -1,12 +1,12 @@
 # SALTA migration paths
 
-## Current v0.8.111 update
+## Current v0.8.112 update
 
-v0.8.111 is a compile-time regression fix for the canonical automation sequence support introduced in v0.8.110. It does not change stored automation data or runtime sequence semantics.
+v0.8.112 is a command-routing fix for classic HomeMatic thermostat target-temperature actions. No stored automation data changes are required.
 
-The release explicitly types cloned sequences as the `AutomationSequenceStep[]` union and removes redundant impossible `wait` comparisons after TypeScript narrowing in the API normalization path. This resolves the six production-build errors reported by `tsc -p tsconfig.json`.
+When a classic BidCos/HomeMatic thermostat reports `manual` or `off`, SALTA now applies a requested target temperature through the native writable `MANU_MODE` temperature datapoint. This keeps/restores manual mode atomically with the requested setpoint. AUTO mode continues to use the normal target-temperature datapoint so a setpoint-only action does not unexpectedly force Manual. HmIP devices remain isolated from this classic HomeMatic path.
 
-The existing `automation_sequence_steps` table remains unchanged. No new table, `ALTER TABLE`, data rewrite or manual SQL migration is required. Existing v0.8.110 rules and backups remain directly compatible.
+The existing database schema, `automation_sequence_steps` data, HomeKit pairing state and runtime volumes are unchanged. No new table, `ALTER TABLE`, data rewrite or manual SQL migration is required.
 
 No npm dependency, mandatory environment variable or deployment-topology change is introduced. Preserve the existing PostgreSQL and SALTA runtime volumes. Do not use `docker compose down -v`.
 

@@ -498,6 +498,54 @@ export function openCcuThermostatModePlan(
   return { writes, state: { controlMode: "off", targetTemperature: minimum } };
 }
 
+export function openCcuTargetTemperaturePlan(
+  metadataInput: unknown,
+  state: DeviceState,
+  requestedTemperature: unknown
+): OpenCcuThermostatModePlan {
+  const metadata = record(metadataInput);
+  const targetParameter = stringValue(metadata.targetTemperatureParameter);
+  if (!targetParameter) throw new Error("CAPABILITY_NOT_SUPPORTED");
+
+  const minimum = numberValue(metadata.targetTemperatureMin) ?? 4.5;
+  const maximum = numberValue(metadata.targetTemperatureMax) ?? 30;
+  const temperature = numberValue(requestedTemperature);
+  if (temperature === undefined || temperature < minimum || temperature > maximum) throw new Error("INVALID_TARGET_TEMPERATURE");
+  const rounded = Math.round(temperature * 2) / 2;
+
+  const interfaceName = stringValue(metadata.interfaceName) ?? "";
+  const channelType = stringValue(metadata.channelType) ?? "";
+  const model = stringValue(metadata.model) ?? "";
+  const isHmIp = interfaceName.toUpperCase().includes("HMIP")
+    || model.toUpperCase().startsWith("HMIP-")
+    || channelType.toUpperCase().includes("HEATING_CLIMATECONTROL");
+  const currentMode = String(state.controlMode ?? "").trim().toLowerCase();
+  const manualModeParameter = !isHmIp ? stringValue(metadata.manualModeParameter) : undefined;
+
+  if (manualModeParameter && (currentMode === "manual" || currentMode === "off")) {
+    return {
+      writes: [{
+        parameter: manualModeParameter,
+        valueType: stringValue(metadata.manualModeValueType) ?? "float",
+        value: rounded
+      }],
+      state: {
+        controlMode: rounded <= minimum + 0.01 ? "off" : "manual",
+        targetTemperature: rounded
+      }
+    };
+  }
+
+  return {
+    writes: [{
+      parameter: targetParameter,
+      valueType: stringValue(metadata.targetTemperatureValueType) ?? "float",
+      value: rounded
+    }],
+    state: { targetTemperature: rounded }
+  };
+}
+
 function fallbackDeviceName(snapshot: Pick<OpenCcuChannelSnapshot, "model" | "channelAddress">): string {
   return `${snapshot.model ?? "HomeMatic"} ${snapshot.channelAddress}`;
 }

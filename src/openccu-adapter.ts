@@ -12,6 +12,7 @@ import {
   openCcuDeviceIds,
   openCcuObjectName,
   openCcuRpcEndpoint,
+  openCcuTargetTemperaturePlan,
   openCcuThermostatModePlan,
   reconciledOpenCcuName,
   record,
@@ -859,14 +860,9 @@ export class OpenCcuAdapter {
     } else if (command.capability === "stop") {
       addWrite(metadata.stopParameter, metadata.stopValueType ?? "bool", true);
     } else if (command.capability === "setTargetTemperature") {
-      const temperature = Number(command.value);
-      const minimum = Number(metadata.targetTemperatureMin ?? 4.5);
-      const maximum = Number(metadata.targetTemperatureMax ?? 30);
-      if (!Number.isFinite(temperature) || temperature < minimum || temperature > maximum) throw new Error("INVALID_TARGET_TEMPERATURE");
-      const rounded = Math.round(temperature * 2) / 2;
-      addWrite(metadata.targetTemperatureParameter, metadata.targetTemperatureValueType ?? "float", rounded);
-      nextState.targetTemperature = rounded;
-      if (nextState.controlMode === "off" && rounded > minimum + 0.01) nextState.controlMode = "manual";
+      const plan = openCcuTargetTemperaturePlan(metadata, device.state, command.value);
+      for (const write of plan.writes) addWrite(write.parameter, write.valueType, write.value);
+      Object.assign(nextState, plan.state);
     } else if (command.capability === "setThermostatMode") {
       const plan = openCcuThermostatModePlan(metadata, device.state, command.value);
       for (const write of plan.writes) addWrite(write.parameter, write.valueType, write.value);
