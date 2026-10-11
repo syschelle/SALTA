@@ -14,6 +14,7 @@ SALTA removes deprecated code and dependency paths controlled directly by the pr
 - `source-map-js` is pinned through an npm override to `1.2.2`, closing the indexed source-map event-loop denial-of-service alert.
 - Development-only `postcss` is resolved to `8.5.29` through Vite/Vitest, remaining above the prior `8.5.23` security floor.
 - HomeKit QR-code pairing in v0.8.46 is implemented without a new npm dependency or external QR service; the encoder is restricted to the standardized HomeKit `X-HM://` alphanumeric setup-URI contract.
+- SALTA v0.8.108 ordered automation Wait/sequence support is implemented entirely in the existing application stack and introduces no new npm dependency.
 
 ## Upstream HomeKit exception
 

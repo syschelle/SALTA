@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
 import type { AppearanceSettings, ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, HueSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel, VacationModeSettings } from "./types.js";
-import type { AutomationInput, AutomationRule, AutomationTargetAction } from "./automations.js";
+import type { AutomationInput, AutomationRule, AutomationSequenceStep, AutomationTargetAction } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
 
@@ -257,13 +257,42 @@ export async function initializeDatabaseSchema(): Promise<void> {
       PRIMARY KEY(automation_id,position),
       UNIQUE(automation_id,target)
     );
+    -- Ordered automation sequences introduced additively in v0.8.108.
+    -- This canonical table allows wait steps and repeated target devices while the
+    -- older target tables remain as a compatibility projection for older releases.
+    CREATE TABLE IF NOT EXISTS automation_sequence_steps (
+      automation_id uuid NOT NULL REFERENCES automations(id) ON DELETE CASCADE,
+      position smallint NOT NULL CHECK(position BETWEEN 0 AND 7),
+      step_type text NOT NULL CHECK(step_type IN ('action','wait')),
+      action_device_id text REFERENCES devices(id) ON DELETE CASCADE,
+      action text CHECK(action IN ('turnOn','turnOnForSeconds','turnOff','toggle','open','close','thermostatOff','thermostatAuto','thermostatManual','setTargetTemperature','climateSummer','climateWinter')),
+      value double precision,
+      wait_seconds integer,
+      PRIMARY KEY(automation_id,position),
+      CHECK (
+        (step_type='wait' AND action_device_id IS NULL AND action IS NULL AND value IS NULL AND wait_seconds BETWEEN 1 AND 86400)
+        OR
+        (step_type='action' AND action_device_id IS NOT NULL AND action IS NOT NULL AND wait_seconds IS NULL AND (
+          (action='setTargetTemperature' AND value BETWEEN 4 AND 35)
+          OR (action='turnOnForSeconds' AND value BETWEEN 1 AND 86400)
+          OR (action NOT IN ('setTargetTemperature','turnOnForSeconds') AND value IS NULL)
+        ))
+      )
+    );
+    CREATE INDEX IF NOT EXISTS automation_sequence_steps_device_idx ON automation_sequence_steps(action_device_id,automation_id);
     INSERT INTO automation_targets(automation_id,position,action_device_id,action,value)
       SELECT id,0,action_device_id,action,NULL FROM automations
       ON CONFLICT DO NOTHING;
     INSERT INTO automation_targets(automation_id,position,action_device_id,action,value)
       SELECT automation_id,position,action_device_id,action,NULL FROM automation_actions
       ON CONFLICT DO NOTHING;
-
+    INSERT INTO automation_sequence_steps(automation_id,position,step_type,action_device_id,action,value,wait_seconds)
+      SELECT t.automation_id,t.position,'action',t.action_device_id,
+        CASE WHEN timed.seconds IS NOT NULL THEN 'turnOnForSeconds' ELSE t.action END,
+        CASE WHEN timed.seconds IS NOT NULL THEN timed.seconds::double precision ELSE t.value END,NULL
+      FROM automation_targets t
+      LEFT JOIN automation_timed_actions timed ON timed.automation_id=t.automation_id AND timed.position=t.position
+      ON CONFLICT(automation_id,position) DO NOTHING;
     CREATE INDEX IF NOT EXISTS automations_trigger_idx ON automations(trigger_device_id, enabled);
     CREATE INDEX IF NOT EXISTS automations_action_idx ON automations(action_device_id);
     CREATE TABLE IF NOT EXISTS climate_mode_settings (
@@ -289,6 +318,10 @@ export async function initializeDatabaseSchema(): Promise<void> {
       ON CONFLICT(device_id) DO UPDATE SET enabled=true,name_override='Winter',use_salta_room=false,room_id=NULL,updated_at=now();
     INSERT INTO device_adapter_data(device_id,data) VALUES('system:climate-mode','{"systemKind":"climateMode"}'::jsonb)
       ON CONFLICT(device_id) DO UPDATE SET data=EXCLUDED.data,updated_at=now();
+    INSERT INTO automation_sequence_steps(automation_id,position,step_type,action_device_id,action,value,wait_seconds)
+      SELECT s.automation_id,s.position,'action','system:climate-mode',s.action,NULL,NULL
+      FROM automation_system_actions s
+      ON CONFLICT(automation_id,position) DO NOTHING;
     CREATE TABLE IF NOT EXISTS notification_settings (
       channel text PRIMARY KEY DEFAULT 'pushover',
       enabled boolean NOT NULL DEFAULT false,
@@ -485,6 +518,39 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
         return [{ deviceId: String(trigger.deviceId), stateKey: String(trigger.stateKey), value: trigger.value }];
       })
     : [];
+  const supportedActions = ["turnOn", "turnOnForSeconds", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature", "climateSummer", "climateWinter"];
+  const positionedSequence: Array<{ position: number; step: AutomationSequenceStep }> = [];
+  for (const value of Array.isArray(row.sequenceSteps) ? row.sequenceSteps : []) {
+    if (!value || typeof value !== "object") continue;
+    const rawStep = value as Record<string, unknown>;
+    const position = Number(rawStep.position);
+    if (!Number.isInteger(position) || position < 0 || position > 7) continue;
+    if (rawStep.stepType === "wait") {
+      const seconds = Number(rawStep.seconds);
+      if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > 86400) continue;
+      positionedSequence.push({ position, step: { action: "wait", value: seconds } });
+      continue;
+    }
+    const action = String(rawStep.action ?? "");
+    if (!rawStep.deviceId || !supportedActions.includes(action)) continue;
+    const numericValue = rawStep.value === null || rawStep.value === undefined ? undefined : Number(rawStep.value);
+    if (["setTargetTemperature", "turnOnForSeconds"].includes(action) && !Number.isFinite(numericValue)) continue;
+    positionedSequence.push({
+      position,
+      step: {
+        deviceId: String(rawStep.deviceId),
+        action: action as AutomationRule["action"],
+        ...(numericValue !== undefined ? { value: numericValue } : {})
+      }
+    });
+  }
+  const parsedSequence: AutomationSequenceStep[] = positionedSequence
+    .sort((left, right) => left.position - right.position)
+    .map(item => item.step);
+
+
+  // Fallback for databases created by pre-v0.8.108 releases before the additive
+  // sequence table has been populated.
   const rawTargets = [
     ...(Array.isArray(row.targetActions) ? row.targetActions : []),
     ...(Array.isArray(row.systemActions) ? row.systemActions : [])
@@ -502,7 +568,7 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
     const position = Number(target.position ?? 0);
     const timedSeconds = timedActions.get(position);
     const action = timedSeconds !== undefined ? "turnOnForSeconds" : String(target.action ?? "");
-    if (!target.deviceId || !["turnOn", "turnOnForSeconds", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature", "climateSummer", "climateWinter"].includes(action)) return [];
+    if (!target.deviceId || !supportedActions.includes(action)) return [];
     const numericValue = timedSeconds ?? (target.value === null || target.value === undefined ? undefined : Number(target.value));
     if (["setTargetTemperature", "turnOnForSeconds"].includes(action) && !Number.isFinite(numericValue)) return [];
     return [{
@@ -511,7 +577,7 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
       action: action as AutomationRule["action"],
       ...(numericValue !== undefined ? { value: numericValue } : {})
     }];
-  }).sort((left, right) => left.position - right.position).map(({ position: _position, ...target }) => target);
+  }).sort((left, right) => left.position - right.position).map(({ position: _position, ...target }) => target as AutomationTargetAction);
   const legacyAdditionalActions = Array.isArray(row.additionalActions)
     ? row.additionalActions.flatMap(value => {
         if (!value || typeof value !== "object") return [];
@@ -520,8 +586,14 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
         return [{ deviceId: String(target.deviceId), action: target.action as AutomationRule["action"] }];
       })
     : [];
-  const primaryTarget: AutomationTargetAction = parsedTargets[0] ?? { deviceId: String(row.actionDeviceId), action: row.action as AutomationRule["action"] };
-  const additionalActions = parsedTargets.length ? parsedTargets.slice(1) : legacyAdditionalActions;
+  const sequence = parsedSequence.length ? parsedSequence : parsedTargets;
+  const firstActionIndex = sequence.findIndex(step => step.action !== "wait");
+  const primaryTarget: AutomationTargetAction = firstActionIndex >= 0
+    ? sequence[firstActionIndex] as AutomationTargetAction
+    : { deviceId: String(row.actionDeviceId), action: row.action as AutomationRule["action"] };
+  const additionalActions: AutomationSequenceStep[] = parsedSequence.length
+    ? sequence.filter((_step, index) => index !== firstActionIndex)
+    : parsedTargets.length ? parsedTargets.slice(1) : legacyAdditionalActions;
   const additionalConditions = Array.isArray(row.additionalConditions)
     ? row.additionalConditions.flatMap(value => {
         if (!value || typeof value !== "object") return [];
@@ -564,6 +636,7 @@ const automationColumns = `a.id,a.name,a.enabled,p.room_id as "roomId",CASE WHEN
   a.condition_device_id as "conditionDeviceId",a.condition_state_key as "conditionStateKey",a.condition_value as "conditionValue",
   COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',c.condition_device_id,'stateKey',c.condition_state_key,'value',c.condition_value) ORDER BY c.position) FROM automation_conditions c WHERE c.automation_id=a.id),'[]'::jsonb) as "additionalConditions",
   a.action_device_id as "actionDeviceId",a.action,
+  COALESCE((SELECT jsonb_agg(jsonb_build_object('position',x.position,'stepType',x.step_type,'deviceId',x.action_device_id,'action',x.action,'value',x.value,'seconds',x.wait_seconds) ORDER BY x.position) FROM automation_sequence_steps x WHERE x.automation_id=a.id),'[]'::jsonb) as "sequenceSteps",
   COALESCE((SELECT jsonb_agg(jsonb_build_object('deviceId',x.action_device_id,'action',x.action) ORDER BY x.position) FROM automation_actions x WHERE x.automation_id=a.id),'[]'::jsonb) as "additionalActions",
   COALESCE((SELECT jsonb_agg(jsonb_build_object('position',x.position,'deviceId',x.action_device_id,'action',x.action,'value',x.value) ORDER BY x.position) FROM automation_targets x WHERE x.automation_id=a.id),'[]'::jsonb) as "targetActions",
   COALESCE((SELECT jsonb_agg(jsonb_build_object('position',x.position,'seconds',x.seconds) ORDER BY x.position) FROM automation_timed_actions x WHERE x.automation_id=a.id),'[]'::jsonb) as "timedActions",
@@ -585,7 +658,7 @@ function legacyAutomationAction(action: AutomationRule["action"]): "turnOn" | "t
   return action === "turnOn" || action === "turnOff" || action === "toggle" ? action : "turnOff";
 }
 
-function canonicalAutomationTargets(input: AutomationInput): AutomationTargetAction[] {
+function canonicalAutomationSequence(input: AutomationInput): AutomationSequenceStep[] {
   return [
     { deviceId: input.actionDeviceId, action: input.action, ...(input.actionValue !== undefined ? { value: input.actionValue } : {}) },
     ...(input.additionalActions ?? [])
@@ -593,37 +666,69 @@ function canonicalAutomationTargets(input: AutomationInput): AutomationTargetAct
 }
 
 async function writeAutomationTargets(client: PoolClient, automationId: string, input: AutomationInput): Promise<void> {
-  await client.query("DELETE FROM automation_timed_actions WHERE automation_id=$1", [automationId]);
-  await client.query("DELETE FROM automation_targets WHERE automation_id=$1", [automationId]);
-  await client.query("DELETE FROM automation_system_actions WHERE automation_id=$1", [automationId]);
-  for (const [position, target] of canonicalAutomationTargets(input).entries()) {
-    if (target.action === "climateSummer" || target.action === "climateWinter") {
+  const sequence = canonicalAutomationSequence(input);
+
+  await client.query("DELETE FROM automation_sequence_steps WHERE automation_id=$1", [automationId]);
+  for (const [position, step] of sequence.entries()) {
+    if (step.action === "wait") {
       await client.query(
-        `INSERT INTO automation_system_actions(automation_id,position,target,action) VALUES($1,$2,'climateMode',$3)`,
-        [automationId,position,target.action]
+        `INSERT INTO automation_sequence_steps(automation_id,position,step_type,action_device_id,action,value,wait_seconds) VALUES($1,$2,'wait',NULL,NULL,NULL,$3)`,
+        [automationId,position,step.value]
       );
       continue;
     }
-    const storedAction = target.action === "turnOnForSeconds" ? "turnOn" : target.action;
+    const value = ["setTargetTemperature", "turnOnForSeconds"].includes(step.action) ? step.value ?? null : null;
+    await client.query(
+      `INSERT INTO automation_sequence_steps(automation_id,position,step_type,action_device_id,action,value,wait_seconds) VALUES($1,$2,'action',$3,$4,$5,NULL)`,
+      [automationId,position,step.deviceId,step.action,value]
+    );
+  }
+
+  // Keep the pre-v0.8.108 tables as a best-effort compatibility projection.
+  // Wait steps are intentionally omitted and repeated target devices are kept
+  // only on their first occurrence because the old tables enforce uniqueness.
+  await client.query("DELETE FROM automation_timed_actions WHERE automation_id=$1", [automationId]);
+  await client.query("DELETE FROM automation_targets WHERE automation_id=$1", [automationId]);
+  await client.query("DELETE FROM automation_system_actions WHERE automation_id=$1", [automationId]);
+  const mirroredDevices = new Set<string>();
+  let mirrorPosition = 0;
+  let climateMirrored = false;
+  for (const step of sequence) {
+    if (step.action === "wait") continue;
+    if (step.action === "climateSummer" || step.action === "climateWinter") {
+      if (climateMirrored) continue;
+      climateMirrored = true;
+      await client.query(
+        `INSERT INTO automation_system_actions(automation_id,position,target,action) VALUES($1,$2,'climateMode',$3)`,
+        [automationId,mirrorPosition++,step.action]
+      );
+      continue;
+    }
+    if (mirroredDevices.has(step.deviceId)) continue;
+    mirroredDevices.add(step.deviceId);
+    const position = mirrorPosition++;
+    const storedAction = step.action === "turnOnForSeconds" ? "turnOn" : step.action;
     await client.query(
       `INSERT INTO automation_targets(automation_id,position,action_device_id,action,value) VALUES($1,$2,$3,$4,$5)`,
-      [automationId,position,target.deviceId,storedAction,target.action === "setTargetTemperature" ? target.value ?? null : null]
+      [automationId,position,step.deviceId,storedAction,step.action === "setTargetTemperature" ? step.value ?? null : null]
     );
-    if (target.action === "turnOnForSeconds") {
+    if (step.action === "turnOnForSeconds") {
       await client.query(
         `INSERT INTO automation_timed_actions(automation_id,position,seconds) VALUES($1,$2,$3)`,
-        [automationId,position,target.value]
+        [automationId,position,step.value]
       );
     }
   }
 
   await client.query("DELETE FROM automation_actions WHERE automation_id=$1", [automationId]);
+  const legacyDevices = new Set<string>();
   let legacyPosition = 1;
-  for (const target of input.additionalActions ?? []) {
-    if (!["turnOn", "turnOff", "toggle"].includes(target.action)) continue;
+  for (const step of input.additionalActions ?? []) {
+    if (step.action === "wait" || !["turnOn", "turnOff", "toggle"].includes(step.action) || legacyDevices.has(step.deviceId)) continue;
+    legacyDevices.add(step.deviceId);
     await client.query(
       `INSERT INTO automation_actions(automation_id,position,action_device_id,action) VALUES($1,$2,$3,$4)`,
-      [automationId,legacyPosition++,target.deviceId,target.action]
+      [automationId,legacyPosition++,step.deviceId,step.action]
     );
   }
 }

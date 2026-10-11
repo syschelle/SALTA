@@ -34,6 +34,7 @@ const backupDataSchema = z.object({
   automation_targets: backupRows().optional(),
   automation_timed_actions: backupRows().optional(),
   automation_system_actions: backupRows().optional(),
+  automation_sequence_steps: backupRows().optional(),
   climate_mode_settings: backupRows(10),
   notification_settings: backupRows(10),
   notification_state: backupRows(100)
@@ -53,7 +54,7 @@ const backupSchema = z.object({
 export type ConfigurationBackup = z.infer<typeof backupSchema>;
 
 type BackupData = z.infer<typeof backupDataSchema>;
-type NormalizedBackupData = Omit<BackupData, "device_favorites" | "presence_target_profiles" | "presence_target_network" | "automation_time_triggers" | "automation_schedule_preferences" | "automation_conditions" | "automation_actions" | "automation_targets" | "automation_timed_actions" | "automation_system_actions"> & { device_favorites: Record<string, unknown>[]; presence_target_profiles: Record<string, unknown>[]; presence_target_network: Record<string, unknown>[]; automation_time_triggers: Record<string, unknown>[]; automation_schedule_preferences: Record<string, unknown>[]; automation_conditions: Record<string, unknown>[]; automation_actions: Record<string, unknown>[]; automation_targets: Record<string, unknown>[]; automation_timed_actions: Record<string, unknown>[]; automation_system_actions: Record<string, unknown>[] };
+type NormalizedBackupData = Omit<BackupData, "device_favorites" | "presence_target_profiles" | "presence_target_network" | "automation_time_triggers" | "automation_schedule_preferences" | "automation_conditions" | "automation_actions" | "automation_targets" | "automation_timed_actions" | "automation_system_actions" | "automation_sequence_steps"> & { device_favorites: Record<string, unknown>[]; presence_target_profiles: Record<string, unknown>[]; presence_target_network: Record<string, unknown>[]; automation_time_triggers: Record<string, unknown>[]; automation_schedule_preferences: Record<string, unknown>[]; automation_conditions: Record<string, unknown>[]; automation_actions: Record<string, unknown>[]; automation_targets: Record<string, unknown>[]; automation_timed_actions: Record<string, unknown>[]; automation_system_actions: Record<string, unknown>[]; automation_sequence_steps: Record<string, unknown>[] };
 type BackupRow = Record<string, unknown>;
 
 const exportQueries: Readonly<Record<keyof NormalizedBackupData, string>> = {
@@ -80,6 +81,7 @@ const exportQueries: Readonly<Record<keyof NormalizedBackupData, string>> = {
   automation_targets: "SELECT * FROM automation_targets ORDER BY automation_id,position",
   automation_timed_actions: "SELECT * FROM automation_timed_actions ORDER BY automation_id,position",
   automation_system_actions: "SELECT * FROM automation_system_actions ORDER BY automation_id,position",
+  automation_sequence_steps: "SELECT * FROM automation_sequence_steps ORDER BY automation_id,position",
   climate_mode_settings: "SELECT * FROM climate_mode_settings ORDER BY id",
   notification_settings: "SELECT * FROM notification_settings ORDER BY channel",
   notification_state: "SELECT * FROM notification_state ORDER BY key"
@@ -109,6 +111,7 @@ const insertStatements: Readonly<Record<keyof NormalizedBackupData, string>> = {
   automation_targets: "INSERT INTO automation_targets SELECT * FROM jsonb_populate_recordset(NULL::automation_targets, $1::jsonb)",
   automation_timed_actions: "INSERT INTO automation_timed_actions SELECT * FROM jsonb_populate_recordset(NULL::automation_timed_actions, $1::jsonb)",
   automation_system_actions: "INSERT INTO automation_system_actions SELECT * FROM jsonb_populate_recordset(NULL::automation_system_actions, $1::jsonb)",
+  automation_sequence_steps: "INSERT INTO automation_sequence_steps SELECT * FROM jsonb_populate_recordset(NULL::automation_sequence_steps, $1::jsonb)",
   climate_mode_settings: "INSERT INTO climate_mode_settings SELECT * FROM jsonb_populate_recordset(NULL::climate_mode_settings, $1::jsonb)",
   notification_settings: "INSERT INTO notification_settings SELECT * FROM jsonb_populate_recordset(NULL::notification_settings, $1::jsonb)",
   notification_state: "INSERT INTO notification_state SELECT * FROM jsonb_populate_recordset(NULL::notification_state, $1::jsonb)"
@@ -117,11 +120,12 @@ const insertStatements: Readonly<Record<keyof NormalizedBackupData, string>> = {
 const insertOrder: readonly (keyof NormalizedBackupData)[] = [
   "rooms", "devices", "device_preferences", "device_favorites", "device_homekit_settings", "adapter_settings", "openccu_settings",
   "fritzbox_presence_settings", "fritzbox_presence_transport_settings", "presence_targets", "presence_target_profiles", "presence_target_network", "device_adapter_data",
-  "automations", "automation_preferences", "automation_time_triggers", "automation_schedule_preferences", "automation_conditions", "automation_triggers", "automation_actions", "automation_targets", "automation_timed_actions", "automation_system_actions", "climate_mode_settings", "notification_settings", "notification_state"
+  "automations", "automation_preferences", "automation_time_triggers", "automation_schedule_preferences", "automation_conditions", "automation_triggers", "automation_actions", "automation_targets", "automation_timed_actions", "automation_system_actions", "automation_sequence_steps", "climate_mode_settings", "notification_settings", "notification_state"
 ];
 
 const deleteStatements = [
   "DELETE FROM notification_state",
+  "DELETE FROM automation_sequence_steps",
   "DELETE FROM automation_system_actions",
   "DELETE FROM automation_timed_actions",
   "DELETE FROM automation_targets",
@@ -272,7 +276,8 @@ export async function importConfigurationBackup(input: unknown, signingKey = con
     automation_actions: backup.data.automation_actions ?? [],
     automation_targets: backup.data.automation_targets ?? [],
     automation_timed_actions: backup.data.automation_timed_actions ?? [],
-    automation_system_actions: backup.data.automation_system_actions ?? []
+    automation_system_actions: backup.data.automation_system_actions ?? [],
+    automation_sequence_steps: backup.data.automation_sequence_steps ?? []
   };
 
   const client = await pool.connect();
@@ -280,13 +285,25 @@ export async function importConfigurationBackup(input: unknown, signingKey = con
   let committed = false;
   try {
     await client.query("BEGIN");
-    await client.query("LOCK TABLE rooms, devices, device_preferences, device_favorites, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, presence_target_profiles, presence_target_network, device_adapter_data, automations, automation_preferences, automation_time_triggers, automation_schedule_preferences, automation_conditions, automation_triggers, automation_actions, automation_targets, automation_timed_actions, automation_system_actions, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
+    await client.query("LOCK TABLE rooms, devices, device_preferences, device_favorites, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, presence_target_profiles, presence_target_network, device_adapter_data, automations, automation_preferences, automation_time_triggers, automation_schedule_preferences, automation_conditions, automation_triggers, automation_actions, automation_targets, automation_timed_actions, automation_system_actions, automation_sequence_steps, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
     for (const statement of deleteStatements) await client.query(statement);
     for (const table of insertOrder) {
       const rows = restoreData[table];
       if (!rows.length) continue;
       await client.query(insertStatements[table], [JSON.stringify(rows)]);
     }
+    // Upgrade pre-v0.8.108 backups in-place so ordered sequences are available
+    // immediately after restore, without waiting for the next process restart.
+    await client.query(`INSERT INTO automation_sequence_steps(automation_id,position,step_type,action_device_id,action,value,wait_seconds)
+      SELECT t.automation_id,t.position,'action',t.action_device_id,CASE WHEN timed.seconds IS NOT NULL THEN 'turnOnForSeconds' ELSE t.action END,
+        CASE WHEN timed.seconds IS NOT NULL THEN timed.seconds::double precision ELSE t.value END,NULL
+      FROM automation_targets t
+      LEFT JOIN automation_timed_actions timed ON timed.automation_id=t.automation_id AND timed.position=t.position
+      ON CONFLICT(automation_id,position) DO NOTHING`);
+    await client.query(`INSERT INTO automation_sequence_steps(automation_id,position,step_type,action_device_id,action,value,wait_seconds)
+      SELECT s.automation_id,s.position,'action','system:climate-mode',s.action,NULL,NULL
+      FROM automation_system_actions s
+      ON CONFLICT(automation_id,position) DO NOTHING`);
     await client.query("INSERT INTO climate_mode_settings(id) VALUES('global') ON CONFLICT(id) DO NOTHING");
     await client.query("UPDATE climate_mode_settings SET winter_mode='manual',updated_at=now() WHERE id='global' AND winter_mode<>'manual'");
     await client.query("INSERT INTO notification_settings(channel) VALUES('pushover') ON CONFLICT(channel) DO NOTHING");

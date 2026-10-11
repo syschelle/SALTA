@@ -88,6 +88,12 @@ const automationAdditionalActionSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["value"], message: "Value is only supported for temperature and timed Shelly actions." });
   }
 });
+const automationWaitStepSchema = z.object({
+  action: z.literal("wait"),
+  value: z.number().int().min(1).max(86400)
+}).strict();
+const automationSequenceStepSchema = z.union([automationAdditionalActionSchema, automationWaitStepSchema]);
+
 const automationConditionSchema = z.object({
   deviceId: z.string().min(1).max(255),
   stateKey: z.string().trim().min(1).max(80),
@@ -116,7 +122,7 @@ const automationSchema = z.object({
   actionDeviceId: z.string().min(1).max(255),
   action: z.enum(["turnOn", "turnOnForSeconds", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature", "climateSummer", "climateWinter"]),
   actionValue: z.number().min(1).max(86400).optional(),
-  additionalActions: z.array(automationAdditionalActionSchema).max(7).default([])
+  additionalActions: z.array(automationSequenceStepSchema).max(7).default([])
 }).strict().superRefine((automation, ctx) => {
   if (automation.triggerType === "time") {
     if (!automation.triggerTime) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["triggerTime"], message: "Time is required." });
@@ -416,6 +422,7 @@ function automationError(error: unknown): { status: number; code: string; messag
     AUTOMATION_CONDITION_LIMIT: "A maximum of eight AND conditions is supported.",
     AUTOMATION_CONDITION_DUPLICATE: "The same condition is configured more than once.",
     AUTOMATION_ACTION_TEMPERATURE_INVALID: "The selected thermostat target temperature is outside the supported device range.",
+    AUTOMATION_WAIT_INVALID: "Wait steps require whole seconds between 1 and 86400.",
     AUTOMATION_CYCLE_NOT_ALLOWED: "This automation would create a device-action loop. Cyclic automations are not allowed."
   };
   return { status: code === "AUTOMATION_NOT_FOUND" ? 404 : code.endsWith("_NOT_FOUND") ? 404 : 400, code, message: messages[code] ?? "The automation could not be saved." };
@@ -441,11 +448,13 @@ function normalizeAutomationInput(data: z.infer<typeof automationSchema>): Autom
     actionDeviceId: data.actionDeviceId,
     action: data.action,
     actionValue: ["setTargetTemperature", "turnOnForSeconds"].includes(data.action) ? data.actionValue : undefined,
-    additionalActions: data.additionalActions.map(target => ({
-      deviceId: target.deviceId,
-      action: target.action,
-      ...(["setTargetTemperature", "turnOnForSeconds"].includes(target.action) ? { value: target.value } : {})
-    }))
+    additionalActions: data.additionalActions.map(step => step.action === "wait"
+      ? { action: "wait" as const, value: step.value }
+      : {
+          deviceId: step.deviceId,
+          action: step.action,
+          ...(["setTargetTemperature", "turnOnForSeconds"].includes(step.action) ? { value: step.value } : {})
+        })
   };
 }
 
@@ -684,9 +693,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.107" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.108" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.107", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.108", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1330,7 +1339,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.107", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.108", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

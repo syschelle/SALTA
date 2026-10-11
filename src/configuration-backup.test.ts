@@ -37,6 +37,10 @@ function rowsFor(sql: string): Record<string, unknown>[] {
   ];
   if (sql.includes("FROM automation_timed_actions")) return [{ automation_id: "22222222-2222-4222-8222-222222222222", position: 0, seconds: 12 }];
   if (sql.includes("FROM automation_system_actions")) return [{ automation_id: "22222222-2222-4222-8222-222222222222", position: 1, target: "climateMode", action: "climateWinter" }];
+  if (sql.includes("FROM automation_sequence_steps")) return [
+    { automation_id: "22222222-2222-4222-8222-222222222222", position: 0, step_type: "action", action_device_id: "virtual:test", action: "turnOnForSeconds", value: 12, wait_seconds: null },
+    { automation_id: "22222222-2222-4222-8222-222222222222", position: 1, step_type: "wait", action_device_id: null, action: null, value: null, wait_seconds: 5 }
+  ];
   if (sql.includes("FROM automation_actions")) return [{ automation_id: "22222222-2222-4222-8222-222222222222", position: 1, action_device_id: "virtual:test", action: "turnOn" }];
   if (sql.includes("FROM climate_mode_settings")) return [{ id: "global", mode: "winter", winter_mode: "auto" }];
   if (sql.includes("FROM notification_settings")) return [{ channel: "pushover", enabled: false, encrypted_user_key: "", encrypted_api_token: "", battery_threshold: 20 }];
@@ -79,6 +83,7 @@ describe("configuration backup", () => {
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM presence_target_network");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM presence_target_profiles");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM device_favorites");
+    expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_sequence_steps");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_system_actions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_timed_actions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_targets");
@@ -99,6 +104,7 @@ describe("configuration backup", () => {
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_targets SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_timed_actions SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_system_actions SELECT * FROM jsonb_populate_recordset"))).toBe(true);
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_sequence_steps SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery).toHaveBeenCalledWith("UPDATE climate_mode_settings SET winter_mode='manual',updated_at=now() WHERE id='global' AND winter_mode<>'manual'");
     expect(clientQuery).toHaveBeenCalledWith("COMMIT");
     expect(release).toHaveBeenCalledTimes(1);
@@ -145,6 +151,7 @@ describe("configuration backup", () => {
     delete data.automation_actions;
     delete data.automation_targets;
     delete data.automation_system_actions;
+    delete data.automation_sequence_steps;
     const { signature: _signature, ...base } = backup;
     void _signature;
     const unsigned = { ...base, data };
@@ -155,6 +162,7 @@ describe("configuration backup", () => {
 
     await importConfigurationBackup({ ...unsigned, signature });
 
+    expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_sequence_steps");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_system_actions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_timed_actions");
     expect(clientQuery).toHaveBeenCalledWith("DELETE FROM automation_targets");
@@ -170,6 +178,7 @@ describe("configuration backup", () => {
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_actions SELECT"))).toBe(false);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_targets SELECT"))).toBe(false);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_system_actions SELECT"))).toBe(false);
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_sequence_steps SELECT *"))).toBe(false);
     expect(clientQuery).toHaveBeenCalledWith("COMMIT");
   });
 

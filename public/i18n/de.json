@@ -160,6 +160,12 @@
     "Ist": "Ist",
     "Weitere UND-Bedingung hinzufügen": "Weitere UND-Bedingung hinzufügen",
     "Dann": "Dann",
+    "Schritte werden der Reihe nach ausgeführt": "Schritte werden der Reihe nach ausgeführt",
+    "Aktion hinzufügen": "Aktion hinzufügen",
+    "Warten hinzufügen": "Warten hinzufügen",
+    "Warten": "Warten",
+    "Wartezeit in Sekunden": "Wartezeit in Sekunden",
+    "Schritt entfernen": "Schritt entfernen",
     "alle Ziele werden ausgeführt": "alle Ziele werden ausgeführt",
     "Ziel": "Ziel",
     "Aktion": "Aktion",
@@ -691,6 +697,8 @@
     "Maximal acht UND-Bedingungen pro Automation.": "Maximal acht UND-Bedingungen pro Automation.",
     "Kein weiteres geeignetes Bedingungsgerät verfügbar.": "Kein weiteres geeignetes Bedingungsgerät verfügbar.",
     "Maximal acht Ziele pro Automation.": "Maximal acht Ziele pro Automation.",
+    "Maximal acht Schritte pro Automation.": "Maximal acht Schritte pro Automation.",
+    "Wartezeiten müssen ganze Sekunden zwischen 1 und 86400 sein.": "Wartezeiten müssen ganze Sekunden zwischen 1 und 86400 sein.",
     "Kein weiteres geeignetes Ziel verfügbar.": "Kein weiteres geeignetes Ziel verfügbar.",
     "Automation wurde aktualisiert.": "Automation wurde aktualisiert.",
     "Automation wurde angelegt.": "Automation wurde angelegt.",
@@ -1183,6 +1191,14 @@
     },
     {
       "match": "^Automation aktivieren$",
+      "replace": "$&"
+    },
+    {
+      "match": "^Schritt (\\d+)$",
+      "replace": "$&"
+    },
+    {
+      "match": "^Warten · (\\d+) s$",
       "replace": "$&"
     },
     {

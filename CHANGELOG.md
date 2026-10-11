@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.8.108
+
+- Added ordered automation action sequences with explicit **Wait** steps between device/system actions.
+- Wait steps accept whole seconds from 1 to 86400 and execute asynchronously, so unrelated automation rules continue to run while a sequence is waiting.
+- The same target device can appear multiple times in one sequence, enabling flows such as `Light On → Wait 30 s → Cover Close → Wait 5 s → Light Off`.
+- Added move-up/move-down controls for additional sequence steps and dedicated **Add action** / **Add wait** controls in the automation editor.
+- Kept the existing `On for seconds` action unchanged for devices such as Shelly that support a native timed command; general Wait steps are a separate orchestration primitive.
+- Added additive `automation_sequence_steps` persistence with action/wait step typing, repeated-target support and an idempotent migration from existing v0.8.x automation target/system-action rows. No legacy table is altered.
+- Configuration/disaster-recovery backup now preserves sequence steps and automatically upgrades older format-v1 backups that do not contain the new table.
+- Sequence execution logs wait start/completion and individual completed steps; the automation trigger timestamp is persisted after the first successful action so a long sequence is not replayed merely because SALTA restarts later.
+- Stopping the automation engine invalidates in-flight sequences, and wait timers do not keep the Node.js process alive during shutdown.
+- Existing cycle protection and the safe virtual-switch self-reset behavior are retained; the self-reset remains the final device action after configured sequence steps.
+- Updated the roadmap: v0.8.x now completes the automation-engine delay/sequence foundation, while v0.9.x is defined as **advanced automation, diagnostics and system orchestration** without an LLM dependency.
+- No npm dependency, mandatory environment variable or deployment-topology change is introduced.
+
 ## v0.8.107
 
 - Renamed the built-in HomeKit heating-mode switch from **Wintermodus** to the shorter **Winter** label while preserving On = Winter and Off = Summer.

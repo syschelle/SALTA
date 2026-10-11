@@ -543,25 +543,29 @@ describe("AutomationEngine", () => {
     engine.stop();
   });
 
-  it("rejects duplicate, unsafe trigger-equal and excessive target actions", async () => {
+  it("allows repeated target devices but rejects unsafe trigger-equal and excessive sequence steps", async () => {
     const registry = new TestRegistry();
     registry.devices.set("trigger", { ...device("trigger", { on: false }, ["turnOn", "turnOff", "toggle"]), source: "shelly" });
     for (let index = 1; index <= 9; index += 1) registry.devices.set(`target-${index}`, device(`target-${index}`, { on: false }, ["turnOn", "turnOff", "toggle"]));
     const engine = new AutomationEngine(registry as never, { command: vi.fn(async commandInput => registry.get(commandInput.deviceId)!) }, memoryStore());
     await engine.start();
     await expect(engine.create({
-      name: "Duplicate target", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
-      actionDeviceId: "target-1", action: "turnOn", additionalActions: [{ deviceId: "target-1", action: "turnOff" }]
-    })).rejects.toThrow("AUTOMATION_ACTION_DUPLICATE_DEVICE");
+      name: "Repeated target", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: "target-1", action: "turnOn", additionalActions: [{ action: "wait", value: 1 }, { deviceId: "target-1", action: "turnOff" }]
+    })).resolves.toEqual(expect.objectContaining({ name: "Repeated target" }));
     await expect(engine.create({
       name: "Trigger target", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
       actionDeviceId: "target-1", action: "turnOn", additionalActions: [{ deviceId: "trigger", action: "turnOff" }]
     })).rejects.toThrow("AUTOMATION_TRIGGER_ACTION_SAME_DEVICE");
     await expect(engine.create({
-      name: "Too many targets", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      name: "Too many steps", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
       actionDeviceId: "target-1", action: "turnOn",
-      additionalActions: Array.from({ length: 8 }, (_, index) => ({ deviceId: `target-${index + 2}`, action: "turnOn" as const }))
+      additionalActions: Array.from({ length: 8 }, () => ({ action: "wait" as const, value: 1 }))
     })).rejects.toThrow("AUTOMATION_ACTION_LIMIT");
+    await expect(engine.create({
+      name: "Bad wait", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true,
+      actionDeviceId: "target-1", action: "turnOn", additionalActions: [{ action: "wait", value: 0 }]
+    })).rejects.toThrow("AUTOMATION_WAIT_INVALID");
     engine.stop();
   });
 
@@ -714,6 +718,57 @@ describe("AutomationEngine", () => {
       actionDeviceId: "thermostat", action: "setTargetTemperature", actionValue: 31
     })).rejects.toThrow("AUTOMATION_ACTION_TEMPERATURE_INVALID");
     engine.stop();
+  });
+
+  it("executes ordered action and wait steps without blocking other rules", async () => {
+    vi.useFakeTimers();
+    const registry = new TestRegistry();
+    registry.devices.set("trigger", device("trigger", { motion: false }));
+    registry.devices.set("lamp", device("lamp", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    registry.devices.set("cover", device("cover", {}, ["close"]));
+    registry.devices.set("other-trigger", device("other-trigger", { motion: false }));
+    registry.devices.set("other", device("other", { on: false }, ["turnOn", "turnOff", "toggle"]));
+    const calls: string[] = [];
+    const command = vi.fn(async commandInput => { calls.push(`${commandInput.deviceId}:${commandInput.capability}`); return registry.get(commandInput.deviceId)!; });
+    const store = memoryStore();
+    const logger = { write: vi.fn(async () => undefined) };
+    const engine = new AutomationEngine(registry as never, { command }, store, logger, { intervalMs: 60_000 });
+    try {
+      await engine.start();
+      await engine.create({
+        name: "Sequence", enabled: true, triggerDeviceId: "trigger", triggerStateKey: "motion", triggerValue: true,
+        actionDeviceId: "lamp", action: "turnOn",
+        additionalActions: [
+          { action: "wait", value: 30 },
+          { deviceId: "cover", action: "close" },
+          { action: "wait", value: 5 },
+          { deviceId: "lamp", action: "turnOff" }
+        ]
+      });
+      await engine.create({
+        name: "Independent", enabled: true, triggerDeviceId: "other-trigger", triggerStateKey: "motion", triggerValue: true,
+        actionDeviceId: "other", action: "turnOn"
+      });
+
+      registry.publish(device("trigger", { motion: true }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(calls).toEqual(["lamp:turnOn"]);
+      expect(store.markTriggered).toHaveBeenCalledTimes(1);
+
+      registry.publish(device("other-trigger", { motion: true }));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(calls).toEqual(["lamp:turnOn", "other:turnOn"]);
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(calls).toEqual(["lamp:turnOn", "other:turnOn", "cover:close"]);
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(calls).toEqual(["lamp:turnOn", "other:turnOn", "cover:close", "lamp:turnOff"]);
+      expect(logger.write).toHaveBeenCalledWith("info", "automation", "AUTOMATION_WAIT_STARTED", "Automation wait step started", expect.objectContaining({ seconds: 30 }));
+      expect(logger.write).toHaveBeenCalledWith("info", "automation", "AUTOMATION_WAIT_COMPLETED", "Automation wait step completed", expect.objectContaining({ seconds: 5 }));
+    } finally {
+      engine.stop();
+      vi.useRealTimers();
+    }
   });
 
   it("executes Shelly timed turn-on with the configured seconds", async () => {

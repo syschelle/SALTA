@@ -229,16 +229,24 @@ describe("automation frontend", () => {
     expect(actions("physical")).toEqual([]);
   });
 
-  it("supports multiple target devices in the Dann step", () => {
+  it("supports ordered action sequences with wait steps in the Dann step", () => {
     expect(html).toContain('id="automationAdditionalActions"');
     expect(html).toContain('id="automationAddActionButton"');
-    expect(html).toContain("Weiteres Ziel hinzufügen");
+    expect(html).toContain('id="automationAddWaitButton"');
+    expect(html).toContain("Aktion hinzufügen");
+    expect(html).toContain("Warten hinzufügen");
+    expect(html).toContain("Schritte werden der Reihe nach ausgeführt");
     expect(ui).toContain("automationAdditionalActions");
     expect(hasFunction(uiAst, "addAutomationAdditionalAction")).toBe(true);
+    expect(hasFunction(uiAst, "addAutomationWaitStep")).toBe(true);
+    expect(hasFunction(uiAst, "moveAutomationAdditionalAction")).toBe(true);
+    expect(hasFunction(uiAst, "changeAutomationAdditionalWaitValue")).toBe(true);
     expect(hasFunction(uiAst, "renderAutomationAdditionalActions")).toBe(true);
     expect(hasFunction(uiAst, "automationAdditionalActionPayload")).toBe(true);
     expect(hasFunction(uiAst, "automationActionSummaryItems")).toBe(true);
     expect(ui).toContain("additionalActions:automationAdditionalActionPayload()");
+    expect(ui).toContain("step.action==='wait'");
+    expect(ui).toContain("action:'wait',value:automationNormalizeSeconds");
     expect(ui).toContain("automationActionSummaryMarkup(summary.actionItems)");
     expect(ui).toContain("device.source==='virtual'");
     expect(hasFunction(uiAst, "automationVirtualSelfResetAction")).toBe(true);
@@ -253,6 +261,7 @@ describe("automation frontend", () => {
     expect(ui).toContain("actionValue:automationNormalizeTemperature");
     expect(cssRuleContains(styles, ".automation-action-value-field[hidden]", "display:none")).toBe(true);
     expect(cssRuleContains(styles, ".automation-add-action", "border:1px dashed var(--line)")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-sequence-add-buttons", "display:flex")).toBe(true);
     expect(cssRuleContains(styles, ".automation-extra-action-body[hidden]", "display:none")).toBe(true);
     expect(cssRuleContains(styles, ".automation-action-list", "flex-wrap:wrap")).toBe(true);
   });

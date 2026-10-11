@@ -19,6 +19,17 @@ export interface AutomationTargetAction {
   value?: number;
 }
 
+export interface AutomationWaitStep {
+  action: "wait";
+  value: number;
+}
+
+export type AutomationSequenceStep = AutomationTargetAction | AutomationWaitStep;
+
+export function automationWaitStep(step: AutomationSequenceStep): step is AutomationWaitStep {
+  return step.action === "wait";
+}
+
 export interface AutomationTrigger {
   deviceId: string;
   stateKey: string;
@@ -50,7 +61,7 @@ export interface AutomationRule {
   actionDeviceId: string;
   action: AutomationAction;
   actionValue?: number;
-  additionalActions?: AutomationTargetAction[];
+  additionalActions?: AutomationSequenceStep[];
   lastTriggeredAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -74,7 +85,7 @@ export interface AutomationInput {
   actionDeviceId: string;
   action: AutomationAction;
   actionValue?: number;
-  additionalActions?: AutomationTargetAction[];
+  additionalActions?: AutomationSequenceStep[];
 }
 
 export interface AutomationStore {
@@ -281,11 +292,13 @@ function cloneInput(input: AutomationInput): AutomationInput {
       value: condition.value
     })),
     actionValue: ["setTargetTemperature", "turnOnForSeconds"].includes(input.action) ? Number(input.actionValue) : undefined,
-    additionalActions: (input.additionalActions ?? []).map(target => ({
-      deviceId: target.deviceId,
-      action: target.action,
-      value: ["setTargetTemperature", "turnOnForSeconds"].includes(target.action) ? Number(target.value) : undefined
-    }))
+    additionalActions: (input.additionalActions ?? []).map(step => automationWaitStep(step)
+      ? { action: "wait", value: Number(step.value) }
+      : {
+          deviceId: step.deviceId,
+          action: step.action,
+          value: ["setTargetTemperature", "turnOnForSeconds"].includes(step.action) ? Number(step.value) : undefined
+        })
   };
 }
 
@@ -297,11 +310,15 @@ export function automationRuleTriggers(rule: Pick<AutomationRule, "triggerType" 
   ];
 }
 
-export function automationRuleActions(rule: Pick<AutomationRule, "actionDeviceId" | "action" | "actionValue" | "additionalActions">): AutomationTargetAction[] {
+export function automationRuleSequence(rule: Pick<AutomationRule, "actionDeviceId" | "action" | "actionValue" | "additionalActions">): AutomationSequenceStep[] {
   return [
     { deviceId: rule.actionDeviceId, action: rule.action, ...(rule.actionValue !== undefined ? { value: rule.actionValue } : {}) },
     ...(rule.additionalActions ?? [])
   ];
+}
+
+export function automationRuleActions(rule: Pick<AutomationRule, "actionDeviceId" | "action" | "actionValue" | "additionalActions">): AutomationTargetAction[] {
+  return automationRuleSequence(rule).filter((step): step is AutomationTargetAction => !automationWaitStep(step));
 }
 
 export function automationRuleConditions(rule: Pick<AutomationRule, "conditionDeviceId" | "conditionStateKey" | "conditionValue" | "additionalConditions">): AutomationCondition[] {
@@ -389,6 +406,7 @@ export class AutomationEngine {
   private rules: AutomationRule[] = [];
   private readonly snapshots = new Map<string, DeviceState>();
   private readonly executionQueues = new Map<string, Promise<void>>();
+  private executionEpoch = 0;
   private readonly timeTriggerKeys = new Map<string, string>();
   private readonly heldTriggerTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly schedulerNow: () => Date;
@@ -417,7 +435,7 @@ export class AutomationEngine {
     this.rules = this.rules.flatMap(rule => {
       if (rule.triggerDeviceId === device.id || rule.conditionDeviceId === device.id || rule.additionalConditions?.some(condition => condition.deviceId === device.id) || rule.actionDeviceId === device.id) return [];
       const additionalTriggers = (rule.additionalTriggers ?? []).filter(trigger => trigger.deviceId !== device.id);
-      const additionalActions = (rule.additionalActions ?? []).filter(action => action.deviceId !== device.id);
+      const additionalActions = (rule.additionalActions ?? []).filter(step => automationWaitStep(step) || step.deviceId !== device.id);
       return [{ ...rule, additionalTriggers, additionalActions }];
     });
   };
@@ -460,6 +478,7 @@ export class AutomationEngine {
     for (const timer of this.heldTriggerTimers.values()) clearTimeout(timer);
     this.heldTriggerTimers.clear();
     this.executionQueues.clear();
+    this.executionEpoch += 1;
     this.started = false;
   }
 
@@ -502,9 +521,13 @@ export class AutomationEngine {
       }
     }
 
-    const actions = automationRuleActions(input);
-    if (actions.length > 8) throw new Error("AUTOMATION_ACTION_LIMIT");
-    if (new Set(actions.map(action => action.deviceId)).size !== actions.length) throw new Error("AUTOMATION_ACTION_DUPLICATE_DEVICE");
+    const sequence = automationRuleSequence(input);
+    if (sequence.length > 8) throw new Error("AUTOMATION_ACTION_LIMIT");
+    for (const step of sequence) {
+      if (!automationWaitStep(step)) continue;
+      if (!Number.isSafeInteger(step.value) || step.value < 1 || step.value > 86400) throw new Error("AUTOMATION_WAIT_INVALID");
+    }
+    const actions = sequence.filter((step): step is AutomationTargetAction => !automationWaitStep(step));
     for (const actionInput of actions) {
       const target = this.registry.get(actionInput.deviceId);
       if (!target) throw new Error("AUTOMATION_ACTION_DEVICE_NOT_FOUND");
@@ -671,22 +694,60 @@ export class AutomationEngine {
 
     let successfulActions = 0;
     let failedActions = 0;
+    let triggerRecorded = false;
+    const executionEpoch = this.executionEpoch;
     const triggers = automationRuleTriggers(rule);
-    const configuredActions = automationRuleActions(rule);
+    const configuredSequence = automationRuleSequence(rule);
     // A virtual switch may act as a one-shot/latch trigger (for example a HomeKit
-    // geofence sets it to ON). Execute its safe opposite-state reset only after all
-    // other target actions have been attempted so the trigger is consumed last.
-    const actions = [
-      ...configuredActions.filter(action => !virtualSelfResetAction(triggers, action, this.registry.get(action.deviceId))),
-      ...configuredActions.filter(action => virtualSelfResetAction(triggers, action, this.registry.get(action.deviceId)))
+    // geofence sets it to ON). Keep its safe opposite-state reset as the final
+    // action even when the rule contains waits, so the trigger is consumed last.
+    const sequence = [
+      ...configuredSequence.filter(step => automationWaitStep(step) || !virtualSelfResetAction(triggers, step, this.registry.get(step.deviceId))),
+      ...configuredSequence.filter((step): step is AutomationTargetAction => !automationWaitStep(step) && virtualSelfResetAction(triggers, step, this.registry.get(step.deviceId)))
     ];
-    for (const targetAction of actions) {
+
+    const recordTrigger = async (): Promise<void> => {
+      if (triggerRecorded) return;
+      triggerRecorded = true;
+      const triggeredAt = this.schedulerNow().toISOString();
+      await this.store.markTriggered(rule.id, triggeredAt);
+      this.rules = this.rules.map(item => item.id === rule.id ? { ...item, lastTriggeredAt: triggeredAt } : item);
+    };
+
+    for (const [index, step] of sequence.entries()) {
+      if (!this.started || executionEpoch !== this.executionEpoch) return;
+      const currentRule = this.rules.find(item => item.id === rule.id);
+      if (!currentRule?.enabled) {
+        await this.logger.write("info", "automation", "AUTOMATION_SEQUENCE_ABORTED", "Automation sequence stopped because the rule is no longer active", {
+          automationId: rule.id, automationName: rule.name, step: index + 1, ...trigger
+        }).catch(() => undefined);
+        return;
+      }
+
+      if (automationWaitStep(step)) {
+        const seconds = step.value;
+        await this.logger.write("info", "automation", "AUTOMATION_WAIT_STARTED", "Automation wait step started", {
+          automationId: rule.id, automationName: rule.name, step: index + 1, seconds, ...trigger
+        }).catch(() => undefined);
+        await new Promise<void>(resolve => {
+          const timer = setTimeout(resolve, seconds * 1000);
+          (timer as { unref?: () => void }).unref?.();
+        });
+        if (!this.started || executionEpoch !== this.executionEpoch || !this.rules.find(item => item.id === rule.id)?.enabled) return;
+        await this.logger.write("info", "automation", "AUTOMATION_WAIT_COMPLETED", "Automation wait step completed", {
+          automationId: rule.id, automationName: rule.name, step: index + 1, seconds, ...trigger
+        }).catch(() => undefined);
+        continue;
+      }
+
+      const targetAction = step;
       const target = this.registry.get(targetAction.deviceId);
       if (!target || !target.reachable || !actionCapabilitySupported(target, targetAction)) {
         failedActions += 1;
         await this.logger.write("warning", "automation", "AUTOMATION_ACTION_SKIPPED", "Automation target action was skipped", {
           automationId: rule.id,
           automationName: rule.name,
+          step: index + 1,
           actionDeviceId: targetAction.deviceId,
           action: targetAction.action,
           reason: !target ? "device-not-found" : !target.reachable ? "device-unreachable" : "action-unsupported",
@@ -710,11 +771,22 @@ export class AutomationEngine {
           });
         }
         successfulActions += 1;
+        await recordTrigger();
+        await this.logger.write("info", "automation", "AUTOMATION_STEP_COMPLETED", "Automation action step completed", {
+          automationId: rule.id,
+          automationName: rule.name,
+          step: index + 1,
+          actionDeviceId: targetAction.deviceId,
+          action: targetAction.action,
+          ...(targetAction.value !== undefined ? { value: targetAction.value } : {}),
+          ...trigger
+        }).catch(() => undefined);
       } catch (error) {
         failedActions += 1;
         await this.logger.write("error", "automation", "AUTOMATION_ACTION_FAILED", "Automation action failed", {
           automationId: rule.id,
           automationName: rule.name,
+          step: index + 1,
           actionDeviceId: targetAction.deviceId,
           action: targetAction.action,
           error: error instanceof Error ? error.message : String(error),
@@ -724,14 +796,14 @@ export class AutomationEngine {
     }
 
     if (successfulActions === 0) return;
-    const triggeredAt = this.schedulerNow().toISOString();
-    await this.store.markTriggered(rule.id, triggeredAt);
-    this.rules = this.rules.map(item => item.id === rule.id ? { ...item, lastTriggeredAt: triggeredAt } : item);
     await this.logger.write("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", {
       automationId: rule.id,
       automationName: rule.name,
       ...(rule.triggerType === "time" ? { triggerType: "time", triggerTime: rule.triggerTime, timeZone: this.schedulerTimeZone } : { triggerDeviceId: rule.triggerDeviceId }),
-      actions: actions.map(action => ({ deviceId: action.deviceId, action: action.action, ...(action.value !== undefined ? { value: action.value } : {}) })),
+      actions: sequence.filter((step): step is AutomationTargetAction => !automationWaitStep(step)).map(step => ({ deviceId: step.deviceId, action: step.action, ...(step.value !== undefined ? { value: step.value } : {}) })),
+      steps: sequence.map(step => automationWaitStep(step)
+        ? { action: "wait", seconds: step.value }
+        : { deviceId: step.deviceId, action: step.action, ...(step.value !== undefined ? { value: step.value } : {}) }),
       successfulActions,
       failedActions,
       ...trigger

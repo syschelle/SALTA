@@ -160,6 +160,12 @@
     "Ist": "Is",
     "Weitere UND-Bedingung hinzufügen": "Add another AND condition",
     "Dann": "Then",
+    "Schritte werden der Reihe nach ausgeführt": "steps are executed in order",
+    "Aktion hinzufügen": "Add action",
+    "Warten hinzufügen": "Add wait",
+    "Warten": "Wait",
+    "Wartezeit in Sekunden": "Wait time in seconds",
+    "Schritt entfernen": "Remove step",
     "alle Ziele werden ausgeführt": "all targets are executed",
     "Ziel": "Target",
     "Aktion": "Action",
@@ -691,6 +697,8 @@
     "Maximal acht UND-Bedingungen pro Automation.": "A maximum of eight AND conditions is allowed per automation.",
     "Kein weiteres geeignetes Bedingungsgerät verfügbar.": "No additional suitable condition device is available.",
     "Maximal acht Ziele pro Automation.": "A maximum of eight targets is allowed per automation.",
+    "Maximal acht Schritte pro Automation.": "A maximum of eight steps is allowed per automation.",
+    "Wartezeiten müssen ganze Sekunden zwischen 1 und 86400 sein.": "Wait times must be whole seconds between 1 and 86400.",
     "Kein weiteres geeignetes Ziel verfügbar.": "No additional suitable target is available.",
     "Automation wurde aktualisiert.": "Automation updated.",
     "Automation wurde angelegt.": "Automation created.",
@@ -1184,6 +1192,14 @@
     {
       "match": "^Automation aktivieren$",
       "replace": "Enable automation"
+    },
+    {
+      "match": "^Schritt (\\d+)$",
+      "replace": "Step $1"
+    },
+    {
+      "match": "^Warten · (\\d+) s$",
+      "replace": "Wait · $1 s"
     },
     {
       "match": "^(\\d+) Sekunden$",
