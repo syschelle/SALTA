@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.110
+
+- Fixed editing of existing automation **Then** sequences so every stored action and Wait step is loaded as one canonical ordered sequence.
+- Existing Step 1 is no longer a special immovable/non-removable primary editor row; all sequence steps now use the same edit, move-up, move-down and remove controls.
+- Allows reordering across the complete sequence, including moving an existing first action below later actions or Wait steps.
+- Allows deleting any action step as long as at least one real action remains; Wait steps can be deleted freely.
+- Added an optional canonical `sequence` field to the automation API while keeping the legacy primary-action/additional-action fields for compatibility.
+- Preserves exact stored order from `automation_sequence_steps`, including sequences that begin with a Wait step.
+- Added runtime/API/frontend/database regression coverage for full-sequence preservation, leading Wait steps and action-required validation.
+- No database schema change, npm dependency, mandatory environment variable or deployment-topology change is introduced.
+
 ## v0.8.109
 
 - Moved automation creation and editing out of the narrow overview side panel into a dedicated full-width internal SPA page.

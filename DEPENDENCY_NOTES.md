@@ -1,5 +1,7 @@
 # Dependency notes
 
+- SALTA v0.8.110 changes automation sequence editing/API handling only and introduces no new npm dependency.
+
 SALTA removes deprecated code and dependency paths controlled directly by the project.
 
 - The direct `@fastify/static` dependency was removed and replaced with a small allow-listed static-file handler.

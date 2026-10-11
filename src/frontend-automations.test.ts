@@ -21,7 +21,7 @@ describe("automation frontend", () => {
     expect(html).toContain("Weitere UND-Bedingung hinzufügen");
     expect(hasFunction(uiAst, "addAutomationAdditionalCondition")).toBe(true);
     expect(hasFunction(uiAst, "automationAdditionalConditionPayload")).toBe(true);
-    expect(html).toContain('id="automationAction"');
+    expect(html).toContain('id="automationAdditionalActions"');
     expect(html).toContain('id="automationRoom"');
   });
 
@@ -41,7 +41,7 @@ describe("automation frontend", () => {
     expect(ui).toContain("location.hash='automation-editor'");
     expect(ui).toContain("location.hash='automations'");
     expect(cssRuleContains(styles, ".automation-editor-form", "max-width:1120px")).toBe(true);
-    expect(cssRuleContains(styles, ".automation-primary-action-body", "grid-template-columns:minmax(0,1.5fr) minmax(190px,.7fr) minmax(170px,.55fr)")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-extra-action-body", "grid-template-columns")).toBe(true);
     expect(cssRuleContains(styles, ".automation-editor-savebar", "justify-content:space-between")).toBe(true);
   });
   it("offers a daily local-time trigger without requiring a device", () => {
@@ -77,7 +77,7 @@ describe("automation frontend", () => {
     expect(ui).toContain("climateSummer:'Sommermodus'");
     expect(ui).toContain("climateWinter:'Wintermodus'");
     expect(ui).toContain("device.source==='system'&&device.adapterData?.systemKind==='climateMode'");
-    expect(html).toContain('aria-label="Ziel nach Name, Raum, Quelle oder SALTA-Funktion suchen"');
+    expect(ui).toContain('aria-label="Ziel für Schritt ${number} suchen"');
   });
 
   it("offers the HM-PB-6-WM55 short, long and release events", () => {
@@ -119,7 +119,7 @@ describe("automation frontend", () => {
   it("provides searchable device selectors for trigger, condition and action", () => {
     expect(html).toContain('id="automationTriggerDeviceSearch"');
     expect(html).toContain('id="automationConditionDeviceSearch"');
-    expect(html).toContain('id="automationActionDeviceSearch"');
+    expect(ui).toContain('id="automationExtraActionSearch-${step.id}"');
     expect(hasFunction(uiAst, "automationDeviceMatchesSearch")).toBe(true);
     expect(hasFunction(uiAst, "refreshAutomationDeviceSearch")).toBe(true);
     expect(functionCalls(uiAst, "fillAutomationSelect", "automationDeviceMatchesSearch", 2)).toBe(true);
@@ -228,7 +228,6 @@ describe("automation frontend", () => {
       automationTriggerDevice: { value: "virtual-geofence", addEventListener() {} },
       automationTriggerState: { value: "on", addEventListener() {} },
       automationTriggerValue: { value: "true", addEventListener() {} },
-      automationActionDevice: { value: "", addEventListener() {} },
     };
     const sandbox: Record<string, unknown> = {
       document: { getElementById: (id: string) => elements[id] ?? null, querySelectorAll: () => [] },
@@ -253,7 +252,7 @@ describe("automation frontend", () => {
     expect(html).toContain('id="automationAdditionalActions"');
     expect(html).toContain('id="automationAddActionButton"');
     expect(html).toContain('id="automationAddWaitButton"');
-    expect(html).toContain("Nächste Aktion");
+    expect(html).toContain("Aktion hinzufügen");
     expect(html).toContain("Wartezeit einfügen");
     expect(html).toContain("Schritte werden der Reihe nach ausgeführt");
     expect(ui).toContain("automationAdditionalActions");
@@ -262,9 +261,9 @@ describe("automation frontend", () => {
     expect(hasFunction(uiAst, "moveAutomationAdditionalAction")).toBe(true);
     expect(hasFunction(uiAst, "changeAutomationAdditionalWaitValue")).toBe(true);
     expect(hasFunction(uiAst, "renderAutomationAdditionalActions")).toBe(true);
-    expect(hasFunction(uiAst, "automationAdditionalActionPayload")).toBe(true);
+    expect(hasFunction(uiAst, "automationActionSequencePayload")).toBe(true);
     expect(hasFunction(uiAst, "automationActionSummaryItems")).toBe(true);
-    expect(ui).toContain("additionalActions:automationAdditionalActionPayload()");
+    expect(ui).toContain("additionalActions,sequence");
     expect(ui).toContain("step.action==='wait'");
     expect(ui).toContain("action:'wait',value:automationNormalizeSeconds");
     expect(ui).toContain("automationActionSummaryMarkup(summary.actionItems)");
@@ -275,15 +274,21 @@ describe("automation frontend", () => {
     expect(ui).toContain("thermostatOff:'Thermostat Aus'");
     expect(ui).toContain("actions.push('thermostatOff','thermostatAuto','thermostatManual')");
     expect(ui).toContain("actions.push('setTargetTemperature')");
-    expect(html).toContain('id="automationActionValue"');
+    expect(ui).toContain('id="automationExtraActionValue-${step.id}"');
     expect(ui).toContain("setTargetTemperature:'Solltemperatur setzen'");
     expect(ui).toContain("automationNormalizeTemperature");
-    expect(ui).toContain("actionValue:automationNormalizeTemperature");
+    expect(ui).toContain("primary.action==='setTargetTemperature'?automationNormalizeTemperature");
     expect(cssRuleContains(styles, ".automation-action-value-field[hidden]", "display:none")).toBe(true);
     expect(cssRuleContains(styles, ".automation-add-action", "border:1px dashed var(--line)")).toBe(true);
     expect(cssRuleContains(styles, ".automation-sequence-add-buttons", "display:flex")).toBe(true);
     expect(cssRuleContains(styles, ".automation-extra-action-body[hidden]", "display:none")).toBe(true);
     expect(cssRuleContains(styles, ".automation-action-list", "flex-wrap:wrap")).toBe(true);
+    expect(hasFunction(uiAst, "automationStoredSequence")).toBe(true);
+    expect(ui).toContain("Array.isArray(rule?.sequence)&&rule.sequence.length");
+    expect(ui).toContain("const moveUp=index>0");
+    expect(ui).toContain("const moveDown=index<automationAdditionalActions.length-1");
+    expect(ui).toContain("removeAutomationAdditionalAction(${step.id})");
+    expect(ui).toContain("sequence=automationActionSequencePayload()");
   });
 
 

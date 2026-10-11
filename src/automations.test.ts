@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
-import { AutomationEngine, encodeAutomationEventTrigger, encodeAutomationHeldStateTrigger, localAutomationTime, type AutomationInput, type AutomationRule, type AutomationStore } from "./automations.js";
+import { AutomationEngine, automationRuleSequence, encodeAutomationEventTrigger, encodeAutomationHeldStateTrigger, localAutomationTime, type AutomationInput, type AutomationRule, type AutomationStore } from "./automations.js";
 import type { Device, DeviceState } from "./types.js";
 
 function device(id: string, state: DeviceState, capabilities: string[] = []): Device {
@@ -70,6 +70,20 @@ function memoryStore(): AutomationStore {
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe("AutomationEngine", () => {
+  it("preserves the canonical sequence order independently from legacy primary-action fields", () => {
+    const sequence = [
+      { action: "wait" as const, value: 5 },
+      { deviceId: "cover", action: "close" as const },
+      { deviceId: "light", action: "turnOff" as const }
+    ];
+    expect(automationRuleSequence({
+      actionDeviceId: "legacy-light",
+      action: "turnOn",
+      additionalActions: [],
+      sequence
+    })).toEqual(sequence);
+  });
+
   it("runs an action only on the configured state transition and honors a device condition", async () => {
     const registry = new TestRegistry();
     registry.devices.set("motion", device("motion", { motion: false }));

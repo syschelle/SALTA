@@ -625,6 +625,7 @@ function automationRow(row: Record<string, unknown>): AutomationRule {
     action: primaryTarget.action,
     actionValue: primaryTarget.value,
     additionalActions,
+    sequence: sequence.length ? sequence : [primaryTarget, ...additionalActions],
     lastTriggeredAt: row.lastTriggeredAt ? automationDate(row.lastTriggeredAt) : undefined,
     createdAt: automationDate(row.createdAt),
     updatedAt: automationDate(row.updatedAt)
@@ -659,6 +660,7 @@ function legacyAutomationAction(action: AutomationRule["action"]): "turnOn" | "t
 }
 
 function canonicalAutomationSequence(input: AutomationInput): AutomationSequenceStep[] {
+  if (input.sequence?.length) return input.sequence;
   return [
     { deviceId: input.actionDeviceId, action: input.action, ...(input.actionValue !== undefined ? { value: input.actionValue } : {}) },
     ...(input.additionalActions ?? [])

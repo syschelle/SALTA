@@ -122,8 +122,12 @@ const automationSchema = z.object({
   actionDeviceId: z.string().min(1).max(255),
   action: z.enum(["turnOn", "turnOnForSeconds", "turnOff", "toggle", "open", "close", "thermostatOff", "thermostatAuto", "thermostatManual", "setTargetTemperature", "climateSummer", "climateWinter"]),
   actionValue: z.number().min(1).max(86400).optional(),
-  additionalActions: z.array(automationSequenceStepSchema).max(7).default([])
+  additionalActions: z.array(automationSequenceStepSchema).max(7).default([]),
+  sequence: z.array(automationSequenceStepSchema).min(1).max(8).optional()
 }).strict().superRefine((automation, ctx) => {
+  if (automation.sequence && !automation.sequence.some(step => step.action !== "wait")) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["sequence"], message: "At least one action step is required." });
+  }
   if (automation.triggerType === "time") {
     if (!automation.triggerTime) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["triggerTime"], message: "Time is required." });
     if (automation.additionalTriggers.length) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["additionalTriggers"], message: "Time triggers cannot be combined with OR device triggers." });
@@ -422,6 +426,7 @@ function automationError(error: unknown): { status: number; code: string; messag
     AUTOMATION_CONDITION_LIMIT: "A maximum of eight AND conditions is supported.",
     AUTOMATION_CONDITION_DUPLICATE: "The same condition is configured more than once.",
     AUTOMATION_ACTION_TEMPERATURE_INVALID: "The selected thermostat target temperature is outside the supported device range.",
+    AUTOMATION_ACTION_REQUIRED: "At least one action step is required.",
     AUTOMATION_WAIT_INVALID: "Wait steps require whole seconds between 1 and 86400.",
     AUTOMATION_CYCLE_NOT_ALLOWED: "This automation would create a device-action loop. Cyclic automations are not allowed."
   };
@@ -430,6 +435,19 @@ function automationError(error: unknown): { status: number; code: string; messag
 
 function normalizeAutomationInput(data: z.infer<typeof automationSchema>): AutomationInput {
   const timeTrigger = data.triggerType === "time";
+  const sequence = data.sequence?.map(step => step.action === "wait"
+    ? { action: "wait" as const, value: step.value }
+    : {
+        deviceId: step.deviceId,
+        action: step.action,
+        ...(["setTargetTemperature", "turnOnForSeconds"].includes(step.action) ? { value: step.value } : {})
+      });
+  const sequencePrimary = sequence?.find(step => step.action !== "wait");
+  const primaryDeviceId = sequencePrimary && sequencePrimary.action !== "wait" ? sequencePrimary.deviceId : data.actionDeviceId;
+  const primaryAction = sequencePrimary && sequencePrimary.action !== "wait" ? sequencePrimary.action : data.action;
+  const primaryValue = sequencePrimary && sequencePrimary.action !== "wait" && ["setTargetTemperature", "turnOnForSeconds"].includes(sequencePrimary.action)
+    ? sequencePrimary.value
+    : ["setTargetTemperature", "turnOnForSeconds"].includes(data.action) ? data.actionValue : undefined;
   return {
     name: data.name,
     enabled: data.enabled,
@@ -437,7 +455,7 @@ function normalizeAutomationInput(data: z.infer<typeof automationSchema>): Autom
     triggerType: timeTrigger ? "time" as const : "device" as const,
     triggerTime: timeTrigger ? data.triggerTime : undefined,
     executionDays: data.executionDays,
-    triggerDeviceId: timeTrigger ? data.actionDeviceId : data.triggerDeviceId!,
+    triggerDeviceId: timeTrigger ? primaryDeviceId : data.triggerDeviceId!,
     triggerStateKey: timeTrigger ? "__time__" : data.triggerStateKey!,
     triggerValue: timeTrigger ? true : data.triggerValue!,
     additionalTriggers: timeTrigger ? [] : data.additionalTriggers.map(trigger => ({ deviceId: trigger.deviceId, stateKey: trigger.stateKey, value: trigger.value })),
@@ -445,16 +463,17 @@ function normalizeAutomationInput(data: z.infer<typeof automationSchema>): Autom
     conditionStateKey: data.conditionStateKey ?? undefined,
     conditionValue: data.conditionValue ?? undefined,
     additionalConditions: data.additionalConditions.map(condition => ({ deviceId: condition.deviceId, stateKey: condition.stateKey, value: condition.value })),
-    actionDeviceId: data.actionDeviceId,
-    action: data.action,
-    actionValue: ["setTargetTemperature", "turnOnForSeconds"].includes(data.action) ? data.actionValue : undefined,
+    actionDeviceId: primaryDeviceId,
+    action: primaryAction,
+    actionValue: primaryValue,
     additionalActions: data.additionalActions.map(step => step.action === "wait"
       ? { action: "wait" as const, value: step.value }
       : {
           deviceId: step.deviceId,
           action: step.action,
           ...(["setTargetTemperature", "turnOnForSeconds"].includes(step.action) ? { value: step.value } : {})
-        })
+        }),
+    sequence
   };
 }
 
@@ -693,9 +712,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.109" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.110" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.109", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.110", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1339,7 +1358,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.109", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.110", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

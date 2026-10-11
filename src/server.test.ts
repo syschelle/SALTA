@@ -972,7 +972,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.109" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.110" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -1049,6 +1049,28 @@ describe("automations", () => {
     const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload });
     expect(response.statusCode).toBe(201);
     expect(create).toHaveBeenCalledWith(expect.objectContaining({ additionalActions: payload.additionalActions }));
+  });
+
+  it("accepts a canonical sequence whose first step is a wait and derives the legacy primary action", async () => {
+    const created = { id: "rule-free-sequence", name: "Free sequence", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "cover", action: "close", sequence: [{ action: "wait", value: 5 }, { deviceId: "cover", action: "close" }, { deviceId: "light", action: "turnOff" }], createdAt: "2026-10-11T00:00:00.000Z", updatedAt: "2026-10-11T00:00:00.000Z" };
+    const create = vi.fn(async () => created as never);
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, { create });
+    const payload = { name: "Free sequence", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "light", action: "turnOn", additionalActions: [], sequence: [{ action: "wait", value: 5 }, { deviceId: "cover", action: "close" }, { deviceId: "light", action: "turnOff" }] };
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload });
+    expect(response.statusCode).toBe(201);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      actionDeviceId: "cover",
+      action: "close",
+      sequence: payload.sequence
+    }));
+  });
+
+  it("rejects a canonical sequence that contains only wait steps", async () => {
+    const create = vi.fn();
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, { create });
+    const response = await authenticatedInject(server, { method: "POST", url: "/api/automations", payload: { name: "Only waits", enabled: true, triggerDeviceId: "motion", triggerStateKey: "motion", triggerValue: true, actionDeviceId: "light", action: "turnOn", additionalActions: [], sequence: [{ action: "wait", value: 5 }] } });
+    expect(response.statusCode).toBe(400);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it("rejects invalid automation wait seconds", async () => {
@@ -1162,7 +1184,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.109", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.110", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -1173,7 +1195,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.109", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.110", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {

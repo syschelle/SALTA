@@ -1,12 +1,14 @@
 # SALTA migration paths
 
-## Current v0.8.109 update
+## Current v0.8.110 update
 
-v0.8.109 is an automation-editor UX release. The automation overview now contains the rule list and a **New automation** button only; creating or editing a rule opens the dedicated internal `#automation-editor` SPA page. The editor uses the full content width and separates Basics, execution days, **When**, **Only if** and **Then** into distinct sections.
+v0.8.110 fixes the ordered automation editor introduced in v0.8.108/v0.8.109. Existing rules now expose the complete stored **Then** sequence as one canonical ordered list. Step 1 is no longer treated as a special fixed primary editor row; every action/Wait step can be moved up/down and removed subject only to the rule retaining at least one real action.
 
-The underlying automation contract is unchanged from v0.8.108. Ordered action/Wait sequences remain stored in `automation_sequence_steps`, existing automations continue to load without conversion, and the same REST payload format is used. No new table, `ALTER TABLE`, data rewrite or manual SQL is required for v0.8.109.
+The existing `automation_sequence_steps` table remains the canonical persistence layer. No new table, `ALTER TABLE`, data rewrite or manual SQL migration is required. The REST API adds an optional canonical `sequence` field while retaining the legacy primary/additional action fields for compatibility.
 
-Existing v0.8.108 sequence semantics are carried forward unchanged, including repeated targets, Wait steps from 1 to 86400 seconds, asynchronous waits, backup/restore support and compatibility projections to the legacy automation action tables. A downgrade below v0.8.108 is still not recommended after using those sequence features.
+Existing v0.8.109 rules require no conversion. When they are opened, SALTA reads the exact positions already stored in `automation_sequence_steps`; when saved through v0.8.110, the same table is rewritten in the chosen order. Sequences beginning with a Wait step are now preserved exactly across save/reload.
+
+Backup/restore remains compatible because `automation_sequence_steps` was already part of the disaster-recovery payload from v0.8.108 onward.
 
 The update adds no npm dependency, mandatory environment variable or deployment-topology change. Preserve the existing PostgreSQL and SALTA runtime volumes. Do not use `docker compose down -v`.
 

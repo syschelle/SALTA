@@ -62,6 +62,7 @@ export interface AutomationRule {
   action: AutomationAction;
   actionValue?: number;
   additionalActions?: AutomationSequenceStep[];
+  sequence?: AutomationSequenceStep[];
   lastTriggeredAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -86,6 +87,7 @@ export interface AutomationInput {
   action: AutomationAction;
   actionValue?: number;
   additionalActions?: AutomationSequenceStep[];
+  sequence?: AutomationSequenceStep[];
 }
 
 export interface AutomationStore {
@@ -273,6 +275,19 @@ export function localAutomationWeekday(date: Date, timeZone: string): Automation
 }
 
 function cloneInput(input: AutomationInput): AutomationInput {
+  const sequence = input.sequence?.map(step => automationWaitStep(step)
+    ? { action: "wait" as const, value: Number(step.value) }
+    : {
+        deviceId: step.deviceId,
+        action: step.action,
+        value: ["setTargetTemperature", "turnOnForSeconds"].includes(step.action) ? Number(step.value) : undefined
+      });
+  const sequencePrimary = sequence?.find((step): step is AutomationTargetAction => !automationWaitStep(step));
+  const primaryAction = sequencePrimary ?? {
+    deviceId: input.actionDeviceId,
+    action: input.action,
+    value: ["setTargetTemperature", "turnOnForSeconds"].includes(input.action) ? Number(input.actionValue) : undefined
+  };
   return {
     ...input,
     name: input.name.trim(),
@@ -291,14 +306,17 @@ function cloneInput(input: AutomationInput): AutomationInput {
       stateKey: condition.stateKey.trim(),
       value: condition.value
     })),
-    actionValue: ["setTargetTemperature", "turnOnForSeconds"].includes(input.action) ? Number(input.actionValue) : undefined,
+    actionDeviceId: primaryAction.deviceId,
+    action: primaryAction.action,
+    actionValue: primaryAction.value,
     additionalActions: (input.additionalActions ?? []).map(step => automationWaitStep(step)
       ? { action: "wait", value: Number(step.value) }
       : {
           deviceId: step.deviceId,
           action: step.action,
           value: ["setTargetTemperature", "turnOnForSeconds"].includes(step.action) ? Number(step.value) : undefined
-        })
+        }),
+    sequence
   };
 }
 
@@ -310,14 +328,15 @@ export function automationRuleTriggers(rule: Pick<AutomationRule, "triggerType" 
   ];
 }
 
-export function automationRuleSequence(rule: Pick<AutomationRule, "actionDeviceId" | "action" | "actionValue" | "additionalActions">): AutomationSequenceStep[] {
+export function automationRuleSequence(rule: Pick<AutomationRule, "actionDeviceId" | "action" | "actionValue" | "additionalActions" | "sequence">): AutomationSequenceStep[] {
+  if (rule.sequence?.length) return rule.sequence;
   return [
     { deviceId: rule.actionDeviceId, action: rule.action, ...(rule.actionValue !== undefined ? { value: rule.actionValue } : {}) },
     ...(rule.additionalActions ?? [])
   ];
 }
 
-export function automationRuleActions(rule: Pick<AutomationRule, "actionDeviceId" | "action" | "actionValue" | "additionalActions">): AutomationTargetAction[] {
+export function automationRuleActions(rule: Pick<AutomationRule, "actionDeviceId" | "action" | "actionValue" | "additionalActions" | "sequence">): AutomationTargetAction[] {
   return automationRuleSequence(rule).filter((step): step is AutomationTargetAction => !automationWaitStep(step));
 }
 
@@ -436,7 +455,8 @@ export class AutomationEngine {
       if (rule.triggerDeviceId === device.id || rule.conditionDeviceId === device.id || rule.additionalConditions?.some(condition => condition.deviceId === device.id) || rule.actionDeviceId === device.id) return [];
       const additionalTriggers = (rule.additionalTriggers ?? []).filter(trigger => trigger.deviceId !== device.id);
       const additionalActions = (rule.additionalActions ?? []).filter(step => automationWaitStep(step) || step.deviceId !== device.id);
-      return [{ ...rule, additionalTriggers, additionalActions }];
+      const sequence = rule.sequence?.filter(step => automationWaitStep(step) || step.deviceId !== device.id);
+      return [{ ...rule, additionalTriggers, additionalActions, ...(sequence ? { sequence } : {}) }];
     });
   };
 
@@ -528,6 +548,7 @@ export class AutomationEngine {
       if (!Number.isSafeInteger(step.value) || step.value < 1 || step.value > 86400) throw new Error("AUTOMATION_WAIT_INVALID");
     }
     const actions = sequence.filter((step): step is AutomationTargetAction => !automationWaitStep(step));
+    if (!actions.length) throw new Error("AUTOMATION_ACTION_REQUIRED");
     for (const actionInput of actions) {
       const target = this.registry.get(actionInput.deviceId);
       if (!target) throw new Error("AUTOMATION_ACTION_DEVICE_NOT_FOUND");
@@ -605,7 +626,8 @@ export class AutomationEngine {
       actionDeviceId: current.actionDeviceId,
       action: current.action,
       actionValue: current.actionValue,
-      additionalActions: current.additionalActions
+      additionalActions: current.additionalActions,
+      sequence: current.sequence
     });
   }
 

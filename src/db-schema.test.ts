@@ -95,6 +95,8 @@ describe("clean database schema", () => {
     expect(databaseSource).toContain("wait_seconds integer");
     expect(databaseSource).toContain("CREATE INDEX IF NOT EXISTS automation_sequence_steps_device_idx");
     expect(databaseSource).toContain('as "sequenceSteps"');
+    expect(databaseSource).toContain("if (input.sequence?.length) return input.sequence");
+    expect(databaseSource).toContain("sequence: sequence.length ? sequence");
     expect(databaseSource).toContain("DELETE FROM automation_sequence_steps WHERE automation_id=$1");
     expect(databaseSource).toContain("INSERT INTO automation_sequence_steps(automation_id,position,step_type,action_device_id,action,value,wait_seconds)");
     expect(databaseSource).toContain("INSERT INTO automation_system_actions(automation_id,position,target,action)");
