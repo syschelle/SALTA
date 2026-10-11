@@ -60,5 +60,15 @@ jobs:
           git apply --check /tmp/v08113.patch
           git apply /tmp/v08113.patch
 
+      - name: Align validation release surfaces to v0.8.113
+        shell: bash
+        run: |
+          cat .github/v08113-release/part* > /tmp/v08113-release.patch.gz.b64
+          base64 -d /tmp/v08113-release.patch.gz.b64 > /tmp/v08113-release.patch.gz
+          echo "c8a2bcd0de0d75f262abe83c8e50380857f0921d7f97545df472d050447e2b61  /tmp/v08113-release.patch.gz" | sha256sum -c -
+          gzip -dc /tmp/v08113-release.patch.gz > /tmp/v08113-release.patch
+          git apply --check /tmp/v08113-release.patch
+          git apply /tmp/v08113-release.patch
+
       - name: Run complete quality gate
         run: npm run check
