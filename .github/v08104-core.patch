@@ -1,0 +1,147 @@
+diff --git a/src/openccu-core.ts b/src/openccu-core.ts
+index 6526b62..037dd1a 100644
+--- a/src/openccu-core.ts
++++ b/src/openccu-core.ts
+@@ -289,6 +289,33 @@ function thermostatModeValue(snapshot: OpenCcuChannelSnapshot, key: string, mode
+   return thermostatModeEntries(snapshot, key).find(entry => entry.mode === mode)?.value;
+ }
+ 
++function isHomematicIpThermostat(snapshot: Pick<OpenCcuChannelSnapshot, "interfaceName" | "channelType" | "model">): boolean {
++  return snapshot.interfaceName.toUpperCase().includes("HMIP")
++    || String(snapshot.model ?? "").toUpperCase().startsWith("HMIP-")
++    || snapshot.channelType.toUpperCase().includes("HEATING_CLIMATECONTROL");
++}
++
++function isHomematicIpR4mThermostat(snapshot: Pick<OpenCcuChannelSnapshot, "model">): boolean {
++  return String(snapshot.model ?? "").toUpperCase().includes("R4M");
++}
++
++/**
++ * Homematic IP uses separate mode data points for status and control on the
++ * established WTH/eTRV families: SET_POINT_MODE reports the active mode while
++ * CONTROL_MODE is the command endpoint. Newer R4M devices reverse that
++ * direction, so keep the exception explicit instead of guessing from the
++ * OPERATIONS flag (OpenCCU can expose the command data point as read-only).
++ */
++function hmIpThermostatModeReadOrder(snapshot: Pick<OpenCcuChannelSnapshot, "model">): string[] {
++  return isHomematicIpR4mThermostat(snapshot)
++    ? ["CONTROL_MODE", "SET_POINT_MODE", "MODE"]
++    : ["SET_POINT_MODE", "CONTROL_MODE", "MODE"];
++}
++
++function hmIpThermostatModeWriteParameter(snapshot: Pick<OpenCcuChannelSnapshot, "model">): "CONTROL_MODE" | "SET_POINT_MODE" {
++  return isHomematicIpR4mThermostat(snapshot) ? "SET_POINT_MODE" : "CONTROL_MODE";
++}
++
+ function currentThermostatMode(
+   snapshot: OpenCcuChannelSnapshot,
+   targetParameter: string,
+@@ -296,8 +323,11 @@ function currentThermostatMode(
+ ): string | undefined {
+   let resolved: ThermostatMode | undefined;
+   let rawFallback: string | undefined;
++  const modeKeys = isHomematicIpThermostat(snapshot)
++    ? hmIpThermostatModeReadOrder(snapshot)
++    : ["CONTROL_MODE", "SET_POINT_MODE", "MODE"];
+ 
+-  for (const key of ["CONTROL_MODE", "SET_POINT_MODE", "MODE"]) {
++  for (const key of modeKeys) {
+     if (!(key in snapshot.values)) continue;
+     const rawValue = snapshot.values[key];
+     const numeric = numberValue(rawValue);
+@@ -316,26 +346,24 @@ function currentThermostatMode(
+   return resolved ?? rawFallback;
+ }
+ 
+-function writableThermostatModeParameter(snapshot: OpenCcuChannelSnapshot): string | undefined {
+-  return ["SET_POINT_MODE", "CONTROL_MODE", "MODE"].find(key => {
++function writableThermostatModeParameter(
++  snapshot: OpenCcuChannelSnapshot,
++  controlMode: string | undefined
++): string | undefined {
++  if (isHomematicIpThermostat(snapshot) && controlMode) {
++    // Do not trust only the HomeMatic OPERATIONS write bit here. On established
++    // HmIP thermostat families CONTROL_MODE is the native command endpoint even
++    // when OpenCCU does not advertise it as writable in the VALUES description.
++    return hmIpThermostatModeWriteParameter(snapshot);
++  }
++
++  return ["CONTROL_MODE", "SET_POINT_MODE", "MODE"].find(key => {
+     if (!parameterExists(snapshot, key) || !parameterWritable(snapshot, key)) return false;
+-    const definition = parameterDefinition(snapshot, key);
+     const modes = thermostatModeEntries(snapshot, key).map(entry => entry.mode);
+-    if (modes.includes("auto") && modes.includes("manual")) return true;
+-
+-    // Some OpenCCU/HmIP combinations expose SET_POINT_MODE as a live value but
+-    // omit its enum labels from getParamsetDescription. The protocol-defined
+-    // values 0=automatic and 1=manual are still safe to use in this case.
+-    return key === "SET_POINT_MODE" && !Object.keys(definition).length;
++    return modes.includes("auto") && modes.includes("manual");
+   });
+ }
+ 
+-function isHomematicIpThermostat(snapshot: Pick<OpenCcuChannelSnapshot, "interfaceName" | "channelType" | "model">): boolean {
+-  return snapshot.interfaceName.toUpperCase().includes("HMIP")
+-    || String(snapshot.model ?? "").toUpperCase().startsWith("HMIP-")
+-    || snapshot.channelType.toUpperCase().includes("HEATING_CLIMATECONTROL");
+-}
+-
+ function inferredThermostatModeMetadata(
+   snapshot: OpenCcuChannelSnapshot,
+   controlMode: string | undefined
+@@ -344,7 +372,7 @@ function inferredThermostatModeMetadata(
+ 
+   if (isHomematicIpThermostat(snapshot)) {
+     return {
+-      modeParameter: "SET_POINT_MODE",
++      modeParameter: hmIpThermostatModeWriteParameter(snapshot),
+       modeValueType: "int",
+       modeAutoValue: 0,
+       modeManualValue: 1,
+@@ -362,8 +390,6 @@ function inferredThermostatModeMetadata(
+ }
+ 
+ function inferredThermostatModePlanMetadata(metadata: JsonRecord): JsonRecord {
+-  if (metadata.autoModeParameter || metadata.manualModeParameter || metadata.modeParameter) return metadata;
+-
+   const interfaceName = stringValue(metadata.interfaceName) ?? "";
+   const channelType = stringValue(metadata.channelType) ?? "";
+   const model = stringValue(metadata.model);
+@@ -374,9 +400,16 @@ function inferredThermostatModePlanMetadata(metadata: JsonRecord): JsonRecord {
+     || String(model ?? "").toUpperCase().startsWith("HMIP-")
+     || channelType.toUpperCase().includes("HEATING_CLIMATECONTROL");
+ 
+-  return isHmIp
+-    ? { ...metadata, modeParameter: "SET_POINT_MODE", modeValueType: "int", modeAutoValue: 0, modeManualValue: 1, thermostatModeInferred: true }
+-    : { ...metadata, autoModeParameter: "AUTO_MODE", autoModeValueType: "bool", manualModeParameter: "MANU_MODE", manualModeValueType: "float", thermostatModeInferred: true };
++  if (isHmIp) {
++    // Normalize persisted/pre-upgrade HmIP metadata as well. Otherwise a device
++    // discovered by an older SALTA release could keep the old SET_POINT_MODE
++    // command mapping until OpenCCU refreshes the registry.
++    const modeParameter = String(model ?? "").toUpperCase().includes("R4M") ? "SET_POINT_MODE" : "CONTROL_MODE";
++    return { ...metadata, modeParameter, modeValueType: "int", modeAutoValue: 0, modeManualValue: 1, thermostatModeInferred: true };
++  }
++
++  if (metadata.autoModeParameter || metadata.manualModeParameter || metadata.modeParameter) return metadata;
++  return { ...metadata, autoModeParameter: "AUTO_MODE", autoModeValueType: "bool", manualModeParameter: "MANU_MODE", manualModeValueType: "float", thermostatModeInferred: true };
+ }
+ 
+ function primitiveCommandValue(value: unknown): string | number | boolean | undefined {
+@@ -598,12 +631,14 @@ export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Devi
+     const manualModeParameter = parameterExists(snapshot, "MANU_MODE") && parameterWritable(snapshot, "MANU_MODE")
+       ? "MANU_MODE"
+       : undefined;
+-    const modeParameter = writableThermostatModeParameter(snapshot);
++    const modeParameter = writableThermostatModeParameter(snapshot, controlMode);
++    const hmIpModeParameter = isHomematicIpThermostat(snapshot)
++      && (modeParameter === "CONTROL_MODE" || modeParameter === "SET_POINT_MODE");
+     const modeAutoValue = modeParameter
+-      ? thermostatModeValue(snapshot, modeParameter, "auto") ?? (modeParameter === "SET_POINT_MODE" ? 0 : undefined)
++      ? thermostatModeValue(snapshot, modeParameter, "auto") ?? (hmIpModeParameter ? 0 : undefined)
+       : undefined;
+     const modeManualValue = modeParameter
+-      ? thermostatModeValue(snapshot, modeParameter, "manual") ?? (modeParameter === "SET_POINT_MODE" ? 1 : undefined)
++      ? thermostatModeValue(snapshot, modeParameter, "manual") ?? (hmIpModeParameter ? 1 : undefined)
+       : undefined;
+     const modeOffValue = modeParameter ? thermostatModeValue(snapshot, modeParameter, "off") : undefined;
+     const explicitModeMetadata: JsonRecord = {
