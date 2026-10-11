@@ -146,8 +146,8 @@ const systemLogQuerySchema = z.object({
   level: z.enum(["info", "warning", "error"]).optional()
 }).strict();
 const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
-const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]), winterMode: z.enum(["manual", "auto"]).optional() }).strict();
-const climateModeSettingsSchema = z.object({ winterMode: z.enum(["manual", "auto"]) }).strict();
+const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]) }).strict();
+const climateModeSettingsSchema = z.object({ winterMode: z.literal("manual") }).strict();
 const vacationModeSchema = z.object({ enabled: z.boolean() }).strict();
 const generalSettingsSchema = z.object({ debugLevel: z.enum(["off", "errors", "verbose"]) }).strict();
 const appearanceHexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
@@ -684,9 +684,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.101" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.102" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.101", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.102", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1330,7 +1330,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.101", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.102", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

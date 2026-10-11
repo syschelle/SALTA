@@ -1,4 +1,4 @@
-# SALTA v0.8.101 Git commands
+# SALTA v0.8.102 Git commands
 
 ## Local quality gate
 
@@ -17,7 +17,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "feat(presence): add fixed-IP recovery and MAC refresh"
+git commit -m "fix(climate): enforce manual winter thermostat mode hourly"
 git push origin main
 ```
 
@@ -27,28 +27,28 @@ git push origin main
 git fetch origin
 
 git show origin/main:package.json \
-  | grep -F '"version": "0.8.101"'
+  | grep -F '"version": "0.8.102"'
+
+git show origin/main:src/climate-mode.ts \
+  | grep -F 'CLIMATE_GUARD_INTERVAL_MS = 60 * 60 * 1000'
+
+git show origin/main:src/climate-mode.ts \
+  | grep -F 'const targetMode: "off" | "manual" = mode === "summer" ? "off" : "manual"'
+
+git show origin/main:src/climate-mode.ts \
+  | grep -F 'async verifyThermostats'
 
 git show origin/main:src/db.ts \
-  | grep -F 'CREATE TABLE IF NOT EXISTS presence_target_network'
-
-git show origin/main:src/fritzbox-presence.ts \
-  | grep -F 'X_AVM-DE_GetSpecificHostEntyByIP'
-
-git show origin/main:src/fritzbox-presence.ts \
-  | grep -F 'FRITZBOX_PRESENCE_MAC_UPDATED'
-
-git show origin/main:src/fritzbox-presence.ts \
-  | grep -F 'updatePresenceTargetMacAddress'
+  | grep -F "UPDATE climate_mode_settings SET winter_mode='manual'"
 
 git show origin/main:public/index.html \
-  | grep -F 'id="presenceTargetIp"'
+  | grep -F 'Winter setzt alle kompatiblen Thermostate fest auf Handbetrieb'
 
-git show origin/main:src/fritzbox-presence.test.ts \
-  | grep -F 'updates a changed iPhone MAC from the configured fixed IP during reconciliation'
+git show origin/main:src/climate-mode.test.ts \
+  | grep -F 'repairs thermostat mode drift to manual while winter mode is active'
 
 git show origin/main:docker-compose.image.yml \
-  | grep -F 'ghcr.io/syschelle/salta:0.8.101'
+  | grep -F 'ghcr.io/syschelle/salta:0.8.102'
 ```
 
 Then run the complete local quality gate again if the push came from a different checkout:
@@ -61,8 +61,8 @@ npm run check
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.101 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.101.
+Release validator contract: SALTA v0.8.102 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.102.
 ```
 
 Wait for GitHub CI and CodeQL to be green before tagging.
@@ -74,15 +74,15 @@ git checkout main
 git pull --ff-only origin main
 git fetch origin
 
-git tag -a v0.8.101 -m "SALTA v0.8.101"
-git push origin v0.8.101
+git tag -a v0.8.102 -m "SALTA v0.8.102"
+git push origin v0.8.102
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.101 \
-  --title "SALTA v0.8.101" \
+gh release create v0.8.102 \
+  --title "SALTA v0.8.102" \
   --notes-file RELEASE_TEXT.md
 ```
 

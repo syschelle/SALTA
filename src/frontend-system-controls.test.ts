@@ -25,7 +25,8 @@ describe("system overview controls", () => {
     expect(html).toContain('id="climateWinterButton"');
     expect(html).toContain('id="climateWinterModeDisplay"');
     expect(html).toContain('data-settings-panel="climate"');
-    expect(html).toContain('id="climateSettingsWinterMode"');
+    expect(html).not.toContain('id="climateSettingsWinterMode"');
+    expect(html).not.toContain('<option value="auto">Automatik</option>');
     expect(html).toContain('id="climateApplyNowButton"');
     expect(html).toContain('class="panel overview-system-card climate-mode-card" data-homekit-exposed="false"');
     expect(html).not.toContain('<span class="system-card-badge">Nur SALTA</span>');
@@ -33,7 +34,8 @@ describe("system overview controls", () => {
     expect(html).toContain("onclick=\"applyClimateMode('winter')\"");
     expect(hasFunction(app, "applyClimateMode")).toBe(true);
     expect(functionCallsWithStringArgument(app, "applyClimateMode", "api", "/api/system/climate-mode")).toBe(true);
-    expect(functionCallsWithStringArgument(app, "saveClimateSettings", "api", "/api/settings/climate-mode")).toBe(true);
+    expect(hasFunction(app, "saveClimateSettings")).toBe(false);
+    expect(script).toContain("const winterModeLabel='Handbetrieb'");
     expect(cssRuleContains(styles, ".overview-system-card", "padding:11px 12px")).toBe(true);
     expect(cssRuleContains(styles, ".climate-mode-row", "grid-template-columns:1fr")).toBe(true);
     expect(cssRuleContains(styles, ".climate-winter-mode-display", "justify-content:space-between")).toBe(true);

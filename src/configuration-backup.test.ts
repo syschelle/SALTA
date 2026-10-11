@@ -99,6 +99,7 @@ describe("configuration backup", () => {
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_targets SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_timed_actions SELECT * FROM jsonb_populate_recordset"))).toBe(true);
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).startsWith("INSERT INTO automation_system_actions SELECT * FROM jsonb_populate_recordset"))).toBe(true);
+    expect(clientQuery).toHaveBeenCalledWith("UPDATE climate_mode_settings SET winter_mode='manual',updated_at=now() WHERE id='global' AND winter_mode<>'manual'");
     expect(clientQuery).toHaveBeenCalledWith("COMMIT");
     expect(release).toHaveBeenCalledTimes(1);
   });

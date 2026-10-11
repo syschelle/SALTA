@@ -269,12 +269,13 @@ export async function initializeDatabaseSchema(): Promise<void> {
     CREATE TABLE IF NOT EXISTS climate_mode_settings (
       id text PRIMARY KEY DEFAULT 'global',
       mode text NOT NULL DEFAULT 'winter' CHECK(mode IN ('summer','winter')),
-      winter_mode text NOT NULL DEFAULT 'auto' CHECK(winter_mode IN ('manual','auto')),
+      winter_mode text NOT NULL DEFAULT 'manual' CHECK(winter_mode IN ('manual','auto')),
       last_applied_at timestamptz,
       last_result jsonb NOT NULL DEFAULT '{}'::jsonb,
       updated_at timestamptz NOT NULL DEFAULT now()
     );
     INSERT INTO climate_mode_settings(id) VALUES('global') ON CONFLICT(id) DO NOTHING;
+    UPDATE climate_mode_settings SET winter_mode='manual',updated_at=now() WHERE id='global' AND winter_mode<>'manual';
     INSERT INTO devices(id,source,source_id,type,presentation_type,name,reachable,state,capabilities,homekit_enabled,credential_mode,last_seen,last_event,updated_at)
       SELECT 'system:climate-mode','system','climate-mode','genericSensor','auto','Heizmodus',true,
         jsonb_build_object('mode',mode,'winterMode',winter_mode,'winterActive',(mode='winter')),jsonb_build_array('setClimateMode'),false,'none',now(),now(),now()
@@ -1055,7 +1056,7 @@ export async function getClimateModeSettings(): Promise<ClimateModeSettings> {
   const failed = Number(rawResult.failed);
   return {
     mode: row?.mode ?? "winter",
-    winterMode: row?.winter_mode ?? "auto",
+    winterMode: "manual",
     ...(row?.last_applied_at ? { lastAppliedAt: row.last_applied_at instanceof Date ? row.last_applied_at.toISOString() : String(row.last_applied_at) } : {}),
     ...(Number.isFinite(total) && Number.isFinite(succeeded) && Number.isFinite(failed) ? { lastResult: { total, succeeded, failed } } : {})
   };

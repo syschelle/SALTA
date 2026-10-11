@@ -4,16 +4,17 @@ import { CLIMATE_MODE_AUTOMATION_DEVICE_ID } from "./automations.js";
 import { getClimateModeSettings, getGeneralSettings, getPushoverConnection, updateClimateModeSettings, updateClimateWinterMode, writeSystemLog } from "./db.js";
 import { sendPushoverMessage, type PushoverSender } from "./pushover.js";
 
-const SUMMER_GUARD_INTERVAL_MS = 12 * 60 * 60 * 1000;
-const SUMMER_GUARD_INITIAL_DELAY_MS = 2 * 60 * 1000;
+export const CLIMATE_GUARD_INTERVAL_MS = 60 * 60 * 1000;
+const CLIMATE_GUARD_INITIAL_DELAY_MS = 2 * 60 * 1000;
 
 export interface ClimateModeStatus extends ClimateModeSettings {
   thermostats: number;
   supportedThermostats: number;
 }
 
-export interface SummerGuardResult {
+export interface ClimateGuardResult {
   mode: ClimateMode;
+  targetMode: "off" | "manual";
   checked: number;
   mismatched: number;
   corrected: number;
@@ -31,13 +32,14 @@ export function thermostatSupportsSystemMode(device: Device): boolean {
     && typeof device.state.controlMode === "string";
 }
 
-function thermostatIsOff(device: Device): boolean {
-  return String(device.state.controlMode ?? "").trim().toLowerCase() === "off";
+function thermostatHasMode(device: Device, targetMode: "off" | "manual"): boolean {
+  return String(device.state.controlMode ?? "").trim().toLowerCase() === targetMode;
 }
 
-function debugGuardMessage(result: SummerGuardResult, correctedNames: string[], failures: Array<{ name: string; error: string }>): string {
+function debugGuardMessage(result: ClimateGuardResult, correctedNames: string[], failures: Array<{ name: string; error: string }>): string {
+  const targetLabel = result.targetMode === "manual" ? "Handbetrieb" : "Aus";
   const lines = [
-    `Sommermodus-Wächter: ${result.checked} Thermostate geprüft, ${result.mismatched} Abweichungen erkannt.`,
+    `Heizmodus-Wächter (${result.mode === "winter" ? "Winter" : "Sommer"} → ${targetLabel}): ${result.checked} Thermostate geprüft, ${result.mismatched} Abweichungen erkannt.`,
     `${result.corrected} korrigiert, ${result.failed} fehlgeschlagen.`
   ];
   if (correctedNames.length) lines.push(`Korrigiert: ${correctedNames.join(", ")}`);
@@ -61,9 +63,9 @@ export class ClimateModeManager {
   start(): void {
     if (this.guardStarted) return;
     this.guardStarted = true;
-    this.guardTimer = setInterval(() => void this.verifySummerThermostats().catch(() => undefined), SUMMER_GUARD_INTERVAL_MS);
+    this.guardTimer = setInterval(() => void this.verifyThermostats().catch(() => undefined), CLIMATE_GUARD_INTERVAL_MS);
     this.guardTimer.unref();
-    this.guardInitialTimer = setTimeout(() => void this.verifySummerThermostats().catch(() => undefined), SUMMER_GUARD_INITIAL_DELAY_MS);
+    this.guardInitialTimer = setTimeout(() => void this.verifyThermostats().catch(() => undefined), CLIMATE_GUARD_INITIAL_DELAY_MS);
     this.guardInitialTimer.unref();
   }
 
@@ -102,7 +104,8 @@ export class ClimateModeManager {
   }
 
   async setWinterMode(winterMode: WinterThermostatMode): Promise<ClimateModeStatus> {
-    const settings = await updateClimateWinterMode(winterMode);
+    if (winterMode !== "manual") throw new Error("AUTOMATIC_THERMOSTAT_MODE_DISABLED");
+    const settings = await updateClimateWinterMode("manual");
     await this.syncAutomationDevice({ winterMode: settings.winterMode });
     await writeSystemLog(
       "info",
@@ -115,10 +118,9 @@ export class ClimateModeManager {
   }
 
   async apply(mode: ClimateMode): Promise<ClimateModeStatus> {
-    const current = await getClimateModeSettings();
-    const winterMode = current.winterMode;
+    const winterMode: WinterThermostatMode = "manual";
     const thermostats = this.registry.all().filter(thermostatSupportsSystemMode);
-    const targetMode = mode === "summer" ? "off" : winterMode;
+    const targetMode: "off" | "manual" = mode === "summer" ? "off" : "manual";
     let succeeded = 0;
     let failed = 0;
     const failures: Array<{ deviceId: string; name: string; error: string }> = [];
@@ -156,12 +158,11 @@ export class ClimateModeManager {
     return this.status();
   }
 
-  async verifySummerThermostats(): Promise<SummerGuardResult> {
+  async verifyThermostats(): Promise<ClimateGuardResult> {
     const settings = await getClimateModeSettings();
-    if (settings.mode !== "summer") return { mode: settings.mode, checked: 0, mismatched: 0, corrected: 0, failed: 0 };
-
+    const targetMode: "off" | "manual" = settings.mode === "summer" ? "off" : "manual";
     const thermostats = this.registry.all().filter(thermostatSupportsSystemMode);
-    const mismatches = thermostats.filter(device => !thermostatIsOff(device));
+    const mismatches = thermostats.filter(device => !thermostatHasMode(device, targetMode));
     let corrected = 0;
     let failed = 0;
     const correctedNames: string[] = [];
@@ -172,7 +173,7 @@ export class ClimateModeManager {
         await this.commander.command({
           deviceId: device.id,
           capability: "setThermostatMode",
-          value: "off",
+          value: targetMode,
           source: "system"
         });
         corrected += 1;
@@ -187,8 +188,9 @@ export class ClimateModeManager {
       }
     }
 
-    const result: SummerGuardResult = {
+    const result: ClimateGuardResult = {
       mode: settings.mode,
+      targetMode,
       checked: thermostats.length,
       mismatched: mismatches.length,
       corrected,
@@ -199,8 +201,8 @@ export class ClimateModeManager {
       await writeSystemLog(
         failed ? "warning" : "info",
         "system",
-        failed ? "SUMMER_THERMOSTAT_GUARD_PARTIAL" : "SUMMER_THERMOSTAT_GUARD_CORRECTED",
-        failed ? "Summer thermostat guard could not correct every thermostat" : "Summer thermostat guard corrected thermostat mode drift",
+        failed ? "CLIMATE_THERMOSTAT_GUARD_PARTIAL" : "CLIMATE_THERMOSTAT_GUARD_CORRECTED",
+        failed ? "Climate thermostat guard could not correct every thermostat" : "Climate thermostat guard corrected thermostat mode drift",
         { ...result, correctedNames, failures }
       ).catch(() => undefined);
 
@@ -211,13 +213,13 @@ export class ClimateModeManager {
           await this.pushoverSender({
             userKey: pushover.userKey,
             apiToken: pushover.apiToken,
-            title: failed ? "SALTA DEBUG: Sommermodus Fehler" : "SALTA DEBUG: Sommermodus korrigiert",
+            title: failed ? "SALTA DEBUG: Heizmodus Fehler" : "SALTA DEBUG: Heizmodus korrigiert",
             message: debugGuardMessage(result, correctedNames, failures)
           });
         }
       } catch (error) {
         await writeSystemLog("error", "notification", "PUSHOVER_DEBUG_SEND_FAILED", "Pushover debug notification could not be sent", {
-          event: "summer-thermostat-guard",
+          event: "climate-thermostat-guard",
           error: error instanceof Error ? error.message : String(error)
         }).catch(() => undefined);
       }

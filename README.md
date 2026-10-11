@@ -42,7 +42,7 @@ The v0.8.0 milestone introduces the first persistent automation rules and is int
 
 ## Global heating mode and battery notifications
 
-SALTA provides a global Summer/Winter heating mode on the Overview. It is an internal SALTA system control and is not published to HomeKit. Summer mode sets compatible thermostats to `OFF`; the Winter target mode (manual or automatic) is configured centrally under **Settings → Heizmodus** and is shown read-only on the Overview. Saving the Winter target mode does not switch thermostats until Winter is activated or **Aktuellen Modus jetzt anwenden** is used.
+SALTA provides a global Summer/Winter heating mode on the Overview. It is an internal SALTA system control and is not published to HomeKit. Summer mode sets compatible thermostats to `OFF`; Winter mode always sets them to `manual`. SALTA re-checks all compatible thermostats once per hour and automatically repairs mode drift (`OFF` in Summer, `manual` in Winter). The heating-mode UI no longer offers an automatic thermostat mode.
 
 SALTA also monitors devices that report a battery percentage or a `lowBattery` state. Pushover can be configured under **Settings → Benachrichtigungen**. Battery warnings are aggregated and sent no more than once every seven days. The Pushover User Key and Application API Token are stored encrypted with `SALTA_ENCRYPTION_KEY`.
 

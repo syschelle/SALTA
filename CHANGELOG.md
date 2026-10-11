@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.102
+
+- Winter heating mode now always sets every compatible thermostat to **manual/Handbetrieb**; the previous configurable automatic Winter mode has been removed from the heating-mode UI.
+- Summer heating mode continues to set every compatible thermostat to **off/Aus**.
+- Replaced the former 12-hour Summer-only thermostat guard with an hourly global heating-mode guard.
+- The hourly guard repairs thermostat mode drift in both directions: `off` in Summer and `manual` in Winter.
+- Existing persisted `winter_mode='auto'` values are normalized idempotently to `manual` during database initialization; no schema change or manual migration is required.
+- Added regression coverage for hourly cadence, Winter manual enforcement, Summer off enforcement, stale automatic settings and rejection of new automatic Winter-mode configuration.
+- Carries forward v0.8.101 fixed-IP FRITZ!Box presence recovery, v0.8.100 delayed contact triggers and v0.8.99 native timed Shelly actions unchanged.
+- No new mandatory environment variable, npm dependency or deployment-topology change is required.
+
 ## v0.8.101
 
 - Added a fixed IP address to FRITZ!Box Wi-Fi presence targets alongside the existing MAC address.

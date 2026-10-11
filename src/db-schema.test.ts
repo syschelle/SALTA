@@ -139,7 +139,9 @@ describe("clean database schema", () => {
   it("stores climate mode and notification throttling additively", () => {
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS climate_mode_settings");
     expect(databaseSource).toContain("CHECK(mode IN ('summer','winter'))");
+    expect(databaseSource).toContain("winter_mode text NOT NULL DEFAULT 'manual'");
     expect(databaseSource).toContain("CHECK(winter_mode IN ('manual','auto'))");
+    expect(databaseSource).toContain("UPDATE climate_mode_settings SET winter_mode='manual'");
     expect(databaseSource).toContain("CREATE TABLE IF NOT EXISTS notification_settings");
     expect(databaseSource).toContain("encrypted_user_key text NOT NULL DEFAULT ''");
     expect(databaseSource).toContain("encrypted_api_token text NOT NULL DEFAULT ''");

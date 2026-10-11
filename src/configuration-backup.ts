@@ -288,6 +288,7 @@ export async function importConfigurationBackup(input: unknown, signingKey = con
       await client.query(insertStatements[table], [JSON.stringify(rows)]);
     }
     await client.query("INSERT INTO climate_mode_settings(id) VALUES('global') ON CONFLICT(id) DO NOTHING");
+    await client.query("UPDATE climate_mode_settings SET winter_mode='manual',updated_at=now() WHERE id='global' AND winter_mode<>'manual'");
     await client.query("INSERT INTO notification_settings(channel) VALUES('pushover') ON CONFLICT(channel) DO NOTHING");
     externalTransaction = await options.beforeCommit?.();
     await client.query("COMMIT");

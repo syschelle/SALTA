@@ -193,7 +193,7 @@ function renderClimateMode(){
   const supported=Number(climateModeData.supportedThermostats||0);
   const result=climateModeData.lastResult;
   const applied=climateModeData.lastAppliedAt?new Date(climateModeData.lastAppliedAt).toLocaleString(appLocale(),{dateStyle:'short',timeStyle:'short'}):'noch nicht angewendet';
-  const winterModeLabel=climateModeData.winterMode==='manual'?'Handbetrieb':'Automatik';
+  const winterModeLabel='Handbetrieb';
   climateWinterModeDisplay.innerHTML=`<span>Winterbetrieb</span><strong>${winterModeLabel}</strong>`;
   const chips=[`<span>${supported}/${thermostats} unterstützt</span>`,`<span>${escapeHtml(applied)}</span>`];
   if(result){chips.push(`<span class="${Number(result.failed||0)>0?'warning':'success'}">${Number(result.succeeded||0)} erfolgreich${Number(result.failed||0)>0?` · ${Number(result.failed)} fehlgeschlagen`:''}</span>`)}
@@ -228,9 +228,8 @@ async function applyClimateMode(mode){
 }
 function renderClimateSettings(){
   if(!climateModeData)return;
-  climateSettingsWinterMode.value=climateModeData.winterMode||'auto';
   const currentMode=climateModeData.mode==='summer'?'Sommer':'Winter';
-  const winterMode=climateModeData.winterMode==='manual'?'Handbetrieb':'Automatik';
+  const winterMode='Handbetrieb';
   const applied=climateModeData.lastAppliedAt?new Date(climateModeData.lastAppliedAt).toLocaleString(appLocale(),{dateStyle:'short',timeStyle:'short'}):'noch nicht angewendet';
   const result=climateModeData.lastResult;
   const resultText=result?`${Number(result.succeeded||0)} erfolgreich${Number(result.failed||0)?` · ${Number(result.failed)} fehlgeschlagen`:''}`:'noch kein Ergebnis';
@@ -242,16 +241,9 @@ async function loadClimateSettings(){
   renderClimateMode();renderClimateSettings();
   return climateModeData;
 }
-async function saveClimateSettings({announce=true}={}){
-  climateModeData=await api('/api/settings/climate-mode',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({winterMode:climateSettingsWinterMode.value})});
-  renderClimateMode();renderClimateSettings();
-  if(announce)notify('Winterbetriebsart wurde gespeichert. Die Thermostate wurden nicht umgeschaltet.');
-  return climateModeData;
-}
 async function applyClimateSettingsNow(){
   const original=climateApplyNowButton.innerHTML;climateApplyNowButton.disabled=true;
   try{
-    await saveClimateSettings({announce:false});
     await applyClimateMode(climateModeData?.mode==='summer'?'summer':'winter');
   }catch(error){notify(error.message,true)}finally{climateApplyNowButton.disabled=false;climateApplyNowButton.innerHTML=original}
 }
@@ -863,7 +855,6 @@ phosconForm.addEventListener('submit',event=>{event.preventDefault();savePhoscon
 hueForm.addEventListener('submit',event=>{event.preventDefault();saveHue().catch(e=>notify(friendlyHueError(e),true))});
 openCcuForm.addEventListener('submit',event=>{event.preventDefault();saveOpenCcu().catch(e=>notify(friendlyOpenCcuError(e),true))});
 homeKitForm.addEventListener('submit',event=>{event.preventDefault();saveHomeKitSettings().catch(e=>notify(e.message,true))});
-climateSettingsForm.addEventListener('submit',event=>{event.preventDefault();saveClimateSettings().catch(e=>notify(e.message,true))});
 generalSettingsForm.addEventListener('submit',event=>{event.preventDefault();saveGeneralSettings().catch(e=>notify(e.message,true))});
 appearanceSettingsForm.addEventListener('submit',event=>{event.preventDefault();saveAppearanceSettings().catch(e=>notify(e.message,true))});
 appearanceProfile.addEventListener('change',()=>applySelectedAppearanceProfile());

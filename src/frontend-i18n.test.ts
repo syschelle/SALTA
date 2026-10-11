@@ -83,6 +83,8 @@ describe("browser-localized SALTA UI", () => {
       ["Bridge ist mit Apple Home gekoppelt.", "Bridge is paired with Apple Home."],
       ["11 von 11 Thermostaten unterstützt · zuletzt angewendet 8/13/26, 10:55 AM · 11 erfolgreich", "11 of 11 thermostats supported · last applied 8/13/26, 10:55 AM · 11 successful"],
       ["Aktuell: Sommer · Winter: Handbetrieb", "Current: Summer · Winter: Manual"],
+      ["SALTA steuert die Betriebsart aller kompatiblen Thermostate zentral.", "SALTA controls the operating mode of all compatible thermostats centrally."],
+      ["Sommer setzt alle kompatiblen Thermostate auf Aus. Winter setzt alle kompatiblen Thermostate fest auf Handbetrieb. SALTA prüft den eingestellten Heizmodus anschließend stündlich und korrigiert abweichende Thermostate automatisch. Ein Automatikbetrieb der Thermostate wird vom Heizmodus nicht verwendet.", "Summer sets all compatible thermostats to Off. Winter sets all compatible thermostats to Manual. SALTA then checks the selected heating mode hourly and automatically corrects thermostats that have drifted. The heating mode does not use thermostat automatic operation."],
       ["Letzte Batteriewarnung 8/14/2026, 11:46:55 AM · frühestens wieder 8/21/2026, 11:46:55 AM", "Last battery warning 8/14/2026, 11:46:55 AM · next eligible 8/21/2026, 11:46:55 AM"],
       ["Zuletzt gesehen: 8/17/26, 6:50 PM", "Last seen: 8/17/26, 6:50 PM"],
       ["Passwort gespeichert", "Password stored"],

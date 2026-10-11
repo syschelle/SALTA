@@ -1,12 +1,12 @@
 # SALTA migration paths
 
-## Current v0.8.101 update
+## Current v0.8.102 update
 
-v0.8.101 adds fixed-IP identity support to FRITZ!Box Wi-Fi presence. Presence targets can now store a fixed IP address alongside the MAC address. When the stored MAC is no longer active, SALTA resolves the configured IP through the FRITZ!Box Hosts service and can automatically replace the stored MAC if the same fixed IP is now associated with a different private Wi-Fi MAC.
+v0.8.102 fixes the global heating-mode thermostat policy. Summer remains `off`, while Winter is now fixed to `manual` for all compatible thermostats. The old configurable automatic Winter thermostat mode is no longer used by the heating-mode UI or runtime.
 
-Persistence is additive: v0.8.101 creates `presence_target_network` with `CREATE TABLE IF NOT EXISTS`. It does not modify `presence_targets`, does not use `ALTER TABLE`, and requires no manual SQL migration. Existing presence targets continue to work by MAC address until an administrator edits them and adds a fixed IP. Configuration/disaster-recovery backups include the new table while older format-v1 backups without it remain restorable.
+SALTA also replaces the former 12-hour Summer-only guard with an hourly global guard. Once per hour, SALTA checks compatible thermostats and repairs mode drift to `off` in Summer or `manual` in Winter. An existing `winter_mode='auto'` value is normalized to `manual` during normal database initialization with an idempotent `UPDATE`; the table schema is unchanged and no manual SQL migration is required.
 
-Existing PostgreSQL and SALTA runtime volumes must be preserved during the update. Do not use `docker compose down -v`.
+The v0.8.101 additive `presence_target_network` table and fixed-IP/MAC presence recovery remain unchanged. Existing PostgreSQL and SALTA runtime volumes must be preserved during the update. Do not use `docker compose down -v`.
 
 ## Legacy HomeKit migration (pre-v0.8.41 pairing only)
 

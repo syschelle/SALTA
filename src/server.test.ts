@@ -791,8 +791,8 @@ describe("appearance settings API", () => {
 
 describe("climate mode API", () => {
   it("stores the winter target mode without applying thermostat commands", async () => {
-    const status = vi.fn(async () => ({ mode: "winter", winterMode: "auto", thermostats: 2, supportedThermostats: 2 }));
-    const setWinterMode = vi.fn(async (winterMode: "manual" | "auto") => ({ mode: "winter", winterMode, thermostats: 2, supportedThermostats: 2 }));
+    const status = vi.fn(async () => ({ mode: "winter", winterMode: "manual", thermostats: 2, supportedThermostats: 2 }));
+    const setWinterMode = vi.fn(async (winterMode: "manual") => ({ mode: "winter", winterMode, thermostats: 2, supportedThermostats: 2 }));
     const apply = vi.fn();
     const climate = { status, setWinterMode, apply } as unknown as ClimateModeManager;
     const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, climate);
@@ -808,7 +808,15 @@ describe("climate mode API", () => {
     expect(apply).not.toHaveBeenCalled();
   });
 
-  it("applies the selected global mode using the stored winter configuration", async () => {
+  it("rejects the removed automatic winter thermostat mode", async () => {
+    const climate = { status: vi.fn(), setWinterMode: vi.fn(), apply: vi.fn() } as unknown as ClimateModeManager;
+    const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, climate);
+    const response = await authenticatedInject(server, { method: "PUT", url: "/api/settings/climate-mode", payload: { winterMode: "auto" } });
+    expect(response.statusCode).toBe(400);
+    expect(climate.setWinterMode).not.toHaveBeenCalled();
+  });
+
+  it("applies the selected global mode using fixed manual winter operation", async () => {
     const apply = vi.fn(async (mode: "summer" | "winter") => ({ mode, winterMode: "manual", thermostats: 2, supportedThermostats: 2 }));
     const climate = { status: vi.fn(), setWinterMode: vi.fn(), apply } as unknown as ClimateModeManager;
     const server = createServer(vi.fn(), vi.fn(), {}, {}, {}, {}, {}, climate);
@@ -964,7 +972,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.101" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.102" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -1136,7 +1144,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.101", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.102", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -1147,7 +1155,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.101", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.102", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {
