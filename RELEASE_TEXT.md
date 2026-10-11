@@ -1,64 +1,51 @@
-# SALTA v0.8.110
+# SALTA v0.8.111
 
-SALTA v0.8.110 fixes editing of existing ordered automation sequences. In v0.8.109, the first **Then** action was still treated as a special legacy primary action while only later actions and Wait steps were fully movable/removable. v0.8.110 makes the complete stored sequence canonical in the editor and runtime.
+SALTA v0.8.111 fixes the TypeScript production-build regression found after v0.8.110 made the complete automation **Then** sequence canonical and fully editable. Runtime behavior is unchanged; the release corrects the compile-time narrowing of action and `wait` sequence variants.
 
-## v0.8.110 fully editable existing automation sequences
+## v0.8.111 TypeScript sequence fix
 
-- Every **Then** step is now rendered through the same sequence editor.
-- Existing Step 1 can be moved down just like every other step.
-- Existing later steps can be moved all the way to the top.
-- Action steps and Wait steps can be reordered across the complete sequence.
-- Any action can be deleted as long as at least one real action remains in the rule.
-- Wait steps can be deleted freely.
-- The remove control is disabled only for the final remaining action so an invalid wait-only automation cannot be created.
-- Existing automations reopen with their exact stored order instead of reconstructing the sequence around a special primary action.
-- Sequences that begin with a Wait step remain in that order after save/reload.
+- Explicitly types cloned automation sequences as `AutomationSequenceStep[]`.
+- Keeps normal target actions and `wait` steps as a proper discriminated union during `cloneInput()`.
+- Fixes the invalid `AutomationTargetAction` type predicate reported by TypeScript in `src/automations.ts`.
+- Removes redundant `action !== "wait"` comparisons in `src/server.ts` after `Array.find()` has already narrowed the result to a real action.
+- Fixes all six TypeScript errors reported by the v0.8.110 CI build.
+- Adds a release-validator contract for the corrected narrowing behavior.
 
-Example:
+## Validation
 
-```text
-Wait 10 s
-→ Light On
-→ Wait 30 s
-→ Cover Close
-→ Light Off
-```
+The exact functional source fix was validated through the normal GitHub CI quality gate with a complete dependency installation:
 
-The sequence above now remains exactly in that order when the rule is edited again.
+- `npm ci` passed.
+- release validation passed.
+- test-symbol preflight passed for 82 test files.
+- `tsc -p tsconfig.json` passed.
+- the complete Vitest suite passed: **82 test files / 513 tests**.
 
-## Canonical sequence API compatibility
+The validation-only draft PR was closed without merge after the successful run.
 
-v0.8.110 adds an optional canonical `sequence` field to the automation API.
+## v0.8.110 fully editable sequences carried forward
 
-- The existing `actionDeviceId`, `action`, `actionValue` and `additionalActions` fields remain supported for compatibility.
-- When `sequence` is supplied, SALTA uses it as the canonical ordered execution definition.
-- SALTA derives the legacy primary-action fields from the first real action in the canonical sequence.
-- Existing API clients using the v0.8.109 payload continue to work unchanged.
-- The automation engine executes `sequence` directly when present.
-- Database loading returns the exact order stored in `automation_sequence_steps`.
-
-## Validation and safety
-
-- A sequence remains limited to a maximum of eight steps.
-- Wait values remain restricted to whole seconds from `1` to `86400`.
-- A rule must contain at least one real action.
-- Existing trigger/action cycle protection remains active.
-- Existing asynchronous Wait behavior remains unchanged and unrelated automations continue to run while one sequence is waiting.
+- Every **Then** step remains part of one canonical ordered sequence.
+- Existing Step 1 can be moved or deleted like later steps.
+- Action and Wait steps can be reordered across the complete sequence.
+- Any action can be removed as long as at least one real action remains.
+- Wait steps can be removed freely.
+- Sequences beginning with a Wait step keep their exact order after save/reload.
+- The optional canonical `sequence` API field remains compatible with the legacy primary/additional action fields.
 
 ## v0.8.109 dedicated editor carried forward
 
 - Automation creation and editing remain on the dedicated full-width `#automation-editor` page.
 - Basics, execution days, **When**, **Only if** and **Then** remain visually separated.
-- Existing rules and new rules use the same editor.
-- Successful saves return to the automation overview.
 
 ## v0.8.108 ordered sequences carried forward
 
 - Up to eight ordered action/Wait steps are supported.
-- The same target device may appear multiple times.
+- Wait values remain restricted to whole seconds from `1` to `86400`.
+- The same target device may appear multiple times in a sequence.
+- Wait steps remain asynchronous and do not block unrelated automations.
 - `On for seconds` remains available as a separate native timed action.
-- Ordered sequences remain persisted in the additive `automation_sequence_steps` table.
-- Backup/restore continues to preserve the complete sequence.
+- Ordered sequences remain persisted in `automation_sequence_steps` and preserved by backup/restore.
 
 ## HomeKit system controls carried forward
 
@@ -76,9 +63,7 @@ v0.8.110 adds an optional canonical `sequence` field to the automation API.
 ## Persistence and deployment compatibility
 
 - No new database table is introduced.
-- No `ALTER TABLE` statement is required.
-- No manual SQL migration is required.
-- Existing `automation_sequence_steps` data is reused directly.
+- No `ALTER TABLE` statement or manual SQL migration is required.
 - No npm dependency is added or changed.
 - No new mandatory environment variable is introduced.
 - Existing PostgreSQL and SALTA runtime volumes remain compatible and must be preserved.

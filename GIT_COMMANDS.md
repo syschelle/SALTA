@@ -1,4 +1,4 @@
-# SALTA v0.8.110 Git commands
+# SALTA v0.8.111 Git commands
 
 ## Local quality gate
 
@@ -17,7 +17,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(automations): make existing sequences fully editable"
+git commit -m "fix(automations): correct sequence TypeScript narrowing"
 git push origin main
 ```
 
@@ -26,16 +26,12 @@ git push origin main
 ```bash
 git fetch origin
 
-git show origin/main:package.json | grep -F '"version": "0.8.110"'
-git show origin/main:public/index.html | grep -F 'automation-full-sequence'
-git show origin/main:public/automation-ui.js | grep -F 'function automationStoredSequence(rule)'
-git show origin/main:public/automation-ui.js | grep -F 'const moveUp=index>0'
-git show origin/main:public/automation-ui.js | grep -F 'const moveDown=index<automationAdditionalActions.length-1'
-git show origin/main:public/automation-ui.js | grep -F 'sequence=automationActionSequencePayload()'
-git show origin/main:src/automations.ts | grep -F 'if (rule.sequence?.length) return rule.sequence'
-git show origin/main:src/server.ts | grep -F 'sequence: z.array(automationSequenceStepSchema).min(1).max(8).optional()'
-git show origin/main:src/db.ts | grep -F 'sequence: sequence.length ? sequence'
-git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.110'
+git show origin/main:package.json | grep -F '"version": "0.8.111"'
+git show origin/main:src/automations.ts | grep -F 'const sequence: AutomationSequenceStep[] | undefined'
+git show origin/main:src/automations.ts | grep -F 'map((step): AutomationSequenceStep =>'
+git show origin/main:src/server.ts | grep -F 'const primaryDeviceId = sequencePrimary?.deviceId ?? data.actionDeviceId'
+git show origin/main:src/server.ts | grep -F 'const primaryAction = sequencePrimary?.action ?? data.action'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.111'
 ```
 
 Then run the complete quality gate again if the push came from a different checkout:
@@ -48,8 +44,8 @@ npm run check
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.110 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.110.
+Release validator contract: SALTA v0.8.111 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.111.
 ```
 
 Wait for GitHub CI and CodeQL to be green before tagging.
@@ -61,15 +57,15 @@ git checkout main
 git pull --ff-only origin main
 git fetch origin
 
-git tag -a v0.8.110 -m "SALTA v0.8.110"
-git push origin v0.8.110
+git tag -a v0.8.111 -m "SALTA v0.8.111"
+git push origin v0.8.111
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.110 \
-  --title "SALTA v0.8.110" \
+gh release create v0.8.111 \
+  --title "SALTA v0.8.111" \
   --notes-file RELEASE_TEXT.md
 ```
 

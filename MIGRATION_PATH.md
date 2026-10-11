@@ -1,16 +1,14 @@
 # SALTA migration paths
 
-## Current v0.8.110 update
+## Current v0.8.111 update
 
-v0.8.110 fixes the ordered automation editor introduced in v0.8.108/v0.8.109. Existing rules now expose the complete stored **Then** sequence as one canonical ordered list. Step 1 is no longer treated as a special fixed primary editor row; every action/Wait step can be moved up/down and removed subject only to the rule retaining at least one real action.
+v0.8.111 is a compile-time regression fix for the canonical automation sequence support introduced in v0.8.110. It does not change stored automation data or runtime sequence semantics.
 
-The existing `automation_sequence_steps` table remains the canonical persistence layer. No new table, `ALTER TABLE`, data rewrite or manual SQL migration is required. The REST API adds an optional canonical `sequence` field while retaining the legacy primary/additional action fields for compatibility.
+The release explicitly types cloned sequences as the `AutomationSequenceStep[]` union and removes redundant impossible `wait` comparisons after TypeScript narrowing in the API normalization path. This resolves the six production-build errors reported by `tsc -p tsconfig.json`.
 
-Existing v0.8.109 rules require no conversion. When they are opened, SALTA reads the exact positions already stored in `automation_sequence_steps`; when saved through v0.8.110, the same table is rewritten in the chosen order. Sequences beginning with a Wait step are now preserved exactly across save/reload.
+The existing `automation_sequence_steps` table remains unchanged. No new table, `ALTER TABLE`, data rewrite or manual SQL migration is required. Existing v0.8.110 rules and backups remain directly compatible.
 
-Backup/restore remains compatible because `automation_sequence_steps` was already part of the disaster-recovery payload from v0.8.108 onward.
-
-The update adds no npm dependency, mandatory environment variable or deployment-topology change. Preserve the existing PostgreSQL and SALTA runtime volumes. Do not use `docker compose down -v`.
+No npm dependency, mandatory environment variable or deployment-topology change is introduced. Preserve the existing PostgreSQL and SALTA runtime volumes. Do not use `docker compose down -v`.
 
 ## v0.8.107 HomeKit system switches
 

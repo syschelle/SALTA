@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.111
+
+- Fixed the TypeScript build regression introduced by the canonical automation sequence handling in v0.8.110.
+- Explicitly types cloned automation sequences as `AutomationSequenceStep[]`, keeping action and `wait` variants as a valid discriminated union during `cloneInput()`.
+- Removes redundant `action !== "wait"` checks after TypeScript has already narrowed the first real sequence action in the API normalization path.
+- Preserves all v0.8.110 runtime behavior: existing Then steps remain fully reorderable/removable, Wait-first sequences remain stable, and legacy automation fields remain compatible.
+- Added a release-validator contract for the corrected TypeScript narrowing so the compile-safe sequence handling cannot silently regress.
+- The exact functional fix passed the complete GitHub CI quality gate with a real dependency install, TypeScript production build, and the full Vitest suite: 82 test files / 513 tests.
+- No database schema, dependency, environment-variable or deployment-topology change is required.
+
 ## v0.8.110
 
 - Fixed editing of existing automation **Then** sequences so every stored action and Wait step is loaded as one canonical ordered sequence.

@@ -443,9 +443,9 @@ function normalizeAutomationInput(data: z.infer<typeof automationSchema>): Autom
         ...(["setTargetTemperature", "turnOnForSeconds"].includes(step.action) ? { value: step.value } : {})
       });
   const sequencePrimary = sequence?.find(step => step.action !== "wait");
-  const primaryDeviceId = sequencePrimary && sequencePrimary.action !== "wait" ? sequencePrimary.deviceId : data.actionDeviceId;
-  const primaryAction = sequencePrimary && sequencePrimary.action !== "wait" ? sequencePrimary.action : data.action;
-  const primaryValue = sequencePrimary && sequencePrimary.action !== "wait" && ["setTargetTemperature", "turnOnForSeconds"].includes(sequencePrimary.action)
+  const primaryDeviceId = sequencePrimary?.deviceId ?? data.actionDeviceId;
+  const primaryAction = sequencePrimary?.action ?? data.action;
+  const primaryValue = sequencePrimary && ["setTargetTemperature", "turnOnForSeconds"].includes(sequencePrimary.action)
     ? sequencePrimary.value
     : ["setTargetTemperature", "turnOnForSeconds"].includes(data.action) ? data.actionValue : undefined;
   return {
@@ -712,9 +712,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.110" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.111" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.110", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.111", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1358,7 +1358,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.110", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.111", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

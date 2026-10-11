@@ -275,8 +275,8 @@ export function localAutomationWeekday(date: Date, timeZone: string): Automation
 }
 
 function cloneInput(input: AutomationInput): AutomationInput {
-  const sequence = input.sequence?.map(step => automationWaitStep(step)
-    ? { action: "wait" as const, value: Number(step.value) }
+  const sequence: AutomationSequenceStep[] | undefined = input.sequence?.map((step): AutomationSequenceStep => automationWaitStep(step)
+    ? { action: "wait", value: Number(step.value) }
     : {
         deviceId: step.deviceId,
         action: step.action,
