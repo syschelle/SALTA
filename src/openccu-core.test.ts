@@ -248,7 +248,7 @@ describe("OpenCCU HomeMatic device mapping", () => {
       capabilities: ["setTargetTemperature", "setThermostatMode"],
       adapterData: {
         targetTemperatureParameter: "SET_POINT_TEMPERATURE",
-        modeParameter: "SET_POINT_MODE",
+        modeParameter: "CONTROL_MODE",
         modeValueType: "int",
         modeAutoValue: 0,
         modeManualValue: 1
@@ -312,11 +312,10 @@ describe("OpenCCU HomeMatic device mapping", () => {
       state: { controlMode: "manual", targetTemperature: 21.5 },
       capabilities: ["setTargetTemperature", "setThermostatMode"],
       adapterData: {
-        modeParameter: "SET_POINT_MODE",
+        modeParameter: "CONTROL_MODE",
         modeValueType: "int",
         modeAutoValue: 0,
-        modeManualValue: 1,
-        thermostatModeInferred: true
+        modeManualValue: 1
       }
     });
   });
@@ -389,7 +388,7 @@ describe("OpenCCU HomeMatic device mapping", () => {
       targetTemperatureMin: 4.5,
       targetTemperatureMax: 30.5
     }, { targetTemperature: 21 }, "auto")).toEqual({
-      writes: [{ parameter: "SET_POINT_MODE", valueType: "int", value: 0 }],
+      writes: [{ parameter: "CONTROL_MODE", valueType: "int", value: 0 }],
       state: { controlMode: "auto" }
     });
     expect(openCcuThermostatModePlan({

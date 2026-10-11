@@ -1,4 +1,4 @@
-# SALTA v0.8.103 Git commands
+# SALTA v0.8.104 Git commands
 
 ## Local quality gate
 
@@ -17,7 +17,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "chore(security): refresh vulnerable npm dependencies"
+git commit -m "fix(openccu): correct HmIP thermostat mode synchronization"
 git push origin main
 ```
 
@@ -26,22 +26,11 @@ git push origin main
 ```bash
 git fetch origin
 
-git show origin/main:package.json | grep -F '"version": "0.8.103"'
-git show origin/main:package.json | grep -F '"fastify": "^5.12.5"'
-git show origin/main:package.json | grep -F '"vitest": "^4.1.11"'
-
-git show origin/main:package-lock.json | grep -F '"version": "5.12.5"'
-git show origin/main:package-lock.json | grep -F '"version": "3.1.8"'
-git show origin/main:package-lock.json | grep -F '"version": "4.2.2"'
-git show origin/main:package-lock.json | grep -F '"version": "4.1.11"'
-git show origin/main:package-lock.json | grep -F '"version": "1.2.2"'
-
-if git show origin/main:package-lock.json | grep -Fq '"node_modules/tinypool"'; then
-  echo "Review Tinypool version before tagging"
-  exit 1
-fi
-
-git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.103'
+git show origin/main:package.json | grep -F '"version": "0.8.104"'
+git show origin/main:src/openccu-core.ts | grep -F 'return isHomematicIpR4mThermostat(snapshot) ? "SET_POINT_MODE" : "CONTROL_MODE"'
+git show origin/main:src/openccu-core.ts | grep -F ': ["SET_POINT_MODE", "CONTROL_MODE", "MODE"]'
+git show origin/main:src/openccu-v08104-regression.test.ts | grep -F 'preserves a 20 degree manual target'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.104'
 ```
 
 Then run the complete quality gate again if the push came from a different checkout:
@@ -54,8 +43,8 @@ npm run check
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.103 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.103.
+Release validator contract: SALTA v0.8.104 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.104.
 ```
 
 Wait for GitHub CI and CodeQL to be green before tagging.
@@ -67,15 +56,15 @@ git checkout main
 git pull --ff-only origin main
 git fetch origin
 
-git tag -a v0.8.103 -m "SALTA v0.8.103"
-git push origin v0.8.103
+git tag -a v0.8.104 -m "SALTA v0.8.104"
+git push origin v0.8.104
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.103 \
-  --title "SALTA v0.8.103" \
+gh release create v0.8.104 \
+  --title "SALTA v0.8.104" \
   --notes-file RELEASE_TEXT.md
 ```
 

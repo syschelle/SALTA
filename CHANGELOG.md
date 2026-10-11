@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.104
+
+- Fixed OpenCCU/Homematic IP thermostat mode synchronization so established HmIP thermostat families read the active mode from `SET_POINT_MODE` but send mode changes through `CONTROL_MODE`.
+- Prevented SALTA from treating the HmIP status datapoint as the command endpoint, which could make OpenCCU and SALTA disagree and could cause the hourly heating-mode guard to re-apply an incorrect mode.
+- Winter mode continues to enforce `manual`/Handbetrieb, but now preserves an already valid manual target temperature such as 20 °C instead of replacing it while merely correcting the operating mode.
+- Summer mode continues to enforce `off`; devices without a dedicated off mode still use manual mode plus the reported minimum/frost-protection temperature.
+- Added an explicit R4M-family exception because newer HmIP R4M thermostats reverse the mode datapoint direction (`CONTROL_MODE` for status and `SET_POINT_MODE` for commands).
+- Normalizes persisted/pre-v0.8.104 HmIP mode metadata at command time so the fix applies immediately without requiring a prior successful OpenCCU registry refresh.
+- Added regression coverage for HmIP-WTH-2 mode/status separation, preservation of a 20 °C manual setpoint, OFF handling and the R4M exception.
+- Carries forward the v0.8.103 dependency-security refresh and the v0.8.102 hourly Summer/Winter thermostat guard unchanged.
+- No database schema change, manual migration, dependency change, new mandatory environment variable or deployment-topology change is required.
+
 ## v0.8.103
 
 - Security-only dependency refresh for the GitHub dependency alerts reported against the v0.8.102 lockfile; no SALTA runtime feature or database behavior is changed.
