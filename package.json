@@ -22,7 +22,7 @@
   "dependencies": {
     "@fastify/rate-limit": "^10.3.0",
     "@homebridge/hap-nodejs": "^2.1.9",
-    "fastify": "^5.4.0",
+    "fastify": "^5.12.5",
     "pg": "^8.16.0",
     "zod": "^3.25.0"
   },
@@ -32,7 +32,7 @@
     "light-my-request": "^6.6.0",
     "tsx": "^4.20.0",
     "typescript": "^5.8.0",
-    "vitest": "^3.2.0"
+    "vitest": "^4.1.11"
   },
   "license": "Apache-2.0",
   "keywords": [
@@ -55,6 +55,16 @@
   ],
   "overrides": {
     "find-my-way": "9.7.0",
-    "@homebridge/dbus-native": "0.7.7"
+    "@homebridge/dbus-native": "0.7.7",
+    "@fastify/ajv-compiler": {
+      "fast-uri": "3.1.8"
+    },
+    "ajv": {
+      "fast-uri": "3.1.8"
+    },
+    "fast-json-stringify": {
+      "fast-uri": "4.2.2"
+    },
+    "source-map-js": "1.2.2"
   }
 }
