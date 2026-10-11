@@ -1,21 +1,28 @@
-# SALTA v0.8.104
+# SALTA v0.8.105
 
-SALTA v0.8.104 fixes OpenCCU/Homematic IP thermostat mode synchronization. It separates the HmIP datapoint used to report the active operating mode from the datapoint used to command a mode change, preventing SALTA and OpenCCU from drifting into contradictory thermostat states.
+SALTA v0.8.105 makes the global Summer/Winter thermostat guard conservative for classic HomeMatic/OpenCCU installations. The hourly check stays enabled, but Winter now writes to a thermostat only when OpenCCU explicitly reports that device as being in Auto mode.
 
-## v0.8.104 OpenCCU thermostat synchronization fix
+## v0.8.105 HomeMatic heating-mode traffic reduction
 
-- Fixed established Homematic IP thermostat families such as `HmIP-WTH-2` to read the active mode from `SET_POINT_MODE` while sending mode changes through `CONTROL_MODE`.
-- Prevented SALTA from reusing the HmIP status datapoint as the mode command endpoint.
-- Preserves an already valid manual target temperature, for example 20 °C, when Winter mode only needs to ensure Handbetrieb/manual mode.
-- Summer mode continues to enforce OFF. Where a HomeMatic thermostat has no dedicated off mode, SALTA continues to use manual mode plus the minimum/frost-protection temperature reported by OpenCCU.
-- Added an explicit exception for newer R4M-family HmIP devices, which use `CONTROL_MODE` for status and `SET_POINT_MODE` for commands.
-- Normalizes persisted or pre-v0.8.104 HmIP mode metadata when building a thermostat command, so the corrected command path is used immediately and does not depend on a prior OpenCCU registry refresh.
-- Added regression coverage for HmIP-WTH-2 status/command separation, preservation of a 20 °C manual setpoint, OFF behavior and the R4M datapoint direction.
-- The complete SALTA quality gate was verified in GitHub CI against the v0.8.103 baseline plus this fix.
+- The hourly Winter guard remains active once per hour.
+- In Winter, only thermostats explicitly reported as `AUTO` are corrected to `manual`/Handbetrieb.
+- Thermostats reported as `manual`, `OFF`, Boost, Party or an unknown mode are not touched by the hourly Winter guard.
+- Explicitly applying Winter mode still switches physical thermostats that are not already manual to `manual`.
+- Summer mode continues to enforce `OFF`; the hourly Summer guard corrects known non-OFF states back to `OFF`.
+- Unknown/ambiguous thermostat states are not repeatedly written by the hourly guard.
+- Explicit Summer/Winter application skips thermostats that are already in the requested mode.
+- OpenCCU `VirtualDevices` heating groups are excluded from the global heating-mode target set to avoid sending the same logical mode change to a virtual group and its physical thermostat members.
+- This reduces unnecessary HomeMatic RF commands and therefore avoids needless Duty Cycle consumption during periodic verification.
 
 ## Root cause
 
-SALTA previously preferred `SET_POINT_MODE` as both the HmIP mode status source and the writable mode parameter. On established Homematic IP thermostat families those responsibilities are split: `SET_POINT_MODE` reflects the active mode, while `CONTROL_MODE` is the command endpoint. This mismatch could make the state shown by SALTA disagree with OpenCCU and could cause the hourly Summer/Winter thermostat guard to apply the wrong correction after a manual change in OpenCCU.
+The previous guard treated every state other than the configured target as drift. During Winter mode this meant that anything not reported exactly as `manual` was rewritten once per hour. A diagnostic run showed 10 of 11 thermostats classified as mismatched and corrected in one pass. On classic HomeMatic installations that can create a large burst of RF traffic even when the user's real requirement is only to recover from an accidental switch back to Auto mode.
+
+## v0.8.104 OpenCCU thermostat synchronization carried forward
+
+- The OpenCCU thermostat mode mapping fixes from v0.8.104 remain present.
+- Classic HomeMatic/BidCos devices continue to use their native `AUTO_MODE` / `MANU_MODE` command path.
+- HmIP-specific status/command handling remains isolated to HmIP devices and does not replace classic HomeMatic command handling.
 
 ## v0.8.103 dependency security refresh carried forward
 
@@ -25,21 +32,13 @@ SALTA previously preferred `SET_POINT_MODE` as both the HmIP mode status source 
 - `source-map-js` remains at `1.2.2`.
 - The vulnerable `tinypool@1.1.1` path remains absent from the resolved dependency tree.
 
-## v0.8.102 hourly thermostat-mode enforcement carried forward
-
-- Winter mode always enforces **manual/Handbetrieb** on compatible thermostats.
-- Summer mode enforces **off/Aus**.
-- SALTA verifies this policy once per hour and repairs mode drift.
-- v0.8.104 corrects the OpenCCU/HmIP command mapping used by that guard; the global policy itself is unchanged.
-
 ## Persistence and deployment compatibility
 
 - No database schema change is required.
 - No `ALTER TABLE` statement or manual SQL migration is required.
-- No dependency change is introduced by v0.8.104.
+- No dependency change is introduced by v0.8.105.
 - No new mandatory environment variable is introduced.
 - Existing PostgreSQL and SALTA runtime volumes remain compatible and must be preserved.
-- SALTA continues to use `network_mode: host` for HomeKit/mDNS while PostgreSQL remains bound to host loopback through `127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432`.
 
 ## Production update
 

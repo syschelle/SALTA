@@ -24,16 +24,45 @@ export interface ClimateGuardResult {
 type Commander = { command(command: DeviceCommand): Promise<Device> };
 type ClimateRegistry = Pick<DeviceRegistry, "all"> & Partial<Pick<DeviceRegistry, "get" | "set">>;
 
+type GuardThermostatMode = "off" | "manual" | "auto" | "boost" | "party" | "away";
+
+function isOpenCcuVirtualThermostat(device: Device): boolean {
+  return device.source === "openccu"
+    && String(device.adapterData?.interfaceName ?? "").trim().toLowerCase() === "virtualdevices";
+}
+
 export function thermostatSupportsSystemMode(device: Device): boolean {
   if (device.type !== "thermostat") return false;
+  // OpenCCU VirtualDevices can mirror a heating group that already contains the
+  // physical thermostats. Controlling both would duplicate HomeMatic radio traffic.
+  if (isOpenCcuVirtualThermostat(device)) return false;
   if (device.capabilities.includes("setThermostatMode")) return true;
   return device.source === "openccu"
     && device.capabilities.includes("setTargetTemperature")
     && typeof device.state.controlMode === "string";
 }
 
+function currentGuardMode(device: Device): GuardThermostatMode | undefined {
+  const mode = String(device.state.controlMode ?? "").trim().toLowerCase();
+  return (["off", "manual", "auto", "boost", "party", "away"] as const).includes(mode as GuardThermostatMode)
+    ? mode as GuardThermostatMode
+    : undefined;
+}
+
 function thermostatHasMode(device: Device, targetMode: "off" | "manual"): boolean {
-  return String(device.state.controlMode ?? "").trim().toLowerCase() === targetMode;
+  return currentGuardMode(device) === targetMode;
+}
+
+function guardNeedsCorrection(device: Device, mode: ClimateMode): boolean {
+  const current = currentGuardMode(device);
+  if (!current) return false;
+  // Winter guard is deliberately conservative: only an accidental AUTO mode is
+  // corrected. OFF/boost/party/away are left untouched until Winter is explicitly
+  // applied again by the user or an automation.
+  if (mode === "winter") return current === "auto";
+  // Summer policy remains OFF. Only known non-OFF states are corrected; unknown
+  // states are ignored to avoid repeated radio traffic caused by ambiguous data.
+  return current !== "off";
 }
 
 function debugGuardMessage(result: ClimateGuardResult, correctedNames: string[], failures: Array<{ name: string; error: string }>): string {
@@ -121,11 +150,12 @@ export class ClimateModeManager {
     const winterMode: WinterThermostatMode = "manual";
     const thermostats = this.registry.all().filter(thermostatSupportsSystemMode);
     const targetMode: "off" | "manual" = mode === "summer" ? "off" : "manual";
+    const targets = thermostats.filter(device => !thermostatHasMode(device, targetMode));
     let succeeded = 0;
     let failed = 0;
     const failures: Array<{ deviceId: string; name: string; error: string }> = [];
 
-    for (const device of thermostats) {
+    for (const device of targets) {
       try {
         await this.commander.command({
           deviceId: device.id,
@@ -145,7 +175,7 @@ export class ClimateModeManager {
     }
 
     const appliedAt = new Date().toISOString();
-    const lastResult = { total: thermostats.length, succeeded, failed };
+    const lastResult = { total: targets.length, succeeded, failed };
     const settings = await updateClimateModeSettings({ mode, winterMode, lastAppliedAt: appliedAt, lastResult });
     await this.syncAutomationDevice({ mode: settings.mode, winterMode: settings.winterMode, winterActive: settings.mode === "winter" }, appliedAt);
     await writeSystemLog(
@@ -153,7 +183,15 @@ export class ClimateModeManager {
       "system",
       failed ? "CLIMATE_MODE_PARTIAL" : "CLIMATE_MODE_APPLIED",
       mode === "summer" ? "Summer mode applied to thermostats" : "Winter mode applied to thermostats",
-      { mode, winterMode, targetMode, ...lastResult, failures }
+      {
+        mode,
+        winterMode,
+        targetMode,
+        eligible: thermostats.length,
+        alreadyCorrect: thermostats.length - targets.length,
+        ...lastResult,
+        failures
+      }
     ).catch(() => undefined);
     return this.status();
   }
@@ -162,7 +200,7 @@ export class ClimateModeManager {
     const settings = await getClimateModeSettings();
     const targetMode: "off" | "manual" = settings.mode === "summer" ? "off" : "manual";
     const thermostats = this.registry.all().filter(thermostatSupportsSystemMode);
-    const mismatches = thermostats.filter(device => !thermostatHasMode(device, targetMode));
+    const mismatches = thermostats.filter(device => guardNeedsCorrection(device, settings.mode));
     let corrected = 0;
     let failed = 0;
     const correctedNames: string[] = [];

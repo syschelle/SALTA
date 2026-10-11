@@ -13,12 +13,13 @@ vi.mock("./db.js", () => ({
 import { getClimateModeSettings, getGeneralSettings, getPushoverConnection } from "./db.js";
 import { CLIMATE_GUARD_INTERVAL_MS, ClimateModeManager, thermostatSupportsSystemMode } from "./climate-mode.js";
 
-function thermostat(id: string): Device {
+function thermostat(id: string, controlMode = "auto", interfaceName = "BidCos-RF"): Device {
   return {
     id, source: "openccu", sourceId: id, type: "thermostat", name: id, reachable: true,
-    state: { controlMode: "auto", targetTemperature: 21 }, capabilities: ["setTargetTemperature"],
+    state: { controlMode, targetTemperature: controlMode === "off" ? 4.5 : 21 }, capabilities: ["setTargetTemperature", "setThermostatMode"],
     homekitEnabled: false, hidden: false, credentialMode: "none", passwordConfigured: false,
-    lastSeen: new Date().toISOString(), lastEvent: new Date().toISOString()
+    lastSeen: new Date().toISOString(), lastEvent: new Date().toISOString(),
+    adapterData: { interfaceName, channelAddress: `${id}:4` }
   };
 }
 
@@ -27,23 +28,33 @@ describe("global climate mode", () => {
     expect(CLIMATE_GUARD_INTERVAL_MS).toBe(60 * 60 * 1000);
   });
 
-  it("recognizes OpenCCU thermostats with inferred mode control", () => {
-    expect(thermostatSupportsSystemMode(thermostat("t1"))).toBe(true);
+  it("recognizes physical classic HomeMatic thermostats", () => {
+    expect(thermostatSupportsSystemMode(thermostat("HM-RT"))).toBe(true);
   });
 
-  it("sets every compatible thermostat to off in summer mode", async () => {
-    const devices = [thermostat("t1"), thermostat("t2")];
+  it("excludes OpenCCU VirtualDevices heating groups from global mode commands", () => {
+    expect(thermostatSupportsSystemMode(thermostat("HM-GROUP", "auto", "VirtualDevices"))).toBe(false);
+  });
+
+  it("switches only mismatched physical thermostats to off in summer mode", async () => {
+    const alreadyOff = thermostat("off", "off");
+    const manual = thermostat("manual", "manual");
+    const virtualGroup = thermostat("group", "manual", "VirtualDevices");
+    const devices = [alreadyOff, manual, virtualGroup];
     const command = vi.fn(async ({ deviceId }) => devices.find(device => device.id === deviceId)!);
     const manager = new ClimateModeManager({ all: () => devices } as never, { command });
     const status = await manager.apply("summer");
-    expect(command).toHaveBeenCalledTimes(2);
-    expect(command).toHaveBeenNthCalledWith(1, { deviceId: "t1", capability: "setThermostatMode", value: "off", source: "system" });
-    expect(command).toHaveBeenNthCalledWith(2, { deviceId: "t2", capability: "setThermostatMode", value: "off", source: "system" });
+    expect(command).toHaveBeenCalledTimes(1);
+    expect(command).toHaveBeenCalledWith({ deviceId: "manual", capability: "setThermostatMode", value: "off", source: "system" });
     expect(status.supportedThermostats).toBe(2);
   });
 
-  it("sets every compatible thermostat to manual in winter mode even if an old auto setting remains", async () => {
-    const devices = [thermostat("t1"), thermostat("t2")];
+  it("switches mismatched physical thermostats to manual when winter is explicitly applied", async () => {
+    const alreadyManual = thermostat("manual", "manual");
+    const automatic = thermostat("auto", "auto");
+    const off = thermostat("off", "off");
+    const virtualGroup = thermostat("group", "auto", "VirtualDevices");
+    const devices = [alreadyManual, automatic, off, virtualGroup];
     const command = vi.fn(async ({ deviceId }) => devices.find(device => device.id === deviceId)!);
     vi.mocked(getClimateModeSettings).mockResolvedValue({ mode: "winter", winterMode: "auto" });
     const manager = new ClimateModeManager({ all: () => devices } as never, { command });
@@ -51,8 +62,10 @@ describe("global climate mode", () => {
     await manager.apply("winter");
 
     expect(command).toHaveBeenCalledTimes(2);
-    expect(command).toHaveBeenNthCalledWith(1, { deviceId: "t1", capability: "setThermostatMode", value: "manual", source: "system" });
-    expect(command).toHaveBeenNthCalledWith(2, { deviceId: "t2", capability: "setThermostatMode", value: "manual", source: "system" });
+    expect(command).toHaveBeenCalledWith({ deviceId: "auto", capability: "setThermostatMode", value: "manual", source: "system" });
+    expect(command).toHaveBeenCalledWith({ deviceId: "off", capability: "setThermostatMode", value: "manual", source: "system" });
+    expect(command).not.toHaveBeenCalledWith(expect.objectContaining({ deviceId: "manual" }));
+    expect(command).not.toHaveBeenCalledWith(expect.objectContaining({ deviceId: "group" }));
   });
 
   it("rejects automatic winter thermostat mode", async () => {
@@ -93,24 +106,37 @@ describe("global climate mode", () => {
     expect(command).toHaveBeenCalledWith({ deviceId: "drifted", capability: "setThermostatMode", value: "off", source: "system" });
   });
 
-  it("repairs thermostat mode drift to manual while winter mode is active", async () => {
-    const manual = thermostat("manual");
-    manual.state.controlMode = "manual";
-    const auto = thermostat("auto");
-    auto.state.controlMode = "auto";
-    const off = thermostat("off");
-    off.state.controlMode = "off";
-    const devices = [manual, auto, off];
+  it("repairs only accidental auto mode while winter mode is active", async () => {
+    const manual = thermostat("manual", "manual");
+    const auto = thermostat("auto", "auto");
+    const off = thermostat("off", "off");
+    const boost = thermostat("boost", "boost");
+    const virtualGroup = thermostat("group", "auto", "VirtualDevices");
+    const devices = [manual, auto, off, boost, virtualGroup];
     const command = vi.fn(async ({ deviceId }) => devices.find(device => device.id === deviceId)!);
     vi.mocked(getClimateModeSettings).mockResolvedValue({ mode: "winter", winterMode: "auto" });
     const manager = new ClimateModeManager({ all: () => devices } as never, { command });
 
     const result = await manager.verifyThermostats();
 
-    expect(result).toEqual({ mode: "winter", targetMode: "manual", checked: 3, mismatched: 2, corrected: 2, failed: 0 });
-    expect(command).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ mode: "winter", targetMode: "manual", checked: 4, mismatched: 1, corrected: 1, failed: 0 });
+    expect(command).toHaveBeenCalledTimes(1);
     expect(command).toHaveBeenCalledWith({ deviceId: "auto", capability: "setThermostatMode", value: "manual", source: "system" });
-    expect(command).toHaveBeenCalledWith({ deviceId: "off", capability: "setThermostatMode", value: "manual", source: "system" });
+    expect(command).not.toHaveBeenCalledWith(expect.objectContaining({ deviceId: "off" }));
+    expect(command).not.toHaveBeenCalledWith(expect.objectContaining({ deviceId: "boost" }));
+    expect(command).not.toHaveBeenCalledWith(expect.objectContaining({ deviceId: "group" }));
+  });
+
+  it("ignores unknown thermostat modes in the hourly guard to avoid repeated radio writes", async () => {
+    const unknown = thermostat("unknown", "mystery");
+    const command = vi.fn();
+    vi.mocked(getClimateModeSettings).mockResolvedValue({ mode: "winter", winterMode: "manual" });
+    const manager = new ClimateModeManager({ all: () => [unknown] } as never, { command: command as never });
+
+    const result = await manager.verifyThermostats();
+
+    expect(result.mismatched).toBe(0);
+    expect(command).not.toHaveBeenCalled();
   });
 
   it("sends a Pushover debug message when the guard corrects drift", async () => {

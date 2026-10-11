@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.105
+
+- Reduced HomeMatic thermostat radio traffic from the global Summer/Winter heating-mode routines.
+- The hourly Winter guard now corrects only thermostats that OpenCCU explicitly reports as `AUTO`; thermostats already in `manual`, `OFF`, Boost, Party or an unknown mode are left untouched.
+- The hourly Summer guard continues to enforce `OFF`, but only for known non-OFF thermostat modes; ambiguous/unknown states are ignored instead of being rewritten repeatedly.
+- Explicit Summer/Winter application now skips physical thermostats that are already in the requested mode.
+- OpenCCU `VirtualDevices` heating groups are excluded from global climate-mode commands so SALTA does not command a virtual group and its physical members in parallel.
+- The hourly interval remains one hour so accidentally switching a thermostat back to Auto is still repaired automatically during Winter mode.
+- Added regression and release-validator coverage for conservative Winter correction, Summer OFF enforcement, virtual-group exclusion and duplicate-write avoidance.
+- Carries forward the v0.8.104 OpenCCU thermostat synchronization fix and v0.8.103 dependency-security refresh.
+- No database schema change, manual migration, dependency change, new mandatory environment variable or deployment-topology change is required.
+
 ## v0.8.104
 
 - Fixed OpenCCU/Homematic IP thermostat mode synchronization so established HmIP thermostat families read the active mode from `SET_POINT_MODE` but send mode changes through `CONTROL_MODE`.

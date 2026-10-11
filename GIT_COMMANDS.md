@@ -1,4 +1,4 @@
-# SALTA v0.8.104 Git commands
+# SALTA v0.8.105 Git commands
 
 ## Local quality gate
 
@@ -7,7 +7,7 @@ npm ci
 npm run check
 ```
 
-Only continue with tagging after the complete `npm run check`, GitHub CI and CodeQL are green.
+Only continue after the complete `npm run check` is green.
 
 ## Commit and push
 
@@ -17,7 +17,7 @@ git pull --ff-only origin main
 
 git add -A
 git status
-git commit -m "fix(openccu): correct HmIP thermostat mode synchronization"
+git commit -m "fix(climate): reduce HomeMatic thermostat guard writes"
 git push origin main
 ```
 
@@ -26,11 +26,12 @@ git push origin main
 ```bash
 git fetch origin
 
-git show origin/main:package.json | grep -F '"version": "0.8.104"'
-git show origin/main:src/openccu-core.ts | grep -F 'return isHomematicIpR4mThermostat(snapshot) ? "SET_POINT_MODE" : "CONTROL_MODE"'
-git show origin/main:src/openccu-core.ts | grep -F ': ["SET_POINT_MODE", "CONTROL_MODE", "MODE"]'
-git show origin/main:src/openccu-v08104-regression.test.ts | grep -F 'preserves a 20 degree manual target'
-git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.104'
+git show origin/main:package.json | grep -F '"version": "0.8.105"'
+git show origin/main:src/climate-mode.ts | grep -F 'if (mode === "winter") return current === "auto"'
+git show origin/main:src/climate-mode.ts | grep -F 'virtualdevices'
+git show origin/main:src/climate-mode.ts | grep -F 'const targets = thermostats.filter(device => !thermostatHasMode(device, targetMode))'
+git show origin/main:src/climate-mode.test.ts | grep -F 'repairs only accidental auto mode while winter mode is active'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.105'
 ```
 
 Then run the complete quality gate again if the push came from a different checkout:
@@ -43,8 +44,8 @@ npm run check
 Expected release-validator output:
 
 ```text
-Release validator contract: SALTA v0.8.104 / test-config-from-tsconfig.json
-Release validation passed for SALTA v0.8.104.
+Release validator contract: SALTA v0.8.105 / test-config-from-tsconfig.json
+Release validation passed for SALTA v0.8.105.
 ```
 
 Wait for GitHub CI and CodeQL to be green before tagging.
@@ -56,15 +57,15 @@ git checkout main
 git pull --ff-only origin main
 git fetch origin
 
-git tag -a v0.8.104 -m "SALTA v0.8.104"
-git push origin v0.8.104
+git tag -a v0.8.105 -m "SALTA v0.8.105"
+git push origin v0.8.105
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.104 \
-  --title "SALTA v0.8.104" \
+gh release create v0.8.105 \
+  --title "SALTA v0.8.105" \
   --notes-file RELEASE_TEXT.md
 ```
 

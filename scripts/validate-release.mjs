@@ -159,6 +159,10 @@ if (!serverSource.includes('"/api/system/climate-mode"') || !serverSource.includ
 if (!climateModeSource.includes('value: targetMode') || !climateModeSource.includes('source: "system"')) fail("Climate mode does not route thermostat mode commands through SALTA system commands");
 if (!climateModeSource.includes('const targetMode: "off" | "manual" = mode === "summer" ? "off" : "manual"')) fail("Climate mode must enforce summer=off and winter=manual");
 if (!climateModeSource.includes('CLIMATE_GUARD_INTERVAL_MS = 60 * 60 * 1000') || !climateModeSource.includes('async verifyThermostats')) fail("Hourly climate thermostat guard is missing");
+if (!climateModeSource.includes('if (mode === "winter") return current === "auto"')) fail("Winter thermostat guard must only correct accidental AUTO mode");
+if (!climateModeSource.includes('current !== "off"')) fail("Summer thermostat guard must keep enforcing OFF for known non-OFF modes");
+if (!climateModeSource.includes('interfaceName ?? "").trim().toLowerCase() === "virtualdevices"')) fail("Climate mode must exclude OpenCCU VirtualDevices heating groups");
+if (!climateModeSource.includes('const targets = thermostats.filter(device => !thermostatHasMode(device, targetMode))')) fail("Climate mode must avoid rewriting thermostats already in the requested mode");
 if (!batteryMonitorSource.includes("7 * 24 * 60 * 60 * 1000")) fail("Battery warning does not enforce the seven-day notification interval");
 if (!pushoverSource.includes("https://api.pushover.net/1/messages.json")) fail("Pushover message endpoint is missing");
 if (!publicIndex.includes('data-settings-panel="notifications"') || !publicIndex.includes('id="notificationBatteryThreshold"')) fail("Pushover battery warning settings are missing");
