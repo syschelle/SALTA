@@ -1,26 +1,23 @@
-# SALTA v0.8.115
+# SALTA v0.8.116
 
-SALTA v0.8.115 improves automation troubleshooting without changing thermostat control behavior.
+SALTA v0.8.116 makes automation and OpenCCU diagnostics fully correlatable across a complete automation run.
 
-## Automation workflow export
+## Changes
 
-- Every automation card now has **Copy workflow**.
-- The automation overview also has **Copy workflows** to export all rules at once.
-- The clipboard payload is formatted JSON designed for troubleshooting and contains the complete canonical trigger, condition and ordered action/wait sequence.
-- Referenced devices are resolved with name, source, type, model, room, reachability, capabilities and current state.
-- For OpenCCU devices only a diagnostic allow-list of thermostat/channel metadata is included. Connection hosts, passwords, tokens and other credentials are not exported.
-- A fallback copy method is included for local HTTP installations where the modern browser Clipboard API is unavailable.
+- Every automation execution receives a unique `executionId`.
+- The same execution ID is written to start, wait, step, failure, skip, finish and final automation log entries.
+- Automation-originated device commands carry the execution ID, automation ID/name, step number and total sequence length into adapter diagnostics.
+- OpenCCU `OPENCCU_COMMAND_APPLIED` and `OPENCCU_COMMAND_FAILED` entries now contain that same context, so an exact `Interface.setValue` write can be assigned to the exact automation step that caused it.
+- `AUTOMATION_EXECUTION_FINISHED` contains an ordered `results` array showing the outcome of every processed step.
+- Diagnostic state fields are now explicitly named `localState...` / `localTargetState...` and include a local-state origin marker. These fields describe SALTA's local projected registry state and are not presented as physical OpenCCU readback.
+- The System Log adds **Copy execution** on correlated automation start/finish entries. It exports all retained log entries with the same execution ID as one formatted JSON diagnostic payload, including automation and OpenCCU events.
+- Clipboard export includes an HTTP-compatible fallback when the browser Clipboard API is unavailable.
 
-## Richer system log diagnostics
+## Root Cause
 
-- Each automation execution now logs the complete loaded sequence before execution.
-- A final execution summary is written even when all actions fail or are skipped.
-- Per-step entries include the resolved target and its state before/after the action where available.
-- OpenCCU commands log the exact `Interface.setValue` write parameters SALTA applied or attempted: interface, channel address, value key, value type and value.
-- Failed OpenCCU commands additionally include how many writes completed and the mapped OpenCCU error information.
-- Credentials and session tokens are never included.
+v0.8.115 logged the complete automation sequence and exact OpenCCU writes, but the events were independent. There was no shared run identifier between automation-step logs and adapter-level OpenCCU logs, so multiple entries from the same run could not be correlated unambiguously. In addition, fields named `stateAfter` / `targetStateAfter` represented SALTA's local projected state after an accepted command, not a fresh readback from the physical HomeMatic device. That naming could therefore make a stale local mode value look like an OpenCCU response.
 
-The existing system-log retention remains bounded at 100 entries and 30 days.
+v0.8.116 fixes the diagnostic model without changing thermostat command behavior.
 
 ## Compatibility
 
@@ -30,6 +27,15 @@ The existing system-log retention remains bounded at 100 entries and 30 days.
 - Existing automations require no editing.
 - Existing PostgreSQL and SALTA runtime volumes remain compatible.
 - Existing HomeKit pairing state remains compatible.
+- OpenCCU/HomeMatic thermostat command semantics from v0.8.115 are unchanged.
+
+## Tests
+
+- Release validator covers execution-ID propagation, execution-result diagnostics, OpenCCU command correlation and clipboard execution export.
+- Automation diagnostics regression coverage verifies one execution ID across a four-step run and verifies adapter context on every generated command.
+- OpenCCU diagnostics coverage verifies correlated command context and explicit local-state semantics.
+- System-log frontend coverage verifies complete-run clipboard export and the Copy execution control.
+- The complete GitHub Actions quality gate must pass before the release is tagged.
 
 ## Production update
 
@@ -42,4 +48,4 @@ docker compose --env-file .env -f docker-compose.image.yml up -d --force-recreat
 docker compose --env-file .env -f docker-compose.image.yml ps
 ```
 
-Do not use `docker compose down -v` during the update.
+Do not use `docker compose down -v` during the update. Keep the existing PostgreSQL, SALTA runtime and HomeKit data/volumes.

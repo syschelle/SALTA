@@ -1450,5 +1450,9 @@
   "Automation-Workflow wurde in die Zwischenablage kopiert.": "Automation-Workflow wurde in die Zwischenablage kopiert.",
   "Automationsworkflows wurden in die Zwischenablage kopiert.": "Automationsworkflows wurden in die Zwischenablage kopiert.",
   "Zwischenablage konnte nicht beschrieben werden.": "Zwischenablage konnte nicht beschrieben werden.",
-  "Es sind keine Automationsworkflows zum Kopieren vorhanden.": "Es sind keine Automationsworkflows zum Kopieren vorhanden."
+  "Es sind keine Automationsworkflows zum Kopieren vorhanden.": "Es sind keine Automationsworkflows zum Kopieren vorhanden.",
+  "Ausführung kopieren": "Ausführung kopieren",
+  "Automationsausführung wurde in die Zwischenablage kopiert.": "Automationsausführung wurde in die Zwischenablage kopiert.",
+  "Keine Protokolleinträge für diese Ausführung gefunden.": "Keine Protokolleinträge für diese Ausführung gefunden.",
+  "Automationsausführung konnte nicht kopiert werden.": "Automationsausführung konnte nicht kopiert werden."
 }

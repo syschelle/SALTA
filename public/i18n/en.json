@@ -1467,5 +1467,9 @@
   "Automation-Workflow wurde in die Zwischenablage kopiert.": "Automation workflow was copied to the clipboard.",
   "Automationsworkflows wurden in die Zwischenablage kopiert.": "Automation workflows were copied to the clipboard.",
   "Zwischenablage konnte nicht beschrieben werden.": "The clipboard could not be written.",
-  "Es sind keine Automationsworkflows zum Kopieren vorhanden.": "There are no automation workflows to copy."
+  "Es sind keine Automationsworkflows zum Kopieren vorhanden.": "There are no automation workflows to copy.",
+  "Ausführung kopieren": "Copy execution",
+  "Automationsausführung wurde in die Zwischenablage kopiert.": "Automation execution was copied to the clipboard.",
+  "Keine Protokolleinträge für diese Ausführung gefunden.": "No log entries were found for this execution.",
+  "Automationsausführung konnte nicht kopiert werden.": "Automation execution could not be copied."
 }

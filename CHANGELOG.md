@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.116
+
+- Added a unique `executionId` to every automation run and propagate it through all automation execution log entries.
+- Automation-originated device commands now carry the execution ID, automation ID/name, step number and sequence length into the adapter diagnostic context.
+- OpenCCU command logs now include the originating automation execution context, allowing every `Interface.setValue` call to be matched to the exact automation step that caused it.
+- `AUTOMATION_EXECUTION_FINISHED` now contains an explicit ordered per-step result list with success, skipped, failed and completed-wait outcomes.
+- Renamed diagnostic state fields to `localState...` / `localTargetState...` and mark them explicitly as SALTA-local state rather than physical device readback. This prevents local projected thermostat state from being mistaken for a value read back from OpenCCU.
+- Added **Copy execution** to correlated automation execution entries in the System Log. The clipboard export collects all retained automation and OpenCCU log entries with the same execution ID into one JSON diagnostic payload.
+- Thermostat command behavior is intentionally unchanged in this diagnostic release.
+- No database schema, dependency, mandatory environment-variable, HomeKit pairing, or deployment-topology change is required.
+
 ## v0.8.115
 
 - Added clipboard export for individual automation workflows and for all workflows from the automation overview.

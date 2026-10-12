@@ -1,55 +1,43 @@
-# SALTA v0.8.115 Git commands
+# SALTA v0.8.116 Git commands
 
-## Integrate the validated release branch
+## Integrate the validated work branch
 
-The complete validated v0.8.115 release is on `work/v0.8.115-automation-diagnostics` as one clean commit based directly on the current `main`.
+The complete v0.8.116 release is prepared on `work/v0.8.116-automation-execution-diagnostics`. GitHub Actions is the authoritative quality gate; no local npm commands are required.
 
 ```bash
 git fetch origin
 git checkout main
 git pull --ff-only origin main
-git merge --ff-only origin/work/v0.8.115-automation-diagnostics
-
-npm ci
-npm run check
-
+git merge --ff-only origin/work/v0.8.116-automation-execution-diagnostics
 git push origin main
 ```
 
-Only continue after the complete local `npm run check` is green and the push to `main` has completed.
+Wait for GitHub CI and CodeQL on `main` to be green before tagging.
 
 ## Post-push verification
 
 ```bash
 git fetch origin
-
-git show origin/main:package.json | grep -F '"version": "0.8.115"'
-git show origin/main:public/automation-ui.js | grep -F 'copyAutomationWorkflow'
-git show origin/main:src/automations.ts | grep -F 'AUTOMATION_EXECUTION_STARTED'
-git show origin/main:src/openccu-adapter.ts | grep -F 'OPENCCU_COMMAND_APPLIED'
-git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.115'
+git show origin/main:package.json | grep -F '"version": "0.8.116"'
+git show origin/main:src/automations.ts | grep -F 'executionId = randomUUID()'
+git show origin/main:src/openccu-adapter.ts | grep -F 'command.diagnosticContext'
+git show origin/main:public/app.js | grep -F 'copyAutomationExecution'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.116'
 ```
 
-Wait for GitHub CI and CodeQL on `main` to be green before tagging.
-
-## Tag and push release tag
+## Tag
 
 ```bash
 git checkout main
 git pull --ff-only origin main
 git fetch origin
-
-git tag -a v0.8.115 -m "SALTA v0.8.115"
-git push origin v0.8.115
+git tag -a v0.8.116 -m "SALTA v0.8.116"
+git push origin v0.8.116
 ```
 
 ## GitHub Release
 
-```bash
-gh release create v0.8.115 \
-  --title "SALTA v0.8.115" \
-  --notes-file RELEASE_TEXT.md
-```
+Create the GitHub release for tag `v0.8.116` and paste the release text from the chat.
 
 ## Production update
 
@@ -66,19 +54,9 @@ Do not use `docker compose down -v`.
 
 ## Branch cleanup
 
-The temporary preparation branches can be deleted once you have integrated the validated work branch:
+Delete the work branch only after v0.8.116 is on `main`, GitHub CI/CodeQL are green, tag `v0.8.116` is pushed and the GitHub release exists:
 
 ```bash
-git push origin --delete DO-NOT-USE
-git push origin --delete build/v0.8.115
-git push origin --delete build/v0.8.115-automation-diagnostics
-git push origin --delete build/v0.8.115-automation-diagnostics-prep
-git push origin --delete build/v0.8.115-final
-```
-
-Keep `work/v0.8.115-automation-diagnostics` until v0.8.115 is on `main`, CI/CodeQL are green, tag `v0.8.115` is pushed, and the GitHub release exists. Then remove it:
-
-```bash
-git push origin --delete work/v0.8.115-automation-diagnostics
+git push origin --delete work/v0.8.116-automation-execution-diagnostics
 git fetch --prune
 ```

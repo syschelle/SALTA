@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { Device, DeviceCommand, DeviceEvent, DeviceState } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
 
@@ -732,6 +733,8 @@ export class AutomationEngine {
     let successfulActions = 0;
     let failedActions = 0;
     let triggerRecorded = false;
+    const executionId = randomUUID();
+    const executionResults: Array<Record<string, unknown>> = [];
     const executionEpoch = this.executionEpoch;
     const triggers = automationRuleTriggers(rule);
     const configuredSequence = automationRuleSequence(rule);
@@ -742,6 +745,12 @@ export class AutomationEngine {
       ...configuredSequence.filter(step => automationWaitStep(step) || !virtualSelfResetAction(triggers, step, this.registry.get(step.deviceId))),
       ...configuredSequence.filter((step): step is AutomationTargetAction => !automationWaitStep(step) && virtualSelfResetAction(triggers, step, this.registry.get(step.deviceId)))
     ];
+    const executionContext = {
+      executionId,
+      automationId: rule.id,
+      automationName: rule.name,
+      sequenceLength: sequence.length
+    };
 
     const diagnosticSteps = sequence.map((step, index) => {
       if (automationWaitStep(step)) return { step: index + 1, action: "wait", seconds: step.value };
@@ -755,12 +764,11 @@ export class AutomationEngine {
         reachable: target?.reachable,
         action: step.action,
         ...(step.value !== undefined ? { value: step.value } : {}),
-        ...(target ? { stateBefore: { ...target.state } } : {})
+        ...(target ? { localStateAtExecutionStart: { ...target.state } } : {})
       };
     });
     await this.logger.write("info", "automation", "AUTOMATION_EXECUTION_STARTED", "Automation execution started", {
-      automationId: rule.id,
-      automationName: rule.name,
+      ...executionContext,
       manual: manualExecution,
       enabled: rule.enabled,
       executionDays: rule.executionDays,
@@ -768,7 +776,6 @@ export class AutomationEngine {
         ? { type: "time", time: rule.triggerTime }
         : { type: "device", triggers },
       conditions: automationRuleConditions(rule),
-      sequenceLength: sequence.length,
       steps: diagnosticSteps,
       ...trigger
     }).catch(() => undefined);
@@ -783,10 +790,11 @@ export class AutomationEngine {
 
     for (const [index, step] of sequence.entries()) {
       if (!this.started || executionEpoch !== this.executionEpoch) return;
+      const stepNumber = index + 1;
       const currentRule = this.rules.find(item => item.id === rule.id);
       if (!currentRule || (!manualExecution && !currentRule.enabled)) {
         await this.logger.write("info", "automation", "AUTOMATION_SEQUENCE_ABORTED", "Automation sequence stopped because the rule is no longer active", {
-          automationId: rule.id, automationName: rule.name, step: index + 1, ...trigger
+          ...executionContext, step: stepNumber, ...trigger
         }).catch(() => undefined);
         return;
       }
@@ -794,7 +802,7 @@ export class AutomationEngine {
       if (automationWaitStep(step)) {
         const seconds = step.value;
         await this.logger.write("info", "automation", "AUTOMATION_WAIT_STARTED", "Automation wait step started", {
-          automationId: rule.id, automationName: rule.name, step: index + 1, seconds, ...trigger
+          ...executionContext, step: stepNumber, seconds, ...trigger
         }).catch(() => undefined);
         await new Promise<void>(resolve => {
           const timer = setTimeout(resolve, seconds * 1000);
@@ -802,8 +810,9 @@ export class AutomationEngine {
         });
         const currentAfterWait = this.rules.find(item => item.id === rule.id);
         if (!this.started || executionEpoch !== this.executionEpoch || !currentAfterWait || (!manualExecution && !currentAfterWait.enabled)) return;
+        executionResults.push({ step: stepNumber, status: "wait-completed", seconds });
         await this.logger.write("info", "automation", "AUTOMATION_WAIT_COMPLETED", "Automation wait step completed", {
-          automationId: rule.id, automationName: rule.name, step: index + 1, seconds, ...trigger
+          ...executionContext, step: stepNumber, seconds, ...trigger
         }).catch(() => undefined);
         continue;
       }
@@ -812,24 +821,34 @@ export class AutomationEngine {
       const target = this.registry.get(targetAction.deviceId);
       if (!target || !target.reachable || !actionCapabilitySupported(target, targetAction)) {
         failedActions += 1;
+        const reason = !target ? "device-not-found" : !target.reachable ? "device-unreachable" : "action-unsupported";
+        executionResults.push({
+          step: stepNumber,
+          status: "skipped",
+          deviceId: targetAction.deviceId,
+          deviceName: target?.name,
+          action: targetAction.action,
+          ...(targetAction.value !== undefined ? { value: targetAction.value } : {}),
+          reason
+        });
         await this.logger.write("warning", "automation", "AUTOMATION_ACTION_SKIPPED", "Automation target action was skipped", {
-          automationId: rule.id,
-          automationName: rule.name,
-          step: index + 1,
+          ...executionContext,
+          step: stepNumber,
           actionDeviceId: targetAction.deviceId,
           targetName: target?.name,
           targetSource: target?.source,
           targetModel: target?.model,
-          targetState: target?.state,
+          localTargetStateAtSkip: target?.state,
+          localStateOrigin: "salta-local-registry-not-device-readback",
           action: targetAction.action,
           ...(targetAction.value !== undefined ? { value: targetAction.value } : {}),
-          reason: !target ? "device-not-found" : !target.reachable ? "device-unreachable" : "action-unsupported",
+          reason,
           ...trigger
         }).catch(() => undefined);
         continue;
       }
 
-      const targetStateBefore = { ...target.state };
+      const localTargetStateBeforeCommand = { ...target.state };
       let commandResult: Device | undefined;
       try {
         const climateMode = climateModeAction(targetAction);
@@ -842,64 +861,86 @@ export class AutomationEngine {
             deviceId: targetAction.deviceId,
             capability: command.capability,
             ...(command.value !== undefined ? { value: command.value } : {}),
-            source: "automation"
+            source: "automation",
+            diagnosticContext: { ...executionContext, step: stepNumber }
           });
         }
         successfulActions += 1;
         await recordTrigger();
         const targetAfter = commandResult ?? this.registry.get(targetAction.deviceId);
+        const localTargetStateAfterCommand = targetAfter ? { ...targetAfter.state } : undefined;
+        executionResults.push({
+          step: stepNumber,
+          status: "success",
+          deviceId: targetAction.deviceId,
+          deviceName: target.name,
+          action: targetAction.action,
+          ...(targetAction.value !== undefined ? { value: targetAction.value } : {}),
+          localTargetStateBeforeCommand,
+          ...(localTargetStateAfterCommand ? { localTargetStateAfterCommand } : {})
+        });
         await this.logger.write("info", "automation", "AUTOMATION_STEP_COMPLETED", "Automation action step completed", {
-          automationId: rule.id,
-          automationName: rule.name,
-          step: index + 1,
+          ...executionContext,
+          step: stepNumber,
           actionDeviceId: targetAction.deviceId,
           targetName: target.name,
           targetSource: target.source,
           targetModel: target.model,
-          targetStateBefore,
-          targetStateAfter: targetAfter?.state,
+          localTargetStateBeforeCommand,
+          localTargetStateAfterCommand,
+          localStateOrigin: "salta-local-registry-not-device-readback",
           action: targetAction.action,
           ...(targetAction.value !== undefined ? { value: targetAction.value } : {}),
           ...trigger
         }).catch(() => undefined);
       } catch (error) {
         failedActions += 1;
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        executionResults.push({
+          step: stepNumber,
+          status: "failed",
+          deviceId: targetAction.deviceId,
+          deviceName: target.name,
+          action: targetAction.action,
+          ...(targetAction.value !== undefined ? { value: targetAction.value } : {}),
+          localTargetStateBeforeCommand,
+          error: errorMessage
+        });
         await this.logger.write("error", "automation", "AUTOMATION_ACTION_FAILED", "Automation action failed", {
-          automationId: rule.id,
-          automationName: rule.name,
-          step: index + 1,
+          ...executionContext,
+          step: stepNumber,
           actionDeviceId: targetAction.deviceId,
           targetName: target.name,
           targetSource: target.source,
           targetModel: target.model,
-          targetStateBefore,
+          localTargetStateBeforeCommand,
+          localStateOrigin: "salta-local-registry-not-device-readback",
           action: targetAction.action,
           ...(targetAction.value !== undefined ? { value: targetAction.value } : {}),
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage,
           ...trigger
         }).catch(() => undefined);
       }
     }
 
     await this.logger.write(failedActions > 0 ? "warning" : "info", "automation", "AUTOMATION_EXECUTION_FINISHED", "Automation execution finished", {
-      automationId: rule.id,
-      automationName: rule.name,
+      ...executionContext,
       manual: manualExecution,
-      sequenceLength: sequence.length,
       steps: diagnosticSteps,
+      results: executionResults,
       successfulActions,
       failedActions,
       ...trigger
     }).catch(() => undefined);
     if (successfulActions === 0) return;
     await this.logger.write("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", {
-      automationId: rule.id,
-      automationName: rule.name,
+      ...executionContext,
       ...(rule.triggerType === "time" ? { triggerType: "time", triggerTime: rule.triggerTime, timeZone: this.schedulerTimeZone } : { triggerDeviceId: rule.triggerDeviceId }),
       actions: sequence.filter((step): step is AutomationTargetAction => !automationWaitStep(step)).map(step => ({ deviceId: step.deviceId, action: step.action, ...(step.value !== undefined ? { value: step.value } : {}) })),
       steps: sequence.map(step => automationWaitStep(step)
         ? { action: "wait", seconds: step.value }
         : { deviceId: step.deviceId, action: step.action, ...(step.value !== undefined ? { value: step.value } : {}) }),
+      results: executionResults,
       successfulActions,
       failedActions,
       ...trigger

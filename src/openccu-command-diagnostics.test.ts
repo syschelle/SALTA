@@ -11,5 +11,10 @@ describe("OpenCCU command diagnostics", () => {
     expect(adapter).toContain("valueKey: write.parameter");
     expect(adapter).toContain("writes: diagnosticWrites");
     expect(adapter).toContain("appliedWrites");
+    expect(adapter).toContain("command.diagnosticContext");
+    expect(adapter).toContain("...diagnosticContext");
+    expect(adapter).toContain("localStateBeforeCommand");
+    expect(adapter).toContain("localStateAfterCommand");
+    expect(adapter).toContain("salta-local-command-state-not-device-readback");
   });
 });

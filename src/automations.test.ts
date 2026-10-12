@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { AutomationEngine, automationRuleSequence, encodeAutomationEventTrigger, encodeAutomationHeldStateTrigger, localAutomationTime, type AutomationInput, type AutomationRule, type AutomationStore } from "./automations.js";
-import type { Device, DeviceState } from "./types.js";
+import type { Device, DeviceCommand, DeviceState } from "./types.js";
 
 function device(id: string, state: DeviceState, capabilities: string[] = []): Device {
   return {
@@ -28,6 +28,11 @@ function contactDevice(id: string, open: boolean): Device {
     source: "phoscon",
     type: "contactSensor"
   };
+}
+
+function commandWithoutDiagnostics(command: DeviceCommand): Omit<DeviceCommand, "diagnosticContext"> {
+  const { diagnosticContext: _diagnosticContext, ...rest } = command;
+  return rest;
 }
 
 class TestRegistry extends EventEmitter {
@@ -103,7 +108,7 @@ describe("AutomationEngine", () => {
     registry.publish(device("motion", { motion: true }));
     await tick();
     expect(command).toHaveBeenCalledTimes(1);
-    expect(command).toHaveBeenCalledWith({ deviceId: "target", capability: "toggle", source: "automation" });
+    expect(commandWithoutDiagnostics(command.mock.calls.at(-1)![0])).toEqual({ deviceId: "target", capability: "toggle", source: "automation" });
 
     registry.publish(device("motion", { motion: true }));
     await tick();
@@ -133,7 +138,7 @@ describe("AutomationEngine", () => {
       await vi.advanceTimersByTimeAsync(1);
       await Promise.resolve();
       expect(command).toHaveBeenCalledTimes(1);
-      expect(command).toHaveBeenCalledWith({ deviceId: "target", capability: "turnOn", source: "automation" });
+      expect(commandWithoutDiagnostics(command.mock.calls.at(-1)![0])).toEqual({ deviceId: "target", capability: "turnOn", source: "automation" });
       engine.stop();
     } finally {
       vi.useRealTimers();
@@ -239,7 +244,7 @@ describe("AutomationEngine", () => {
       await vi.advanceTimersByTimeAsync(1_000);
       await Promise.resolve();
       expect(command).toHaveBeenCalledTimes(1);
-      expect(command).toHaveBeenLastCalledWith({ deviceId: "target", capability: "turnOn", source: "automation" });
+      expect(commandWithoutDiagnostics(command.mock.calls.at(-1)![0])).toEqual({ deviceId: "target", capability: "turnOn", source: "automation" });
 
       now = new Date("2026-08-15T05:30:40.000Z");
       await vi.advanceTimersByTimeAsync(5_000);
@@ -340,11 +345,11 @@ describe("AutomationEngine", () => {
 
     registry.publish({ ...device("daylight", { daylight: false, dark: true }), source: "phoscon", type: "lightSensor", model: "PHDL00" });
     await tick();
-    expect(command).toHaveBeenCalledWith({ deviceId: "target", capability: "toggle", source: "automation" });
+    expect(commandWithoutDiagnostics(command.mock.calls.at(-1)![0])).toEqual({ deviceId: "target", capability: "toggle", source: "automation" });
 
     registry.publish(device("motion", { motion: true }));
     await tick();
-    expect(command).toHaveBeenCalledWith({ deviceId: "target", capability: "turnOn", source: "automation" });
+    expect(commandWithoutDiagnostics(command.mock.calls.at(-1)![0])).toEqual({ deviceId: "target", capability: "turnOn", source: "automation" });
     engine.stop();
   });
 
@@ -359,7 +364,7 @@ describe("AutomationEngine", () => {
       await engine.create({ name: action, enabled: true, triggerDeviceId: "trigger", triggerStateKey: "on", triggerValue: true, actionDeviceId: "target", action });
       registry.publish(device("trigger", { on: true }, ["turnOn", "turnOff", "toggle"]));
       await tick();
-      expect(command).toHaveBeenCalledWith({ deviceId: "target", capability: action, source: "automation" });
+      expect(commandWithoutDiagnostics(command.mock.calls.at(-1)![0])).toEqual({ deviceId: "target", capability: action, source: "automation" });
       engine.stop();
     }
   });
@@ -518,7 +523,7 @@ describe("AutomationEngine", () => {
     await tick();
     await tick();
     expect(command).toHaveBeenCalledTimes(3);
-    expect(command.mock.calls.map(call => call[0])).toEqual([
+    expect(command.mock.calls.map(call => commandWithoutDiagnostics(call[0]))).toEqual([
       { deviceId: "target-a", capability: "turnOn", source: "automation" },
       { deviceId: "target-b", capability: "turnOff", source: "automation" },
       { deviceId: "target-c", capability: "toggle", source: "automation" }
@@ -654,7 +659,7 @@ describe("AutomationEngine", () => {
     registry.publish(device("trigger", { motion: true }));
     await tick();
     await tick();
-    expect(command).toHaveBeenCalledWith({ deviceId: "virtual-target", capability: "turnOn", source: "automation" });
+    expect(commandWithoutDiagnostics(command.mock.calls.at(-1)![0])).toEqual({ deviceId: "virtual-target", capability: "turnOn", source: "automation" });
     engine.stop();
   });
 
@@ -673,7 +678,7 @@ describe("AutomationEngine", () => {
     registry.publish(device("trigger", { motion: true }));
     await tick();
     await tick();
-    expect(command.mock.calls.map(call => call[0])).toEqual([
+    expect(command.mock.calls.map(call => commandWithoutDiagnostics(call[0]))).toEqual([
       { deviceId: "cover", capability: "open", source: "automation" },
       { deviceId: "thermostat", capability: "setThermostatMode", value: "auto", source: "automation" }
     ]);
@@ -708,7 +713,7 @@ describe("AutomationEngine", () => {
     registry.publish(device("trigger", { motion: true }));
     await tick();
     await tick();
-    expect(command.mock.calls.map(call => call[0])).toEqual([
+    expect(command.mock.calls.map(call => commandWithoutDiagnostics(call[0]))).toEqual([
       { deviceId: "thermostat-a", capability: "setTargetTemperature", value: 22.5, source: "automation" },
       { deviceId: "thermostat-b", capability: "setTargetTemperature", value: 19.5, source: "automation" }
     ]);
@@ -804,7 +809,7 @@ describe("AutomationEngine", () => {
     registry.publish(device("trigger", { motion: true }));
     await tick();
     await tick();
-    expect(command).toHaveBeenCalledWith({ deviceId: "shelly", capability: "turnOnForSeconds", value: 17, source: "automation" });
+    expect(commandWithoutDiagnostics(command.mock.calls.at(-1)![0])).toEqual({ deviceId: "shelly", capability: "turnOnForSeconds", value: 17, source: "automation" });
     engine.stop();
   });
 

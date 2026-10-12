@@ -877,6 +877,7 @@ export class OpenCcuAdapter {
       type: write.valueType,
       value: write.value
     }));
+    const diagnosticContext = command.diagnosticContext ? { ...command.diagnosticContext } : {};
     let appliedWrites = 0;
 
     await this.queueCommand(interfaceName, () => this.runExclusive(async () => {
@@ -897,6 +898,7 @@ export class OpenCcuAdapter {
         const info = openCcuErrorInfo(error);
         if (info.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + sessionRetryDelayMs;
         this.log("error", "OPENCCU_COMMAND_FAILED", "OpenCCU device command failed", {
+          ...diagnosticContext,
           deviceId: device.id,
           deviceName: device.name,
           model: device.model,
@@ -904,7 +906,8 @@ export class OpenCcuAdapter {
           channelAddress,
           capability: command.capability,
           requestedValue: command.value,
-          stateBefore: { ...device.state },
+          localStateBeforeCommand: { ...device.state },
+          localStateOrigin: "salta-local-registry-not-device-readback",
           writes: diagnosticWrites,
           appliedWrites,
           errorCode: info.code,
@@ -918,6 +921,7 @@ export class OpenCcuAdapter {
     const updated = { ...device, state: nextState, lastEvent: now(), lastSeen: now(), reachable: true };
     await this.registry.set(updated);
     this.log("info", "OPENCCU_COMMAND_APPLIED", "OpenCCU device command applied", {
+      ...diagnosticContext,
       deviceId: device.id,
       deviceName: device.name,
       model: device.model,
@@ -925,8 +929,9 @@ export class OpenCcuAdapter {
       channelAddress,
       capability: command.capability,
       requestedValue: command.value,
-      stateBefore: { ...device.state },
-      stateAfter: { ...updated.state },
+      localStateBeforeCommand: { ...device.state },
+      localStateAfterCommand: { ...updated.state },
+      localStateOrigin: "salta-local-command-state-not-device-readback",
       writes: diagnosticWrites,
       appliedWrites
     });

@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { cssMediaRuleContains, cssRuleContains } from "../test-utils/style-inspection.js";
+import { hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
 
 const html = readFileSync(new URL("../public/index.html", import.meta.url), "utf8");
 const script = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
+const appAst = parseJavaScriptSource(script);
 
 describe("persistent system log frontend", () => {
   it("provides a dedicated log page with filters and clear action", () => {
@@ -19,7 +21,13 @@ describe("persistent system log frontend", () => {
     expect(script).toContain("api('/api/logs',{method:'DELETE'})");
     expect(script).toContain("new URLSearchParams({limit:'100'})");
     expect(script).toContain("<details class=\"system-log-details\">");
+    expect(hasFunction(appAst, "copyAutomationExecution")).toBe(true);
+    expect(script).toContain("salta-automation-execution-diagnostic");
+    expect(script).toContain("AUTOMATION_EXECUTION_STARTED");
+    expect(script).toContain("AUTOMATION_EXECUTION_FINISHED");
+    expect(script).toContain("system-log-run-copy");
     expect(cssRuleContains(styles, ".system-log-entry", "padding:9px 11px")).toBe(true);
+    expect(cssRuleContains(styles, ".system-log-run-copy", "font-size:10px")).toBe(true);
     expect(cssRuleContains(styles, ".log-toolbar", "padding:11px 13px")).toBe(true);
     expect(cssMediaRuleContains(styles, "(max-width:760px)", ".log-toolbar", "flex-direction:column")).toBe(true);
   });

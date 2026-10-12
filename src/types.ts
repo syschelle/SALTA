@@ -55,11 +55,20 @@ export interface Device {
   adapterData?: Record<string, string | number | boolean | null>;
 }
 
+export interface DeviceCommandDiagnosticContext {
+  executionId: string;
+  automationId: string;
+  automationName: string;
+  step: number;
+  sequenceLength: number;
+}
+
 export interface DeviceCommand {
   deviceId: string;
   capability: string;
   value?: string | number | boolean;
   source: "api" | "homekit" | "automation" | "system";
+  diagnosticContext?: DeviceCommandDiagnosticContext;
 }
 
 export interface DeviceEvent {
