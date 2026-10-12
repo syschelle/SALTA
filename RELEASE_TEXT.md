@@ -1,4 +1,4 @@
-# SALTA v0.8.118
+# SALTA v0.8.119
 
 SALTA v0.8.118 fixes classic BidCos/HomeMatic thermostats that remain physically OFF when a higher target temperature is applied, and hardens the sanitized diagnostic export introduced in v0.8.117.
 
