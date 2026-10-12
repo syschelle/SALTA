@@ -39,6 +39,7 @@ export function diagnosticFieldIsSecret(fieldName: string): boolean {
 
 export function sanitizeDiagnosticValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(item => sanitizeDiagnosticValue(item));
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
   if (value === null || typeof value !== "object") {
     if (typeof value === "string") {
       if (/^v\d+\.[A-Za-z0-9_-]{16,}/.test(value)) return "[redacted-encrypted-secret]";
