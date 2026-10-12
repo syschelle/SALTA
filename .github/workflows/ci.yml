@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   check:
@@ -24,6 +24,47 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Prepend v0.8.118 changelog once
+        if: github.ref_name == 'work/v0.8.118-bidcos-off-recovery-diagnostics'
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path("CHANGELOG.md")
+          source = path.read_text(encoding="utf-8")
+          heading = "## 0.8.118 - Classic BidCos OFF recovery and diagnostic export hardening"
+          if heading not in source:
+              entry = """## 0.8.118 - Classic BidCos OFF recovery and diagnostic export hardening
+
+          - Fixed classic `BidCos-RF` target-temperature actions while SALTA reports the thermostat as `off`: requests above the minimum now use native `MANU_MODE=<temperature>` so the physical thermostat leaves OFF and enters manual operation at the requested setpoint.
+          - Kept the exception deliberately narrow. Classic Manual/Auto states continue to use the discovered target-temperature datapoint, and HmIP continues to use its own target-temperature datapoint without inheriting the BidCos rule.
+          - Kept minimum-temperature requests while already OFF on the normal target-temperature datapoint.
+          - Upgraded the sanitized diagnostic export to format version 2.
+          - Preserved `Date` values as ISO timestamps instead of serializing them as empty objects.
+          - Removed MAC, IP and host identifiers from presence devices in the general diagnostic device registry while retaining non-network diagnostic state.
+          - Preserved OpenCCU/HomeMatic channel and datapoint metadata required for support analysis.
+          - Fixed the release-version helper so repeated active GHCR image references in `GIT_COMMANDS.md` no longer block a valid version bump.
+          - Added focused regression coverage for BidCos OFF recovery, Manual/Auto isolation, HmIP isolation, presence redaction and diagnostic date preservation.
+          - No database schema, dependency, mandatory environment-variable, HomeKit pairing or deployment-topology change is required.
+
+          """
+              marker = "# Changelog\n\n"
+              if not source.startswith(marker):
+                  raise SystemExit("Unexpected CHANGELOG.md header")
+              path.write_text(marker + entry + source[len(marker):], encoding="utf-8")
+
+      - name: Commit changelog preparation
+        if: github.ref_name == 'work/v0.8.118-bidcos-off-recovery-diagnostics'
+        shell: bash
+        run: |
+          if git diff --quiet -- CHANGELOG.md; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "docs(release): add v0.8.118 changelog"
+          git push origin HEAD:work/v0.8.118-bidcos-off-recovery-diagnostics
 
       - name: Validate optional deployment helper scripts
         shell: bash
@@ -53,4 +94,3 @@ jobs:
 
       - name: Run complete quality gate
         run: npm run check
-
