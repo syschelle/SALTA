@@ -1,23 +1,21 @@
-# SALTA v0.8.121
+# SALTA v0.8.122
 
-SALTA v0.8.121 fixes the OpenCCU wire type used for floating-point thermostat commands.
+SALTA v0.8.122 improves the OpenCCU Duty Cycle overview by applying the requested percentage text colors.
 
 ## Changes
 
-- The dedicated OpenCCU thermostat control path now converts an internal HomeMatic `float` write type to the OpenCCU JSON-API/XML-RPC wire type `double` before `Interface.setValue` is sent.
-- The conversion is deliberately limited to `Interface.setValue`; unrelated OpenCCU method parameters are not reinterpreted.
-- Existing `double`, `int`, `bool` and `string` write types remain unchanged.
-- Thermostat command diagnostics now report the effective wire type sent to OpenCCU.
-- The automation engine remains fully configurable: each workflow still determines the device, action, individual value, order and conditions.
-- No VirtualDevices, group substitution, global Winter policy or hard-coded thermostat IDs are introduced by this fix.
+- Duty Cycle values up to and including 4% are displayed in green.
+- Duty Cycle values above 4% up to and including 10% are displayed in yellow.
+- Duty Cycle values above 10% are displayed in red.
+- The color is applied to the percentage text only; the overview card layout and label remain unchanged.
+- The yellow state now has a dedicated readable color for light and dark themes instead of using SALTA's general accent color.
+- OpenCCU Duty Cycle acquisition via `Interface.getDutyCycle`, maximum-value selection, API response and one-minute refresh cadence are unchanged.
 
 ## Root Cause
 
-The v0.8.120 production diagnostic showed that Web/API thermostat control and the Nachtabsenkung automation reached the same dedicated thermostat controller, selected the configured physical BidCos device and attempted the requested value, but OpenCCU readback remained unchanged or returned to OFF/4.5 °C.
+The Duty Cycle overview introduced in v0.8.120 still used the original 70%/90% frontend warning thresholds. As a result, normal low Duty Cycle values stayed green and the intermediate state used the generic accent color rather than a dedicated yellow percentage color.
 
-SALTA derived the write type `float` from HomeMatic `FLOAT` parameter metadata and passed that type into OpenCCU `Interface.setValue`. The OpenCCU JSON API forwards the supplied `type` to XML-RPC and documents the supported `Interface.setValue` types as `string`, `int`, `double` and `bool`. HomeMatic `FLOAT` values therefore have to be transported as XML-RPC `double`, not `float`.
-
-v0.8.121 corrects only this protocol boundary. It does not change thermostat selection, automation semantics, workflow values, climate-mode policy or the v0.8.120 thermostat-controller separation.
+v0.8.122 changes only the presentation thresholds and warning text color requested for the overview. It does not alter OpenCCU communication or Duty Cycle measurement.
 
 ## Compatibility
 
@@ -27,21 +25,14 @@ v0.8.121 corrects only this protocol boundary. It does not change thermostat sel
 - Existing automations require no editing.
 - Existing PostgreSQL and SALTA runtime volumes remain compatible.
 - Existing HomeKit pairing state remains compatible.
-- Classic BidCos and HmIP thermostat selection and routing remain unchanged.
-- Non-thermostat OpenCCU behavior and automation policy are unchanged.
+- OpenCCU device discovery, thermostat control and Duty Cycle polling are unchanged.
 
 ## Tests
 
-- Regression coverage verifies that `float` becomes `double` for `Interface.setValue`.
-- Regression coverage verifies that `double`, `int`, `bool` and `string` remain unchanged.
-- Regression coverage verifies that unrelated OpenCCU method parameters are not rewritten.
-- Existing OpenCCU thermostat-controller, automation, HomeKit and adapter regression coverage remains enabled.
-- Release validator passed for SALTA v0.8.121.
-- JavaScript syntax checks passed.
-- TypeScript production build passed.
-- Test symbol preflight passed for 97 test files.
-- 97 of 97 test files passed.
-- 552 of 552 tests passed.
+- Regression coverage verifies the new 4%/10% Duty Cycle frontend thresholds.
+- Regression coverage verifies that the yellow warning state has dedicated light- and dark-theme text colors.
+- Release-validator coverage requires the new Duty Cycle threshold expression.
+- Release validator, JavaScript syntax checks, TypeScript production build and complete test suite are executed by GitHub Actions before release.
 
 ## Production update
 

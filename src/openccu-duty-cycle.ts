@@ -148,7 +148,7 @@ export const OPENCCU_DUTY_CYCLE_FRONTEND = `(() => {
     if(document.getElementById(styleId))return;
     const style=document.createElement('style');
     style.id=styleId;
-    style.textContent='@media (min-width:901px){.overview-stats{grid-template-columns:repeat(6,minmax(0,1fr))}}.overview-duty-cycle-stat.ok strong{color:var(--green)}.overview-duty-cycle-stat.warning strong{color:var(--accent)}.overview-duty-cycle-stat.alarm strong{color:var(--state-off-accent)}';
+    style.textContent='@media (min-width:901px){.overview-stats{grid-template-columns:repeat(6,minmax(0,1fr))}}.overview-duty-cycle-stat.ok strong{color:var(--green)}.overview-duty-cycle-stat.warning strong{color:#9a7600}html[data-theme=\"dark\"] .overview-duty-cycle-stat.warning strong{color:#ffd54f}.overview-duty-cycle-stat.alarm strong{color:var(--state-off-accent)}';
     document.head.appendChild(style);
   }
   function ensureCard(){
@@ -179,7 +179,7 @@ export const OPENCCU_DUTY_CYCLE_FRONTEND = `(() => {
     }
     value.textContent=Math.round(duty)+' %';
     detail.textContent='OpenCCU';
-    card.classList.add(duty>=90?'alarm':duty>=70?'warning':'ok');
+    card.classList.add(duty>10?'alarm':duty>4?'warning':'ok');
   }
   async function refresh(){
     if(!ensureCard())return;

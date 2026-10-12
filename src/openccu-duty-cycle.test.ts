@@ -18,10 +18,12 @@ describe("OpenCCU Duty Cycle", () => {
     ]);
   });
 
-  it("adds a sixth overview statistic and keeps the OpenCCU 70/90 percent warning thresholds", () => {
+  it("adds a sixth overview statistic and colors the percentage at 4/10 percent thresholds", () => {
     expect(OPENCCU_DUTY_CYCLE_FRONTEND).toContain("overviewDutyCycleCard");
     expect(OPENCCU_DUTY_CYCLE_FRONTEND).toContain("repeat(6,minmax(0,1fr))");
-    expect(OPENCCU_DUTY_CYCLE_FRONTEND).toContain("duty>=90?'alarm':duty>=70?'warning':'ok'");
+    expect(OPENCCU_DUTY_CYCLE_FRONTEND).toContain("duty>10?'alarm':duty>4?'warning':'ok'");
+    expect(OPENCCU_DUTY_CYCLE_FRONTEND).toContain(".overview-duty-cycle-stat.warning strong{color:#9a7600}");
+    expect(OPENCCU_DUTY_CYCLE_FRONTEND).toContain("html[data-theme=\"dark\"] .overview-duty-cycle-stat.warning strong{color:#ffd54f}");
     expect(OPENCCU_DUTY_CYCLE_FRONTEND).toContain("/api/openccu/duty-cycle");
   });
 });

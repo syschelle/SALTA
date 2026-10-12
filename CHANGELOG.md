@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.122 - Duty Cycle percentage colors
+
+- Changed only the overview Duty Cycle percentage text color: values up to and including 4% are green, values above 4% up to and including 10% are yellow, and values above 10% are red.
+- Added a dedicated yellow warning color for the Duty Cycle percentage in both light and dark themes instead of reusing the general accent color.
+- OpenCCU Duty Cycle polling, API data, maximum-value selection and refresh cadence are unchanged.
+- Added regression and release-validator coverage for the new 4%/10% display thresholds.
+- No database schema, dependency, mandatory environment-variable, HomeKit pairing or deployment-topology change is required.
+
 ## 0.8.121 - OpenCCU thermostat wire-type fix
 
 - Fixed the isolated OpenCCU thermostat control path so HomeMatic `FLOAT` values are sent through `Interface.setValue` with the OpenCCU/XML-RPC wire type `double` instead of `float`.
