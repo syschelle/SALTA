@@ -1442,5 +1442,13 @@
       "replace": "Erkannt $1 · $2 · zuletzt gesehen $3"
     }
   ],
-  "tokens": {}
+  "tokens": {},
+  "Workflows kopieren": "Workflows kopieren",
+  "Alle Automationsworkflows in die Zwischenablage kopieren": "Alle Automationsworkflows in die Zwischenablage kopieren",
+  "Automation-Workflow in die Zwischenablage kopieren": "Automation-Workflow in die Zwischenablage kopieren",
+  "Workflow kopieren": "Workflow kopieren",
+  "Automation-Workflow wurde in die Zwischenablage kopiert.": "Automation-Workflow wurde in die Zwischenablage kopiert.",
+  "Automationsworkflows wurden in die Zwischenablage kopiert.": "Automationsworkflows wurden in die Zwischenablage kopiert.",
+  "Zwischenablage konnte nicht beschrieben werden.": "Zwischenablage konnte nicht beschrieben werden.",
+  "Es sind keine Automationsworkflows zum Kopieren vorhanden.": "Es sind keine Automationsworkflows zum Kopieren vorhanden."
 }

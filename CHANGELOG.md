@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.115
+
+- Added clipboard export for individual automation workflows and for all workflows from the automation overview.
+- Workflow diagnostics include the complete canonical trigger/condition/step configuration plus resolved device names, source/type/model, reachability, current state, capabilities and a strictly allow-listed OpenCCU metadata subset useful for troubleshooting.
+- Clipboard export deliberately excludes connection hosts, passwords, tokens and other credential material and includes an HTTP-compatible fallback when the modern Clipboard API is unavailable.
+- Automation execution logging now records the complete loaded sequence before execution and a final execution summary even when every action fails or is skipped.
+- Existing per-step automation logs now include resolved target name/source/model and state before/after where available.
+- OpenCCU command logging now records the exact `Interface.setValue` writes SALTA attempted/applied, including interface, channel address, value key, JSON-RPC value type and value, without credentials.
+- System-log retention remains bounded at 100 entries / 30 days; the diagnostic improvement increases detail per relevant event rather than removing the existing retention guard.
+- No database schema, dependency, mandatory environment-variable, HomeKit pairing, or deployment-topology change is required.
+
 ## v0.8.114
 
 - Fixed OpenCCU thermostat automation actions so `setTargetTemperature` now changes only the native target-temperature datapoint and never writes an operating-mode datapoint.

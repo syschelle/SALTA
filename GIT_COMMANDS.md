@@ -1,38 +1,36 @@
-# SALTA v0.8.114 Git commands
+# SALTA v0.8.115 Git commands
 
-## Local quality gate
+## Integrate the validated release branch
 
-```bash
-npm ci
-npm run check
-```
-
-Only continue after the complete `npm run check` is green.
-
-## Commit and push
+The complete validated v0.8.115 release is on `work/v0.8.115-automation-diagnostics` as one clean commit based directly on the current `main`.
 
 ```bash
+git fetch origin
 git checkout main
 git pull --ff-only origin main
+git merge --ff-only origin/work/v0.8.115-automation-diagnostics
 
-git add -A
-git status
-git commit -m "fix(openccu): isolate thermostat target-temperature writes"
+npm ci
+npm run check
+
 git push origin main
 ```
+
+Only continue after the complete local `npm run check` is green and the push to `main` has completed.
 
 ## Post-push verification
 
 ```bash
 git fetch origin
 
-git show origin/main:package.json | grep -F '"version": "0.8.114"'
-git show origin/main:src/openccu-core.ts | grep -F 'parameter: targetParameter'
-git show origin/main:src/openccu-v08114-regression.test.ts | grep -F 'changes only SET_TEMPERATURE while classic HomeMatic is in manual mode'
-git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.114'
+git show origin/main:package.json | grep -F '"version": "0.8.115"'
+git show origin/main:public/automation-ui.js | grep -F 'copyAutomationWorkflow'
+git show origin/main:src/automations.ts | grep -F 'AUTOMATION_EXECUTION_STARTED'
+git show origin/main:src/openccu-adapter.ts | grep -F 'OPENCCU_COMMAND_APPLIED'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.115'
 ```
 
-Wait for GitHub CI and CodeQL to be green before tagging.
+Wait for GitHub CI and CodeQL on `main` to be green before tagging.
 
 ## Tag and push release tag
 
@@ -41,15 +39,15 @@ git checkout main
 git pull --ff-only origin main
 git fetch origin
 
-git tag -a v0.8.114 -m "SALTA v0.8.114"
-git push origin v0.8.114
+git tag -a v0.8.115 -m "SALTA v0.8.115"
+git push origin v0.8.115
 ```
 
 ## GitHub Release
 
 ```bash
-gh release create v0.8.114 \
-  --title "SALTA v0.8.114" \
+gh release create v0.8.115 \
+  --title "SALTA v0.8.115" \
   --notes-file RELEASE_TEXT.md
 ```
 
@@ -68,14 +66,19 @@ Do not use `docker compose down -v`.
 
 ## Branch cleanup
 
-Delete the work branch only after v0.8.114 is on `main`, CI/CodeQL are green, tag `v0.8.114` has been pushed, and the GitHub release exists:
+The temporary preparation branches can be deleted once you have integrated the validated work branch:
 
 ```bash
-git checkout main
-git pull --ff-only origin main
-git fetch --prune
+git push origin --delete DO-NOT-USE
+git push origin --delete build/v0.8.115
+git push origin --delete build/v0.8.115-automation-diagnostics
+git push origin --delete build/v0.8.115-automation-diagnostics-prep
+git push origin --delete build/v0.8.115-final
+```
 
-git push origin --delete work/v0.8.114-thermostat-manual-setback
-git branch -d work/v0.8.114-thermostat-manual-setback
+Keep `work/v0.8.115-automation-diagnostics` until v0.8.115 is on `main`, CI/CodeQL are green, tag `v0.8.115` is pushed, and the GitHub release exists. Then remove it:
+
+```bash
+git push origin --delete work/v0.8.115-automation-diagnostics
 git fetch --prune
 ```

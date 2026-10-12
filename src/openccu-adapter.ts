@@ -869,6 +869,15 @@ export class OpenCcuAdapter {
       Object.assign(nextState, plan.state);
     } else throw new Error("CAPABILITY_NOT_SUPPORTED");
     if (!writes.length) throw new Error("CAPABILITY_NOT_SUPPORTED");
+    const diagnosticWrites = writes.map(write => ({
+      method: "Interface.setValue",
+      interface: interfaceName,
+      address: channelAddress,
+      valueKey: write.parameter,
+      type: write.valueType,
+      value: write.value
+    }));
+    let appliedWrites = 0;
 
     await this.queueCommand(interfaceName, () => this.runExclusive(async () => {
       const client = await this.getRuntimeClient(connection.baseUrl, connection.username, connection.password);
@@ -881,16 +890,46 @@ export class OpenCcuAdapter {
             type: write.valueType,
             value: write.value
           }, interfaceName);
+          appliedWrites += 1;
         }
         this.sessionRetryAfter = 0;
       } catch (error) {
         const info = openCcuErrorInfo(error);
         if (info.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + sessionRetryDelayMs;
+        this.log("error", "OPENCCU_COMMAND_FAILED", "OpenCCU device command failed", {
+          deviceId: device.id,
+          deviceName: device.name,
+          model: device.model,
+          interfaceName,
+          channelAddress,
+          capability: command.capability,
+          requestedValue: command.value,
+          stateBefore: { ...device.state },
+          writes: diagnosticWrites,
+          appliedWrites,
+          errorCode: info.code,
+          errorMethod: info.method,
+          remoteCode: info.remoteCode,
+          remoteMessage: info.message
+        });
         throw error;
       }
     }));
     const updated = { ...device, state: nextState, lastEvent: now(), lastSeen: now(), reachable: true };
     await this.registry.set(updated);
+    this.log("info", "OPENCCU_COMMAND_APPLIED", "OpenCCU device command applied", {
+      deviceId: device.id,
+      deviceName: device.name,
+      model: device.model,
+      interfaceName,
+      channelAddress,
+      capability: command.capability,
+      requestedValue: command.value,
+      stateBefore: { ...device.state },
+      stateAfter: { ...updated.state },
+      writes: diagnosticWrites,
+      appliedWrites
+    });
     return updated;
   }
 }

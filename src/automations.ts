@@ -743,6 +743,36 @@ export class AutomationEngine {
       ...configuredSequence.filter((step): step is AutomationTargetAction => !automationWaitStep(step) && virtualSelfResetAction(triggers, step, this.registry.get(step.deviceId)))
     ];
 
+    const diagnosticSteps = sequence.map((step, index) => {
+      if (automationWaitStep(step)) return { step: index + 1, action: "wait", seconds: step.value };
+      const target = this.registry.get(step.deviceId);
+      return {
+        step: index + 1,
+        deviceId: step.deviceId,
+        deviceName: target?.name,
+        source: target?.source,
+        model: target?.model,
+        reachable: target?.reachable,
+        action: step.action,
+        ...(step.value !== undefined ? { value: step.value } : {}),
+        ...(target ? { stateBefore: { ...target.state } } : {})
+      };
+    });
+    await this.logger.write("info", "automation", "AUTOMATION_EXECUTION_STARTED", "Automation execution started", {
+      automationId: rule.id,
+      automationName: rule.name,
+      manual: manualExecution,
+      enabled: rule.enabled,
+      executionDays: rule.executionDays,
+      configuredTrigger: rule.triggerType === "time"
+        ? { type: "time", time: rule.triggerTime }
+        : { type: "device", triggers },
+      conditions: automationRuleConditions(rule),
+      sequenceLength: sequence.length,
+      steps: diagnosticSteps,
+      ...trigger
+    }).catch(() => undefined);
+
     const recordTrigger = async (): Promise<void> => {
       if (triggerRecorded) return;
       triggerRecorded = true;
@@ -787,13 +817,20 @@ export class AutomationEngine {
           automationName: rule.name,
           step: index + 1,
           actionDeviceId: targetAction.deviceId,
+          targetName: target?.name,
+          targetSource: target?.source,
+          targetModel: target?.model,
+          targetState: target?.state,
           action: targetAction.action,
+          ...(targetAction.value !== undefined ? { value: targetAction.value } : {}),
           reason: !target ? "device-not-found" : !target.reachable ? "device-unreachable" : "action-unsupported",
           ...trigger
         }).catch(() => undefined);
         continue;
       }
 
+      const targetStateBefore = { ...target.state };
+      let commandResult: Device | undefined;
       try {
         const climateMode = climateModeAction(targetAction);
         if (climateMode) {
@@ -801,7 +838,7 @@ export class AutomationEngine {
           await this.systemActions.applyClimateMode(climateMode);
         } else {
           const command = actionCommand(targetAction);
-          await this.commander.command({
+          commandResult = await this.commander.command({
             deviceId: targetAction.deviceId,
             capability: command.capability,
             ...(command.value !== undefined ? { value: command.value } : {}),
@@ -810,11 +847,17 @@ export class AutomationEngine {
         }
         successfulActions += 1;
         await recordTrigger();
+        const targetAfter = commandResult ?? this.registry.get(targetAction.deviceId);
         await this.logger.write("info", "automation", "AUTOMATION_STEP_COMPLETED", "Automation action step completed", {
           automationId: rule.id,
           automationName: rule.name,
           step: index + 1,
           actionDeviceId: targetAction.deviceId,
+          targetName: target.name,
+          targetSource: target.source,
+          targetModel: target.model,
+          targetStateBefore,
+          targetStateAfter: targetAfter?.state,
           action: targetAction.action,
           ...(targetAction.value !== undefined ? { value: targetAction.value } : {}),
           ...trigger
@@ -826,13 +869,28 @@ export class AutomationEngine {
           automationName: rule.name,
           step: index + 1,
           actionDeviceId: targetAction.deviceId,
+          targetName: target.name,
+          targetSource: target.source,
+          targetModel: target.model,
+          targetStateBefore,
           action: targetAction.action,
+          ...(targetAction.value !== undefined ? { value: targetAction.value } : {}),
           error: error instanceof Error ? error.message : String(error),
           ...trigger
         }).catch(() => undefined);
       }
     }
 
+    await this.logger.write(failedActions > 0 ? "warning" : "info", "automation", "AUTOMATION_EXECUTION_FINISHED", "Automation execution finished", {
+      automationId: rule.id,
+      automationName: rule.name,
+      manual: manualExecution,
+      sequenceLength: sequence.length,
+      steps: diagnosticSteps,
+      successfulActions,
+      failedActions,
+      ...trigger
+    }).catch(() => undefined);
     if (successfulActions === 0) return;
     await this.logger.write("info", "automation", "AUTOMATION_TRIGGERED", "Automation executed", {
       automationId: rule.id,

@@ -1459,5 +1459,13 @@
     " · Sensor": " · Sensor",
     "Nicht zugeordnet": "Unassigned",
     " · aktuelle Auswahl": " · current selection"
-  }
+  },
+  "Workflows kopieren": "Copy workflows",
+  "Alle Automationsworkflows in die Zwischenablage kopieren": "Copy all automation workflows to the clipboard",
+  "Automation-Workflow in die Zwischenablage kopieren": "Copy automation workflow to the clipboard",
+  "Workflow kopieren": "Copy workflow",
+  "Automation-Workflow wurde in die Zwischenablage kopiert.": "Automation workflow was copied to the clipboard.",
+  "Automationsworkflows wurden in die Zwischenablage kopiert.": "Automation workflows were copied to the clipboard.",
+  "Zwischenablage konnte nicht beschrieben werden.": "The clipboard could not be written.",
+  "Es sind keine Automationsworkflows zum Kopieren vorhanden.": "There are no automation workflows to copy."
 }
