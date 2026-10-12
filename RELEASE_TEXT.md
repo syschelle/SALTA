@@ -32,7 +32,12 @@ v0.8.122 changes only the presentation thresholds and warning text color request
 - Regression coverage verifies the new 4%/10% Duty Cycle frontend thresholds.
 - Regression coverage verifies that the yellow warning state has dedicated light- and dark-theme text colors.
 - Release-validator coverage requires the new Duty Cycle threshold expression.
-- Release validator, JavaScript syntax checks, TypeScript production build and complete test suite are executed by GitHub Actions before release.
+- Release validator passed for SALTA v0.8.122.
+- JavaScript syntax checks passed.
+- TypeScript production build passed.
+- Test symbol preflight passed for 97 test files.
+- 97 of 97 test files passed.
+- 552 of 552 tests passed.
 
 ## Production update
 
