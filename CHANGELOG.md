@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.123 - Automation overview grouped by rooms
+
+- Grouped the automation overview by the existing SALTA room assignment.
+- Room groups follow the configured room-management order and only rooms containing automations are shown.
+- Automations without a valid room assignment are collected in a final `Ohne Raum` group.
+- Existing automation order inside each room is preserved.
+- Trigger, condition, action and execution behavior are unchanged.
+- Added regression coverage for room ordering, unassigned automations and the grouped layout.
+- No database schema, dependency, mandatory environment-variable, HomeKit pairing or deployment-topology change is required.
+
 ## 0.8.122 - Duty Cycle percentage colors
 
 - Changed only the overview Duty Cycle percentage text color: values up to and including 4% are green, values above 4% up to and including 10% are yellow, and values above 10% are red.

@@ -275,7 +275,7 @@ html[data-theme="dark"]{--state-on-bg:#13271f;--state-on-border:#2b3b33;--state-
 
 /* Automation engine */
 .automation-layout{grid-template-columns:minmax(0,1fr) minmax(440px,var(--layout-side-lg))}
-.automation-list{display:grid;gap:8px}
+.automation-list{display:grid;gap:16px}.automation-room-group{display:grid;gap:7px}.automation-room-group-head{display:flex;align-items:center;gap:7px;padding:0 2px}.automation-room-group-head h2{margin:0;font-size:13px;line-height:1.2}.automation-room-group-icon{width:24px;height:24px;border-radius:7px;background:var(--accent-bg);color:var(--accent);display:grid;place-items:center;flex:0 0 auto}.automation-room-group-icon .mdi{font-size:14px}.automation-room-group-count{min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--subtle-bg);border:1px solid var(--line);color:var(--muted);display:inline-grid;place-items:center;font-size:10px;font-weight:800}.automation-room-group-items{display:grid;gap:8px}
 .automation-card{border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:var(--subtle-bg);display:grid;gap:8px}
 .automation-card.disabled{opacity:.62}
 .automation-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}

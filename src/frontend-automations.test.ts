@@ -211,11 +211,37 @@ describe("automation frontend", () => {
     expect(ui).not.toContain("Ohne zusätzliche Bedingung");
     expect(ui).toContain('class="automation-card-controls"');
     expect(ui).toContain('class="automation-trigger-list"');
-    expect(cssRuleContains(styles, ".automation-list", "gap:8px")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-list", "gap:16px")).toBe(true);
     expect(cssRuleContains(styles, ".automation-card", "padding:10px 11px")).toBe(true);
     expect(cssRuleContains(styles, ".automation-card", "gap:8px")).toBe(true);
     expect(cssRuleContains(styles, ".automation-card-icon-action", "width:30px")).toBe(true);
     expect(cssRuleContains(styles, ".automation-trigger-list", "flex-wrap:wrap")).toBe(true);
+  });
+
+  it("groups automation cards in configured room order and keeps unassigned rules last", () => {
+    expect(hasFunction(uiAst, "automationRoomGroups")).toBe(true);
+    expect(ui).toContain('class="automation-room-group"');
+    expect(ui).toContain("room?.name||'Ohne Raum'");
+    expect(cssRuleContains(styles, ".automation-room-group-items", "display:grid")).toBe(true);
+    expect(cssRuleContains(styles, ".automation-room-group-items", "gap:8px")).toBe(true);
+    const sandbox: Record<string, unknown> = {
+      document: { getElementById: () => null, querySelectorAll: () => [] },
+      all: [],
+      rooms: [
+        { id: "bad", name: "Bad", icon: "bathtub-outline" },
+        { id: "living", name: "Wohnzimmer", icon: "sofa-outline" },
+      ],
+      labels: {},
+      sourceLabels: {},
+      typeLabels: {},
+      console,
+    };
+    runInNewContext(ui+"\nautomationRules=[{id:'living-a',roomId:'living'},{id:'none-a',roomId:null},{id:'bad-a',roomId:'bad'},{id:'missing-a',roomId:'missing'}];globalThis.__roomGroups=automationRoomGroups().map(group=>({roomId:group.room?.id??null,ruleIds:group.rules.map(rule=>rule.id)}));", sandbox);
+    expect(sandbox.__roomGroups).toEqual([
+      { roomId: "bad", ruleIds: ["bad-a"] },
+      { roomId: "living", ruleIds: ["living-a"] },
+      { roomId: null, ruleIds: ["none-a", "missing-a"] },
+    ]);
   });
 
   it("keeps compact automation cards responsive on mobile", () => {
