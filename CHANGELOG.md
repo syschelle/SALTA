@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.121 - OpenCCU thermostat wire-type fix
+
+- Fixed the isolated OpenCCU thermostat control path so HomeMatic `FLOAT` values are sent through `Interface.setValue` with the OpenCCU/XML-RPC wire type `double` instead of `float`.
+- The fix applies to thermostat commands from the Web UI, HomeKit and automations because those paths share the dedicated thermostat controller introduced in v0.8.120.
+- Workflow device selection, per-action temperature values, automation conditions, VirtualDevices handling and global climate policy are unchanged.
+- Thermostat command diagnostics now report the effective wire type actually sent to OpenCCU.
+
 ## 0.8.120 - Isolated OpenCCU thermostat control and Duty Cycle overview
 
 - Separated OpenCCU thermostat execution from automation policy with a dedicated thermostat controller and technical command-router route.

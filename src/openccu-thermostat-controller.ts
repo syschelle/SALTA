@@ -9,6 +9,7 @@ import {
 } from "./openccu-core.js";
 import type { Device, DeviceCommand } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
+import { openCcuSetValueWireType } from "./openccu-control-client.js";
 import type { OpenCcuControlConnection, OpenCcuControlTransport } from "./openccu-control-client.js";
 
 const readbackDelaysMs = [0, 1_000, 3_000, 6_000] as const;
@@ -40,7 +41,7 @@ function writeDiagnostics(interfaceName: string, channelAddress: string, writes:
     interface: interfaceName,
     address: channelAddress,
     valueKey: write.parameter,
-    type: write.valueType,
+    type: openCcuSetValueWireType(write.valueType),
     value: write.value
   }));
 }
@@ -157,7 +158,7 @@ export class OpenCcuThermostatController {
           interface: interfaceName,
           address: channelAddress,
           valueKey: write.parameter,
-          type: write.valueType,
+          type: openCcuSetValueWireType(write.valueType),
           value: write.value
         });
         appliedWrites += 1;

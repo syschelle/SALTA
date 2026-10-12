@@ -1,6 +1,6 @@
-# SALTA v0.8.120
+# SALTA v0.8.121
 
-SALTA v0.8.120 separates OpenCCU thermostat control from automation policy, preserves every workflow step's independently configured target value, and adds the OpenCCU Duty Cycle to the overview status bar.
+SALTA v0.8.121 fixes the OpenCCU thermostat wire type used for floating-point commands.
 
 ## Changes
 

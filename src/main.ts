@@ -75,7 +75,7 @@ async function main(): Promise<void> {
   let homeKitStatus = await homekit.start().catch(async () => homekit.status());
 
   const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"), homekit, hue, vacation);
-  registerDiagnosticExportRoute(server, { registry, phoscon, hue, openCcu, presence, climate, vacation, homekit, saltaVersion: "0.8.120" });
+  registerDiagnosticExportRoute(server, { registry, phoscon, hue, openCcu, presence, climate, vacation, homekit, saltaVersion: "0.8.121" });
   registerOpenCcuDutyCycleRoutes(server, openCcuDutyCycle);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   homeKitStatus = await homekit.status();

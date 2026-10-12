@@ -13,6 +13,19 @@ export interface OpenCcuControlTransport {
 
 const requestTimeoutMs = 15_000;
 
+export function openCcuSetValueWireType(valueType: unknown): string {
+  const normalized = String(valueType ?? "").trim().toLowerCase();
+  return normalized === "float" ? "double" : normalized;
+}
+
+export function openCcuControlRpcParams(method: string, params: JsonRecord): JsonRecord {
+  const serialized = stringifyRpcParams(params);
+  if (method === "Interface.setValue" && "type" in serialized) {
+    serialized.type = openCcuSetValueWireType(serialized.type);
+  }
+  return serialized;
+}
+
 function sessionInvalid(error: unknown): boolean {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
   return /(invalid|unknown|expired|missing) session|session (?:is )?(?:invalid|unknown|expired|missing)|not (?:logged|signed) in/.test(message);
@@ -45,7 +58,7 @@ export class OpenCcuControlClient implements OpenCcuControlTransport {
       const response = await fetch(openCcuRpcEndpoint(connection.baseUrl), {
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ method, params: stringifyRpcParams(params), jsonrpc: "1.1", id: ++this.requestId }),
+        body: JSON.stringify({ method, params: openCcuControlRpcParams(method, params), jsonrpc: "1.1", id: ++this.requestId }),
         signal: controller.signal
       });
       if (!response.ok) {
