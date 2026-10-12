@@ -50,5 +50,8 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
 
+      - name: Apply v0.8.113 automation control validation patch
+        run: python .github/v08113_validation.py
+
       - name: Run complete quality gate
         run: npm run check
