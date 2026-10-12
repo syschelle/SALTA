@@ -40,6 +40,19 @@ describe("sanitized diagnostic export", () => {
     expect(sanitized.adapterData).toEqual({ channelAddress: "MEQ0004123:2", interfaceName: "BidCos-RF" });
   });
 
+  it("preserves Date values as ISO timestamps instead of empty objects", () => {
+    const createdAt = new Date("2026-10-12T13:20:04.001Z");
+    const sanitized = sanitizeDiagnosticValue({ createdAt, nested: { updatedAt: createdAt } });
+    expect(sanitized).toEqual({
+      createdAt: "2026-10-12T13:20:04.001Z",
+      nested: { updatedAt: "2026-10-12T13:20:04.001Z" }
+    });
+  });
+
+  it("maps invalid Date values to null instead of silently producing empty objects", () => {
+    expect(sanitizeDiagnosticValue({ createdAt: new Date(Number.NaN) })).toEqual({ createdAt: null });
+  });
+
   it("recognizes camelCase and snake_case secret fields while preserving ordinary *Key diagnostics", () => {
     for (const key of ["password", "encrypted_password", "apiKey", "application_key", "userKey", "sessionToken", "credentialUsername"]) {
       expect(diagnosticFieldIsSecret(key)).toBe(true);
