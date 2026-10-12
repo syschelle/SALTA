@@ -44,7 +44,12 @@ v0.8.119 changes the control path to **read → decide → write → read back a
 - Regression coverage verifies that a thermostat already reported as Manual receives only the target-temperature write.
 - Regression coverage verifies that Summer mode does not perform the Winter OFF-to-Manual recovery.
 - Existing classic BidCos, HmIP, automation, diagnostic-export and OpenCCU adapter regression coverage remains enabled.
-- Release validator, JavaScript syntax checks, TypeScript build and the complete Vitest suite are executed by GitHub Actions before release.
+- Release validator passed for SALTA v0.8.119.
+- JavaScript syntax checks passed.
+- TypeScript production build passed.
+- Test symbol preflight passed for 93 test files.
+- 93 of 93 test files passed.
+- 541 of 541 tests passed.
 
 ## Production update
 
