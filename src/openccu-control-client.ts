@@ -22,6 +22,7 @@ export class OpenCcuControlClient implements OpenCcuControlTransport {
   private sessionId?: string;
   private loginTask?: Promise<void>;
   private connectionSignature = "";
+  private activeConnection?: OpenCcuControlConnection;
   private requestId = 0;
 
   private signature(connection: OpenCcuControlConnection): string {
@@ -34,6 +35,7 @@ export class OpenCcuControlClient implements OpenCcuControlTransport {
     this.sessionId = undefined;
     this.loginTask = undefined;
     this.connectionSignature = signature;
+    this.activeConnection = { ...connection };
   }
 
   private async post(connection: OpenCcuControlConnection, method: string, params: JsonRecord): Promise<unknown> {
@@ -110,8 +112,13 @@ export class OpenCcuControlClient implements OpenCcuControlTransport {
 
   async close(): Promise<void> {
     await this.loginTask?.catch(() => undefined);
+    const sessionId = this.sessionId;
+    const connection = this.activeConnection;
     this.sessionId = undefined;
     this.loginTask = undefined;
     this.connectionSignature = "";
+    this.activeConnection = undefined;
+    if (!sessionId || !connection) return;
+    await this.post(connection, "Session.logout", { _session_id_: sessionId }).catch(() => undefined);
   }
 }
