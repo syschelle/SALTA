@@ -1,6 +1,6 @@
 # SALTA migration paths
 
-## Current v0.8.119 update
+## Current v0.8.120 update
 
 v0.8.118 narrows classic BidCos/HomeMatic target-temperature recovery while a thermostat is in SALTA's synthetic OFF state. When a classic `BidCos-RF` thermostat is reported as `off` at its minimum target temperature and a higher target is requested, SALTA uses the native `MANU_MODE=<temperature>` command so the device leaves the physical OFF representation and enters manual operation at the requested setpoint.
 

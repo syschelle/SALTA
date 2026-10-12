@@ -1,4 +1,4 @@
-# SALTA v0.8.119
+# SALTA v0.8.120
 
 SALTA v0.8.119 makes OpenCCU thermostat target-temperature actions use the live device state as their decision source and verifies the resulting state before reporting success.
 
