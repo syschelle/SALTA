@@ -35,15 +35,50 @@ import {
 } from "./db.js";
 
 export const DIAGNOSTIC_EXPORT_FORMAT = "salta-sanitized-diagnostic-export";
-export const DIAGNOSTIC_EXPORT_FORMAT_VERSION = 1;
+export const DIAGNOSTIC_EXPORT_FORMAT_VERSION = 2;
 
-function safeDevice(device: Device): unknown {
+export function safeDiagnosticDevice(device: Device): unknown {
   const {
     credentialUsername: _credentialUsername,
     ...withoutCredentialUsername
   } = device;
   void _credentialUsername;
-  return sanitizeDiagnosticValue(withoutCredentialUsername);
+
+  if (device.source !== "presence") return sanitizeDiagnosticValue(withoutCredentialUsername);
+
+  const {
+    host: _host,
+    hostname: _hostname,
+    macAddress: _macAddress,
+    state: rawState,
+    adapterData: rawAdapterData,
+    ...presenceDevice
+  } = withoutCredentialUsername;
+  void _host;
+  void _hostname;
+  void _macAddress;
+
+  const {
+    ipAddress: _ipAddress,
+    hostName: _hostName,
+    ...state
+  } = rawState ?? {};
+  void _ipAddress;
+  void _hostName;
+
+  const {
+    configuredIpAddress: _configuredIpAddress,
+    configuredMacAddress: _configuredMacAddress,
+    ...adapterData
+  } = rawAdapterData ?? {};
+  void _configuredIpAddress;
+  void _configuredMacAddress;
+
+  return sanitizeDiagnosticValue({
+    ...presenceDevice,
+    state,
+    adapterData
+  });
 }
 
 function safePresenceTarget(target: PresenceTarget): Record<string, unknown> {
@@ -184,7 +219,7 @@ export async function createSanitizedDiagnosticExport(deps: DiagnosticExportDepe
         "HomeKit PIN/setup URI",
         "credential usernames",
         "encrypted secret fields",
-        "presence MAC/IP addresses"
+        "presence MAC/IP/host identifiers"
       ]
     },
     runtime: {
@@ -241,7 +276,7 @@ export async function createSanitizedDiagnosticExport(deps: DiagnosticExportDepe
     rooms,
     presenceTargets: presenceTargets.map(safePresenceTarget),
     automations,
-    devices: deps.registry.all().map(safeDevice),
+    devices: deps.registry.all().map(safeDiagnosticDevice),
     systemLogs: {
       retention: { maxEntries: 100, maxAgeDays: 30 },
       entries: logs
