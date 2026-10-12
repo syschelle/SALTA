@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.113
+
+- Added a **Run now** control to every automation card for deliberate manual execution of its configured Then sequence.
+- Manual execution bypasses the configured **When** trigger, execution-day schedule and all **Only if** conditions; it also works while the rule itself is disabled, making it suitable for testing before activation.
+- Manual runs reuse the existing serialized automation queue, ordered action/Wait sequence execution, capability checks, logging and last-trigger timestamp handling instead of introducing a second action runtime.
+- Added a **Duplicate** control that copies room assignment, trigger, execution days, conditions and the complete ordered action/Wait sequence.
+- Duplicated automations are created disabled and receive a locale-aware `(Kopie)` / `(Copy)` suffix so an exact copy cannot begin firing in parallel before it is reviewed.
+- Added the rate-limited `POST /api/automations/:id/trigger` endpoint; it accepts the manual run immediately while long Wait sequences continue through the existing asynchronous automation runtime.
+- Added engine, frontend, API-contract, release-validator and rate-limit regression coverage for manual execution and duplication.
+- Fixed the release version helper so future bumps follow the current `GIT_COMMANDS.md` version/image verification instead of obsolete validator-contract lines.
+- No database schema, dependency, mandatory environment-variable or deployment-topology change is required.
+
 ## v0.8.112
 
 - Fixed classic HomeMatic thermostat night-setback writes so a target-temperature action no longer relies only on `SET_TEMPERATURE` while the device is in MANU/OFF semantics.

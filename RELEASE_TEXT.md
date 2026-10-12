@@ -1,82 +1,29 @@
-# SALTA v0.8.112
+# SALTA v0.8.113
 
-SALTA v0.8.112 fixes classic HomeMatic thermostat night-setback behavior. A normal SALTA target-temperature action must never leave a classic HomeMatic thermostat in OFF when the installation is operating in manual Winter mode.
+SALTA v0.8.113 adds two practical controls directly to the automation overview: **Run now** and **Duplicate**.
 
-## v0.8.112 classic HomeMatic manual setpoint fix
+## Manual Run now
 
-- Classic BidCos/HomeMatic thermostats now use their native `MANU_MODE=<temperature>` command when SALTA changes the target temperature while the device reports `manual` or `off`.
-- Example: a night-setback action to 15.0 °C now writes `MANU_MODE=15.0`, which applies the setpoint and keeps/restores Handbetrieb atomically.
-- This matches the classic HomeMatic command model where `MANU_MODE` is a writable temperature command and `CONTROL_MODE` is the reported operating mode.
-- The HomeMatic OFF representation remains the minimum manual temperature (typically 4.5 °C); a requested value above the minimum now results in `manual`, not `off`.
-- If a classic thermostat explicitly reports `auto`, an ordinary target-temperature action continues to use `SET_TEMPERATURE` so the action does not silently change Auto to Manual.
-- HmIP devices are explicitly kept on their existing target-temperature datapoint path and are not routed through classic `MANU_MODE`, even if stale metadata contains a manual-mode field.
-- Added regression coverage for classic HomeMatic manual, OFF and AUTO states and for HmIP isolation.
+- Every automation card now has a **Run now** button.
+- A manual run deliberately skips the automation's **When** trigger, selected execution days and every **Only if** condition.
+- It can also be used while the automation is disabled, so a rule can be tested safely before activation.
+- Only the configured **Then** sequence is executed.
+- Ordered actions and Wait steps use the same serialized runtime as normal automation execution, including capability/reachability checks, system actions, logs and the last-trigger timestamp.
+- The new endpoint is `POST /api/automations/:id/trigger` and uses the standard mutation rate limit. The API returns `202 Accepted` immediately; long Wait sequences continue asynchronously.
 
-## Root cause
+## Duplicate automation
 
-SALTA previously implemented `setTargetTemperature` by writing only the discovered target-temperature datapoint (`SET_TEMPERATURE` on classic HomeMatic devices). That is sufficient for a generic setpoint write, but it does not express the native classic HomeMatic manual-mode command. Classic HomeMatic devices use `MANU_MODE` itself as a writable temperature action; writing a temperature to `MANU_MODE` both selects manual mode and applies the requested setpoint.
+- Every automation card now has a **Duplicate** button.
+- The copy preserves the room, trigger, execution-day schedule, Only-if conditions and the complete ordered action/Wait sequence.
+- The duplicated rule is intentionally created **disabled** to prevent the original and its copy from firing in parallel before the copy has been reviewed.
+- The copy receives `(Kopie)` in German or `(Copy)` in English.
 
-For Winter/night-setback rules this distinction matters. v0.8.112 therefore preserves generic Auto behavior but uses the native manual command whenever a classic thermostat is already manual or OFF.
+## Compatibility
 
-## Validation
-
-The exact functional fix and its regression coverage were validated through the normal GitHub quality gate against the v0.8.111 baseline:
-
-- `npm ci` passed.
-- Release validation passed.
-- Test-symbol preflight passed for 83 test files.
-- `tsc -p tsconfig.json` passed.
-- The complete Vitest suite passed: **83 test files / 517 tests**.
-- The four new v0.8.112 HomeMatic/HmIP regression tests passed.
-- Dynamic CodeQL PR analysis passed.
-
-The validation-only draft PR was closed without merge after the successful checks.
-
-## v0.8.111 TypeScript sequence fix carried forward
-
-- Canonical automation sequences remain explicitly typed as `AutomationSequenceStep[]`.
-- The production TypeScript build no longer fails on the action/`wait` discriminated union.
-- Existing sequence runtime behavior remains unchanged.
-
-## v0.8.110 fully editable sequences carried forward
-
-- Every **Then** step remains part of one canonical ordered sequence.
-- Existing Step 1 can be moved or deleted like later steps.
-- Action and Wait steps can be reordered across the complete sequence.
-- At least one real action remains required.
-
-## v0.8.109 dedicated editor carried forward
-
-- Automation creation and editing remain on the dedicated full-width `#automation-editor` page.
-- Basics, execution days, **When**, **Only if** and **Then** remain visually separated.
-
-## v0.8.108 ordered sequences carried forward
-
-- Up to eight ordered action/Wait steps are supported.
-- Wait values remain restricted to whole seconds from `1` to `86400`.
-- Wait steps remain asynchronous and do not block unrelated automations.
-- Ordered sequences remain persisted in `automation_sequence_steps` and preserved by backup/restore.
-
-## HomeKit system controls carried forward
-
-- **Winter** remains the bidirectional HomeKit switch for Summer/Winter heating mode.
-- **Urlaub** remains the bidirectional HomeKit switch for vacation mode.
-- Existing HomeKit pairing state is preserved.
-
-## HomeMatic thermostat guard carried forward
-
-- In Winter, the hourly guard only corrects thermostats explicitly reported as `AUTO` back to manual mode.
-- Manual, OFF, Boost, Party and unknown states are not repeatedly rewritten by the Winter guard.
-- OpenCCU `VirtualDevices` heating groups remain excluded from global climate-mode commands.
-- Summer continues to enforce OFF for known non-OFF physical thermostat states.
-
-## Persistence and deployment compatibility
-
-- No new database table is introduced.
-- No `ALTER TABLE` statement or manual SQL migration is required.
+- No database schema change or migration is required.
 - No npm dependency is added or changed.
 - No new mandatory environment variable is introduced.
-- Existing PostgreSQL and SALTA runtime volumes remain compatible and must be preserved.
+- Existing PostgreSQL and SALTA runtime volumes remain compatible.
 - Existing HomeKit pairing state remains compatible.
 
 ## Production update

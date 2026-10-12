@@ -631,6 +631,20 @@ export class AutomationEngine {
     });
   }
 
+  triggerManually(id: string): Promise<void> {
+    const rule = this.rules.find(item => item.id === id);
+    if (!rule) throw new Error("AUTOMATION_NOT_FOUND");
+    const previous = this.executionQueues.get(rule.id) ?? Promise.resolve();
+    const next = previous
+      .catch(() => undefined)
+      .then(() => this.executeRule(rule.id, { triggerType: "manual", manual: true }, { manual: true }));
+    this.executionQueues.set(rule.id, next);
+    void next.finally(() => {
+      if (this.executionQueues.get(rule.id) === next) this.executionQueues.delete(rule.id);
+    });
+    return next;
+  }
+
   clearRoomAssignment(roomId: string): void {
     this.rules = this.rules.map(rule => rule.roomId === roomId ? { ...rule, roomId: undefined } : rule);
   }
@@ -710,9 +724,10 @@ export class AutomationEngine {
     });
   }
 
-  private async executeRule(ruleId: string, trigger: Record<string, unknown>): Promise<void> {
+  private async executeRule(ruleId: string, trigger: Record<string, unknown>, options: { manual?: boolean } = {}): Promise<void> {
     const rule = this.rules.find(item => item.id === ruleId);
-    if (!rule?.enabled || !this.conditionAllows(rule)) return;
+    const manualExecution = options.manual === true;
+    if (!rule || (!manualExecution && (!rule.enabled || !this.conditionAllows(rule)))) return;
 
     let successfulActions = 0;
     let failedActions = 0;
@@ -739,7 +754,7 @@ export class AutomationEngine {
     for (const [index, step] of sequence.entries()) {
       if (!this.started || executionEpoch !== this.executionEpoch) return;
       const currentRule = this.rules.find(item => item.id === rule.id);
-      if (!currentRule?.enabled) {
+      if (!currentRule || (!manualExecution && !currentRule.enabled)) {
         await this.logger.write("info", "automation", "AUTOMATION_SEQUENCE_ABORTED", "Automation sequence stopped because the rule is no longer active", {
           automationId: rule.id, automationName: rule.name, step: index + 1, ...trigger
         }).catch(() => undefined);
@@ -755,7 +770,8 @@ export class AutomationEngine {
           const timer = setTimeout(resolve, seconds * 1000);
           (timer as { unref?: () => void }).unref?.();
         });
-        if (!this.started || executionEpoch !== this.executionEpoch || !this.rules.find(item => item.id === rule.id)?.enabled) return;
+        const currentAfterWait = this.rules.find(item => item.id === rule.id);
+        if (!this.started || executionEpoch !== this.executionEpoch || !currentAfterWait || (!manualExecution && !currentAfterWait.enabled)) return;
         await this.logger.write("info", "automation", "AUTOMATION_WAIT_COMPLETED", "Automation wait step completed", {
           automationId: rule.id, automationName: rule.name, step: index + 1, seconds, ...trigger
         }).catch(() => undefined);

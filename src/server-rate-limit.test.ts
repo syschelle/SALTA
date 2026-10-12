@@ -29,6 +29,7 @@ describe("explicit Fastify route rate limiting", () => {
     'app.get("/api/automations", {',
     'app.post<{ Body: unknown }>("/api/automations", {',
     'app.put<{ Params: { id: string }; Body: unknown }>("/api/automations/:id", {',
+    'app.post<{ Params: { id: string } }>("/api/automations/:id/trigger", {',
     'app.patch<{ Params: { id: string }; Body: unknown }>("/api/automations/:id/enabled", {',
     'app.delete<{ Params: { id: string } }>("/api/automations/:id", {',
     'app.post<{ Params: { id: string }; Body: unknown }>("/api/devices/:id/command", {',

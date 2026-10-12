@@ -295,6 +295,10 @@ if (!automationFrontend.includes("automationStoredAdditionalTriggers") || !autom
 if (!automationFrontend.includes("function automationTriggerSummaryItems(rule)") || !automationFrontend.includes("...(rule.additionalTriggers||[])")) fail("Automation rule summaries do not include all OR-trigger devices");
 if (!automationFrontend.includes("automationTriggerSummaryMarkup(summary.triggerItems)") || !automationFrontend.includes('class="automation-trigger-list"')) fail("Automation rule summaries do not render the complete compact trigger list");
 if (automationFrontend.includes("Ohne zusätzliche Bedingung")) fail("Automation cards still render the redundant empty-condition row");
+if (!automationEngineSource.includes("triggerManually(id: string): Promise<void>") || !automationEngineSource.includes("manualExecution")) fail("Manual automation execution path is missing");
+if (!serverSource.includes('"/api/automations/:id/trigger"') || !serverSource.includes("automationEngine.triggerManually(request.params.id)")) fail("Manual automation trigger API is missing");
+if (!automationFrontend.includes("async function triggerAutomation(id)") || !automationFrontend.includes("async function duplicateAutomation(id)")) fail("Automation run-now or duplicate controls are missing");
+if (!automationFrontend.includes("enabled:false") || !automationFrontend.includes("automationDuplicatePayload(rule)")) fail("Automation duplication does not create a safe disabled copy");
 if (!publicStyles.includes(".automation-card-icon-action") || !publicStyles.includes(".automation-trigger-chip") || !publicStyles.includes(".automation-list{display:grid;gap:8px}")) fail("Compact automation-card presentation is missing");
 if (!automationFrontend.includes('id="automationExtraEventPicker-${trigger.id}"')) fail("Additional OR-trigger event picker markup is missing");
 if (!publicIndex.includes('id="automationTriggerEventPicker"') || !publicIndex.includes('id="automationTriggerEventOptions"')) fail("Automation multi-event picker markup is missing");

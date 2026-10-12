@@ -1019,7 +1019,14 @@
     "Wartezeit einfügen": "Wartezeit einfügen",
     "Die Regel wird erst nach dem Speichern aktiv bzw. aktualisiert.": "Die Regel wird erst nach dem Speichern aktiv bzw. aktualisiert.",
     "Übersicht aller Automationen": "Übersicht aller Automationen",
-    "Baue den Ablauf von oben nach unten auf. Jeder Schritt kann bearbeitet, nach oben oder unten verschoben und – solange mindestens eine Aktion erhalten bleibt – gelöscht werden.": "Baue den Ablauf von oben nach unten auf. Jeder Schritt kann bearbeitet, nach oben oder unten verschoben und – solange mindestens eine Aktion erhalten bleibt – gelöscht werden."
+    "Baue den Ablauf von oben nach unten auf. Jeder Schritt kann bearbeitet, nach oben oder unten verschoben und – solange mindestens eine Aktion erhalten bleibt – gelöscht werden.": "Baue den Ablauf von oben nach unten auf. Jeder Schritt kann bearbeitet, nach oben oder unten verschoben und – solange mindestens eine Aktion erhalten bleibt – gelöscht werden.",
+    "Automation manuell auslösen": "Automation manuell auslösen",
+    "Jetzt auslösen": "Jetzt auslösen",
+    "Automation duplizieren": "Automation duplizieren",
+    "Duplizieren": "Duplizieren",
+    "Automation wurde manuell ausgelöst.": "Automation wurde manuell ausgelöst.",
+    "Automation wurde dupliziert und deaktiviert angelegt.": "Automation wurde dupliziert und deaktiviert angelegt.",
+    "Automation konnte nicht manuell ausgelöst werden.": "Automation konnte nicht manuell ausgelöst werden."
   },
   "patterns": [
     {

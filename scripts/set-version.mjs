@@ -73,8 +73,8 @@ stageReplace("MIGRATION_PATH.md", [
 ]);
 stageReplace("GIT_COMMANDS.md", [
   { from: `# SALTA v${previousVersion} Git commands`, to: `# SALTA v${nextVersion} Git commands` },
-  { from: `Release validator contract: SALTA v${previousVersion} / test-config-from-tsconfig.json`, to: `Release validator contract: SALTA v${nextVersion} / test-config-from-tsconfig.json` },
-  { from: `Release validation passed for SALTA v${previousVersion}.`, to: `Release validation passed for SALTA v${nextVersion}.` },
+  { from: `"version": "${previousVersion}"`, to: `"version": "${nextVersion}"` },
+  { from: `ghcr.io/syschelle/salta:${previousVersion}`, to: `ghcr.io/syschelle/salta:${nextVersion}` },
   { from: `git tag -a v${previousVersion} -m "SALTA v${previousVersion}"`, to: `git tag -a v${nextVersion} -m "SALTA v${nextVersion}"` },
   { from: `git push origin v${previousVersion}`, to: `git push origin v${nextVersion}` },
   { from: `gh release create v${previousVersion}`, to: `gh release create v${nextVersion}` },

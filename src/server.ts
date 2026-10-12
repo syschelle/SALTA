@@ -404,6 +404,7 @@ function automationError(error: unknown): { status: number; code: string; messag
   const code = error instanceof Error ? error.message : "AUTOMATION_FAILED";
   const messages: Record<string, string> = {
     AUTOMATION_NOT_FOUND: "Automation not found.",
+    AUTOMATION_MANUAL_TRIGGER_FAILED: "The automation could not be triggered manually.",
     AUTOMATION_NAME_REQUIRED: "Enter a name for the automation.",
     AUTOMATION_ROOM_NOT_FOUND: "The selected room does not exist.",
     AUTOMATION_TRIGGER_DEVICE_NOT_FOUND: "The trigger device no longer exists.",
@@ -712,9 +713,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.112" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.113" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.112", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.113", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -999,6 +1000,18 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     if (!await automationRoomExists(parsed.data.roomId)) return reply.code(404).send({ error: { code: "AUTOMATION_ROOM_NOT_FOUND", message: "The selected room does not exist.", requestId: request.id } });
     try { return await automationEngine.update(request.params.id, normalizeAutomationInput(parsed.data)); }
     catch (error) { const response = automationError(error); return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } }); }
+  });
+  app.post<{ Params: { id: string } }>("/api/automations/:id/trigger", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "automations-trigger" } }
+  }, async (request, reply) => {
+    if (!automationEngine) return reply.code(503).send({ error: { code: "AUTOMATION_ENGINE_UNAVAILABLE", message: "Automations are not available.", requestId: request.id } });
+    try {
+      void automationEngine.triggerManually(request.params.id);
+      return reply.code(202).send({ accepted: true });
+    } catch (error) {
+      const response = automationError(error);
+      return reply.code(response.status).send({ error: { code: response.code, message: response.message, requestId: request.id } });
+    }
   });
   app.patch<{ Params: { id: string }; Body: unknown }>("/api/automations/:id/enabled", {
     config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "automations-enable" } }
@@ -1358,7 +1371,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.112", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.113", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);

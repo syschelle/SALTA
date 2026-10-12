@@ -1,6 +1,6 @@
 # SALTA migration paths
 
-## Current v0.8.112 update
+## Current v0.8.113 update
 
 v0.8.112 is a command-routing fix for classic HomeMatic thermostat target-temperature actions. No stored automation data changes are required.
 
