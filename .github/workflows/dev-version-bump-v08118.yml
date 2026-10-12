@@ -1,0 +1,36 @@
+name: Development v0.8.118 version bump
+
+on:
+  push:
+    branches:
+      - work/v0.8.118-bidcos-off-recovery-diagnostics
+    paths:
+      - .github/workflows/dev-version-bump-v08118.yml
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out work branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Bump SALTA to v0.8.118
+        run: node scripts/set-version.mjs 0.8.118
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(release): set SALTA v0.8.118"
+          git push origin HEAD:work/v0.8.118-bidcos-off-recovery-diagnostics
