@@ -1,5 +1,6 @@
 import {
   clearOpenCcuSettings,
+  getClimateModeSettings,
   getOpenCcuConnection,
   updateOpenCcuSettings,
   writeSystemLog
@@ -38,6 +39,7 @@ const reconnectIntervalMs = 15_000;
 const sessionRetryDelayMs = 60_000;
 const requestTimeoutMs = 15_000;
 const catalogRefreshMs = 15 * 60_000;
+const thermostatReadbackDelaysMs = [0, 500, 1500] as const;
 const supportedInterfaces = new Set(["BidCos-RF", "BidCos-Wired", "HmIP-RF", "VirtualDevices"]);
 const now = (): string => new Date().toISOString();
 
@@ -788,6 +790,203 @@ export class OpenCcuAdapter {
     }
   }
 
+  private async readCurrentOpenCcuDevice(
+    client: OpenCcuJsonRpcClient,
+    baseUrl: string,
+    interfaceName: string,
+    channelAddress: string
+  ): Promise<Device> {
+    const entry = this.catalog.find(candidate => candidate.interfaceName === interfaceName && candidate.channelAddress === channelAddress);
+    if (!entry) throw new OpenCcuAdapterError("OPENCCU_DEVICE_CATALOG_MISSING", "Interface.getParamset");
+    const values = record(await client.call("Interface.getParamset", {
+      interface: interfaceName,
+      address: channelAddress,
+      paramsetKey: "VALUES"
+    }, interfaceName));
+    const discovered = openCcuDeviceFromChannel({ ...entry, baseUrl, values });
+    if (!discovered) throw new OpenCcuAdapterError("OPENCCU_DEVICE_READBACK_UNSUPPORTED", "Interface.getParamset");
+    return discovered;
+  }
+
+  private async commandThermostatTargetTemperature(
+    command: DeviceCommand,
+    device: Device,
+    interfaceName: string,
+    channelAddress: string,
+    connection: { baseUrl: string; username: string; password: string }
+  ): Promise<Device> {
+    const diagnosticContext = command.diagnosticContext ? { ...command.diagnosticContext } : {};
+    const climate = await getClimateModeSettings();
+    let liveStateBeforeCommand: Device["state"] | undefined;
+    let readbackStateAfterCommand: Device["state"] | undefined;
+    let verifiedDevice: Device | undefined;
+    let winterManualRecovery = false;
+    let readbackAttempts = 0;
+    let appliedWrites = 0;
+    let diagnosticWrites: Array<{
+      method: "Interface.setValue";
+      interface: string;
+      address: string;
+      valueKey: string;
+      type: string;
+      value: string | number | boolean;
+    }> = [];
+
+    await this.queueCommand(interfaceName, () => this.runExclusive(async () => {
+      const client = await this.getRuntimeClient(connection.baseUrl, connection.username, connection.password);
+      try {
+        const liveDevice = await this.readCurrentOpenCcuDevice(client, connection.baseUrl, interfaceName, channelAddress);
+        if (liveDevice.type !== "thermostat") throw new OpenCcuAdapterError("OPENCCU_DEVICE_READBACK_UNSUPPORTED", "Interface.getParamset");
+        liveStateBeforeCommand = { ...liveDevice.state };
+        const liveMetadata = record({ ...(liveDevice.adapterData ?? {}), model: liveDevice.model });
+
+        // A target-temperature action always keeps the temperature write on the
+        // native target datapoint. If a fresh OpenCCU read reports OFF while SALTA
+        // is in Winter mode, the adapter first restores MANUAL and only then sets
+        // the requested temperature. For classic BidCos, MANU_MODE carries a
+        // temperature value itself, so use the requested target for that recovery.
+        const targetPlanningState = liveDevice.state.controlMode === "off"
+          ? { ...liveDevice.state, controlMode: "manual" }
+          : liveDevice.state;
+        const targetPlan = openCcuTargetTemperaturePlan(liveMetadata, targetPlanningState, command.value);
+        const requestedTarget = Number(targetPlan.state.targetTemperature);
+        const minimum = Number(liveMetadata.targetTemperatureMin ?? 4.5);
+        winterManualRecovery = climate.mode === "winter"
+          && liveDevice.state.controlMode === "off"
+          && Number.isFinite(requestedTarget)
+          && requestedTarget > minimum + 0.01;
+
+        const writes: Array<{ parameter: string; valueType: string; value: string | number | boolean }> = [];
+        if (winterManualRecovery) {
+          const modePlan = openCcuThermostatModePlan(
+            liveMetadata,
+            { ...liveDevice.state, targetTemperature: requestedTarget },
+            "manual"
+          );
+          writes.push(...modePlan.writes);
+        }
+        writes.push(...targetPlan.writes);
+        diagnosticWrites = writes.map(write => ({
+          method: "Interface.setValue" as const,
+          interface: interfaceName,
+          address: channelAddress,
+          valueKey: write.parameter,
+          type: write.valueType,
+          value: write.value
+        }));
+
+        for (const write of writes) {
+          await client.call("Interface.setValue", {
+            interface: interfaceName,
+            address: channelAddress,
+            valueKey: write.parameter,
+            type: write.valueType,
+            value: write.value
+          }, interfaceName);
+          appliedWrites += 1;
+        }
+
+        let lastReadbackError: unknown;
+        for (const delayMs of thermostatReadbackDelaysMs) {
+          if (delayMs > 0) await new Promise(resolve => setTimeout(resolve, delayMs));
+          readbackAttempts += 1;
+          try {
+            const candidate = await this.readCurrentOpenCcuDevice(client, connection.baseUrl, interfaceName, channelAddress);
+            readbackStateAfterCommand = { ...candidate.state };
+            const actualTarget = Number(candidate.state.targetTemperature);
+            const targetVerified = Number.isFinite(actualTarget) && Math.abs(actualTarget - requestedTarget) <= 0.01;
+            const modeVerified = !winterManualRecovery || candidate.state.controlMode === "manual";
+            if (targetVerified && modeVerified) {
+              verifiedDevice = candidate;
+              break;
+            }
+          } catch (error) {
+            lastReadbackError = error;
+          }
+        }
+
+        if (!verifiedDevice) {
+          if (!readbackStateAfterCommand && lastReadbackError) {
+            const info = openCcuErrorInfo(lastReadbackError);
+            throw new OpenCcuAdapterError(
+              "OPENCCU_COMMAND_READBACK_FAILED",
+              info.method ?? "Interface.getParamset",
+              info.remoteCode,
+              info.message
+            );
+          }
+          throw new OpenCcuAdapterError(
+            "OPENCCU_COMMAND_READBACK_MISMATCH",
+            "Interface.getParamset",
+            undefined,
+            `Expected target ${requestedTarget}${winterManualRecovery ? " in manual mode" : ""}, got ${String(readbackStateAfterCommand?.targetTemperature ?? "unknown")} / ${String(readbackStateAfterCommand?.controlMode ?? "unknown")}`
+          );
+        }
+        this.sessionRetryAfter = 0;
+      } catch (error) {
+        const info = openCcuErrorInfo(error);
+        if (info.code === "OPENCCU_AUTH_OR_SESSION_LIMIT") this.sessionRetryAfter = Date.now() + sessionRetryDelayMs;
+        this.log("error", "OPENCCU_COMMAND_FAILED", "OpenCCU thermostat target command failed", {
+          ...diagnosticContext,
+          deviceId: device.id,
+          deviceName: device.name,
+          model: device.model,
+          interfaceName,
+          channelAddress,
+          capability: command.capability,
+          requestedValue: command.value,
+          climateMode: climate.mode,
+          winterManualRecovery,
+          localStateBeforeCommand: { ...device.state },
+          liveStateBeforeCommand,
+          liveStateOrigin: "openccu-live-getParamset-before-command",
+          readbackStateAfterCommand,
+          readbackStateOrigin: "openccu-live-getParamset-after-command",
+          readbackAttempts,
+          writes: diagnosticWrites,
+          appliedWrites,
+          errorCode: info.code,
+          errorMethod: info.method,
+          remoteCode: info.remoteCode,
+          remoteMessage: info.message
+        });
+        throw error;
+      }
+    }));
+
+    if (!verifiedDevice) throw new Error("OPENCCU_COMMAND_READBACK_FAILED");
+    const updated = {
+      ...device,
+      state: { ...verifiedDevice.state },
+      lastEvent: now(),
+      lastSeen: now(),
+      reachable: true
+    };
+    await this.registry.set(updated);
+    this.log("info", "OPENCCU_COMMAND_APPLIED", "OpenCCU thermostat target command applied and verified", {
+      ...diagnosticContext,
+      deviceId: device.id,
+      deviceName: device.name,
+      model: device.model,
+      interfaceName,
+      channelAddress,
+      capability: command.capability,
+      requestedValue: command.value,
+      climateMode: climate.mode,
+      winterManualRecovery,
+      localStateBeforeCommand: { ...device.state },
+      liveStateBeforeCommand,
+      liveStateOrigin: "openccu-live-getParamset-before-command",
+      readbackStateAfterCommand: { ...updated.state },
+      readbackStateOrigin: "openccu-live-getParamset-after-command",
+      verified: true,
+      readbackAttempts,
+      writes: diagnosticWrites,
+      appliedWrites
+    });
+    return updated;
+  }
+
   private async queueCommand(interfaceName: string, action: () => Promise<void>): Promise<void> {
     const previous = this.commandQueues.get(interfaceName) ?? Promise.resolve();
     const queued = previous.catch(() => undefined).then(async () => {
@@ -822,6 +1021,10 @@ export class OpenCcuAdapter {
     if (!interfaceName || !channelAddress) throw new Error("OPENCCU_DEVICE_METADATA_MISSING");
     const connection = await getOpenCcuConnection();
     if (!connection.baseUrl || !connection.username || !connection.password) throw new Error("OPENCCU_NOT_CONFIGURED");
+
+    if (command.capability === "setTargetTemperature" && device.type === "thermostat") {
+      return this.commandThermostatTargetTemperature(command, device, interfaceName, channelAddress, connection);
+    }
 
     const writes: Array<{ parameter: string; valueType: string; value: string | number | boolean }> = [];
     const addWrite = (parameter: unknown, valueType: unknown, value: string | number | boolean): void => {
