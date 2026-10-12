@@ -19,6 +19,9 @@ const requiredReleaseFiles = [
   "src/phoscon-adapter.ts",
   "src/phoscon-core.ts",
   "src/openccu-xmlrpc.ts",
+  "src/openccu-control-client.ts",
+  "src/openccu-thermostat-controller.ts",
+  "src/openccu-duty-cycle.ts",
   "src/fritzbox-presence.ts",
   "src/climate-mode.ts",
   "src/battery-monitor.ts",
@@ -123,6 +126,8 @@ if (!diagnosticSanitizerSource.includes("credentialusername") || !diagnosticSani
 if (!diagnosticExportFrontend.includes("fetch('/api/diagnostics/export'") || !diagnosticExportFrontend.includes("link.download=diagnosticExportFilename(response)")) fail("Diagnostic export download wiring is incomplete");
 
 const virtualFrontend = read("public/app.js");
+const themeInitSource = read("public/theme-init.js");
+if (!themeInitSource.includes("/openccu-duty-cycle.js") || !themeInitSource.includes(".overview-stats")) fail("Overview Duty Cycle loader is missing");
 if (!virtualFrontend.includes("function deconzUiUrl(value)") || !virtualFrontend.includes("if(url.protocol!=='http:'&&url.protocol!=='https:')return undefined") || !virtualFrontend.includes("deconzUiLink.href=href") || !virtualFrontend.includes("phosconBaseUrl.addEventListener('input',updateDeconzUiLink)")) fail("deCONZ settings direct UI-link runtime is incomplete");
 if (virtualFrontend.includes(".toLocaleString()")) fail("Frontend contains locale-unaware toLocaleString() calls");
 if (!virtualFrontend.includes("new Date(report.completedAt).toLocaleString(appLocale())") || !virtualFrontend.includes("new Date(gateway.lastSync).toLocaleString(appLocale())")) fail("OpenCCU timestamps do not follow the selected SALTA language");
@@ -145,12 +150,20 @@ if (!shellyAdapterSource.includes("const next = { ...device, reachable: false };
 if (!virtualFrontend.includes("add('Sensor-Ressourcen',adapter.sensorResourceIds,{copy:true})") || !virtualFrontend.includes("add('OpenCCU-Kanalname',adapter.channelName)")) fail("Source-specific device information is incomplete");
 if (!serverSource.includes('"/api/adapters/virtual/devices"')) fail("Virtual device creation API route is missing");
 const openCcuAdapterSource = read("src/openccu-adapter.ts");
+const openCcuThermostatControllerSource = read("src/openccu-thermostat-controller.ts");
+const openCcuDutyCycleSource = read("src/openccu-duty-cycle.ts");
+const commandRouterSource = read("src/device-command-router.ts");
 const openCcuCoreSource = read("src/openccu-core.ts");
 const openCcuXmlRpcSource = read("src/openccu-xmlrpc.ts");
 if (!openCcuCoreSource.includes('snapshot.channelType.trim().toUpperCase() === "KEY"') || !openCcuCoreSource.includes('type: "button"')) fail("OpenCCU KEY channels are not mapped as SALTA buttons");
 if (!openCcuCoreSource.includes('return isHomematicIpR4mThermostat(snapshot) ? "SET_POINT_MODE" : "CONTROL_MODE"')) fail("HmIP thermostat command mapping must use CONTROL_MODE except for the explicit R4M reversal");
 if (!openCcuCoreSource.includes('? ["CONTROL_MODE", "SET_POINT_MODE", "MODE"]') || !openCcuCoreSource.includes(': ["SET_POINT_MODE", "CONTROL_MODE", "MODE"]')) fail("HmIP thermostat status read order is missing");
 if (!openCcuCoreSource.includes('const modeParameter = String(model ?? "").toUpperCase().includes("R4M") ? "SET_POINT_MODE" : "CONTROL_MODE"')) fail("Persisted HmIP thermostat metadata is not normalized to the corrected command datapoint");
+if (openCcuThermostatControllerSource.includes("getClimateModeSettings")) fail("Dedicated OpenCCU thermostat control must not depend on global climate policy");
+if (!openCcuThermostatControllerSource.includes("openCcuTargetTemperaturePlan(metadata, liveBefore.state, command.value)")) fail("Dedicated thermostat control must plan the workflow-provided target from live OpenCCU state");
+if (!openCcuThermostatControllerSource.includes('"Interface.getParamset"') || !openCcuThermostatControllerSource.includes('"Interface.setValue"') || !openCcuThermostatControllerSource.includes("readbackStateAfterCommand")) fail("Dedicated thermostat control must use live OpenCCU preflight/write/readback verification");
+if (!commandRouterSource.includes("interface DeviceCommandRoute") || !commandRouterSource.includes("candidate.capabilities.includes(command.capability)")) fail("Device command router does not support isolated source/type/capability routes");
+if (!openCcuDutyCycleSource.includes('"Interface.getDutyCycle"') || !openCcuDutyCycleSource.includes("repeat(6,minmax(0,1fr))") || !openCcuDutyCycleSource.includes("duty>=90?'alarm':duty>=70?'warning':'ok'")) fail("OpenCCU Duty Cycle overview integration is incomplete");
 const openCcuV08104Regression = read("src/openccu-v08104-regression.test.ts");
 if (!openCcuV08104Regression.includes("preserves a 20 degree manual target") || !openCcuV08104Regression.includes("keeps the R4M reversed write direction explicit")) fail("v0.8.104 HmIP thermostat regression coverage is incomplete");
 if (!openCcuXmlRpcSource.includes("OPENCCU_CALLBACK_PORT = 18_099") || !openCcuXmlRpcSource.includes('"BidCos-RF": 2001')) fail("OpenCCU XML-RPC callback port contract is missing");
@@ -215,6 +228,7 @@ if (!publicStyles.includes(".device-config-dialog{width:min(var(--dialog-device-
 const automationEngineSource = read("src/automations.ts");
 const virtualAdapterSource = read("src/virtual-adapter.ts");
 const mainSource = read("src/main.ts");
+if (!mainSource.includes("new OpenCcuThermostatController(registry, openCcuControl)") || !mainSource.includes('capabilities: ["setTargetTemperature", "setThermostatMode"]') || !mainSource.includes("registerOpenCcuDutyCycleRoutes(server, openCcuDutyCycle)")) fail("Main does not wire isolated thermostat control and Duty Cycle routes");
 if (!publicIndex.includes('data-nav="automations"')) fail("Automations navigation is missing");
 if (!publicIndex.includes('data-page="automations"')) fail("Automations page is missing");
 if (!automationFrontend.includes("turnOn:'An',turnOnForSeconds:'An für Sekunden',turnOff:'Aus',toggle:'Toggle',open:'Öffnen',close:'Schließen',thermostatOff:'Thermostat Aus',thermostatAuto:'Thermostat Automatik',thermostatManual:'Thermostat Manuell',setTargetTemperature:'Solltemperatur setzen'")) fail("Automation action choices are incomplete");

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.120 - Isolated OpenCCU thermostat control and Duty Cycle overview
+
+- Separated OpenCCU thermostat execution from automation policy with a dedicated thermostat controller and technical command-router route.
+- Kept automations fully dynamic: every workflow step continues to supply its own device ID, action, order and individual target value; no thermostat IDs, rooms, groups or temperatures are hard-coded.
+- Removed the global Summer/Winter policy dependency from the production target-temperature command path. Workflow conditions decide whether an action runs; the thermostat controller only implements the requested device capability.
+- Classic BidCos OFF recovery now applies the live-state target planner directly and sends one native `MANU_MODE=<requested temperature>` write instead of the v0.8.119 `MANU_MODE` plus `SET_TEMPERATURE` double write.
+- Thermostats already in Manual/Auto stay on their native target-temperature datapoint; HmIP remains metadata-driven and does not inherit classic BidCos semantics.
+- Added bounded live OpenCCU readback verification and exact thermostat command diagnostics in the isolated controller.
+- Added a reusable OpenCCU control session for isolated command/status operations with clean shutdown logout.
+- Added OpenCCU `Interface.getDutyCycle` monitoring and a sixth Duty Cycle field in the overview status bar, using the maximum reported value and OpenCCU's 70%/90% warning thresholds.
+- Added regression coverage for isolated thermostat routing, per-command temperatures, classic OFF/manual command selection and Duty Cycle parsing/UI wiring.
+- No database schema, dependency, mandatory environment-variable, HomeKit pairing or deployment-topology change is required.
+
 ## 0.8.119 - Live OpenCCU thermostat preflight and verified readback
 
 - Changed OpenCCU thermostat target-temperature commands to read the live channel `VALUES` state immediately before command planning instead of trusting the SALTA registry snapshot.
