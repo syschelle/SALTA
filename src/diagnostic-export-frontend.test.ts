@@ -20,9 +20,13 @@ describe("full sanitized SALTA diagnostic export", () => {
     expect(backend).toContain('server.get("/api/diagnostics/export"');
     expect(backend).toContain("listAutomations()");
     expect(backend).toContain("listSystemLogs(100)");
-    expect(backend).toContain("deps.registry.all().map(safeDevice)");
+    expect(backend).toContain("deps.registry.all().map(safeDiagnosticDevice)");
     expect(backend).toContain("presenceTargets.map(safePresenceTarget)");
     expect(backend).toContain("assertDiagnosticDoesNotContainSecrets(payload, secrets)");
+    expect(backend).toContain("DIAGNOSTIC_EXPORT_FORMAT_VERSION = 2");
+    expect(backend).toContain('device.source !== "presence"');
+    expect(backend).toContain("configuredIpAddress: _configuredIpAddress");
+    expect(backend).toContain("configuredMacAddress: _configuredMacAddress");
     expect(backend).toContain('credentialsIncluded: false');
   });
 });
