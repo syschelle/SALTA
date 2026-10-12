@@ -1,0 +1,91 @@
+name: Remove legacy OpenCCU thermostat adapter path
+
+on:
+  push:
+    branches:
+      - "work/v0.8.120-thermostat-control-duty-cycle"
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/v0.8.120-thermostat-control-duty-cycle
+          fetch-depth: 0
+      - name: Remove superseded thermostat implementation from generic adapter
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('src/openccu-adapter.ts')
+          source = path.read_text()
+          source = source.replace('  getClimateModeSettings,\n', '')
+          source = source.replace('  openCcuTargetTemperaturePlan,\n', '')
+          source = source.replace('  openCcuThermostatModePlan,\n', '')
+          source = source.replace('const thermostatReadbackDelaysMs = [0, 500, 1500] as const;\n', '')
+          source, count = re.subn(
+              r'\n  private async readCurrentOpenCcuDevice\(.*?\n  private async queueCommand',
+              '\n  private async queueCommand',
+              source,
+              count=1,
+              flags=re.S,
+          )
+          if count != 1:
+              raise SystemExit(f'legacy thermostat method block match count={count}')
+          source = re.sub(
+              r'\n    const inferredThermostatModeCapability = command\.capability === "setThermostatMode".*?typeof device\.state\.controlMode === "string";\n',
+              '\n',
+              source,
+              count=1,
+              flags=re.S,
+          )
+          source = source.replace(
+              '    if (!device.capabilities.includes(command.capability) && !inferredThermostatModeCapability && !inferredBinaryCapability) {\n',
+              '    if (!device.capabilities.includes(command.capability) && !inferredBinaryCapability) {\n'
+          )
+          marker = '    const metadata = record({ ...(device.adapterData ?? {}), model: device.model });\n'
+          replacement = marker + '    if (device.type === "thermostat" && ["setTargetTemperature", "setThermostatMode"].includes(command.capability)) {\n      throw new Error("THERMOSTAT_CONTROL_ROUTED_EXTERNALLY");\n    }\n'
+          if source.count(marker) != 1:
+              raise SystemExit('command metadata marker mismatch')
+          source = source.replace(marker, replacement, 1)
+          source = re.sub(
+              r'\n    if \(command\.capability === "setTargetTemperature" && device\.type === "thermostat"\) \{\n      return this\.commandThermostatTargetTemperature\(command, device, interfaceName, channelAddress, connection\);\n    \}\n',
+              '\n', source, count=1,
+          )
+          source = re.sub(
+              r'\n    \} else if \(command\.capability === "setTargetTemperature"\) \{.*?Object\.assign\(nextState, plan\.state\);\n    \} else if \(command\.capability === "setThermostatMode"\) \{.*?Object\.assign\(nextState, plan\.state\);\n',
+              '\n', source, count=1, flags=re.S,
+          )
+          for forbidden in ['getClimateModeSettings', 'commandThermostatTargetTemperature', 'openCcuTargetTemperaturePlan(', 'openCcuThermostatModePlan(']:
+              if forbidden in source:
+                  raise SystemExit(f'legacy thermostat path remains: {forbidden}')
+          path.write_text(source)
+
+          validator = Path('scripts/validate-release.mjs')
+          source = validator.read_text()
+          old = 'if (!openCcuCoreSource.includes("export function openCcuTargetTemperaturePlan(") || !openCcuCoreSource.includes("parameter: targetParameter") || openCcuCoreSource.includes(\'manualModeParameter && (currentMode === "manual" || currentMode === "off")\') || !openCcuAdapterSource.includes("const plan = openCcuTargetTemperaturePlan(metadata, device.state, command.value)")) fail("OpenCCU target-temperature actions must not change thermostat operating mode");'
+          new = 'if (!openCcuCoreSource.includes("export function openCcuTargetTemperaturePlan(") || !openCcuCoreSource.includes("parameter: targetParameter") || openCcuCoreSource.includes(\'manualModeParameter && (currentMode === "manual" || currentMode === "off")\') || !openCcuThermostatControllerSource.includes("openCcuTargetTemperaturePlan(metadata, liveBefore.state, command.value)")) fail("OpenCCU target-temperature planning is not isolated in the thermostat controller");'
+          if old not in source:
+              raise SystemExit('stale target-temperature validator contract not found')
+          source = source.replace(old, new, 1)
+          extra = 'if (openCcuAdapterSource.includes("commandThermostatTargetTemperature") || openCcuAdapterSource.includes("openCcuThermostatModePlan(") || openCcuAdapterSource.includes("openCcuTargetTemperaturePlan(")) fail("Generic OpenCCU adapter still contains thermostat command execution");\n'
+          anchor = 'if (openCcuThermostatControllerSource.includes("getClimateModeSettings")) fail("Dedicated OpenCCU thermostat control must not depend on global climate policy");\n'
+          if extra not in source:
+              source = source.replace(anchor, extra + anchor, 1)
+          validator.write_text(source)
+          PY
+      - name: Commit refactor
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/openccu-adapter.ts scripts/validate-release.mjs
+          git commit -m "refactor(openccu): remove legacy thermostat command path"
+          git push origin HEAD:work/v0.8.120-thermostat-control-duty-cycle
