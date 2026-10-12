@@ -71,7 +71,8 @@ jobs:
             thermostat,
             '    type: write.valueType,',
             '    type: openCcuSetValueWireType(write.valueType),',
-            'log actual Interface.setValue wire type'
+            'use effective Interface.setValue wire type',
+            2
           );
           write(thermostatPath, thermostat);
 
