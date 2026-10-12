@@ -1026,7 +1026,11 @@
     "Duplizieren": "Duplizieren",
     "Automation wurde manuell ausgelöst.": "Automation wurde manuell ausgelöst.",
     "Automation wurde dupliziert und deaktiviert angelegt.": "Automation wurde dupliziert und deaktiviert angelegt.",
-    "Automation konnte nicht manuell ausgelöst werden.": "Automation konnte nicht manuell ausgelöst werden."
+    "Automation konnte nicht manuell ausgelöst werden.": "Automation konnte nicht manuell ausgelöst werden.",
+    "Diagnose exportieren": "Diagnose exportieren",
+    "Export wird erstellt …": "Export wird erstellt …",
+    "Sanitisierter Diagnoseexport wurde erstellt.": "Sanitisierter Diagnoseexport wurde erstellt.",
+    "Diagnoseexport konnte nicht erstellt werden.": "Diagnoseexport konnte nicht erstellt werden."
   },
   "patterns": [
     {

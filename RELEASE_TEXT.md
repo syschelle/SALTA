@@ -1,41 +1,44 @@
-# SALTA v0.8.116
+# SALTA v0.8.117
 
-SALTA v0.8.116 makes automation and OpenCCU diagnostics fully correlatable across a complete automation run.
+SALTA v0.8.117 adds a complete sanitized runtime diagnostic export for troubleshooting complex installations without sharing credentials.
 
 ## Changes
 
-- Every automation execution receives a unique `executionId`.
-- The same execution ID is written to start, wait, step, failure, skip, finish and final automation log entries.
-- Automation-originated device commands carry the execution ID, automation ID/name, step number and total sequence length into adapter diagnostics.
-- OpenCCU `OPENCCU_COMMAND_APPLIED` and `OPENCCU_COMMAND_FAILED` entries now contain that same context, so an exact `Interface.setValue` write can be assigned to the exact automation step that caused it.
-- `AUTOMATION_EXECUTION_FINISHED` contains an ordered `results` array showing the outcome of every processed step.
-- Diagnostic state fields are now explicitly named `localState...` / `localTargetState...` and include a local-state origin marker. These fields describe SALTA's local projected registry state and are not presented as physical OpenCCU readback.
-- The System Log adds **Copy execution** on correlated automation start/finish entries. It exports all retained log entries with the same execution ID as one formatted JSON diagnostic payload, including automation and OpenCCU events.
-- Clipboard export includes an HTTP-compatible fallback when the browser Clipboard API is unavailable.
+- The System Log page now provides **Export diagnostics**.
+- The generated JSON combines the current SALTA version and safe runtime parameters, adapter status, rooms, automations, current device registry state and the retained system log.
+- OpenCCU/HomeMatic diagnostic metadata such as interface name, channel address, channel type, data-point mappings, current state and capabilities remains available for analysis.
+- Presence targets are included by logical identity and timing configuration, while MAC and IP addresses are deliberately omitted.
+- HomeKit status is exported without pairing PIN, setup URI or bridge username.
+- Adapter settings expose only non-secret configuration and configured/encryption status flags.
+- Passwords, API/application/user keys, tokens, sessions, credential usernames and encrypted secret fields are removed recursively from the payload.
+- A final known-secret guard compares the generated JSON against readable configured secrets and aborts the export if any plaintext secret is present.
+- The export is delivered as a downloadable JSON file and is marked `no-store`.
+- Creating an export writes a credential-free `DIAGNOSTIC_EXPORT_CREATED` system-log event.
+- GitHub CI now validates `work/**` branches directly, so development validation does not require temporary pull requests.
 
 ## Root Cause
 
-v0.8.115 logged the complete automation sequence and exact OpenCCU writes, but the events were independent. There was no shared run identifier between automation-step logs and adapter-level OpenCCU logs, so multiple entries from the same run could not be correlated unambiguously. In addition, fields named `stateAfter` / `targetStateAfter` represented SALTA's local projected state after an accepted command, not a fresh readback from the physical HomeMatic device. That naming could therefore make a stale local mode value look like an OpenCCU response.
+Previous SALTA diagnostics were intentionally split across workflow exports, individual automation execution exports, adapter status and the System Log. That was sufficient for targeted issues, but not for reconstructing the complete runtime logic of a complex installation in one support artifact. The configuration backup is not suitable for this purpose because it is designed for restore and can contain encrypted credential material.
 
-v0.8.116 fixes the diagnostic model without changing thermostat command behavior.
+v0.8.117 introduces a separate support-oriented export with explicit secret sanitization and a fail-closed plaintext-secret guard. It does not reuse the restore backup format.
 
 ## Compatibility
 
 - No database schema change or migration is required.
 - No npm dependency is added or changed.
 - No new mandatory environment variable is introduced.
-- Existing automations require no editing.
+- Existing automations and adapter configuration require no editing.
 - Existing PostgreSQL and SALTA runtime volumes remain compatible.
 - Existing HomeKit pairing state remains compatible.
-- OpenCCU/HomeMatic thermostat command semantics from v0.8.115 are unchanged.
+- OpenCCU/HomeMatic thermostat command semantics are unchanged.
 
 ## Tests
 
-- Release validator covers execution-ID propagation, execution-result diagnostics, OpenCCU command correlation and clipboard execution export.
-- Automation diagnostics regression coverage verifies one execution ID across a four-step run and verifies adapter context on every generated command.
-- OpenCCU diagnostics coverage verifies correlated command context and explicit local-state semantics.
-- System-log frontend coverage verifies complete-run clipboard export and the Copy execution control.
-- The complete GitHub Actions quality gate must pass before the release is tagged.
+- Diagnostic sanitizer regression coverage verifies removal of credential fields while preserving diagnostic fields such as `stateKey`, `valueKey` and HomeMatic data-point metadata.
+- Secret-guard coverage verifies that an export fails closed when a known plaintext secret is found anywhere in the payload.
+- Frontend coverage verifies the one-click download and backend route wiring.
+- The release validator verifies static asset serving, export composition and secret-sanitizer presence.
+- TypeScript build, JavaScript syntax checks and the complete test suite must pass in GitHub Actions before tagging the release.
 
 ## Production update
 

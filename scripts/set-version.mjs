@@ -43,6 +43,9 @@ stageReplace("docker-compose.image.yml", [
 stageReplace("public/index.html", [
   { from: `Version <strong>${previousVersion}</strong>`, to: `Version <strong>${nextVersion}</strong>` },
 ]);
+stageReplace("src/main.ts", [
+  { from: `saltaVersion: "${previousVersion}"`, to: `saltaVersion: "${nextVersion}"` },
+]);
 stageReplace("src/server.ts", [
   { from: `version: "${previousVersion}"`, to: `version: "${nextVersion}"`, count: 2 },
   { from: `createDisasterRecoveryBackup("${previousVersion}"`, to: `createDisasterRecoveryBackup("${nextVersion}"` },
@@ -77,8 +80,6 @@ stageReplace("GIT_COMMANDS.md", [
   { from: `ghcr.io/syschelle/salta:${previousVersion}`, to: `ghcr.io/syschelle/salta:${nextVersion}` },
   { from: `git tag -a v${previousVersion} -m "SALTA v${previousVersion}"`, to: `git tag -a v${nextVersion} -m "SALTA v${nextVersion}"` },
   { from: `git push origin v${previousVersion}`, to: `git push origin v${nextVersion}` },
-  { from: `gh release create v${previousVersion}`, to: `gh release create v${nextVersion}` },
-  { from: `--title "SALTA v${previousVersion}"`, to: `--title "SALTA v${nextVersion}"` },
 ]);
 
 if (existsSync(pathFor("install.sh"))) {

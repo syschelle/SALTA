@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.117 - Sanitized full-system diagnostic export
+
+- Added a one-click sanitized diagnostic export to the System Log page.
+- The export combines runtime settings, adapter status, rooms, automations, current device registry state and the retained system log into one JSON file for support analysis.
+- OpenCCU device/channel metadata and current thermostat state are preserved so HomeMatic command paths can be reconstructed without a separate configuration dump.
+- Passwords, API/application/user keys, tokens, sessions, HomeKit PIN/setup data, credential usernames and encrypted secret fields are excluded. Presence MAC/IP addresses are intentionally omitted.
+- Added a final known-secret guard which aborts the export if any readable configured plaintext secret is found in the generated payload.
+- No thermostat command behavior is changed by this release.
+- GitHub CI now runs directly on `work/**` branches so validation does not require temporary/test pull requests.
+
+
 ## v0.8.116
 
 - Added a unique `executionId` to every automation run and propagate it through all automation execution log entries.

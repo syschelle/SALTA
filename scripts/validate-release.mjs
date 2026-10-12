@@ -24,6 +24,8 @@ const requiredReleaseFiles = [
   "src/battery-monitor.ts",
   "src/configuration-backup.ts",
   "src/disaster-recovery-backup.ts",
+  "src/diagnostic-export.ts",
+  "src/diagnostic-sanitizer.ts",
   "src/runtime-settings.ts",
   "migrate-homekit-storage.sh",
   "MIGRATION_PATH.md",
@@ -31,6 +33,7 @@ const requiredReleaseFiles = [
   "test-utils/source-inspection.ts",
   "test-utils/style-inspection.ts",
   "public/automation-ui.js",
+  "public/diagnostic-export.js",
   "public/i18n.js",
   "public/i18n/de.json",
   "public/i18n/en.json",
@@ -107,8 +110,17 @@ for (const pattern of requiredDynamicPatterns) if (!englishPatternKeys.has(patte
 const serverSource = read("src/server.ts");
 if (!serverSource.includes('["/room-grouping.js", "room-grouping.js"]')) fail("server does not serve room-grouping.js");
 if (!serverSource.includes('["/automation-ui.js", "automation-ui.js"]')) fail("server does not serve automation-ui.js");
+if (!serverSource.includes('["/diagnostic-export.js", "diagnostic-export.js"]')) fail("server does not serve diagnostic-export.js");
 if (!serverSource.includes('immutableVendorAsset ? "public, max-age=31536000, immutable" : "no-store"')) fail("application assets are not protected from stale browser caching");
 
+
+const diagnosticExportSource = read("src/diagnostic-export.ts");
+const diagnosticSanitizerSource = read("src/diagnostic-sanitizer.ts");
+const diagnosticExportFrontend = read("public/diagnostic-export.js");
+if (!publicIndex.includes('id="diagnosticExportButton"') || !publicIndex.includes('onclick="exportSaltaDiagnostics()"') || !publicIndex.includes('<script src="/diagnostic-export.js"></script>')) fail("Sanitized diagnostic export frontend is missing");
+if (!diagnosticExportSource.includes('server.get("/api/diagnostics/export"') || !diagnosticExportSource.includes("listAutomations()") || !diagnosticExportSource.includes("listSystemLogs(100)") || !diagnosticExportSource.includes("assertDiagnosticDoesNotContainSecrets(payload, secrets)")) fail("Sanitized diagnostic export backend is incomplete");
+if (!diagnosticSanitizerSource.includes("credentialusername") || !diagnosticSanitizerSource.includes("encryptedapitoken") || !diagnosticSanitizerSource.includes("DIAGNOSTIC_EXPORT_SECRET_GUARD")) fail("Diagnostic export secret sanitizer is incomplete");
+if (!diagnosticExportFrontend.includes("fetch('/api/diagnostics/export'") || !diagnosticExportFrontend.includes("link.download=diagnosticExportFilename(response)")) fail("Diagnostic export download wiring is incomplete");
 
 const virtualFrontend = read("public/app.js");
 if (!virtualFrontend.includes("function deconzUiUrl(value)") || !virtualFrontend.includes("if(url.protocol!=='http:'&&url.protocol!=='https:')return undefined") || !virtualFrontend.includes("deconzUiLink.href=href") || !virtualFrontend.includes("phosconBaseUrl.addEventListener('input',updateDeconzUiLink)")) fail("deCONZ settings direct UI-link runtime is incomplete");

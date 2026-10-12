@@ -537,6 +537,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     ["/i18n/en.json", "i18n/en.json"],
     ["/automation-ui.js", "automation-ui.js"],
     ["/homekit-qr.js", "homekit-qr.js"],
+    ["/diagnostic-export.js", "diagnostic-export.js"],
     ["/room-grouping.js", "room-grouping.js"],
     ["/styles.css", "styles.css"],
     ["/theme-init.js", "theme-init.js"],
@@ -605,7 +606,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
       : { allowed: true, retryAfterSeconds: 0, remaining: config.RATE_LIMIT_MUTATIONS_PER_MINUTE };
     const expensiveRouteLimit = path === "/api/adapters/shelly/discover"
       ? security.consumeRateLimit(`discover:${ip}`, 2, rateWindowMs)
-      : path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile" || path === "/api/adapters/hue/reconcile" || path === "/api/settings/hue/discover" || path === "/api/adapters/openccu/reconcile" || path === "/api/settings/openccu/diagnose" || path === "/api/presence/refresh" || path === "/api/presence/test"
+      : path === "/api/adapters/shelly/reconcile" || path === "/api/adapters/phoscon/reconcile" || path === "/api/adapters/hue/reconcile" || path === "/api/settings/hue/discover" || path === "/api/adapters/openccu/reconcile" || path === "/api/settings/openccu/diagnose" || path === "/api/presence/refresh" || path === "/api/presence/test" || path === "/api/diagnostics/export"
         ? security.consumeRateLimit(`reconcile:${ip}`, 12, rateWindowMs)
         : (path === "/api/adapters/shelly/devices" || path === "/api/adapters/virtual/devices") && request.method === "POST"
           ? security.consumeRateLimit(`onboarding:${ip}`, 10, rateWindowMs)
@@ -713,9 +714,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.116" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.117" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.116", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.117", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1371,7 +1372,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.116", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.117", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);
