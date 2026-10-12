@@ -1,44 +1,53 @@
 # SALTA v0.8.118
 
-SALTA v0.8.117 adds a complete sanitized runtime diagnostic export for troubleshooting complex installations without sharing credentials.
+SALTA v0.8.118 fixes classic BidCos/HomeMatic thermostats that remain physically OFF when a higher target temperature is applied, and hardens the sanitized diagnostic export introduced in v0.8.117.
 
 ## Changes
 
-- The System Log page now provides **Export diagnostics**.
-- The generated JSON combines the current SALTA version and safe runtime parameters, adapter status, rooms, automations, current device registry state and the retained system log.
-- OpenCCU/HomeMatic diagnostic metadata such as interface name, channel address, channel type, data-point mappings, current state and capabilities remains available for analysis.
-- Presence targets are included by logical identity and timing configuration, while MAC and IP addresses are deliberately omitted.
-- HomeKit status is exported without pairing PIN, setup URI or bridge username.
-- Adapter settings expose only non-secret configuration and configured/encryption status flags.
-- Passwords, API/application/user keys, tokens, sessions, credential usernames and encrypted secret fields are removed recursively from the payload.
-- A final known-secret guard compares the generated JSON against readable configured secrets and aborts the export if any plaintext secret is present.
-- The export is delivered as a downloadable JSON file and is marked `no-store`.
-- Creating an export writes a credential-free `DIAGNOSTIC_EXPORT_CREATED` system-log event.
-- GitHub CI now validates `work/**` branches directly, so development validation does not require temporary pull requests.
+- Classic `BidCos-RF` thermostats that are currently in SALTA's synthetic `off` state now leave OFF through the native `MANU_MODE=<requested temperature>` command when a target above the device minimum is requested.
+- The OFF recovery is deliberately narrow: classic thermostats already in Manual or Auto continue to receive only their native target-temperature datapoint, normally `SET_TEMPERATURE`.
+- Homematic IP target-temperature routing is unchanged and continues to use the discovered HmIP target datapoint, normally `SET_POINT_TEMPERATURE`.
+- A minimum-temperature request while already OFF remains a target-temperature write and does not unnecessarily re-enter manual operation.
+- The local projected state after a successful classic OFF recovery is `manual` with the requested target temperature, while OpenCCU diagnostics continue to record the exact `Interface.setValue` datapoint and value.
+- The sanitized diagnostic export is upgraded to format version 2.
+- JavaScript `Date` values in diagnostic exports are preserved as ISO timestamps instead of becoming empty objects.
+- Presence devices in the general device registry no longer expose MAC addresses, IP addresses, host names or configured presence network identifiers.
+- OpenCCU/HomeMatic datapoint metadata required for troubleshooting remains available in the diagnostic export.
+- The release-version helper now correctly handles both active GHCR image references in `GIT_COMMANDS.md` instead of refusing an otherwise valid version bump.
 
 ## Root Cause
 
-Previous SALTA diagnostics were intentionally split across workflow exports, individual automation execution exports, adapter status and the System Log. That was sufficient for targeted issues, but not for reconstructing the complete runtime logic of a complex installation in one support artifact. The configuration backup is not suitable for this purpose because it is designed for restore and can contain encrypted credential material.
+The v0.8.117 execution diagnostic proved that the Nachtabsenkung automation completed all four thermostat actions and that SALTA sent exactly one `SET_TEMPERATURE=15` write to each `HM-TC-IT-WM-W-EU`. The physical wall thermostats nevertheless remained OFF.
 
-v0.8.117 introduces a separate support-oriented export with explicit secret sanitization and a fail-closed plaintext-secret guard. It does not reuse the restore backup format.
+For these classic HomeMatic devices, SALTA represents the device's manual mode at the minimum target temperature as synthetic `off`. Raising only `SET_TEMPERATURE` from that state can leave the physical thermostat in its OFF representation. The native HomeMatic `MANU_MODE` action carries the manual target temperature and is therefore required specifically when leaving this classic OFF state.
+
+v0.8.114 correctly separated ordinary temperature changes from operating-mode changes, but its regression rule was too broad because it also prohibited the native OFF-to-manual recovery path. v0.8.118 restores only that narrow exception while retaining target-only behavior for classic Manual/Auto operation and all existing HmIP routing.
+
+The v0.8.117 diagnostic sanitizer also treated `Date` objects as generic objects, producing `{}`, and presence devices passed through the general device export with network identifiers that were not covered by the presence-target allow-list. Both export paths are corrected in v0.8.118.
 
 ## Compatibility
 
 - No database schema change or migration is required.
 - No npm dependency is added or changed.
 - No new mandatory environment variable is introduced.
-- Existing automations and adapter configuration require no editing.
+- Existing automations require no editing.
 - Existing PostgreSQL and SALTA runtime volumes remain compatible.
 - Existing HomeKit pairing state remains compatible.
-- OpenCCU/HomeMatic thermostat command semantics are unchanged.
+- The thermostat change is limited to classic `BidCos-RF` devices that SALTA currently reports as `off` and only when requesting a target above the minimum temperature.
+- Classic Manual/Auto and Homematic IP target-temperature behavior remain unchanged.
 
 ## Tests
 
-- Diagnostic sanitizer regression coverage verifies removal of credential fields while preserving diagnostic fields such as `stateKey`, `valueKey` and HomeMatic data-point metadata.
-- Secret-guard coverage verifies that an export fails closed when a known plaintext secret is found anywhere in the payload.
-- Frontend coverage verifies the one-click download and backend route wiring.
-- The release validator verifies static asset serving, export composition and secret-sanitizer presence.
-- TypeScript build, JavaScript syntax checks and the complete test suite must pass in GitHub Actions before tagging the release.
+- Regression coverage verifies classic BidCos OFF → `MANU_MODE=<temperature>` recovery.
+- Regression coverage verifies that classic Manual and Auto still use `SET_TEMPERATURE` only.
+- Regression coverage verifies that HmIP does not inherit the classic BidCos OFF exception.
+- Regression coverage verifies that requesting the minimum temperature while OFF does not unnecessarily issue `MANU_MODE`.
+- Diagnostic-export coverage verifies removal of presence MAC/IP/host identifiers while preserving OpenCCU datapoint metadata.
+- Diagnostic-sanitizer coverage verifies ISO preservation of valid dates and safe handling of invalid dates.
+- Release-version tooling coverage is exercised by the v0.8.118 release preparation itself.
+- Release validator, JavaScript syntax checks and TypeScript build pass in GitHub Actions.
+- 92 of 92 test files pass.
+- 538 of 538 tests pass.
 
 ## Production update
 
