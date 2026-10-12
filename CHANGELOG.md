@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.8.114
+
+- Fixed OpenCCU thermostat automation actions so `setTargetTemperature` now changes only the native target-temperature datapoint and never writes an operating-mode datapoint.
+- Reverted the incorrect v0.8.112 coupling that redirected classic BidCos/HomeMatic target-temperature writes through `MANU_MODE=<temperature>` while the thermostat was reported as Manual or OFF.
+- Classic HomeMatic now always uses its discovered target datapoint (normally `SET_TEMPERATURE`) for a temperature-only action; HmIP continues to use its discovered target datapoint (normally `SET_POINT_TEMPERATURE`).
+- `MANU_MODE`, `AUTO_MODE`, `CONTROL_MODE`, and other thermostat-mode datapoints are reserved for explicit thermostat/heating-mode commands only.
+- A manual automation run therefore has exactly the same thermostat command semantics as a scheduled run: bypassing trigger/conditions does not alter how the action itself is executed.
+- Added regression coverage for classic HomeMatic Manual, OFF and AUTO states plus HmIP, asserting that temperature-only actions never emit a mode write.
+- No database schema, dependency, mandatory environment-variable, HomeKit pairing, or deployment-topology change is required.
+
 ## v0.8.113
 
 - Added a **Run now** control to every automation card for deliberate manual execution of its configured Then sequence.

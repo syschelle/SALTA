@@ -9,33 +9,35 @@ const classicMetadata = {
   targetTemperatureValueType: "float",
   targetTemperatureMin: 4.5,
   targetTemperatureMax: 30.5,
+  autoModeParameter: "AUTO_MODE",
+  autoModeValueType: "bool",
   manualModeParameter: "MANU_MODE",
   manualModeValueType: "float"
 };
 
-describe("v0.8.112 classic HomeMatic target-temperature regression", () => {
-  it("keeps a classic HomeMatic thermostat in manual mode while applying night setback", () => {
+describe("v0.8.114 OpenCCU target-temperature mode isolation", () => {
+  it("changes only SET_TEMPERATURE while classic HomeMatic is in manual mode", () => {
     expect(openCcuTargetTemperaturePlan(classicMetadata, { controlMode: "manual", targetTemperature: 20 }, 15)).toEqual({
-      writes: [{ parameter: "MANU_MODE", valueType: "float", value: 15 }],
-      state: { controlMode: "manual", targetTemperature: 15 }
+      writes: [{ parameter: "SET_TEMPERATURE", valueType: "float", value: 15 }],
+      state: { targetTemperature: 15 }
     });
   });
 
-  it("wakes a classic HomeMatic thermostat from OFF into manual mode at the requested temperature", () => {
+  it("does not emit MANU_MODE even when classic HomeMatic reports OFF", () => {
     expect(openCcuTargetTemperaturePlan(classicMetadata, { controlMode: "off", targetTemperature: 4.5 }, 15)).toEqual({
-      writes: [{ parameter: "MANU_MODE", valueType: "float", value: 15 }],
-      state: { controlMode: "manual", targetTemperature: 15 }
+      writes: [{ parameter: "SET_TEMPERATURE", valueType: "float", value: 15 }],
+      state: { targetTemperature: 15 }
     });
   });
 
-  it("preserves AUTO when a normal setpoint write is requested outside manual mode", () => {
+  it("does not emit AUTO_MODE or MANU_MODE while classic HomeMatic is in AUTO", () => {
     expect(openCcuTargetTemperaturePlan(classicMetadata, { controlMode: "auto", targetTemperature: 20 }, 15)).toEqual({
       writes: [{ parameter: "SET_TEMPERATURE", valueType: "float", value: 15 }],
       state: { targetTemperature: 15 }
     });
   });
 
-  it("does not route HmIP temperatures through MANU_MODE even if stale metadata contains it", () => {
+  it("continues to use the native HmIP target-temperature datapoint", () => {
     expect(openCcuTargetTemperaturePlan({
       ...classicMetadata,
       interfaceName: "HmIP-RF",

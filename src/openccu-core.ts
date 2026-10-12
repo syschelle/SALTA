@@ -500,7 +500,7 @@ export function openCcuThermostatModePlan(
 
 export function openCcuTargetTemperaturePlan(
   metadataInput: unknown,
-  state: DeviceState,
+  _state: DeviceState,
   requestedTemperature: unknown
 ): OpenCcuThermostatModePlan {
   const metadata = record(metadataInput);
@@ -512,29 +512,6 @@ export function openCcuTargetTemperaturePlan(
   const temperature = numberValue(requestedTemperature);
   if (temperature === undefined || temperature < minimum || temperature > maximum) throw new Error("INVALID_TARGET_TEMPERATURE");
   const rounded = Math.round(temperature * 2) / 2;
-
-  const interfaceName = stringValue(metadata.interfaceName) ?? "";
-  const channelType = stringValue(metadata.channelType) ?? "";
-  const model = stringValue(metadata.model) ?? "";
-  const isHmIp = interfaceName.toUpperCase().includes("HMIP")
-    || model.toUpperCase().startsWith("HMIP-")
-    || channelType.toUpperCase().includes("HEATING_CLIMATECONTROL");
-  const currentMode = String(state.controlMode ?? "").trim().toLowerCase();
-  const manualModeParameter = !isHmIp ? stringValue(metadata.manualModeParameter) : undefined;
-
-  if (manualModeParameter && (currentMode === "manual" || currentMode === "off")) {
-    return {
-      writes: [{
-        parameter: manualModeParameter,
-        valueType: stringValue(metadata.manualModeValueType) ?? "float",
-        value: rounded
-      }],
-      state: {
-        controlMode: rounded <= minimum + 0.01 ? "off" : "manual",
-        targetTemperature: rounded
-      }
-    };
-  }
 
   return {
     writes: [{

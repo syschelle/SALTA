@@ -1,12 +1,12 @@
 # SALTA migration paths
 
-## Current v0.8.113 update
+## Current v0.8.114 update
 
-v0.8.112 is a command-routing fix for classic HomeMatic thermostat target-temperature actions. No stored automation data changes are required.
+v0.8.114 is an OpenCCU thermostat command-routing correction. A `setTargetTemperature` action now writes only the thermostat's native target-temperature datapoint and no longer writes `MANU_MODE` or another operating-mode datapoint.
 
-When a classic BidCos/HomeMatic thermostat reports `manual` or `off`, SALTA now applies a requested target temperature through the native writable `MANU_MODE` temperature datapoint. This keeps/restores manual mode atomically with the requested setpoint. AUTO mode continues to use the normal target-temperature datapoint so a setpoint-only action does not unexpectedly force Manual. HmIP devices remain isolated from this classic HomeMatic path.
+No stored automation data changes are required. Existing automations that set a target temperature keep the same configuration; only their OpenCCU runtime command is corrected.
 
-The existing database schema, `automation_sequence_steps` data, HomeKit pairing state and runtime volumes are unchanged. No new table, `ALTER TABLE`, data rewrite or manual SQL migration is required.
+The existing database schema, HomeKit pairing state and runtime volumes remain unchanged. No new table, `ALTER TABLE`, data rewrite or manual SQL migration is required.
 
 No npm dependency, mandatory environment variable or deployment-topology change is introduced. Preserve the existing PostgreSQL and SALTA runtime volumes. Do not use `docker compose down -v`.
 

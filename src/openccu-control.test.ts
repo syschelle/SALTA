@@ -20,7 +20,8 @@ describe("OpenCCU control and naming integration", () => {
     expect(adapter).toContain('command.capability === "setTargetTemperature"');
     expect(adapter).toContain('openCcuTargetTemperaturePlan(metadata, device.state, command.value)');
     expect(core).toContain('valueType: stringValue(metadata.targetTemperatureValueType) ?? "float"');
-    expect(core).toContain('manualModeParameter && (currentMode === "manual" || currentMode === "off")');
+    expect(core).toContain("parameter: targetParameter");
+    expect(core).not.toContain('manualModeParameter && (currentMode === "manual" || currentMode === "off")');
     expect(hasFunction(frontendAst, "targetTemperatureControl")).toBe(true);
     expect(functionTransitivelyCalls(frontendAst, "deviceCard", "targetTemperatureControl", 1)).toBe(true);
     expect(functionSource(frontendAst, "targetTemperatureControl")).toContain(

@@ -1,28 +1,26 @@
-# SALTA v0.8.113
+# SALTA v0.8.114
 
-SALTA v0.8.113 adds two practical controls directly to the automation overview: **Run now** and **Duplicate**.
+SALTA v0.8.114 fixes an OpenCCU thermostat command-routing issue affecting temperature actions in automations.
 
-## Manual Run now
+## Fixed: target temperature no longer changes thermostat mode
 
-- Every automation card now has a **Run now** button.
-- A manual run deliberately skips the automation's **When** trigger, selected execution days and every **Only if** condition.
-- It can also be used while the automation is disabled, so a rule can be tested safely before activation.
-- Only the configured **Then** sequence is executed.
-- Ordered actions and Wait steps use the same serialized runtime as normal automation execution, including capability/reachability checks, system actions, logs and the last-trigger timestamp.
-- The new endpoint is `POST /api/automations/:id/trigger` and uses the standard mutation rate limit. The API returns `202 Accepted` immediately; long Wait sequences continue asynchronously.
+- The automation action **Set target temperature** now changes only the thermostat's target-temperature datapoint.
+- On classic BidCos/HomeMatic thermostats SALTA writes the discovered target datapoint, normally `SET_TEMPERATURE`.
+- On HmIP thermostats SALTA keeps using the discovered target datapoint, normally `SET_POINT_TEMPERATURE`.
+- Temperature-only actions no longer write `MANU_MODE`, `AUTO_MODE`, `CONTROL_MODE`, or any other operating-mode datapoint.
+- Thermostat operating mode is changed only by an explicit thermostat-mode/heating-mode action.
+- This applies identically to scheduled automation runs and the v0.8.113 **Run now** function.
 
-## Duplicate automation
+## Root cause
 
-- Every automation card now has a **Duplicate** button.
-- The copy preserves the room, trigger, execution-day schedule, Only-if conditions and the complete ordered action/Wait sequence.
-- The duplicated rule is intentionally created **disabled** to prevent the original and its copy from firing in parallel before the copy has been reviewed.
-- The copy receives `(Kopie)` in German or `(Copy)` in English.
+v0.8.112 tried to preserve classic HomeMatic Manual mode by translating target-temperature writes into `MANU_MODE=<temperature>` whenever SALTA saw Manual or OFF. That coupled two independent operations and could leave the physical thermostat in an unintended OFF state. v0.8.114 restores strict separation between target temperature and thermostat mode.
 
 ## Compatibility
 
 - No database schema change or migration is required.
 - No npm dependency is added or changed.
 - No new mandatory environment variable is introduced.
+- Existing automations require no editing.
 - Existing PostgreSQL and SALTA runtime volumes remain compatible.
 - Existing HomeKit pairing state remains compatible.
 
