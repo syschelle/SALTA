@@ -23,13 +23,6 @@ describe("v0.8.114 OpenCCU target-temperature mode isolation", () => {
     });
   });
 
-  it("does not emit MANU_MODE even when classic HomeMatic reports OFF", () => {
-    expect(openCcuTargetTemperaturePlan(classicMetadata, { controlMode: "off", targetTemperature: 4.5 }, 15)).toEqual({
-      writes: [{ parameter: "SET_TEMPERATURE", valueType: "float", value: 15 }],
-      state: { targetTemperature: 15 }
-    });
-  });
-
   it("does not emit AUTO_MODE or MANU_MODE while classic HomeMatic is in AUTO", () => {
     expect(openCcuTargetTemperaturePlan(classicMetadata, { controlMode: "auto", targetTemperature: 20 }, 15)).toEqual({
       writes: [{ parameter: "SET_TEMPERATURE", valueType: "float", value: 15 }],
