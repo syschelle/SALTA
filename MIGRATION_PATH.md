@@ -2,17 +2,17 @@
 
 ## Current v0.8.120 update
 
-v0.8.118 narrows classic BidCos/HomeMatic target-temperature recovery while a thermostat is in SALTA's synthetic OFF state. When a classic `BidCos-RF` thermostat is reported as `off` at its minimum target temperature and a higher target is requested, SALTA uses the native `MANU_MODE=<temperature>` command so the device leaves the physical OFF representation and enters manual operation at the requested setpoint.
+v0.8.120 separates OpenCCU thermostat execution from automation policy. Existing automation records are not migrated or rewritten: every stored sequence step keeps its configured device ID, action, order and individual value.
 
-Classic thermostats already in Manual or Auto continue to use their discovered target-temperature datapoint, normally `SET_TEMPERATURE`. Homematic IP behavior is unchanged and continues to use its own discovered target-temperature datapoint, normally `SET_POINT_TEMPERATURE`.
+OpenCCU thermostat commands are routed by technical source/type/capability to the dedicated thermostat controller. The controller reads only the selected device's live OpenCCU channel, plans the requested capability from the device metadata and live state, writes the required native datapoint(s), and verifies the same channel by live readback. Target-temperature execution no longer reads the global SALTA Summer/Winter setting.
 
-The sanitized diagnostic export is upgraded to format version 2. Date values are preserved as ISO timestamps, and presence devices no longer expose MAC, IP or host identifiers through the general device-registry section.
+For a classic `BidCos-RF` thermostat currently represented as OFF at its minimum target, a higher requested target uses one native `MANU_MODE=<requested temperature>` write. Classic thermostats already in Manual or Auto continue to use their discovered target-temperature datapoint, normally `SET_TEMPERATURE`. HmIP continues to use its own discovered datapoints; classic BidCos semantics are not transferred to HmIP.
 
-No stored automation data changes are required. Existing Nachtabsenkung/Taganhebung actions keep their configuration and use the corrected runtime command only when the classic BidCos thermostat is currently OFF.
+The OpenCCU Duty Cycle overview field is read-only. It uses `Interface.getDutyCycle`, caches the result for the dashboard and does not modify OpenCCU configuration or radio behavior.
 
-The existing database schema, HomeKit pairing state and runtime volumes remain unchanged. No new table, `ALTER TABLE`, data rewrite or manual SQL migration is required.
+No database schema change, stored-automation rewrite, HomeKit reset, new dependency, mandatory environment variable or deployment-topology change is required.
 
-No npm dependency, mandatory environment variable or deployment-topology change is introduced. Preserve the existing PostgreSQL and SALTA runtime volumes. Do not use `docker compose down -v`.
+The existing PostgreSQL, SALTA runtime and HomeKit data volumes remain compatible. Preserve them during the update and do not use `docker compose down -v`.
 
 ## v0.8.107 HomeKit system switches
 
