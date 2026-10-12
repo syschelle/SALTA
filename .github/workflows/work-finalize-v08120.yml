@@ -1,0 +1,108 @@
+name: Finalize SALTA v0.8.120 work release
+
+on:
+  push:
+    branches:
+      - "work/v0.8.120-thermostat-control-duty-cycle"
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out work branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/v0.8.120-thermostat-control-duty-cycle
+          fetch-depth: 0
+
+      - name: Update changelog and release validator contracts
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          changelog = Path("CHANGELOG.md")
+          source = changelog.read_text()
+          heading = "## 0.8.120 - Isolated OpenCCU thermostat control and Duty Cycle overview"
+          if heading not in source:
+              section = """## 0.8.120 - Isolated OpenCCU thermostat control and Duty Cycle overview
+
+          - Separated OpenCCU thermostat execution from automation policy with a dedicated thermostat controller and technical command-router route.
+          - Kept automations fully dynamic: every workflow step continues to supply its own device ID, action, order and individual target value; no thermostat IDs, rooms, groups or temperatures are hard-coded.
+          - Removed the global Summer/Winter policy dependency from the production target-temperature command path. Workflow conditions decide whether an action runs; the thermostat controller only implements the requested device capability.
+          - Classic BidCos OFF recovery now applies the live-state target planner directly and sends one native `MANU_MODE=<requested temperature>` write instead of the v0.8.119 `MANU_MODE` plus `SET_TEMPERATURE` double write.
+          - Thermostats already in Manual/Auto stay on their native target-temperature datapoint; HmIP remains metadata-driven and does not inherit classic BidCos semantics.
+          - Added bounded live OpenCCU readback verification and exact thermostat command diagnostics in the isolated controller.
+          - Added a reusable OpenCCU control session for isolated command/status operations with clean shutdown logout.
+          - Added OpenCCU `Interface.getDutyCycle` monitoring and a sixth Duty Cycle field in the overview status bar, using the maximum reported value and OpenCCU's 70%/90% warning thresholds.
+          - Added regression coverage for isolated thermostat routing, per-command temperatures, classic OFF/manual command selection and Duty Cycle parsing/UI wiring.
+          - No database schema, dependency, mandatory environment-variable, HomeKit pairing or deployment-topology change is required.
+          """
+              source = source.replace("# Changelog\n\n", "# Changelog\n\n" + section + "\n", 1)
+              changelog.write_text(source)
+
+          validator = Path("scripts/validate-release.mjs")
+          source = validator.read_text()
+          required_anchor = '  "src/openccu-xmlrpc.ts",\n'
+          required_insert = required_anchor + '  "src/openccu-control-client.ts",\n  "src/openccu-thermostat-controller.ts",\n  "src/openccu-duty-cycle.ts",\n'
+          if '"src/openccu-thermostat-controller.ts"' not in source:
+              if source.count(required_anchor) != 1:
+                  raise SystemExit("required-file anchor mismatch")
+              source = source.replace(required_anchor, required_insert, 1)
+
+          openccu_anchor = 'const openCcuAdapterSource = read("src/openccu-adapter.ts");\n'
+          openccu_insert = openccu_anchor + 'const openCcuThermostatControllerSource = read("src/openccu-thermostat-controller.ts");\nconst openCcuDutyCycleSource = read("src/openccu-duty-cycle.ts");\nconst commandRouterSource = read("src/device-command-router.ts");\n'
+          if 'const openCcuThermostatControllerSource' not in source:
+              if source.count(openccu_anchor) != 1:
+                  raise SystemExit("OpenCCU source anchor mismatch")
+              source = source.replace(openccu_anchor, openccu_insert, 1)
+
+          architecture_anchor = 'const openCcuV08104Regression = read("src/openccu-v08104-regression.test.ts");\n'
+          architecture_checks = '''if (openCcuThermostatControllerSource.includes("getClimateModeSettings")) fail("Dedicated OpenCCU thermostat control must not depend on global climate policy");
+          if (!openCcuThermostatControllerSource.includes("openCcuTargetTemperaturePlan(metadata, liveBefore.state, command.value)")) fail("Dedicated thermostat control must plan the workflow-provided target from live OpenCCU state");
+          if (!openCcuThermostatControllerSource.includes('"Interface.getParamset"') || !openCcuThermostatControllerSource.includes('"Interface.setValue"') || !openCcuThermostatControllerSource.includes("readbackStateAfterCommand")) fail("Dedicated thermostat control must use live OpenCCU preflight/write/readback verification");
+          if (!commandRouterSource.includes("interface DeviceCommandRoute") || !commandRouterSource.includes("candidate.capabilities.includes(command.capability)")) fail("Device command router does not support isolated source/type/capability routes");
+          if (!openCcuDutyCycleSource.includes('"Interface.getDutyCycle"') || !openCcuDutyCycleSource.includes("repeat(6,minmax(0,1fr))") || !openCcuDutyCycleSource.includes("duty>=90?'alarm':duty>=70?'warning':'ok'")) fail("OpenCCU Duty Cycle overview integration is incomplete");
+          '''
+          if 'Dedicated OpenCCU thermostat control must not depend on global climate policy' not in source:
+              if source.count(architecture_anchor) != 1:
+                  raise SystemExit("OpenCCU validator anchor mismatch")
+              source = source.replace(architecture_anchor, architecture_checks + architecture_anchor, 1)
+
+          main_anchor = 'const mainSource = read("src/main.ts");\n'
+          main_checks = '''if (!mainSource.includes("new OpenCcuThermostatController(registry, openCcuControl)") || !mainSource.includes('capabilities: ["setTargetTemperature", "setThermostatMode"]') || !mainSource.includes("registerOpenCcuDutyCycleRoutes(server, openCcuDutyCycle)")) fail("Main does not wire isolated thermostat control and Duty Cycle routes");
+          '''
+          if 'Main does not wire isolated thermostat control and Duty Cycle routes' not in source:
+              if source.count(main_anchor) != 1:
+                  raise SystemExit("main validator anchor mismatch")
+              source = source.replace(main_anchor, main_anchor + main_checks, 1)
+
+          frontend_anchor = 'const virtualFrontend = read("public/app.js");\n'
+          frontend_insert = frontend_anchor + 'const themeInitSource = read("public/theme-init.js");\n'
+          if 'const themeInitSource' not in source:
+              if source.count(frontend_anchor) != 1:
+                  raise SystemExit("frontend validator anchor mismatch")
+              source = source.replace(frontend_anchor, frontend_insert, 1)
+          duty_loader_check = 'if (!themeInitSource.includes("/openccu-duty-cycle.js") || !themeInitSource.includes(".overview-stats")) fail("Overview Duty Cycle loader is missing");\n'
+          if 'Overview Duty Cycle loader is missing' not in source:
+              source = source.replace(frontend_insert, frontend_insert + duty_loader_check, 1)
+
+          validator.write_text(source)
+          PY
+
+      - name: Commit release contracts
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No release-contract changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md scripts/validate-release.mjs
+          git commit -m "chore(release): finalize v0.8.120 contracts"
+          git push origin HEAD:work/v0.8.120-thermostat-control-duty-cycle
