@@ -1,4 +1,4 @@
-# SALTA v0.8.117
+# SALTA v0.8.118
 
 SALTA v0.8.117 adds a complete sanitized runtime diagnostic export for troubleshooting complex installations without sharing credentials.
 

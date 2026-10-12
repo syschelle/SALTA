@@ -1,6 +1,6 @@
 # SALTA migration paths
 
-## Current v0.8.117 update
+## Current v0.8.118 update
 
 v0.8.114 is an OpenCCU thermostat command-routing correction. A `setTargetTemperature` action now writes only the thermostat's native target-temperature datapoint and no longer writes `MANU_MODE` or another operating-mode datapoint.
 
