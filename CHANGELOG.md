@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.119 - Live OpenCCU thermostat preflight and verified readback
+
+- Changed OpenCCU thermostat target-temperature commands to read the live channel `VALUES` state immediately before command planning instead of trusting the SALTA registry snapshot.
+- In Winter mode, a thermostat confirmed as OFF is restored to Manual before the requested target temperature is written.
+- For classic BidCos/HomeMatic thermostats such as `HM-TC-IT-WM-W-EU`, OFF recovery uses the ordered native writes `MANU_MODE=<requested temperature>` followed by `SET_TEMPERATURE=<requested temperature>`.
+- Thermostats already confirmed as Manual remain on the target-only path; Summer mode does not perform the Winter OFF-to-Manual recovery.
+- Added bounded post-command OpenCCU readback and require the requested target temperature, plus Manual mode when recovery was required, before reporting command success.
+- Registry state after a thermostat target command now comes from verified OpenCCU readback instead of an optimistic local projection.
+- Extended OpenCCU command diagnostics with live preflight state, exact ordered writes, readback state, readback attempts, Winter recovery decision and verification result.
+- Added regression coverage for Winter OFF recovery, already-Manual target-only behavior and Summer isolation.
+- No database schema, dependency, mandatory environment-variable, HomeKit pairing or deployment-topology change is required.
+
 ## 0.8.118 - Classic BidCos OFF recovery and diagnostic export hardening
 
 - Fixed classic `BidCos-RF` target-temperature actions while SALTA reports the thermostat as `off`: requests above the minimum now use native `MANU_MODE=<temperature>` so the physical thermostat leaves OFF and enters manual operation at the requested setpoint.
