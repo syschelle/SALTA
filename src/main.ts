@@ -7,6 +7,9 @@ import { ShellyAdapter } from "./shelly-adapter.js";
 import { PhosconAdapter } from "./phoscon-adapter.js";
 import { HueAdapter } from "./hue-adapter.js";
 import { OpenCcuAdapter } from "./openccu-adapter.js";
+import { OpenCcuControlClient } from "./openccu-control-client.js";
+import { OpenCcuThermostatController } from "./openccu-thermostat-controller.js";
+import { OpenCcuDutyCycleMonitor, registerOpenCcuDutyCycleRoutes } from "./openccu-duty-cycle.js";
 import { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import { FritzBoxPresenceAdapter } from "./fritzbox-presence.js";
 import { DeviceCommandRouter } from "./device-command-router.js";
@@ -26,9 +29,21 @@ async function main(): Promise<void> {
   const phoscon = new PhosconAdapter(registry);
   const hue = new HueAdapter(registry);
   const openCcu = new OpenCcuAdapter(registry);
+  const openCcuControl = new OpenCcuControlClient();
+  const openCcuThermostats = new OpenCcuThermostatController(registry, openCcuControl);
+  const openCcuDutyCycle = new OpenCcuDutyCycleMonitor(openCcuControl);
   const virtual = new VirtualDeviceAdapter(registry);
   const presence = new FritzBoxPresenceAdapter(registry);
-  const commands = new DeviceCommandRouter(registry, { shelly, phoscon, hue, openccu: openCcu, virtual });
+  const commands = new DeviceCommandRouter(
+    registry,
+    { shelly, phoscon, hue, openccu: openCcu, virtual },
+    [{
+      source: "openccu",
+      type: "thermostat",
+      capabilities: ["setTargetTemperature", "setThermostatMode"],
+      adapter: openCcuThermostats
+    }]
+  );
   const climate = new ClimateModeManager(registry, commands);
   const vacation = new VacationModeManager(registry, config.TZ);
   await vacation.initialize();
@@ -48,6 +63,7 @@ async function main(): Promise<void> {
   phoscon.start();
   hue.start();
   openCcu.start();
+  openCcuDutyCycle.start();
   presence.start();
   batteryMonitor.start();
   climate.start();
@@ -60,6 +76,7 @@ async function main(): Promise<void> {
 
   const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"), homekit, hue, vacation);
   registerDiagnosticExportRoute(server, { registry, phoscon, hue, openCcu, presence, climate, vacation, homekit, saltaVersion: "0.8.119" });
+  registerOpenCcuDutyCycleRoutes(server, openCcuDutyCycle);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   homeKitStatus = await homekit.status();
   server.log.info({ port: config.WEB_PORT, homekit: { enabled: homeKitStatus.enabled, running: homeKitStatus.running, paired: homeKitStatus.paired }, trustedProxiesConfigured: Boolean(config.TRUSTED_PROXIES.trim()) }, "SALTA started with mandatory authentication");
@@ -89,6 +106,8 @@ async function main(): Promise<void> {
     vacation.stop();
     batteryMonitor.stop();
     presence.stop();
+    openCcuDutyCycle.stop();
+    await openCcuControl.close();
     await openCcu.stop();
     hue.stop();
     phoscon.stop();
