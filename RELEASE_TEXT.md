@@ -34,7 +34,12 @@ v0.8.123 changes only the overview presentation. It reuses the existing room ass
 - Regression coverage verifies that room groups follow SALTA room-management order.
 - Regression coverage verifies that automations without a valid room are placed in the final `Ohne Raum` group.
 - Regression coverage verifies the compact grouped layout.
-- Release validator, JavaScript syntax checks, TypeScript production build and complete test suite are executed by GitHub Actions before release.
+- Release validator passed for SALTA v0.8.123.
+- JavaScript syntax checks passed.
+- TypeScript production build passed.
+- Test symbol preflight passed for 97 test files.
+- 97 of 97 test files passed.
+- 553 of 553 tests passed.
 
 ## Production update
 
