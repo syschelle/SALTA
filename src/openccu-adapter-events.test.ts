@@ -4,6 +4,7 @@ import type { OpenCcuCatalogEntry } from "./openccu-core.js";
 
 const dbMocks = vi.hoisted(() => ({
   clearOpenCcuSettings: vi.fn(async () => undefined),
+  getClimateModeSettings: vi.fn(async () => ({ mode: "winter", winterMode: "manual" })),
   getOpenCcuConnection: vi.fn(async () => ({ baseUrl: "", username: "", password: "" })),
   updateOpenCcuSettings: vi.fn(async () => undefined),
   writeSystemLog: vi.fn(async () => undefined),
