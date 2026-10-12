@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.118 - Classic BidCos OFF recovery and diagnostic export hardening
+
+- Fixed classic `BidCos-RF` target-temperature actions while SALTA reports the thermostat as `off`: requests above the minimum now use native `MANU_MODE=<temperature>` so the physical thermostat leaves OFF and enters manual operation at the requested setpoint.
+- Kept the exception deliberately narrow. Classic Manual/Auto states continue to use the discovered target-temperature datapoint, and HmIP continues to use its own target-temperature datapoint without inheriting the BidCos rule.
+- Kept minimum-temperature requests while already OFF on the normal target-temperature datapoint.
+- Upgraded the sanitized diagnostic export to format version 2.
+- Preserved `Date` values as ISO timestamps instead of serializing them as empty objects.
+- Removed MAC, IP and host identifiers from presence devices in the general diagnostic device registry while retaining non-network diagnostic state.
+- Preserved OpenCCU/HomeMatic channel and datapoint metadata required for support analysis.
+- Fixed the release-version helper so repeated active GHCR image references in `GIT_COMMANDS.md` no longer block a valid version bump.
+- Added focused regression coverage for BidCos OFF recovery, Manual/Auto isolation, HmIP isolation, presence redaction and diagnostic date preservation.
+- No database schema, dependency, mandatory environment-variable, HomeKit pairing or deployment-topology change is required.
+
 ## 0.8.117 - Sanitized full-system diagnostic export
 
 - Added a one-click sanitized diagnostic export to the System Log page.
