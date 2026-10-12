@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./db.js", () => ({
   clearOpenCcuSettings: vi.fn(),
+  getClimateModeSettings: vi.fn(async () => ({ mode: "winter", winterMode: "manual" })),
   getOpenCcuConnection: vi.fn(async () => ({ baseUrl: "http://openccu.local", username: "salta", password: "secret" })),
   updateOpenCcuSettings: vi.fn(),
   writeSystemLog: vi.fn(async () => undefined)
