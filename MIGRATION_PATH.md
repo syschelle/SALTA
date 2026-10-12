@@ -2,9 +2,13 @@
 
 ## Current v0.8.118 update
 
-v0.8.114 is an OpenCCU thermostat command-routing correction. A `setTargetTemperature` action now writes only the thermostat's native target-temperature datapoint and no longer writes `MANU_MODE` or another operating-mode datapoint.
+v0.8.118 narrows classic BidCos/HomeMatic target-temperature recovery while a thermostat is in SALTA's synthetic OFF state. When a classic `BidCos-RF` thermostat is reported as `off` at its minimum target temperature and a higher target is requested, SALTA uses the native `MANU_MODE=<temperature>` command so the device leaves the physical OFF representation and enters manual operation at the requested setpoint.
 
-No stored automation data changes are required. Existing automations that set a target temperature keep the same configuration; only their OpenCCU runtime command is corrected.
+Classic thermostats already in Manual or Auto continue to use their discovered target-temperature datapoint, normally `SET_TEMPERATURE`. Homematic IP behavior is unchanged and continues to use its own discovered target-temperature datapoint, normally `SET_POINT_TEMPERATURE`.
+
+The sanitized diagnostic export is upgraded to format version 2. Date values are preserved as ISO timestamps, and presence devices no longer expose MAC, IP or host identifiers through the general device-registry section.
+
+No stored automation data changes are required. Existing Nachtabsenkung/Taganhebung actions keep their configuration and use the corrected runtime command only when the classic BidCos thermostat is currently OFF.
 
 The existing database schema, HomeKit pairing state and runtime volumes remain unchanged. No new table, `ALTER TABLE`, data rewrite or manual SQL migration is required.
 
