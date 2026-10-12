@@ -6,7 +6,7 @@ The authoritative commands are provided directly in the release chat. This file 
 git fetch origin
 git checkout main
 git pull --ff-only origin main
-git merge --ff-only origin/work/v0.8.117-sanitized-diagnostic-export
+git merge --ff-only origin/work/v0.8.118-bidcos-off-recovery-diagnostics
 git push origin main
 ```
 
@@ -23,11 +23,12 @@ After GitHub CI and CodeQL on `main` are green:
 ```bash
 git checkout main
 git pull --ff-only origin main
-git fetch origin
+git fetch origin --tags
 git tag -a v0.8.118 -m "SALTA v0.8.118"
 git push origin v0.8.118
+git rev-list -n 1 v0.8.118
 ```
 
-Create the GitHub release for tag `v0.8.117` and paste the release text from the chat.
+Create the GitHub release for tag `v0.8.118` and paste the release text from the chat.
 
 Production uses `ghcr.io/syschelle/salta:0.8.118` with `docker-compose.image.yml`.
