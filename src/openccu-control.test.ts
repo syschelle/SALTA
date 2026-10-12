@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { functionSource, functionTransitivelyCalls, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
 
 const adapter = readFileSync(new URL("./openccu-adapter.ts", import.meta.url), "utf8");
+const thermostatController = readFileSync(new URL("./openccu-thermostat-controller.ts", import.meta.url), "utf8");
 const core = readFileSync(new URL("./openccu-core.ts", import.meta.url), "utf8");
 const frontend = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
 const automationFrontend = readFileSync(new URL("../public/automation-ui.js", import.meta.url), "utf8");
@@ -16,9 +17,12 @@ describe("OpenCCU control and naming integration", () => {
     expect(adapter).toContain("openCcuObjectName(result)");
   });
 
-  it("supports thermostat target-temperature commands and UI controls", () => {
-    expect(adapter).toContain('command.capability === "setTargetTemperature"');
-    expect(adapter).toContain('openCcuTargetTemperaturePlan(metadata, device.state, command.value)');
+  it("isolates thermostat target-temperature commands from the generic OpenCCU adapter", () => {
+    expect(adapter).toContain("THERMOSTAT_CONTROL_ROUTED_EXTERNALLY");
+    expect(adapter).not.toContain("openCcuTargetTemperaturePlan(");
+    expect(thermostatController).toContain("openCcuTargetTemperaturePlan(metadata, liveBefore.state, command.value)");
+    expect(thermostatController).toContain('"Interface.getParamset"');
+    expect(thermostatController).toContain('"Interface.setValue"');
     expect(core).toContain('valueType: stringValue(metadata.targetTemperatureValueType) ?? "float"');
     expect(core).toContain("parameter: targetParameter");
     expect(core).not.toContain('manualModeParameter && (currentMode === "manual" || currentMode === "off")');
@@ -29,10 +33,10 @@ describe("OpenCCU control and naming integration", () => {
     );
   });
 
-  it("supports thermostat off, manual and automatic mode commands", () => {
-    expect(adapter).toContain('command.capability === "setThermostatMode"');
-    expect(adapter).toContain('const inferredThermostatModeCapability = command.capability === "setThermostatMode"');
-    expect(adapter).toContain("openCcuThermostatModePlan(metadata, device.state, command.value)");
+  it("isolates thermostat off, manual and automatic mode commands", () => {
+    expect(adapter).toContain("THERMOSTAT_CONTROL_ROUTED_EXTERNALLY");
+    expect(adapter).not.toContain("openCcuThermostatModePlan(");
+    expect(thermostatController).toContain("openCcuThermostatModePlan(metadata, liveBefore.state, command.value)");
     expect(core).toContain('metadata.autoModeParameter');
     expect(core).toContain('metadata.manualModeParameter');
     expect(core).toContain('metadata.modeAutoValue');
@@ -43,6 +47,7 @@ describe("OpenCCU control and naming integration", () => {
     expect(frontend).toContain("['manual','Hand'");
     expect(frontend).toContain("['auto','Automatik'");
   });
+
   it("registers a realtime XML-RPC callback for HomeMatic KEY events", () => {
     expect(adapter).toContain("OpenCcuXmlRpcCallbackServer");
     expect(adapter).toContain("openCcuButtonEventValue(event.parameter)");
@@ -51,5 +56,4 @@ describe("OpenCCU control and naming integration", () => {
     expect(core).toContain('snapshot.channelType.trim().toUpperCase() === "KEY"');
     expect(automationFrontend).toContain("'hm-pb-6-wm55':[1002,1001,1003]");
   });
-
 });
