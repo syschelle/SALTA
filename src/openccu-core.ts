@@ -500,7 +500,7 @@ export function openCcuThermostatModePlan(
 
 export function openCcuTargetTemperaturePlan(
   metadataInput: unknown,
-  _state: DeviceState,
+  state: DeviceState,
   requestedTemperature: unknown
 ): OpenCcuThermostatModePlan {
   const metadata = record(metadataInput);
@@ -512,6 +512,27 @@ export function openCcuTargetTemperaturePlan(
   const temperature = numberValue(requestedTemperature);
   if (temperature === undefined || temperature < minimum || temperature > maximum) throw new Error("INVALID_TARGET_TEMPERATURE");
   const rounded = Math.round(temperature * 2) / 2;
+
+  const interfaceName = stringValue(metadata.interfaceName)?.toUpperCase();
+  const currentMode = String(state.controlMode ?? "").trim().toLowerCase();
+  const manualModeParameter = stringValue(metadata.manualModeParameter);
+  if (interfaceName === "BIDCOS-RF" && currentMode === "off" && rounded > minimum + 0.01 && manualModeParameter) {
+    // On classic BidCos thermostats SALTA derives OFF from MANU mode at the
+    // minimum setpoint. SET_TEMPERATURE alone can leave that physical OFF state
+    // active, so leaving OFF requires the native MANU_MODE=<temperature> write.
+    const valueType = stringValue(metadata.manualModeValueType) ?? "float";
+    const value: string | number | boolean = valueType === "int"
+      ? Math.round(rounded)
+      : valueType === "string"
+        ? String(rounded)
+        : valueType === "bool"
+          ? true
+          : rounded;
+    return {
+      writes: [{ parameter: manualModeParameter, valueType, value }],
+      state: { controlMode: "manual", targetTemperature: rounded }
+    };
+  }
 
   return {
     writes: [{
@@ -945,4 +966,3 @@ export function openCcuCatalogFromDescriptions(
   }
   return catalog;
 }
-
