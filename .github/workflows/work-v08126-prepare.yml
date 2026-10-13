@@ -33,6 +33,7 @@ jobs:
           path = Path('scripts/prepare-v08126.mjs')
           source = path.read_text()
           source = source.replace('\\\\${systemLogTopicMarkup(entry)}', '\\${systemLogTopicMarkup(entry)}')
+          source = source.replace('publicStyles.includes', 'read("public/styles.css").includes')
           path.write_text(source)
           PY
           node scripts/prepare-v08126.mjs
