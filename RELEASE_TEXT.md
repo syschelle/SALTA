@@ -31,7 +31,12 @@ v0.8.126 renders only the automation name in a dedicated span and assigns the ex
 - Regression coverage verifies dedicated automation-name topic markup.
 - Regression coverage verifies that the automation-name style and the diagnostic eyebrow both use `var(--accent)`.
 - Release-validator coverage enforces the same shared accent-color contract.
-- Release validator, JavaScript syntax checks, TypeScript production build and complete test suite are executed by GitHub Actions before release.
+- Release validator passed for SALTA v0.8.126.
+- JavaScript syntax checks passed.
+- TypeScript production build passed.
+- Test symbol preflight passed for 99 test files.
+- 99 of 99 test files passed.
+- 559 of 559 tests passed.
 
 ## Production update
 
