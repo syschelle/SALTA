@@ -45,3 +45,5 @@ jobs:
           git add -A
           git commit -m "fix(logs): publish reliable automation accent and reduce CI noise"
           git push origin HEAD:work/v0.8.127-log-accent-ci-noise
+
+# Corrected preparation rerun after removing the obsolete CodeQL workflow.
