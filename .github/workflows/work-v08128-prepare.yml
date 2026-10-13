@@ -1,5 +1,6 @@
 name: Prepare SALTA v0.8.128
 
+# Temporary release-preparation gate; removed from the final release tree.
 on:
   push:
     branches:
