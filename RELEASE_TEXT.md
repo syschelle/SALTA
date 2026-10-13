@@ -35,8 +35,12 @@ v0.8.130 corrects shutdown unregister behavior and, more importantly, performs a
 - Regression coverage verifies that stale cleanup occurs before registration of the current SALTA instance ID.
 - Regression coverage verifies that clean shutdown also unregisters the same callback URL with an empty interface ID.
 - Release-validator coverage enforces the corrected callback lifecycle contract.
-- Release validator must pass for SALTA v0.8.130.
-- JavaScript syntax checks, TypeScript production build and the complete test suite must pass before release.
+- Release validator passed for SALTA v0.8.130.
+- JavaScript syntax checks passed.
+- TypeScript production build passed.
+- Test symbol preflight passed for 99 test files.
+- 99 of 99 test files passed.
+- 563 of 563 tests passed.
 
 ## Production update
 
