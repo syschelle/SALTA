@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.126 - Accent-colored automation names in system log
+
+- Automation names shown in system-log topics now use SALTA's shared accent color.
+- The color is the same `var(--accent)` token used by the `DIAGNOSE & FEHLERSUCHE` eyebrow label.
+- Only the automation name is colored; the generic log message, separator and technical log code remain unchanged.
+- The styling follows light/dark mode and configured SALTA appearance profiles automatically.
+
 ## 0.8.125 - Automation names in system-log topics
 
 - Automation system-log topics now append the configured automation name when `details.automationName` is available.

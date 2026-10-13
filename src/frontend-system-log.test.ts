@@ -41,11 +41,16 @@ describe("persistent system log frontend", () => {
     expect(cssMediaRuleContains(styles, "(max-width:760px)", ".log-toolbar", "flex-direction:column")).toBe(true);
   });
 
-  it("shows automation names directly in system-log topics", () => {
+  it("shows automation names directly in system-log topics using the shared accent color", () => {
+    expect(hasFunction(appAst, "systemLogAutomationName")).toBe(true);
     expect(hasFunction(appAst, "systemLogDisplayMessage")).toBe(true);
+    expect(hasFunction(appAst, "systemLogTopicMarkup")).toBe(true);
     expect(script).toContain("entry?.source==='automation'");
     expect(script).toContain("entry?.details?.automationName");
-    expect(script).toContain("escapeHtml(systemLogDisplayMessage(entry))");
+    expect(script).toContain("system-log-automation-name");
+    expect(script).toContain("<strong>${systemLogTopicMarkup(entry)}</strong>");
+    expect(cssRuleContains(styles, ".system-log-automation-name", "color:var(--accent)")).toBe(true);
+    expect(cssRuleContains(styles, ".eyebrow", "color:var(--accent)")).toBe(true);
   });
 
   it("keeps detailed OpenCCU errors visible and links them to the log", () => {
