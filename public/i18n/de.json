@@ -1031,7 +1031,21 @@
     "Diagnose exportieren": "Diagnose exportieren",
     "Export wird erstellt …": "Export wird erstellt …",
     "Sanitisierter Diagnoseexport wurde erstellt.": "Sanitisierter Diagnoseexport wurde erstellt.",
-    "Diagnoseexport konnte nicht erstellt werden.": "Diagnoseexport konnte nicht erstellt werden."
+    "Diagnoseexport konnte nicht erstellt werden.": "Diagnoseexport konnte nicht erstellt werden.",
+    "Protokollfilter & Zusammenfassung": "Protokollfilter & Zusammenfassung",
+    "Identische Meldungen zusammenfassen": "Identische Meldungen zusammenfassen",
+    "Wiederkehrende Meldungen mit gleichem Inhalt belegen nur einen Protokolleintrag und erhalten einen Zähler.": "Wiederkehrende Meldungen mit gleichem Inhalt belegen nur einen Protokolleintrag und erhalten einen Zähler.",
+    "Zusammenfassungsfenster": "Zusammenfassungsfenster",
+    "Minuten ohne identische Meldung, nach denen eine neue Gruppe beginnt.": "Minuten ohne identische Meldung, nach denen eine neue Gruppe beginnt.",
+    "Ausblendmuster": "Ausblendmuster",
+    "Ein Muster pro Zeile. Groß-/Kleinschreibung wird ignoriert; geprüft werden Quelle, Code und Meldung.": "Ein Muster pro Zeile. Groß-/Kleinschreibung wird ignoriert; geprüft werden Quelle, Code und Meldung.",
+    "Ausblendmuster beeinflussen nur die normale Protokollansicht. Gespeicherte Einträge bleiben für Diagnosezwecke erhalten.": "Ausblendmuster beeinflussen nur die normale Protokollansicht. Gespeicherte Einträge bleiben für Diagnosezwecke erhalten.",
+    "Filter speichern": "Filter speichern",
+    "Ausgeblendete anzeigen": "Ausgeblendete anzeigen",
+    "Wiederholungen": "Wiederholungen",
+    "Erstmals": "Erstmals",
+    "Zuletzt": "Zuletzt",
+    "Systemprotokoll-Einstellungen wurden gespeichert.": "Systemprotokoll-Einstellungen wurden gespeichert."
   },
   "patterns": [
     {

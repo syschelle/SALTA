@@ -3,7 +3,8 @@ import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { AppearanceSettings, ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, HueSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel, VacationModeSettings } from "./types.js";
+import type { AppearanceSettings, ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, HueSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel, SystemLogSettings, VacationModeSettings } from "./types.js";
+import { collapseSystemLogEntries, normalizeSystemLogSettings, systemLogEntryMatchesHiddenPatterns } from "./system-log-policy.js";
 import type { AutomationInput, AutomationRule, AutomationSequenceStep, AutomationTargetAction } from "./automations.js";
 const { Pool } = pg;
 export const pool = new Pool({ connectionString: config.DATABASE_URL, max: 10 });
@@ -1236,6 +1237,20 @@ export async function updateGeneralSettings(input: GeneralSettings): Promise<Gen
   return getGeneralSettings();
 }
 
+export async function getSystemLogSettings(): Promise<SystemLogSettings> {
+  const result = await pool.query<{ details: Record<string, unknown> }>(
+    "SELECT details FROM notification_state WHERE key='system-log-settings'"
+  );
+  return normalizeSystemLogSettings(result.rows[0]?.details);
+}
+
+export async function updateSystemLogSettings(input: SystemLogSettings): Promise<SystemLogSettings> {
+  const settings = normalizeSystemLogSettings(input);
+  await pool.query(`INSERT INTO notification_state(key,details,updated_at) VALUES('system-log-settings',$1::jsonb,now())
+    ON CONFLICT(key) DO UPDATE SET details=EXCLUDED.details,updated_at=now()`, [JSON.stringify(settings)]);
+  return settings;
+}
+
 export async function getAppearanceSettings(): Promise<AppearanceSettings> {
   const result = await pool.query<{ details: Record<string, unknown> }>(
     "SELECT details FROM notification_state WHERE key='appearance-settings'"
@@ -1387,10 +1402,46 @@ export async function writeSystemLog(
   message: string,
   details: Record<string, unknown> = {}
 ): Promise<void> {
-  await pool.query(
-    `INSERT INTO system_logs(id,level,source,code,message,details) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,
-    [randomUUID(), level, source.slice(0, 80), code?.slice(0, 120) ?? null, message.slice(0, 1000), JSON.stringify(details)]
-  );
+  const storedSource = source.slice(0, 80);
+  const storedCode = code?.slice(0, 120) ?? null;
+  const storedMessage = message.slice(0, 1000);
+  const storedDetails = { ...details };
+  delete storedDetails._repeat;
+  const serializedDetails = JSON.stringify(storedDetails);
+  const settings = await getSystemLogSettings();
+  let collapsed = false;
+
+  if (settings.collapseRepeats) {
+    const updated = await pool.query(
+      `WITH candidate AS (
+        SELECT id FROM system_logs
+        WHERE level=$1 AND source=$2 AND code IS NOT DISTINCT FROM $3 AND message=$4
+          AND (details - '_repeat') = ($5::jsonb - '_repeat')
+          AND created_at >= now() - make_interval(mins => $6::int)
+        ORDER BY created_at DESC, id DESC
+        LIMIT 1
+      )
+      UPDATE system_logs target SET
+        details=($5::jsonb - '_repeat') || jsonb_build_object('_repeat', jsonb_build_object(
+          'count', COALESCE((target.details->'_repeat'->>'count')::integer,1)+1,
+          'firstSeenAt', COALESCE(target.details->'_repeat'->>'firstSeenAt', to_char(target.created_at AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')),
+          'lastSeenAt', to_char(now() AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')
+        )),
+        created_at=now()
+      FROM candidate
+      WHERE target.id=candidate.id
+      RETURNING target.id`,
+      [level, storedSource, storedCode, storedMessage, serializedDetails, settings.repeatWindowMinutes]
+    );
+    collapsed = (updated.rowCount ?? 0) > 0;
+  }
+
+  if (!collapsed) {
+    await pool.query(
+      `INSERT INTO system_logs(id,level,source,code,message,details) VALUES($1,$2,$3,$4,$5,$6::jsonb)`,
+      [randomUUID(), level, storedSource, storedCode, storedMessage, serializedDetails]
+    );
+  }
   await pool.query("DELETE FROM system_logs WHERE created_at < now() - interval '30 days'");
   await pool.query("DELETE FROM system_logs WHERE id IN (SELECT id FROM system_logs ORDER BY created_at DESC, id DESC OFFSET 100)");
 }
@@ -1398,19 +1449,27 @@ export async function writeSystemLog(
 export async function listSystemLogs(
   limit = 100,
   source?: string,
-  level?: SystemLogLevel
+  level?: SystemLogLevel,
+  options: { includeHidden?: boolean; collapse?: boolean } = {}
 ): Promise<SystemLogEntry[]> {
+  const requestedLimit = Math.max(1, Math.min(limit, 100));
   const values: unknown[] = [];
   const conditions: string[] = [];
   if (source) { values.push(source); conditions.push(`source=$${values.length}`); }
   if (level) { values.push(level); conditions.push(`level=$${values.length}`); }
-  values.push(Math.max(1, Math.min(limit, 100)));
+  values.push(100);
   const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
   const result = await pool.query<SystemLogEntry>(
     `SELECT id,level,source,code,message,details,created_at as "createdAt" FROM system_logs ${where} ORDER BY created_at DESC LIMIT $${values.length}`,
     values
   );
-  return result.rows;
+  const settings = await getSystemLogSettings();
+  let entries = result.rows;
+  if (options.collapse && settings.collapseRepeats) entries = collapseSystemLogEntries(entries, settings.repeatWindowMinutes);
+  if (options.includeHidden === false && settings.hiddenPatterns.length) {
+    entries = entries.filter(entry => !systemLogEntryMatchesHiddenPatterns(entry, settings.hiddenPatterns));
+  }
+  return entries.slice(0, requestedLimit);
 }
 
 export async function clearSystemLogs(): Promise<void> {

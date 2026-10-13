@@ -16,10 +16,17 @@ describe("persistent system log frontend", () => {
     expect(html).toContain('id="logSourceFilter"');
     expect(html).toContain('id="logLevelFilter"');
     expect(html).toContain('id="systemLogCount"');
+    expect(html).toContain('id="systemLogSettingsForm"');
+    expect(html).toContain('id="systemLogHiddenPatterns"');
+    expect(html).toContain('id="systemLogCollapseRepeats"');
+    expect(html).toContain('id="logShowHidden"');
     expect(html).toContain('Maximal 100 Einträge, höchstens 30 Tage.');
     expect(script).toContain("api(`/api/logs?${query}`)");
     expect(script).toContain("api('/api/logs',{method:'DELETE'})");
     expect(script).toContain("new URLSearchParams({limit:'100'})");
+    expect(script).toContain("/api/settings/system-log");
+    expect(script).toContain("query.set('includeHidden','true')");
+    expect(script).toContain("system-log-repeat-badge");
     expect(script).toContain("<details class=\"system-log-details\">");
     expect(hasFunction(appAst, "copyAutomationExecution")).toBe(true);
     expect(script).toContain("salta-automation-execution-diagnostic");
@@ -29,6 +36,8 @@ describe("persistent system log frontend", () => {
     expect(cssRuleContains(styles, ".system-log-entry", "padding:9px 11px")).toBe(true);
     expect(cssRuleContains(styles, ".system-log-run-copy", "font-size:10px")).toBe(true);
     expect(cssRuleContains(styles, ".log-toolbar", "padding:11px 13px")).toBe(true);
+    expect(cssRuleContains(styles, ".system-log-repeat-badge", "font-size:10px")).toBe(true);
+    expect(cssRuleContains(styles, ".system-log-settings-form", "display:grid")).toBe(true);
     expect(cssMediaRuleContains(styles, "(max-width:760px)", ".log-toolbar", "flex-direction:column")).toBe(true);
   });
 

@@ -29,6 +29,7 @@ const requiredReleaseFiles = [
   "src/disaster-recovery-backup.ts",
   "src/diagnostic-export.ts",
   "src/diagnostic-sanitizer.ts",
+  "src/system-log-policy.ts",
   "src/runtime-settings.ts",
   "migrate-homekit-storage.sh",
   "MIGRATION_PATH.md",
@@ -240,9 +241,13 @@ if (!publicIndex.includes('id="automationRoom"')) fail("Automation room selector
 if (!automationFrontend.includes("roomId:automationElements.room?.value||null")) fail("Automation room assignment is not included in the frontend payload");
 if (!automationFrontend.includes("automationLastEventLabel") || !automationFrontend.includes("days===0?'Heute':days===1?'Gestern'")) fail("Automation relative last-event display is missing");
 const databaseSource = read("src/db.ts");
+const systemLogPolicySource = read("src/system-log-policy.ts");
 const phosconAdapterSource = read("src/phoscon-adapter.ts");
 const phosconCoreSource = read("src/phoscon-core.ts");
 if (/ALTER\s+TABLE/i.test(databaseSource)) fail("canonical database schema must not contain incremental ALTER TABLE migrations");
+if (!databaseSource.includes("getSystemLogSettings") || !databaseSource.includes("updateSystemLogSettings") || !databaseSource.includes("make_interval(mins => $6::int)") || !databaseSource.includes("details - '_repeat'")) fail("System log repeat aggregation persistence is incomplete");
+if (!systemLogPolicySource.includes("collapseSystemLogEntries") || !systemLogPolicySource.includes("systemLogEntryMatchesHiddenPatterns") || !systemLogPolicySource.includes("repeatWindowMinutes: 15")) fail("System log filtering policy is incomplete");
+if (!serverSource.includes('"/api/settings/system-log"') || !serverSource.includes("includeHidden: parsed.data.includeHidden") || !publicIndex.includes('id="systemLogHiddenPatterns"') || !publicIndex.includes('id="systemLogCollapseRepeats"') || !virtualFrontend.includes("system-log-repeat-badge")) fail("Configurable system log filtering UI/API is incomplete");
 if ((databaseSource.match(/DELETE FROM commands WHERE created_at < now\(\) - interval '90 days'/g) ?? []).length !== 2) fail("Command retention must prune entries older than 90 days at startup and during runtime");
 if ((databaseSource.match(/ORDER BY created_at DESC, id DESC OFFSET 10000/g) ?? []).length !== 2) fail("Command retention must keep at most the 10000 newest entries at startup and during runtime");
 if (!databaseSource.includes("export async function pruneCommandHistory(): Promise<void>")) fail("Command retention helper is missing");

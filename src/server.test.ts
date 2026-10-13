@@ -46,6 +46,8 @@ vi.mock("./db.js", () => ({
   getShellySettings: vi.fn(),
   getGeneralSettings: vi.fn(async () => ({ debugLevel: "off" })),
   updateGeneralSettings: vi.fn(async (input) => input),
+  getSystemLogSettings: vi.fn(async () => ({ collapseRepeats: true, repeatWindowMinutes: 15, hiddenPatterns: [] })),
+  updateSystemLogSettings: vi.fn(async (input) => input),
   getAppearanceSettings: vi.fn(async () => ({ profile: "standard", light: {}, dark: {} })),
   updateAppearanceSettings: vi.fn(async (input) => input),
   getPushoverSettings: vi.fn(async () => ({ enabled: false, userKeyConfigured: false, apiTokenConfigured: false, encryptionStatus: "ok", batteryThreshold: 20 })),
@@ -77,7 +79,7 @@ vi.mock("./disaster-recovery-backup.js", () => ({
 }));
 
 import { createDisasterRecoveryBackup, importDisasterRecoveryBackup } from "./disaster-recovery-backup.js";
-import { clearSystemLogs, deleteRoom, getAppearanceSettings, getGeneralSettings, getGlobalShellyCredentials, getHueSettings, getOpenCcuSettings, getPhosconSettings, listRooms, listSystemLogs, reorderRooms, updateAppearanceSettings, updateGeneralSettings, updateRoom } from "./db.js";
+import { clearSystemLogs, deleteRoom, getAppearanceSettings, getGeneralSettings, getGlobalShellyCredentials, getHueSettings, getOpenCcuSettings, getPhosconSettings, getSystemLogSettings, listRooms, listSystemLogs, reorderRooms, updateAppearanceSettings, updateGeneralSettings, updateRoom, updateSystemLogSettings } from "./db.js";
 import { buildServer } from "./server.js";
 
 const openServers: ReturnType<typeof buildServer>[] = [];
@@ -833,6 +835,19 @@ describe("climate mode API", () => {
 });
 
 describe("system log API", () => {
+  it("reads and updates configurable system log filtering", async () => {
+    vi.mocked(getSystemLogSettings).mockResolvedValueOnce({ collapseRepeats: true, repeatWindowMinutes: 15, hiddenPatterns: ["OPENCCU_CHANNEL_READ_PARTIAL"] });
+    const server = createServer(vi.fn());
+    const readResponse = await authenticatedInject(server, { method: "GET", url: "/api/settings/system-log" });
+    expect(readResponse.statusCode).toBe(200);
+    expect(readResponse.json()).toMatchObject({ collapseRepeats: true, repeatWindowMinutes: 15, hiddenPatterns: ["OPENCCU_CHANNEL_READ_PARTIAL"] });
+
+    vi.mocked(updateSystemLogSettings).mockResolvedValueOnce({ collapseRepeats: false, repeatWindowMinutes: 30, hiddenPatterns: ["OPENCCU_API_ERROR"] });
+    const updateResponse = await authenticatedInject(server, { method: "PUT", url: "/api/settings/system-log", payload: { collapseRepeats: false, repeatWindowMinutes: 30, hiddenPatterns: ["OPENCCU_API_ERROR"] } });
+    expect(updateResponse.statusCode).toBe(200);
+    expect(updateSystemLogSettings).toHaveBeenCalledWith({ collapseRepeats: false, repeatWindowMinutes: 30, hiddenPatterns: ["OPENCCU_API_ERROR"] });
+  });
+
   it("returns filtered persistent log entries", async () => {
     const entries = [{ id: "11111111-1111-4111-8111-111111111111", level: "error", source: "openccu", code: "OPENCCU_API_ERROR", message: "OpenCCU synchronization failed", details: { method: "Device.listAllDetail" }, createdAt: "2026-07-24T10:00:00.000Z" }];
     vi.mocked(listSystemLogs).mockResolvedValueOnce(entries as never);
@@ -842,7 +857,7 @@ describe("system log API", () => {
 
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ entries });
-    expect(listSystemLogs).toHaveBeenCalledWith(50, "openccu", "error");
+    expect(listSystemLogs).toHaveBeenCalledWith(50, "openccu", "error", { includeHidden: false, collapse: true });
   });
 
   it("defaults to 100 entries and rejects larger log requests", async () => {
@@ -851,7 +866,7 @@ describe("system log API", () => {
 
     const defaultResponse = await authenticatedInject(server, { method: "GET", url: "/api/logs" });
     expect(defaultResponse.statusCode).toBe(200);
-    expect(listSystemLogs).toHaveBeenCalledWith(100, undefined, undefined);
+    expect(listSystemLogs).toHaveBeenCalledWith(100, undefined, undefined, { includeHidden: false, collapse: true });
 
     const oversizedResponse = await authenticatedInject(server, { method: "GET", url: "/api/logs?limit=101" });
     expect(oversizedResponse.statusCode).toBe(400);
@@ -972,7 +987,7 @@ describe("web security", () => {
     expect(denied.statusCode).toBe(404);
     const allowed = await server.inject({ method: "GET", url: "/internal/health", headers: { "x-salta-health-token": "test-health-token-12345678901234567890" } });
     expect(allowed.statusCode).toBe(200);
-    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.123" });
+    expect(allowed.json()).toMatchObject({ status: "ok", version: "0.8.124" });
   });
 
   it("creates an HttpOnly session and requires CSRF for state-changing requests", async () => {
@@ -1184,7 +1199,7 @@ describe("virtual devices", () => {
 describe("disaster recovery backup API", () => {
   it("exports a password encrypted full recovery backup", async () => {
     vi.mocked(createDisasterRecoveryBackup).mockResolvedValueOnce({
-      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.123", createdAt: "2026-08-14T07:00:00.000Z",
+      format: "salta-disaster-recovery-backup", formatVersion: 1, saltaVersion: "0.8.124", createdAt: "2026-08-14T07:00:00.000Z",
       summary: { rooms: 7, devices: 49, automations: 4, presenceTargets: 2, homeKitFiles: 2 },
       encryption: { algorithm: "aes-256-gcm", kdf: "scrypt", salt: "1234567890123456", iv: "123456789012", tag: "1234567890123456" },
       ciphertext: "encrypted-payload"
@@ -1195,7 +1210,7 @@ describe("disaster recovery backup API", () => {
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["content-disposition"]).toContain("SALTA-full-backup-");
     expect(response.json().format).toBe("salta-disaster-recovery-backup");
-    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.123", "correct horse battery staple");
+    expect(createDisasterRecoveryBackup).toHaveBeenCalledWith("0.8.124", "correct horse battery staple");
   });
 
   it("imports a full recovery backup and schedules a restart", async () => {

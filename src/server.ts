@@ -17,7 +17,7 @@ import type { ClimateModeManager } from "./climate-mode.js";
 import type { BatteryMonitor } from "./battery-monitor.js";
 import type { VacationModeManager } from "./vacation-mode.js";
 import type { HomeKitBridge } from "./homekit.js";
-import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getAppearanceSettings, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getHueSettings, getPushoverSettings, getShellySettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, pruneCommandHistory, reorderRooms, updateAppearanceSettings, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, writeSystemLog } from "./db.js";
+import { clearSystemLogs, createPresenceTarget, createRoom, deletePresenceTarget, deleteRoom, getAppearanceSettings, getFritzBoxPresenceConnection, getFritzBoxPresenceSettings, getGeneralSettings, getGlobalShellyCredentials, getOpenCcuSettings, getPhosconSettings, getHueSettings, getPushoverSettings, getShellySettings, getSystemLogSettings, inspectCredentialEncryption, listPresenceTargets, listRooms, listSystemLogs, pool, pruneCommandHistory, reorderRooms, updateAppearanceSettings, updateFritzBoxPresenceSettings, updateGeneralSettings, updatePresenceTarget, updatePushoverSettings, updateRoom, updateShellySettings, updateSystemLogSettings, writeSystemLog } from "./db.js";
 import { config } from "./config.js";
 import { isHomeKitSupportedDevice, supportsPresentationOverride } from "./device-presentation.js";
 import { clearSessionCookie, createSessionCookie, isIpInNetworks, safeEqual, SecurityManager, type AuthenticatedSession, type AuthMethod } from "./security.js";
@@ -153,13 +153,19 @@ const automationEnabledSchema = z.object({ enabled: z.boolean() }).strict();
 const systemLogQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(100),
   source: z.string().trim().min(1).max(80).optional(),
-  level: z.enum(["info", "warning", "error"]).optional()
+  level: z.enum(["info", "warning", "error"]).optional(),
+  includeHidden: z.enum(["true", "false"]).optional().transform(value => value === "true")
 }).strict();
 const loginSchema = z.object({ username: z.string().max(64), password: z.string().max(1024) }).strict();
 const climateModeSchema = z.object({ mode: z.enum(["summer", "winter"]) }).strict();
 const climateModeSettingsSchema = z.object({ winterMode: z.literal("manual") }).strict();
 const vacationModeSchema = z.object({ enabled: z.boolean() }).strict();
 const generalSettingsSchema = z.object({ debugLevel: z.enum(["off", "errors", "verbose"]) }).strict();
+const systemLogSettingsSchema = z.object({
+  collapseRepeats: z.boolean().default(true),
+  repeatWindowMinutes: z.number().int().min(1).max(1440).default(15),
+  hiddenPatterns: z.array(z.string().trim().min(1).max(120)).max(50).default([])
+}).strict();
 const appearanceHexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 const appearancePaletteSchema = z.object({
   background: appearanceHexColorSchema,
@@ -714,9 +720,9 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     return reply.code(204).send();
   });
 
-  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.123" }));
+  app.get("/internal/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.124" }));
 
-  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.123", time: new Date().toISOString() }));
+  app.get("/api/health", async () => ({ status: "ok", name: "SALTA", version: "0.8.124", time: new Date().toISOString() }));
   app.get("/api/readiness", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "readiness" } }
   }, async (_request, reply) => {
@@ -1372,7 +1378,7 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     const parsed = disasterRecoveryExportSchema.safeParse(request.body);
     if (!parsed.success) return securityError(reply, request, 400, "INVALID_REQUEST", "A backup password with at least 12 characters is required.");
     try {
-      const backup = await createDisasterRecoveryBackup("0.8.123", parsed.data.password);
+      const backup = await createDisasterRecoveryBackup("0.8.124", parsed.data.password);
       const stamp = backup.createdAt.replace(/[:.]/g, "-");
       reply.header("Cache-Control", "no-store");
       reply.header("Content-Disposition", `attachment; filename="SALTA-full-backup-${stamp}.salta-backup.json"`);
@@ -1422,12 +1428,23 @@ export function buildServer(registry: DeviceRegistry, shellyAdapter: ShellyAdapt
     }
   });
 
+  app.get("/api/settings/system-log", {
+    config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "system-log-settings-read" } }
+  }, async () => getSystemLogSettings());
+  app.put<{ Body: unknown }>("/api/settings/system-log", {
+    config: { rateLimit: { max: config.RATE_LIMIT_MUTATIONS_PER_MINUTE, timeWindow: rateWindowMs, groupId: "system-log-settings-write" } }
+  }, async (request, reply) => {
+    const parsed = systemLogSettingsSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
+    return updateSystemLogSettings(parsed.data);
+  });
+
   app.get<{ Querystring: unknown }>("/api/logs", {
     config: { rateLimit: { max: 60, timeWindow: rateWindowMs, groupId: "system-logs-read" } }
   }, async (request, reply) => {
     const parsed = systemLogQuerySchema.safeParse(request.query);
     if (!parsed.success) return reply.code(400).send({ error: { code: "INVALID_REQUEST", message: parsed.error.issues[0]?.message, requestId: request.id } });
-    return { entries: await listSystemLogs(parsed.data.limit, parsed.data.source, parsed.data.level) };
+    return { entries: await listSystemLogs(parsed.data.limit, parsed.data.source, parsed.data.level, { includeHidden: parsed.data.includeHidden, collapse: true }) };
   });
   app.delete("/api/logs", {
     config: { rateLimit: { max: 6, timeWindow: rateWindowMs, groupId: "system-logs-clear" } }

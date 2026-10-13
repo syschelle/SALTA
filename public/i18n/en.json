@@ -1031,7 +1031,21 @@
     "Diagnose exportieren": "Export diagnostics",
     "Export wird erstellt …": "Creating export …",
     "Sanitisierter Diagnoseexport wurde erstellt.": "Sanitized diagnostic export created.",
-    "Diagnoseexport konnte nicht erstellt werden.": "Diagnostic export could not be created."
+    "Diagnoseexport konnte nicht erstellt werden.": "Diagnostic export could not be created.",
+    "Protokollfilter & Zusammenfassung": "Log filters & aggregation",
+    "Identische Meldungen zusammenfassen": "Collapse identical messages",
+    "Wiederkehrende Meldungen mit gleichem Inhalt belegen nur einen Protokolleintrag und erhalten einen Zähler.": "Recurring messages with identical content use one log entry and receive a repeat counter.",
+    "Zusammenfassungsfenster": "Aggregation window",
+    "Minuten ohne identische Meldung, nach denen eine neue Gruppe beginnt.": "Minutes without an identical message after which a new group starts.",
+    "Ausblendmuster": "Hidden patterns",
+    "Ein Muster pro Zeile. Groß-/Kleinschreibung wird ignoriert; geprüft werden Quelle, Code und Meldung.": "One pattern per line. Matching is case-insensitive against source, code, and message.",
+    "Ausblendmuster beeinflussen nur die normale Protokollansicht. Gespeicherte Einträge bleiben für Diagnosezwecke erhalten.": "Hidden patterns affect only the normal log view. Stored entries remain available for diagnostics.",
+    "Filter speichern": "Save filters",
+    "Ausgeblendete anzeigen": "Show hidden",
+    "Wiederholungen": "Repeats",
+    "Erstmals": "First seen",
+    "Zuletzt": "Last seen",
+    "Systemprotokoll-Einstellungen wurden gespeichert.": "System log settings saved."
   },
   "patterns": [
     {

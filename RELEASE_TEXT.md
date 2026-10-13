@@ -1,45 +1,45 @@
-# SALTA v0.8.123
+# SALTA v0.8.124
 
-SALTA v0.8.123 makes the automation overview easier to scan by grouping rules by their assigned SALTA room.
+SALTA v0.8.124 keeps the system log useful on long-running installations by making noisy messages configurable and by aggregating identical repeats instead of letting them consume the complete 100-entry retention window.
 
 ## Changes
 
-- Automations are grouped by their existing SALTA room assignment in the automation overview.
-- Room groups follow the order configured in SALTA room management.
-- Only rooms that currently contain automations are displayed.
-- Automations without a valid room assignment are collected in a final `Ohne Raum` group.
-- The existing order of automations inside each room is preserved.
-- Existing automation cards, controls and room badges remain available.
-- Trigger, condition, action, schedule and execution behavior are unchanged.
+- Added configurable hide patterns directly on the System Log page.
+- Hide patterns are case-insensitive substring matches against log source, code and message.
+- Added a `Show hidden` switch for temporarily displaying filtered entries without changing the saved configuration.
+- Added configurable repeat aggregation for identical log entries.
+- The repeat window can be configured from 1 to 1440 minutes.
+- Repeated entries keep a counter plus first-seen and last-seen timestamps.
+- Continuous identical events are updated in place instead of creating a new database row on every poll.
+- Existing retained duplicates are also collapsed when the system log is read, so installations benefit immediately after the update.
+- Hide patterns only change the normal System Log view. Stored entries remain available for diagnostics.
+- System-log settings use the existing backed-up `notification_state` persistence.
 
 ## Root Cause
 
-The automation data model already stored a `roomId`, and SALTA already maintained an explicit room order, but the automation overview rendered every rule into one flat list. With more automations this made rules from different rooms harder to scan even though the required grouping information was already available.
+The persistent system log intentionally keeps only the newest 100 entries. Repeated adapter warnings such as `OPENCCU_CHANNEL_READ_PARTIAL` could be emitted on every OpenCCU polling cycle with exactly the same details. Those duplicate records were technically useful but could quickly displace unrelated automation and adapter diagnostics from the bounded log history.
 
-v0.8.123 changes only the overview presentation. It reuses the existing room assignment and room order and does not change automation execution semantics.
+v0.8.124 separates two concerns: repeat aggregation prevents identical recurring events from consuming retention capacity, while configurable hide patterns let administrators remove known-noisy messages from the normal view without deleting their stored diagnostic information.
 
 ## Compatibility
 
 - No database schema change or migration is required.
+- Existing system-log rows remain compatible.
+- Existing log retention remains capped at 100 entries and 30 days.
+- Existing backups remain compatible; the new settings are stored in the already-backed-up `notification_state` table.
 - No npm dependency is added or changed.
 - No new mandatory environment variable is introduced.
 - Existing automations require no editing.
-- Existing room assignments remain unchanged.
-- Existing PostgreSQL and SALTA runtime volumes remain compatible.
-- Existing HomeKit pairing state remains compatible.
-- OpenCCU, Shelly, Phoscon, Hue and presence integrations are unchanged.
+- Existing PostgreSQL, SALTA runtime and HomeKit volumes remain compatible.
+- OpenCCU communication, device polling and automation execution behavior are unchanged.
 
 ## Tests
 
-- Regression coverage verifies that room groups follow SALTA room-management order.
-- Regression coverage verifies that automations without a valid room are placed in the final `Ohne Raum` group.
-- Regression coverage verifies the compact grouped layout.
-- Release validator passed for SALTA v0.8.123.
-- JavaScript syntax checks passed.
-- TypeScript production build passed.
-- Test symbol preflight passed for 97 test files.
-- 97 of 97 test files passed.
-- 553 of 553 tests passed.
+- Regression coverage verifies normalization and case-insensitive hide-pattern matching.
+- Regression coverage verifies repeat aggregation and separation of later repeat episodes.
+- API coverage verifies reading and updating the system-log settings.
+- Frontend coverage verifies the filtering controls, show-hidden switch and repeat badge.
+- Release validator, JavaScript syntax checks, TypeScript production build and complete test suite are executed by GitHub Actions before release.
 
 ## Production update
 

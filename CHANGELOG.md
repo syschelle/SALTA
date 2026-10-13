@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.124 - Configurable system-log filtering and repeat aggregation
+
+- Added configurable case-insensitive hide patterns for the system-log view, matched against source, code and message.
+- Added a temporary `Show hidden` view switch so filtered entries can be inspected without changing the saved configuration.
+- Added configurable repeat aggregation with a 1-1440 minute grouping window.
+- Identical repeated log events are persisted as one entry with repeat count, first-seen and last-seen timestamps, preventing recurring warnings from exhausting the 100-entry retention window.
+- Existing retained duplicate entries are also collapsed when read, so the improvement is visible immediately after upgrading.
+- Hidden patterns affect only the normal system-log view; stored entries remain available to diagnostic export and backup/restore.
+- Settings are persisted through the existing backed-up `notification_state` store, so no database schema migration is required.
+- Added backend policy, API and frontend regression coverage.
+
 ## 0.8.123 - Automation overview grouped by rooms
 
 - Grouped the automation overview by the existing SALTA room assignment.

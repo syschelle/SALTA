@@ -229,6 +229,12 @@ export interface GeneralSettings {
   debugLevel: SystemDebugLevel;
 }
 
+export interface SystemLogSettings {
+  collapseRepeats: boolean;
+  repeatWindowMinutes: number;
+  hiddenPatterns: string[];
+}
+
 export type AppearanceProfile = "standard" | "ocean" | "forest" | "warm" | "graphite" | "custom";
 
 export interface AppearanceSettings {
