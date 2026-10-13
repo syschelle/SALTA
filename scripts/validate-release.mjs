@@ -127,6 +127,7 @@ if (!diagnosticSanitizerSource.includes("credentialusername") || !diagnosticSani
 if (!diagnosticExportFrontend.includes("fetch('/api/diagnostics/export'") || !diagnosticExportFrontend.includes("link.download=diagnosticExportFilename(response)")) fail("Diagnostic export download wiring is incomplete");
 
 const virtualFrontend = read("public/app.js");
+if (!virtualFrontend.includes("function systemLogDisplayMessage(entry)") || !virtualFrontend.includes("entry?.source==='automation'") || !virtualFrontend.includes("entry?.details?.automationName") || !virtualFrontend.includes("escapeHtml(systemLogDisplayMessage(entry))")) fail("Automation names are missing from visible system-log topics");
 const themeInitSource = read("public/theme-init.js");
 if (!themeInitSource.includes("/openccu-duty-cycle.js") || !themeInitSource.includes(".overview-stats")) fail("Overview Duty Cycle loader is missing");
 if (!virtualFrontend.includes("function deconzUiUrl(value)") || !virtualFrontend.includes("if(url.protocol!=='http:'&&url.protocol!=='https:')return undefined") || !virtualFrontend.includes("deconzUiLink.href=href") || !virtualFrontend.includes("phosconBaseUrl.addEventListener('input',updateDeconzUiLink)")) fail("deCONZ settings direct UI-link runtime is incomplete");

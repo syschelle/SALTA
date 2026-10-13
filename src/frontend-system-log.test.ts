@@ -41,6 +41,13 @@ describe("persistent system log frontend", () => {
     expect(cssMediaRuleContains(styles, "(max-width:760px)", ".log-toolbar", "flex-direction:column")).toBe(true);
   });
 
+  it("shows automation names directly in system-log topics", () => {
+    expect(hasFunction(appAst, "systemLogDisplayMessage")).toBe(true);
+    expect(script).toContain("entry?.source==='automation'");
+    expect(script).toContain("entry?.details?.automationName");
+    expect(script).toContain("escapeHtml(systemLogDisplayMessage(entry))");
+  });
+
   it("keeps detailed OpenCCU errors visible and links them to the log", () => {
     expect(html).toContain('id="openCcuDiagnosticFeedback"');
     expect(html).toContain('href="#logs">Systemprotokoll</a>');

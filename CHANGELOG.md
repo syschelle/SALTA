@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.125 - Automation names in system-log topics
+
+- Automation system-log topics now append the configured automation name when `details.automationName` is available.
+- The change applies consistently to automation start, step, wait, failure, finish and triggered entries without opening the details panel.
+- Technical log codes, stored details, filtering, repeat aggregation and automation execution semantics remain unchanged.
+
 ## 0.8.124 - Configurable system-log filtering and repeat aggregation
 
 - Added configurable case-insensitive hide patterns for the system-log view, matched against source, code and message.
