@@ -6,6 +6,8 @@ import {
 } from "./db.js";
 import {
   interfaceNames,
+  openCcuContactChannelType,
+  openCcuContactStateEventValue,
   normalizeOpenCcuBaseUrl,
   openCcuCatalogFromDescriptions,
   openCcuDeviceFromChannel,
@@ -289,7 +291,7 @@ export class OpenCcuAdapter {
   }
 
   private queueRealtimeEvent(event: OpenCcuXmlRpcEvent): void {
-    const run = this.eventQueue.catch(() => undefined).then(() => this.applyRealtimeEvent(event));
+    const run = this.eventQueue.catch(() => undefined).then(() => this.runExclusive(() => this.applyRealtimeEvent(event)));
     this.eventQueue = run.catch(error => {
       this.log("warning", "OPENCCU_CALLBACK_EVENT_FAILED", "OpenCCU realtime event could not be applied", {
         channelAddress: event.channelAddress,
@@ -300,36 +302,58 @@ export class OpenCcuAdapter {
   }
 
   private async applyRealtimeEvent(event: OpenCcuXmlRpcEvent): Promise<void> {
-    const eventValue = openCcuButtonEventValue(event.parameter);
-    if (eventValue === undefined || event.value !== true) return;
-    const entry = this.catalog.find(candidate => candidate.channelAddress === event.channelAddress && candidate.channelType.toUpperCase() === "KEY");
+    const entry = this.catalog.find(candidate => candidate.channelAddress === event.channelAddress);
     if (!entry) return;
     const device = this.registry.all().find(candidate => candidate.source === "openccu"
       && candidate.adapterData?.interfaceName === entry.interfaceName
       && candidate.adapterData?.channelAddress === entry.channelAddress);
-    if (!device || device.type !== "button") return;
+    if (!device) return;
     const receivedAt = now();
-    const updated: Device = {
+
+    const buttonEventValue = openCcuButtonEventValue(event.parameter);
+    if (entry.channelType.toUpperCase() === "KEY" && device.type === "button" && buttonEventValue !== undefined && event.value === true) {
+      const updated: Device = {
+        ...device,
+        reachable: true,
+        state: { ...device.state, buttonEvent: buttonEventValue },
+        adapterData: {
+          ...(device.adapterData ?? {}),
+          buttonEventProtocol: "openccu-xmlrpc",
+          buttonEventTransport: "xmlrpc",
+          buttonEventParameter: event.parameter,
+          buttonEventLastUpdated: receivedAt
+        },
+        lastSeen: receivedAt,
+        lastEvent: receivedAt
+      };
+      await this.registry.set(updated);
+      this.registry.emitDeviceEvent({
+        deviceId: updated.id,
+        source: "openccu",
+        key: "buttonEvent",
+        value: buttonEventValue,
+        receivedAt
+      });
+      return;
+    }
+
+    const contactOpen = openCcuContactStateEventValue(entry.channelType, event.parameter, event.value);
+    if (device.type !== "contactSensor" || contactOpen === undefined) return;
+    const stateChanged = device.state.open !== contactOpen;
+    await this.registry.set({
       ...device,
       reachable: true,
-      state: { ...device.state, buttonEvent: eventValue },
+      state: { ...device.state, open: contactOpen },
       adapterData: {
         ...(device.adapterData ?? {}),
-        buttonEventProtocol: "openccu-xmlrpc",
-        buttonEventTransport: "xmlrpc",
-        buttonEventParameter: event.parameter,
-        buttonEventLastUpdated: receivedAt
+        stateEventOrigin: "openccu-xmlrpc",
+        stateEventTransport: "xmlrpc",
+        stateEventParameter: "STATE",
+        stateEventValue: contactOpen,
+        stateEventLastUpdated: receivedAt
       },
       lastSeen: receivedAt,
-      lastEvent: receivedAt
-    };
-    await this.registry.set(updated);
-    this.registry.emitDeviceEvent({
-      deviceId: updated.id,
-      source: "openccu",
-      key: "buttonEvent",
-      value: eventValue,
-      receivedAt
+      lastEvent: stateChanged ? receivedAt : device.lastEvent
     });
   }
 
@@ -703,9 +727,28 @@ export class OpenCcuAdapter {
         if (generation !== this.configurationGeneration) return;
         this.registry.restore(discovered.id);
         const existing = this.registry.get(discovered.id);
+        const pollStateUnchanged = Boolean(existing) && JSON.stringify(existing?.state) === JSON.stringify(discovered.state);
         const preservedButtonState = discovered.type === "button" && typeof existing?.state.buttonEvent === "number"
           ? { ...discovered.state, buttonEvent: existing.state.buttonEvent }
           : discovered.state;
+        const previousContactEventMetadata: Record<string, string | number | boolean | null> = {};
+        if (existing?.type === "contactSensor" && discovered.type === "contactSensor") {
+          for (const key of ["stateEventOrigin", "stateEventTransport", "stateEventParameter", "stateEventValue", "stateEventLastUpdated"]) {
+            const value = existing.adapterData?.[key];
+            if (value !== undefined) previousContactEventMetadata[key] = value;
+          }
+        }
+        const contactEventMetadata = discovered.type === "contactSensor"
+          ? pollStateUnchanged && Object.keys(previousContactEventMetadata).length > 0
+            ? previousContactEventMetadata
+            : {
+                stateEventOrigin: "openccu-poll",
+                stateEventTransport: "poll",
+                stateEventParameter: "STATE",
+                stateEventValue: typeof discovered.state.open === "boolean" ? discovered.state.open : null,
+                stateEventLastUpdated: discovered.lastSeen
+              }
+          : {};
         await this.registry.set({
           ...discovered,
           name: reconciledOpenCcuName(existing, discovered),
@@ -714,8 +757,9 @@ export class OpenCcuAdapter {
           presentationType: existing?.presentationType ?? discovered.presentationType,
           homekitEnabled: false,
           hidden: false,
+          adapterData: { ...(discovered.adapterData ?? {}), ...contactEventMetadata },
           state: preservedButtonState,
-          lastEvent: existing && (discovered.type === "button" || JSON.stringify(existing.state) === JSON.stringify(discovered.state)) ? existing.lastEvent : discovered.lastEvent
+          lastEvent: existing && (discovered.type === "button" || pollStateUnchanged) ? existing.lastEvent : discovered.lastEvent
         });
       }
       for (const existing of this.registry.all().filter(device => device.source === "openccu" && !seen.has(device.id))) {
@@ -730,7 +774,9 @@ export class OpenCcuAdapter {
         lastSync: now(),
         lastDiagnostic: this.status.lastDiagnostic
       };
-      const eventInterfaces = [...new Set(this.catalog.filter(entry => entry.channelType.toUpperCase() === "KEY").map(entry => entry.interfaceName))];
+      const eventInterfaces = [...new Set(this.catalog
+        .filter(entry => entry.channelType.toUpperCase() === "KEY" || openCcuContactChannelType(entry.channelType))
+        .map(entry => entry.interfaceName))];
       await this.callbackServer.ensure(connection.baseUrl, eventInterfaces).catch(error => {
         this.log("warning", "OPENCCU_CALLBACK_SETUP_FAILED", "OpenCCU realtime callback setup failed; polling remains active", {
           error: error instanceof Error ? error.message : String(error),

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.128 - Realtime classic HomeMatic contact events
+
+- Classic OpenCCU/HomeMatic contact channels such as `SHUTTER_CONTACT` now consume XML-RPC `STATE=true/false` callbacks immediately.
+- Door/window state automations no longer have to wait for the 60-second OpenCCU polling cycle when the callback path is available.
+- Realtime OpenCCU events are serialized with polling/reconciliation so stale polling data cannot overwrite a newer callback state.
+- The 60-second poll remains active as a fallback and reconciliation path.
+- Contact diagnostics retain the last state transition origin (`openccu-xmlrpc` or `openccu-poll`), transport, datapoint, value and timestamp.
+- Existing OpenCCU KEY button events, automation definitions and contact semantics remain unchanged.
+
 ## 0.8.127 - Reliable automation-name accent and quieter GitHub Actions
 
 - Automation names in System Log topics are always rendered through dedicated accent markup, including messages that already contain the configured automation name.

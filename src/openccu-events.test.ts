@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { openCcuContactStateEventValue } from "./openccu-core.js";
 import { OPENCCU_CALLBACK_PORT, openCcuButtonEventValue, openCcuXmlRpcEvents, openCcuXmlRpcInterfacePort } from "./openccu-xmlrpc.js";
 
 const instanceId = "SALTA-DIAG-1786909260382";
@@ -22,6 +23,24 @@ describe("OpenCCU XML-RPC realtime events", () => {
       { channelAddress: "PEQ1455690:2", parameter: "ACTUAL_TEMPERATURE", value: 24.5 },
       { channelAddress: "PEQ1455690:2", parameter: "ACTUAL_HUMIDITY", value: 63 }
     ]);
+  });
+
+  it("parses classic HM-Sec-SCo STATE callbacks as immediate contact states", () => {
+    const opened = `<?xml version="1.0"?><methodCall><methodName>event</methodName><params><param><value>${instanceId}</value></param><param><value>NEQ1157537:1</value></param><param><value>STATE</value></param><param><value><boolean>1</boolean></value></param></params></methodCall>`;
+    const closed = `<?xml version="1.0"?><methodCall><methodName>event</methodName><params><param><value>${instanceId}</value></param><param><value>NEQ1157537:1</value></param><param><value>STATE</value></param><param><value><boolean>0</boolean></value></param></params></methodCall>`;
+    expect(openCcuXmlRpcEvents(opened, instanceId)).toEqual([
+      { channelAddress: "NEQ1157537:1", parameter: "STATE", value: true }
+    ]);
+    expect(openCcuXmlRpcEvents(closed, instanceId)).toEqual([
+      { channelAddress: "NEQ1157537:1", parameter: "STATE", value: false }
+    ]);
+  });
+
+  it("maps only contact STATE callbacks to the boolean open state", () => {
+    expect(openCcuContactStateEventValue("SHUTTER_CONTACT", "STATE", true)).toBe(true);
+    expect(openCcuContactStateEventValue("SHUTTER_CONTACT", "STATE", false)).toBe(false);
+    expect(openCcuContactStateEventValue("SHUTTER_CONTACT", "LOWBAT", true)).toBeUndefined();
+    expect(openCcuContactStateEventValue("KEY", "STATE", true)).toBeUndefined();
   });
 
   it("rejects unknown typed XML-RPC value markup instead of stripping tags and decoding it", () => {

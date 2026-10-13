@@ -48,12 +48,18 @@ describe("OpenCCU control and naming integration", () => {
     expect(frontend).toContain("['auto','Automatik'");
   });
 
-  it("registers a realtime XML-RPC callback for HomeMatic KEY events", () => {
+  it("registers realtime XML-RPC callbacks for HomeMatic KEY and classic contact events", () => {
     expect(adapter).toContain("OpenCcuXmlRpcCallbackServer");
     expect(adapter).toContain("openCcuButtonEventValue(event.parameter)");
+    expect(adapter).toContain("openCcuContactStateEventValue(entry.channelType, event.parameter, event.value)");
+    expect(adapter).toContain("openCcuContactChannelType(entry.channelType)");
+    expect(adapter).toContain("this.runExclusive(() => this.applyRealtimeEvent(event))");
+    expect(adapter).toContain('stateEventOrigin: "openccu-xmlrpc"');
+    expect(adapter).toContain('stateEventOrigin: "openccu-poll"');
     expect(adapter).toContain('key: "buttonEvent"');
     expect(adapter).toContain("callbackServer.invalidateRegistrations()");
     expect(core).toContain('snapshot.channelType.trim().toUpperCase() === "KEY"');
+    expect(core).toContain("export function openCcuContactStateEventValue");
     expect(automationFrontend).toContain("'hm-pb-6-wm55':[1002,1001,1003]");
   });
 });

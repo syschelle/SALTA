@@ -172,8 +172,13 @@ function stateFromCommonValues(values: JsonRecord): DeviceState {
   return state;
 }
 
-function isContactChannel(type: string): boolean {
-  return /(SHUTTER_CONTACT|CONTACT|WINDOW|DOOR_SENSOR|ROTARY_HANDLE)/.test(type);
+export function openCcuContactChannelType(type: string): boolean {
+  return /(SHUTTER_CONTACT|CONTACT|WINDOW|DOOR_SENSOR|ROTARY_HANDLE)/.test(type.trim().toUpperCase());
+}
+
+export function openCcuContactStateEventValue(channelType: string, parameter: string, value: unknown): boolean | undefined {
+  if (!openCcuContactChannelType(channelType) || parameter.trim().toUpperCase() !== "STATE") return undefined;
+  return booleanValue(value);
 }
 
 function isMotionChannel(type: string): boolean {
@@ -782,7 +787,7 @@ export function openCcuDeviceFromChannel(snapshot: OpenCcuChannelSnapshot): Devi
     };
   }
 
-  if (isContactChannel(type) && stateValue !== undefined) {
+  if (openCcuContactChannelType(type) && stateValue !== undefined) {
     return { ...base, type: "contactSensor", state: { ...common, open: stateValue }, capabilities: [] };
   }
 
