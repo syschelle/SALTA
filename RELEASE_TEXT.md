@@ -32,6 +32,7 @@ v0.8.128 extends the existing callback path to classic contact sensors and seria
 ## Tests
 
 - Regression coverage parses real XML-RPC-style `STATE=true` and `STATE=false` callbacks for the classic `HM-Sec-SCo` / `SHUTTER_CONTACT` shape.
+- Runtime adapter coverage verifies that `STATE=true` immediately changes the SALTA registry state to `open=true`, that unrelated contact parameters are ignored, and that `STATE=false` changes it back to `open=false`.
 - Regression coverage verifies that only supported contact `STATE` datapoints map to the SALTA `open` state.
 - Integration-contract coverage verifies contact-interface callback registration, polling/callback serialization and diagnostic origin metadata.
 - Release validator passed for SALTA v0.8.128.
@@ -39,7 +40,7 @@ v0.8.128 extends the existing callback path to classic contact sensors and seria
 - TypeScript production build passed.
 - Test symbol preflight passed for 99 test files.
 - 99 of 99 test files passed.
-- 561 of 561 tests passed.
+- 562 of 562 tests passed.
 
 ## Production update
 
