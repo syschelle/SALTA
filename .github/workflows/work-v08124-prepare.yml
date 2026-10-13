@@ -1,0 +1,52 @@
+name: Prepare SALTA v0.8.124
+
+on:
+  push:
+    branches:
+      - work/v0.8.124-system-log-filtering
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out work branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/v0.8.124-system-log-filtering
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Prepare v0.8.124
+        shell: bash
+        run: |
+          npm run version:set -- 0.8.124
+          node scripts/prepare-v08124.mjs
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+
+      - name: Run complete quality gate
+        run: npm run check
+
+      - name: Commit prepared release
+        shell: bash
+        run: |
+          rm .github/workflows/work-v08124-prepare.yml scripts/prepare-v08124.mjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No prepared changes to commit."
+            exit 0
+          fi
+          git commit -m "feat(logs): add configurable filtering and aggregation"
+          git push origin HEAD:work/v0.8.124-system-log-filtering
