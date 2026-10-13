@@ -187,7 +187,7 @@ export async function createSanitizedDiagnosticExport(deps: DiagnosticExportDepe
   ] = await Promise.all([
     listRooms(),
     listAutomations(),
-    listSystemLogs(100),
+    listSystemLogs(100, undefined, undefined, { includeHidden: true, collapse: false }),
     getGeneralSettings(),
     getClimateModeSettings(),
     getVacationModeSettings(),
