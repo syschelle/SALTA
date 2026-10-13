@@ -140,7 +140,7 @@ function interfaceEndpoint(baseUrl: string, port: number): string {
   return endpoint.toString();
 }
 
-function initRequest(callbackUrl: string, instanceId: string): string {
+export function openCcuXmlRpcInitRequest(callbackUrl: string, instanceId: string): string {
   return `<?xml version="1.0"?><methodCall><methodName>init</methodName><params><param>${xmlStringValue(callbackUrl)}</param><param>${xmlStringValue(instanceId)}</param></params></methodCall>`;
 }
 
@@ -258,13 +258,33 @@ export class OpenCcuXmlRpcCallbackServer {
     await Promise.all(registerable.map(async ({ interfaceName, port }) => {
       const endpoint = interfaceEndpoint(baseUrl, port);
       try {
-        await postXml(endpoint, initRequest(this.callbackUrl, this.instanceId));
+        // A previous SALTA container can disappear without running stop(). HomeMatic
+        // unregisters event delivery by receiving the same callback URL with an
+        // empty interface_id. Clear that URL first so a stale instance ID cannot
+        // keep receiving events after a hard container replacement.
+        await postXml(endpoint, openCcuXmlRpcInitRequest(this.callbackUrl, ""));
+        this.log("info", "OPENCCU_CALLBACK_STALE_REGISTRATION_CLEARED", "Stale OpenCCU XML-RPC callback registration cleared", {
+          interfaceName,
+          endpoint,
+          callbackUrl: this.callbackUrl
+        });
+      } catch (error) {
+        this.log("warning", "OPENCCU_CALLBACK_STALE_REGISTRATION_CLEAR_FAILED", "Stale OpenCCU XML-RPC callback registration could not be cleared", {
+          interfaceName,
+          endpoint,
+          callbackUrl: this.callbackUrl,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+      try {
+        await postXml(endpoint, openCcuXmlRpcInitRequest(this.callbackUrl, this.instanceId));
         nextRegistrations.set(interfaceName, endpoint);
-        this.log("info", "OPENCCU_CALLBACK_REGISTERED", "OpenCCU XML-RPC callback registered", { interfaceName, endpoint });
+        this.log("info", "OPENCCU_CALLBACK_REGISTERED", "OpenCCU XML-RPC callback registered", { interfaceName, endpoint, callbackUrl: this.callbackUrl });
       } catch (error) {
         this.log("warning", "OPENCCU_CALLBACK_REGISTRATION_FAILED", "OpenCCU XML-RPC callback could not be registered", {
           interfaceName,
           endpoint,
+          callbackUrl: this.callbackUrl,
           error: error instanceof Error ? error.message : String(error)
         });
       }
@@ -275,16 +295,23 @@ export class OpenCcuXmlRpcCallbackServer {
 
   async stop(unregister = true): Promise<void> {
     const registrations = [...this.registrations.entries()];
+    const callbackUrl = this.callbackUrl;
     this.registrations.clear();
     this.registrationSignature = "";
-    if (unregister) {
+    if (unregister && callbackUrl) {
       await Promise.all(registrations.map(async ([interfaceName, endpoint]) => {
         try {
-          await postXml(endpoint, initRequest("", this.instanceId));
+          await postXml(endpoint, openCcuXmlRpcInitRequest(callbackUrl, ""));
+          this.log("info", "OPENCCU_CALLBACK_UNREGISTERED", "OpenCCU XML-RPC callback unregistered", {
+            interfaceName,
+            endpoint,
+            callbackUrl
+          });
         } catch (error) {
           this.log("warning", "OPENCCU_CALLBACK_UNREGISTER_FAILED", "OpenCCU XML-RPC callback could not be unregistered cleanly", {
             interfaceName,
             endpoint,
+            callbackUrl,
             error: error instanceof Error ? error.message : String(error)
           });
         }

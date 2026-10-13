@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { openCcuContactStateEventValue } from "./openccu-core.js";
-import { OPENCCU_CALLBACK_PORT, openCcuButtonEventValue, openCcuXmlRpcEvents, openCcuXmlRpcInterfacePort } from "./openccu-xmlrpc.js";
+import { OPENCCU_CALLBACK_PORT, openCcuButtonEventValue, openCcuXmlRpcEvents, openCcuXmlRpcInitRequest, openCcuXmlRpcInterfacePort } from "./openccu-xmlrpc.js";
 
 const instanceId = "SALTA-DIAG-1786909260382";
 
@@ -54,6 +54,13 @@ describe("OpenCCU XML-RPC realtime events", () => {
     expect(openCcuButtonEventValue("PRESS_LONG_RELEASE")).toBe(1003);
     expect(openCcuButtonEventValue("PRESS_CONT")).toBeUndefined();
     expect(openCcuButtonEventValue("INSTALL_TEST")).toBeUndefined();
+  });
+
+  it("uses HomeMatic init semantics to unregister the same callback URL with an empty interface id", () => {
+    const callbackUrl = "http://192.168.178.211:18099/";
+    const request = openCcuXmlRpcInitRequest(callbackUrl, "");
+    expect(request).toContain(`<param><value><string>${callbackUrl}</string></value></param>`);
+    expect(request).toContain("<param><value><string></string></value></param>");
   });
 
   it("uses the proven BidCos-RF and SALTA callback ports", () => {

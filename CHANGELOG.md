@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.130 - Reliable OpenCCU callback re-registration after restart
+
+- Clear any stale HomeMatic XML-RPC registration for the SALTA callback URL before registering the new SALTA instance ID.
+- Correct callback shutdown semantics to unregister with the same callback URL and an empty `interface_id`, matching the official HomeMatic XML-RPC contract.
+- Recover automatically when a previous SALTA container was replaced or killed before it could unregister its callback.
+- Keep the existing real-time contact mapping, callback/poll serialization and 60-second reconciliation fallback unchanged.
+- Add lifecycle regression coverage and release-validator enforcement for stale cleanup, fresh registration ordering and clean shutdown.
+
 ## 0.8.129 - Reliable OpenCCU contact callback binding
 
 - Bind incoming OpenCCU XML-RPC events directly to the live SALTA registry device by physical channel address instead of requiring a matching periodically refreshed catalogue entry.

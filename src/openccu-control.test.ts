@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { functionSource, functionTransitivelyCalls, hasFunction, parseJavaScriptSource } from "../test-utils/source-inspection.js";
 
 const adapter = readFileSync(new URL("./openccu-adapter.ts", import.meta.url), "utf8");
+const xmlRpc = readFileSync(new URL("./openccu-xmlrpc.ts", import.meta.url), "utf8");
 const thermostatController = readFileSync(new URL("./openccu-thermostat-controller.ts", import.meta.url), "utf8");
 const core = readFileSync(new URL("./openccu-core.ts", import.meta.url), "utf8");
 const frontend = readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
@@ -59,6 +60,13 @@ describe("OpenCCU control and naming integration", () => {
     expect(adapter).toContain('stateEventOrigin: "openccu-poll"');
     expect(adapter).toContain('key: "buttonEvent"');
     expect(adapter).toContain("callbackServer.invalidateRegistrations()");
+    const staleClear = 'await postXml(endpoint, openCcuXmlRpcInitRequest(this.callbackUrl, ""));';
+    const freshRegister = 'await postXml(endpoint, openCcuXmlRpcInitRequest(this.callbackUrl, this.instanceId));';
+    expect(xmlRpc).toContain(staleClear);
+    expect(xmlRpc).toContain(freshRegister);
+    expect(xmlRpc.indexOf(staleClear)).toBeLessThan(xmlRpc.indexOf(freshRegister));
+    expect(xmlRpc).toContain('await postXml(endpoint, openCcuXmlRpcInitRequest(callbackUrl, ""));');
+    expect(xmlRpc).not.toContain('openCcuXmlRpcInitRequest("", this.instanceId)');
     expect(core).toContain('snapshot.channelType.trim().toUpperCase() === "KEY"');
     expect(core).toContain("export function openCcuContactStateEventValue");
     expect(automationFrontend).toContain("'hm-pb-6-wm55':[1002,1001,1003]");
