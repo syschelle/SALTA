@@ -1,42 +1,43 @@
-# SALTA v0.8.126
+# SALTA v0.8.127
 
-SALTA v0.8.126 visually separates automation names in the System Log by using the same shared accent color as the `DIAGNOSE & FEHLERSUCHE` label.
+SALTA v0.8.127 makes the System Log automation-name accent reliable and significantly reduces redundant GitHub Actions runs without reducing the SALTA test suite.
 
 ## Changes
 
-- Automation names appended to System Log topics are now rendered as a dedicated element.
-- Only the automation name uses SALTA's shared `var(--accent)` color; the message text, separator and technical log code keep their existing appearance.
-- The automation-name color therefore follows SALTA light/dark mode and configured appearance profiles automatically.
-- Existing automation names continue to come from the already stored `details.automationName` diagnostic field.
-- Automation execution, log persistence, filtering, repeat aggregation and diagnostic export are unchanged.
+- Automation names in System Log topics always receive dedicated accent markup.
+- The automation name uses the same shared `var(--accent)` color as the `DIAGNOSE & FEHLERSUCHE` label.
+- Messages that already contain the configured automation name are now split safely so only the automation name receives the accent color.
+- Full CI no longer runs automatically for every `work/**` branch push. Automatic full CI remains enabled for `main` and real pull requests, and it can still be started manually.
+- Superseded CI runs are cancelled automatically.
+- The obsolete repository-specific CodeQL workflow was removed; GitHub's repository-level dynamic code scanning remains separate.
+- Release-tag publishing no longer repeats `npm ci` and the full `npm run check` suite. Instead it verifies that the tagged commit belongs to `main`, that the tag matches the package version, and that the release validator passes before the container is built.
 
 ## Root Cause
 
-v0.8.125 made the automation name visible directly in the System Log topic, but it was rendered inside the same escaped text node as the generic log message. This made the name readable without opening Details, but it could not be styled independently.
+The v0.8.126 source change was present on `main`, but v0.8.126 was never tagged or published. Therefore the published `latest` container remained v0.8.125 and could not contain the color change. In addition, the v0.8.126 rendering helper deliberately skipped dedicated markup when the automation name was already present in the message text, so those messages would still have appeared without the requested accent.
 
-v0.8.126 renders only the automation name in a dedicated span and assigns the existing shared accent token used by the System Log's `DIAGNOSE & FEHLERSUCHE` eyebrow. No new hard-coded color is introduced.
+GitHub Actions also performed more work than necessary: full CI ran on every work-branch push, an obsolete repository-specific CodeQL workflow produced configuration-level failures, and the release workflow repeated the complete test suite after the same commit had already passed main CI.
+
+v0.8.127 fixes the rendering path and consolidates quality checks so the complete test suite remains authoritative while redundant executions are removed.
 
 ## Compatibility
 
 - No database schema change or migration is required.
-- Existing system-log rows remain compatible.
-- Existing automation definitions require no editing.
+- Existing system-log rows and automation definitions remain compatible.
 - No npm dependency is added or changed.
 - No new mandatory environment variable is introduced.
 - Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain compatible.
-- OpenCCU, Shelly, Phoscon, Hue and presence integrations are unchanged.
+- OpenCCU, Shelly, Phoscon, Hue, presence and automation execution behavior are unchanged.
 
 ## Tests
 
-- Regression coverage verifies dedicated automation-name topic markup.
-- Regression coverage verifies that the automation-name style and the diagnostic eyebrow both use `var(--accent)`.
-- Release-validator coverage enforces the same shared accent-color contract.
-- Release validator passed for SALTA v0.8.126.
-- JavaScript syntax checks passed.
-- TypeScript production build passed.
-- Test symbol preflight passed for 99 test files.
-- 99 of 99 test files passed.
-- 559 of 559 tests passed.
+- Regression coverage verifies dedicated automation-name markup and the shared accent color.
+- Regression coverage now also verifies the branch where the automation name is already contained in the log message.
+- Release-validator coverage enforces the automation-name accent contract and the reduced GitHub Actions execution policy.
+- Release validator must pass for SALTA v0.8.127.
+- JavaScript syntax checks must pass.
+- TypeScript production build must pass.
+- The complete Vitest suite must pass on `main` before release.
 
 ## Production update
 

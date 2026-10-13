@@ -41,17 +41,19 @@ const requiredReleaseFiles = [
   "public/i18n.js",
   "public/i18n/de.json",
   "public/i18n/en.json",
-  ".github/workflows/codeql.yml",
+  ".github/workflows/ci.yml",
+  ".github/workflows/release.yml",
 ];
 for (const file of requiredReleaseFiles) {
   if (!existsSync(resolve(root, file))) fail(`required release file is missing: ${file}`);
 }
 
-const codeQlWorkflow = read(".github/workflows/codeql.yml");
-if (!codeQlWorkflow.includes("javascript-typescript") || !codeQlWorkflow.includes("- actions")) fail("CodeQL advanced setup must analyze both JavaScript/TypeScript and GitHub Actions");
-if (!codeQlWorkflow.includes("github/codeql-action/init@v4") || !codeQlWorkflow.includes("github/codeql-action/analyze@v4")) fail("CodeQL advanced setup must use CodeQL Action v4");
-if (!codeQlWorkflow.includes("codeql-bundle-v2.26.2/codeql-bundle-linux64.tar.gz")) fail("CodeQL advanced setup compatibility pin must use the v2.26.2 Linux bundle");
-if (!codeQlWorkflow.includes("security-events: write")) fail("CodeQL advanced setup is missing permission to upload security results");
+const ciWorkflow = read(".github/workflows/ci.yml");
+if (ciWorkflow.includes('"work/**"')) fail("CI must not run automatically on every work-branch push");
+if (!ciWorkflow.includes("workflow_dispatch:") || !ciWorkflow.includes("cancel-in-progress: true")) fail("CI must remain manually runnable and cancel superseded runs");
+const releaseWorkflow = read(".github/workflows/release.yml");
+if (releaseWorkflow.includes("npm run check") || releaseWorkflow.includes("npm ci")) fail("Release publishing must not duplicate the full main CI test suite");
+if (!releaseWorkflow.includes('git merge-base --is-ancestor "$GITHUB_SHA" origin/main') || !releaseWorkflow.includes("scripts/validate-release.mjs")) fail("Release publishing must verify main ancestry and the release contract");
 
 const optionalDeploymentScripts = ["install.sh", "update.sh", "backup.sh", "restore.sh"];
 for (const file of optionalDeploymentScripts) {
@@ -128,7 +130,8 @@ if (!diagnosticExportFrontend.includes("fetch('/api/diagnostics/export'") || !di
 
 const virtualFrontend = read("public/app.js");
 if (!virtualFrontend.includes("function systemLogAutomationName(entry)") || !virtualFrontend.includes("function systemLogDisplayMessage(entry)") || !virtualFrontend.includes("function systemLogTopicMarkup(entry)") || !virtualFrontend.includes("system-log-automation-name") || !virtualFrontend.includes("<strong>${systemLogTopicMarkup(entry)}</strong>")) fail("Automation names are missing from visible system-log topics");
-if (!read("public/styles.css").includes(".system-log-automation-name{color:var(--accent)}") || !read("public/styles.css").includes(".eyebrow{font-size:12px;letter-spacing:.14em;font-weight:800;color:var(--accent)}")) fail("Automation names must use the same shared accent color as diagnostic eyebrow labels");
+if (!virtualFrontend.includes("const nameIndex=message.indexOf(automationName)") || !virtualFrontend.includes("message.slice(nameIndex+automationName.length)")) fail("Automation names already present in log messages must still receive dedicated accent markup");
+if (!read("public/styles.css").includes(".system-log-message-line .system-log-automation-name{color:var(--accent)}") || !read("public/styles.css").includes(".eyebrow{font-size:12px;letter-spacing:.14em;font-weight:800;color:var(--accent)}")) fail("Automation names must use the same shared accent color as diagnostic eyebrow labels");
 const themeInitSource = read("public/theme-init.js");
 if (!themeInitSource.includes("/openccu-duty-cycle.js") || !themeInitSource.includes(".overview-stats")) fail("Overview Duty Cycle loader is missing");
 if (!virtualFrontend.includes("function deconzUiUrl(value)") || !virtualFrontend.includes("if(url.protocol!=='http:'&&url.protocol!=='https:')return undefined") || !virtualFrontend.includes("deconzUiLink.href=href") || !virtualFrontend.includes("phosconBaseUrl.addEventListener('input',updateDeconzUiLink)")) fail("deCONZ settings direct UI-link runtime is incomplete");

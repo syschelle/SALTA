@@ -48,8 +48,10 @@ describe("persistent system log frontend", () => {
     expect(script).toContain("entry?.source==='automation'");
     expect(script).toContain("entry?.details?.automationName");
     expect(script).toContain("system-log-automation-name");
+    expect(script).toContain("const nameIndex=message.indexOf(automationName)");
+    expect(script).toContain("message.slice(nameIndex+automationName.length)");
     expect(script).toContain("<strong>${systemLogTopicMarkup(entry)}</strong>");
-    expect(cssRuleContains(styles, ".system-log-automation-name", "color:var(--accent)")).toBe(true);
+    expect(cssRuleContains(styles, ".system-log-message-line .system-log-automation-name", "color:var(--accent)")).toBe(true);
     expect(cssRuleContains(styles, ".eyebrow", "color:var(--accent)")).toBe(true);
   });
 

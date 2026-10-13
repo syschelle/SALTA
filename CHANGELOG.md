@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.127 - Reliable automation-name accent and quieter GitHub Actions
+
+- Automation names in System Log topics are always rendered through dedicated accent markup, including messages that already contain the configured automation name.
+- The automation name uses the same shared `var(--accent)` color as `DIAGNOSE & FEHLERSUCHE`.
+- Full CI no longer runs automatically on every `work/**` push; it runs on `main`, real pull requests and manual dispatch.
+- Superseded CI runs are cancelled automatically.
+- The obsolete repository-specific CodeQL workflow was removed; GitHub's repository-level dynamic code scanning remains available separately.
+- Release publishing no longer repeats the complete test suite after the same commit already passed main CI; it verifies main ancestry, tag/version consistency and the release contract before building the container.
+
 ## 0.8.126 - Accent-colored automation names in system log
 
 - Automation names shown in system-log topics now use SALTA's shared accent color.
