@@ -19,7 +19,9 @@ describe("full sanitized SALTA diagnostic export", () => {
     expect(main).toContain("registerDiagnosticExportRoute(server");
     expect(backend).toContain('server.get("/api/diagnostics/export"');
     expect(backend).toContain("listAutomations()");
-    expect(backend).toContain("listSystemLogs(100)");
+    expect(backend).toContain(
+      "listSystemLogs(100, undefined, undefined, { includeHidden: true, collapse: false })"
+    );
     expect(backend).toContain("deps.registry.all().map(safeDiagnosticDevice)");
     expect(backend).toContain("presenceTargets.map(safePresenceTarget)");
     expect(backend).toContain("assertDiagnosticDoesNotContainSecrets(payload, secrets)");

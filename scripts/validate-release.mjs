@@ -122,7 +122,7 @@ const diagnosticExportSource = read("src/diagnostic-export.ts");
 const diagnosticSanitizerSource = read("src/diagnostic-sanitizer.ts");
 const diagnosticExportFrontend = read("public/diagnostic-export.js");
 if (!publicIndex.includes('id="diagnosticExportButton"') || !publicIndex.includes('onclick="exportSaltaDiagnostics()"') || !publicIndex.includes('<script src="/diagnostic-export.js"></script>')) fail("Sanitized diagnostic export frontend is missing");
-if (!diagnosticExportSource.includes('server.get("/api/diagnostics/export"') || !diagnosticExportSource.includes("listAutomations()") || !diagnosticExportSource.includes("listSystemLogs(100)") || !diagnosticExportSource.includes("assertDiagnosticDoesNotContainSecrets(payload, secrets)")) fail("Sanitized diagnostic export backend is incomplete");
+if (!diagnosticExportSource.includes('server.get("/api/diagnostics/export"') || !diagnosticExportSource.includes("listAutomations()") || !diagnosticExportSource.includes("listSystemLogs(100, undefined, undefined, { includeHidden: true, collapse: false })") || !diagnosticExportSource.includes("assertDiagnosticDoesNotContainSecrets(payload, secrets)")) fail("Sanitized diagnostic export backend is incomplete or system-log filters leak into diagnostics");
 if (!diagnosticSanitizerSource.includes("credentialusername") || !diagnosticSanitizerSource.includes("encryptedapitoken") || !diagnosticSanitizerSource.includes("DIAGNOSTIC_EXPORT_SECRET_GUARD")) fail("Diagnostic export secret sanitizer is incomplete");
 if (!diagnosticExportFrontend.includes("fetch('/api/diagnostics/export'") || !diagnosticExportFrontend.includes("link.download=diagnosticExportFilename(response)")) fail("Diagnostic export download wiring is incomplete");
 
