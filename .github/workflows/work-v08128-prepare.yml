@@ -1,6 +1,6 @@
-name: Prepare SALTA v0.8.128
+name: Validate SALTA v0.8.128
 
-# Temporary release-preparation gate; removed from the final release tree.
+# Temporary final branch gate; removed from the release tree after validation.
 on:
   push:
     branches:
@@ -9,10 +9,10 @@ on:
       - .github/workflows/work-v08128-prepare.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  prepare:
+  check:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
 
@@ -29,12 +29,6 @@ jobs:
           node-version: 24
           cache: npm
 
-      - name: Prepare v0.8.128
-        run: node scripts/prepare-v08128.mjs
-
-      - name: Apply TypeScript-safe metadata copy
-        run: node scripts/fix-v08128-typing.mjs
-
       - name: Validate npm lockfile registry
         shell: bash
         run: |
@@ -49,13 +43,5 @@ jobs:
       - name: Run complete quality gate
         run: npm run check
 
-      - name: Commit validated release source
-        shell: bash
-        run: |
-          rm scripts/prepare-v08128.mjs scripts/fix-v08128-typing.mjs
-          git diff --check
-          git config user.name "syschelle"
-          git config user.email "93097494+syschelle@users.noreply.github.com"
-          git add -A
-          git commit -m "feat(openccu): realtime classic contact events"
-          git push origin HEAD:work/v0.8.128-openccu-contact-realtime
+      - name: Verify clean source tree
+        run: git diff --check
