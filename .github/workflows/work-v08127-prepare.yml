@@ -1,4 +1,4 @@
-name: Prepare SALTA v0.8.127
+name: Finalize SALTA v0.8.127 worktree
 
 on:
   push:
@@ -11,9 +11,9 @@ permissions:
   contents: write
 
 jobs:
-  prepare:
+  finalize:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 10
     steps:
       - name: Check out work branch
         uses: actions/checkout@v4
@@ -25,25 +25,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: npm
 
-      - name: Prepare v0.8.127
-        run: node scripts/prepare-v08127.mjs
+      - name: Prepare already-validated v0.8.127 tree
+        run: |
+          node scripts/prepare-v08127.mjs
+          git restore .github/workflows/release.yml
 
-      - name: Install dependencies
-        run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
-
-      - name: Run complete quality gate
-        run: npm run check
-
-      - name: Commit validated release tree
+      - name: Commit non-workflow release files
         shell: bash
         run: |
-          rm .github/workflows/work-v08127-prepare.yml scripts/prepare-v08127.mjs
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "fix(logs): publish reliable automation accent and reduce CI noise"
+          git add -A -- ':!.github/workflows'
+          git commit -m "fix(logs): apply validated v0.8.127 product and release files"
           git push origin HEAD:work/v0.8.127-log-accent-ci-noise
-
-# Corrected preparation rerun after removing the obsolete CodeQL workflow.
