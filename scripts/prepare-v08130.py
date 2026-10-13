@@ -1,5 +1,7 @@
 from pathlib import Path
 
+# Temporary release-preparation helper for the v0.8.130 validation branch.
+
 
 def replace_once(path: str, old: str, new: str) -> None:
     p = Path(path)
