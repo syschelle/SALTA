@@ -32,12 +32,15 @@ v0.8.127 fixes the rendering path and consolidates quality checks so the complet
 ## Tests
 
 - Regression coverage verifies dedicated automation-name markup and the shared accent color.
-- Regression coverage now also verifies the branch where the automation name is already contained in the log message.
+- Regression coverage also verifies the branch where the automation name is already contained in the log message.
 - Release-validator coverage enforces the automation-name accent contract and the reduced GitHub Actions execution policy.
-- Release validator must pass for SALTA v0.8.127.
-- JavaScript syntax checks must pass.
-- TypeScript production build must pass.
-- The complete Vitest suite must pass on `main` before release.
+- Release validator passed for SALTA v0.8.127.
+- JavaScript syntax checks passed.
+- TypeScript production build passed.
+- Test symbol preflight passed for 99 test files.
+- 99 of 99 test files passed.
+- 559 of 559 tests passed.
+- Full CI on `main` remains the authoritative release gate before tagging.
 
 ## Production update
 
