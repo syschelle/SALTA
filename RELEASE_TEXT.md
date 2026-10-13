@@ -32,7 +32,12 @@ v0.8.125 reuses the existing `details.automationName` value in the presentation 
 
 - Regression coverage verifies that automation log topics use the existing `automationName` diagnostic field.
 - Release-validator coverage requires the automation-name presentation contract.
-- Release validator, JavaScript syntax checks, TypeScript production build and complete test suite are executed by GitHub Actions before release.
+- Release validator passed for SALTA v0.8.125.
+- JavaScript syntax checks passed.
+- TypeScript production build passed.
+- Test symbol preflight passed for 99 test files.
+- 99 of 99 test files passed.
+- 559 of 559 tests passed.
 
 ## Production update
 
