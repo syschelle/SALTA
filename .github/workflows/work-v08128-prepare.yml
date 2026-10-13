@@ -1,0 +1,57 @@
+name: Prepare SALTA v0.8.128
+
+on:
+  push:
+    branches:
+      - work/v0.8.128-openccu-contact-realtime
+    paths:
+      - .github/workflows/work-v08128-prepare.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: work/v0.8.128-openccu-contact-realtime
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Prepare v0.8.128
+        run: node scripts/prepare-v08128.mjs
+
+      - name: Validate npm lockfile registry
+        shell: bash
+        run: |
+          if grep -q "packages.applied-caas-gateway\|internal.api.openai.org" package-lock.json; then
+            echo "::error::package-lock.json contains an internal npm registry URL"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+
+      - name: Run complete quality gate
+        run: npm run check
+
+      - name: Commit validated release source
+        shell: bash
+        run: |
+          rm scripts/prepare-v08128.mjs
+          git diff --check
+          git config user.name "syschelle"
+          git config user.email "93097494+syschelle@users.noreply.github.com"
+          git add -A
+          git commit -m "feat(openccu): realtime classic contact events"
+          git push origin HEAD:work/v0.8.128-openccu-contact-realtime
