@@ -31,6 +31,9 @@ jobs:
       - name: Prepare v0.8.128
         run: node scripts/prepare-v08128.mjs
 
+      - name: Apply TypeScript-safe metadata copy
+        run: node scripts/fix-v08128-typing.mjs
+
       - name: Validate npm lockfile registry
         shell: bash
         run: |
@@ -48,7 +51,7 @@ jobs:
       - name: Commit validated release source
         shell: bash
         run: |
-          rm scripts/prepare-v08128.mjs
+          rm scripts/prepare-v08128.mjs scripts/fix-v08128-typing.mjs
           git diff --check
           git config user.name "syschelle"
           git config user.email "93097494+syschelle@users.noreply.github.com"
