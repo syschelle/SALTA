@@ -20,7 +20,7 @@ write("public/app.js", app);
 
 let frontendTest = read("src/frontend-system-log.test.ts");
 const testMarker = '  it("keeps detailed OpenCCU errors visible and links them to the log", () => {';
-const topicTest = `  it("shows automation names directly in system-log topics", () => {\n    expect(script).toContain("function systemLogDisplayMessage(entry)");\n    expect(script).toContain("entry?.source==='automation'");\n    expect(script).toContain("entry?.details?.automationName");\n    expect(script).toContain("escapeHtml(systemLogDisplayMessage(entry))");\n  });\n\n`;
+const topicTest = `  it("shows automation names directly in system-log topics", () => {\n    expect(hasFunction(appAst, "systemLogDisplayMessage")).toBe(true);\n    expect(script).toContain("entry?.source==='automation'");\n    expect(script).toContain("entry?.details?.automationName");\n    expect(script).toContain("escapeHtml(systemLogDisplayMessage(entry))");\n  });\n\n`;
 frontendTest = replaceOnce(frontendTest, testMarker, `${topicTest}${testMarker}`, "frontend system-log regression test");
 write("src/frontend-system-log.test.ts", frontendTest);
 
