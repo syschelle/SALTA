@@ -27,7 +27,15 @@ jobs:
           cache: npm
 
       - name: Prepare v0.8.126
-        run: node scripts/prepare-v08126.mjs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/prepare-v08126.mjs')
+          source = path.read_text()
+          source = source.replace('\\\\${systemLogTopicMarkup(entry)}', '\\${systemLogTopicMarkup(entry)}')
+          path.write_text(source)
+          PY
+          node scripts/prepare-v08126.mjs
 
       - name: Install dependencies
         run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
