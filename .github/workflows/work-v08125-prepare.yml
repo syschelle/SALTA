@@ -6,6 +6,7 @@ on:
       - work/v0.8.125-automation-log-name
     paths:
       - .github/workflows/work-v08125-prepare.yml
+      - scripts/prepare-v08125.mjs
 
 permissions:
   contents: write
