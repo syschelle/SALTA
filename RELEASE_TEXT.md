@@ -39,7 +39,13 @@ v0.8.124 separates two concerns: repeat aggregation prevents identical recurring
 - Regression coverage verifies repeat aggregation and separation of later repeat episodes.
 - API coverage verifies reading and updating the system-log settings.
 - Frontend coverage verifies the filtering controls, show-hidden switch and repeat badge.
-- Release validator, JavaScript syntax checks, TypeScript production build and complete test suite are executed by GitHub Actions before release.
+- Diagnostic-export coverage verifies that saved hide patterns do not suppress diagnostic log data.
+- Release validator passed for SALTA v0.8.124.
+- JavaScript syntax checks passed.
+- TypeScript production build passed.
+- Test symbol preflight passed for 99 test files.
+- 99 of 99 test files passed.
+- 558 of 558 tests passed.
 
 ## Production update
 
