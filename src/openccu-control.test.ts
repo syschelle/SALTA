@@ -51,7 +51,8 @@ describe("OpenCCU control and naming integration", () => {
   it("registers realtime XML-RPC callbacks for HomeMatic KEY and classic contact events", () => {
     expect(adapter).toContain("OpenCcuXmlRpcCallbackServer");
     expect(adapter).toContain("openCcuButtonEventValue(event.parameter)");
-    expect(adapter).toContain("openCcuContactStateEventValue(entry.channelType, event.parameter, event.value)");
+    expect(adapter).toContain("openCcuContactStateEventValue(channelType, event.parameter, event.value)");
+    expect(adapter).toContain("candidate.adapterData?.channelAddress === event.channelAddress");
     expect(adapter).toContain("openCcuContactChannelType(entry.channelType)");
     expect(adapter).toContain("this.runExclusive(() => this.applyRealtimeEvent(event))");
     expect(adapter).toContain('stateEventOrigin: "openccu-xmlrpc"');

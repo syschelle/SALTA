@@ -26,8 +26,8 @@ describe("OpenCCU XML-RPC realtime events", () => {
   });
 
   it("parses classic HM-Sec-SCo STATE callbacks as immediate contact states", () => {
-    const opened = `<?xml version="1.0"?><methodCall><methodName>event</methodName><params><param><value>${instanceId}</value></param><param><value>NEQ1157537:1</value></param><param><value>STATE</value></param><param><value><boolean>1</boolean></value></param></params></methodCall>`;
-    const closed = `<?xml version="1.0"?><methodCall><methodName>event</methodName><params><param><value>${instanceId}</value></param><param><value>NEQ1157537:1</value></param><param><value>STATE</value></param><param><value><boolean>0</boolean></value></param></params></methodCall>`;
+    const opened = `<?xml version="1.0" encoding="iso-8859-1"?><methodCall><methodName>system.multicall</methodName><params><param><value><array><data><value><struct><member><name>methodName</name><value>event</value></member><member><name>params</name><value><array><data><value>${instanceId}</value><value>NEQ1157537:1</value><value>STATE</value><value><boolean>1</boolean></value></data></array></value></member></struct></value></data></array></value></param></params></methodCall>`;
+    const closed = `<?xml version="1.0" encoding="iso-8859-1"?><methodCall><methodName>system.multicall</methodName><params><param><value><array><data><value><struct><member><name>methodName</name><value>event</value></member><member><name>params</name><value><array><data><value>${instanceId}</value><value>NEQ1157537:1</value><value>STATE</value><value><boolean>0</boolean></value></data></array></value></member></struct></value></data></array></value></param></params></methodCall>`;
     expect(openCcuXmlRpcEvents(opened, instanceId)).toEqual([
       { channelAddress: "NEQ1157537:1", parameter: "STATE", value: true }
     ]);

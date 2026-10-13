@@ -302,16 +302,20 @@ export class OpenCcuAdapter {
   }
 
   private async applyRealtimeEvent(event: OpenCcuXmlRpcEvent): Promise<void> {
-    const entry = this.catalog.find(candidate => candidate.channelAddress === event.channelAddress);
-    if (!entry) return;
+    // XML-RPC callbacks already identify the physical channel address. Bind the
+    // event to the live registry device instead of requiring a matching entry
+    // in the periodically refreshed catalogue. The registry carries the exact
+    // channel type/interface metadata used when the device was discovered and
+    // remains the authoritative source for automation state updates.
     const device = this.registry.all().find(candidate => candidate.source === "openccu"
-      && candidate.adapterData?.interfaceName === entry.interfaceName
-      && candidate.adapterData?.channelAddress === entry.channelAddress);
+      && candidate.adapterData?.channelAddress === event.channelAddress);
     if (!device) return;
+    const channelType = String(device.adapterData?.channelType ?? "").trim();
+    if (!channelType) return;
     const receivedAt = now();
 
     const buttonEventValue = openCcuButtonEventValue(event.parameter);
-    if (entry.channelType.toUpperCase() === "KEY" && device.type === "button" && buttonEventValue !== undefined && event.value === true) {
+    if (channelType.toUpperCase() === "KEY" && device.type === "button" && buttonEventValue !== undefined && event.value === true) {
       const updated: Device = {
         ...device,
         reachable: true,
@@ -337,7 +341,7 @@ export class OpenCcuAdapter {
       return;
     }
 
-    const contactOpen = openCcuContactStateEventValue(entry.channelType, event.parameter, event.value);
+    const contactOpen = openCcuContactStateEventValue(channelType, event.parameter, event.value);
     if (device.type !== "contactSensor" || contactOpen === undefined) return;
     const stateChanged = device.state.open !== contactOpen;
     await this.registry.set({

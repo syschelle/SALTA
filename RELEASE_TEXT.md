@@ -1,29 +1,32 @@
-# SALTA v0.8.128
+# SALTA v0.8.129
 
-SALTA v0.8.128 makes classic HomeMatic/OpenCCU contact-state automations react immediately to XML-RPC STATE callbacks instead of relying only on the 60-second polling cycle.
+SALTA v0.8.129 fixes delayed classic HomeMatic contact automations by binding received OpenCCU XML-RPC events directly to the live SALTA device registry.
 
 ## Changes
 
-- Classic HomeMatic contact channels such as `SHUTTER_CONTACT` now process OpenCCU XML-RPC `STATE=true` and `STATE=false` callbacks in real time.
-- Contact callbacks update the existing SALTA boolean `open` state, so existing automations such as `Contact = Open` use the faster event path without being reconfigured.
-- OpenCCU realtime events are serialized with JSON-RPC polling/reconciliation to prevent stale polling results from overwriting a newer callback state.
-- Callback registration now includes interfaces containing supported contact channels as well as HomeMatic KEY channels.
-- The existing 60-second JSON-RPC polling path remains active as fallback and reconciliation.
-- Contact adapter diagnostics record whether the last observed state transition came from `openccu-xmlrpc` or `openccu-poll`, together with transport, datapoint, value and timestamp.
-- Existing realtime KEY button events remain unchanged.
+- OpenCCU realtime callbacks now resolve their SALTA device directly by the physical HomeMatic channel address stored in the live registry.
+- Callback application no longer requires a matching entry in the periodically refreshed OpenCCU catalogue.
+- Classic `HM-Sec-SCo` / `SHUTTER_CONTACT` `STATE=true` and `STATE=false` events therefore update the existing SALTA `open` state on the realtime callback path.
+- The existing 60-second JSON-RPC poll remains active as fallback and reconciliation.
+- Existing callback/poll serialization remains in place so stale polling data cannot overwrite a newer callback update.
+- Existing OpenCCU KEY button callbacks continue to use the same realtime path.
+- The contact regression now uses the exact `system.multicall` XML envelope captured from the production OpenCCU connection.
 
 ## Root Cause
 
-SALTA already registered an OpenCCU XML-RPC callback, but the runtime handler accepted only HomeMatic KEY events such as `PRESS_SHORT`. Normal contact `STATE` callbacks were parsed by the XML-RPC layer but discarded by the OpenCCU adapter. As a result, a classic BidCos contact automation could react only after the next 60-second JSON-RPC reconciliation noticed the `STATE` transition.
+Production packet capture proved that OpenCCU successfully delivered `NEQ1157537:1 / STATE / true|false` callbacks to SALTA on TCP port 18099. SALTA still showed the contact transition origin as `openccu-poll`, and the automation executed only when the 60-second poll observed the state change.
 
-v0.8.128 extends the existing callback path to classic contact sensors and serializes callback handling with polling so the registry cannot be reverted by an older concurrent polling snapshot.
+The v0.8.128 callback handler parsed the event correctly but required a matching entry from the adapter's periodically refreshed catalogue before it would look up and update the SALTA device. That catalogue dependency is unnecessary for an already discovered device and can silently discard a valid realtime event while catalogue state is stale, incomplete or recovering. The SALTA registry already contains the exact channel address and channel type required to apply the event.
+
+v0.8.129 removes that catalogue gate from realtime event application and binds the callback directly to the live registry metadata.
 
 ## Compatibility
 
 - No database schema change or migration is required.
 - Existing automations require no editing.
 - Classic HomeMatic/BidCos contact semantics remain `STATE=false = closed` and `STATE=true = open`.
-- The existing 60-second OpenCCU polling path remains enabled.
+- The OpenCCU callback port remains TCP 18099 and BidCos-RF registration remains on port 2001.
+- The 60-second OpenCCU poll remains enabled as fallback/reconciliation.
 - Existing OpenCCU KEY button callbacks remain compatible.
 - No npm dependency is added or changed.
 - No new mandatory environment variable is introduced.
@@ -31,16 +34,11 @@ v0.8.128 extends the existing callback path to classic contact sensors and seria
 
 ## Tests
 
-- Regression coverage parses real XML-RPC-style `STATE=true` and `STATE=false` callbacks for the classic `HM-Sec-SCo` / `SHUTTER_CONTACT` shape.
-- Runtime adapter coverage verifies that `STATE=true` immediately changes the SALTA registry state to `open=true`, that unrelated contact parameters are ignored, and that `STATE=false` changes it back to `open=false`.
-- Regression coverage verifies that only supported contact `STATE` datapoints map to the SALTA `open` state.
-- Integration-contract coverage verifies contact-interface callback registration, polling/callback serialization and diagnostic origin metadata.
-- Release validator passed for SALTA v0.8.128.
-- JavaScript syntax checks passed.
-- TypeScript production build passed.
-- Test symbol preflight passed for 99 test files.
-- 99 of 99 test files passed.
-- 562 of 562 tests passed.
+- XML-RPC regression coverage parses the exact production `system.multicall` envelope for `HM-Sec-SCo` `STATE=true/false` callbacks.
+- Runtime adapter coverage verifies that the contact updates immediately from registry metadata even with an empty OpenCCU adapter catalogue.
+- Runtime coverage continues to verify that unrelated `LOWBAT` events do not change the contact `open` state.
+- Existing KEY button realtime-event regression coverage remains active.
+- Release validator, JavaScript syntax checks, TypeScript production build and the complete test suite must pass before release.
 
 ## Production update
 

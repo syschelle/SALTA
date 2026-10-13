@@ -88,11 +88,11 @@ describe("OpenCCU realtime event application", () => {
     registry.hydrate(device!);
     const adapter = new OpenCcuAdapter(registry);
     const internal = adapter as unknown as {
-      catalog: OpenCcuCatalogEntry[];
       applyRealtimeEvent(event: { channelAddress: string; parameter: string; value: string | number | boolean }): Promise<void>;
     };
-    internal.catalog = [entry];
 
+    // Deliberately leave the adapter catalogue empty. Production callbacks
+    // must bind through the live registry metadata for the channel address.
     await internal.applyRealtimeEvent({ channelAddress: "NEQ1157537:1", parameter: "STATE", value: true });
     const opened = registry.get(device!.id);
     expect(opened).toMatchObject({

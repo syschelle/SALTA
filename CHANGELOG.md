@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.129 - Reliable OpenCCU contact callback binding
+
+- Bind incoming OpenCCU XML-RPC events directly to the live SALTA registry device by physical channel address instead of requiring a matching periodically refreshed catalogue entry.
+- Classic `HM-Sec-SCo` / `SHUTTER_CONTACT` `STATE=true/false` callbacks can therefore update `open` immediately even when catalogue refresh/recovery state is stale or incomplete.
+- Keep the 60-second poll as reconciliation/fallback and retain the existing callback/poll serialization that protects against stale poll overwrites.
+- Regression coverage now uses the exact `system.multicall` contact packet shape observed on the production OpenCCU connection.
+- Runtime regression coverage proves that contact callback application succeeds with an empty adapter catalogue when the device is present in the SALTA registry.
+
 ## 0.8.128 - Realtime classic HomeMatic contact events
 
 - Classic OpenCCU/HomeMatic contact channels such as `SHUTTER_CONTACT` now consume XML-RPC `STATE=true/false` callbacks immediately.
