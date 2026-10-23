@@ -13,7 +13,7 @@ SALTA v0.8.131 keeps OpenCCU JSON-RPC sessions alive and automatically recovers 
 
 ## Root Cause
 
-SALTA authenticated correctly with OpenCCU but cached the returned JSON-RPC session ID indefinitely. The clients never called `Session.renew`, even though OpenCCU explicitly requires sessions to be renewed before they expire.
+SALTA authenticated correctly with OpenCCU but cached the returned JSON-RPC session ID indefinitely. The clients never called `Session.renew`, even though OpenCCU requires sessions to be renewed before they expire.
 
 After expiration, OpenCCU can answer authenticated methods such as `Interface.getParamset` and `Interface.setValue` with `access denied ("GUEST" needed 0)`. SALTA's previous expired-session detector did not recognize this response, so it kept reusing the stale session instead of logging in again. This caused manual wall-thermostat changes and scheduled temperature automations to fail until a fresh SALTA/OpenCCU session was created.
 
@@ -35,7 +35,13 @@ v0.8.131 adds proactive session renewal and a bounded one-time re-login/retry pa
 - Regression coverage verifies that the dedicated thermostat-control client renews a long-lived session before reuse.
 - Runtime adapter coverage verifies the same automatic re-authentication behavior for normal OpenCCU synchronization.
 - Release-validator coverage enforces renewal and expired-session recovery in both OpenCCU JSON-RPC clients.
-- Release validator, JavaScript syntax checks, TypeScript production build and the complete test suite must pass before release.
+- Release validator passed for SALTA v0.8.131.
+- JavaScript syntax checks passed.
+- TypeScript production build passed.
+- Test symbol preflight passed for 100 test files.
+- 100 of 100 test files passed.
+- 566 of 566 tests passed.
+- Final full CI on `main` must pass before tagging.
 
 ## Production update
 
