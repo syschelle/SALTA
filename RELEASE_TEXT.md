@@ -41,7 +41,7 @@ v0.8.131 adds proactive session renewal and a bounded one-time re-login/retry pa
 - Test symbol preflight passed for 100 test files.
 - 100 of 100 test files passed.
 - 566 of 566 tests passed.
-- Final full CI on `main` must pass before tagging.
+- Full CI on `main` passed successfully.
 
 ## Production update
 
