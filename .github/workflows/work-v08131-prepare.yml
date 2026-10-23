@@ -1,0 +1,48 @@
+name: Prepare SALTA v0.8.131
+
+on:
+  push:
+    branches:
+      - work/v0.8.131-openccu-session-renewal
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-and-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out work branch
+        uses: actions/checkout@v4
+        with:
+          ref: work/v0.8.131-openccu-session-renewal
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Bump complete release to 0.8.131
+        run: npm run version:set -- 0.8.131
+
+      - name: Apply OpenCCU session renewal fix
+        run: python3 scripts/prepare-v08131.py
+
+      - name: Run complete quality gate
+        run: npm run check
+
+      - name: Commit validated release tree
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(openccu): renew expired JSON-RPC sessions" || exit 0
+          git push origin HEAD:work/v0.8.131-openccu-session-renewal
