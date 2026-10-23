@@ -12,6 +12,7 @@ export interface OpenCcuControlTransport {
 }
 
 const requestTimeoutMs = 15_000;
+const sessionRenewIntervalMs = 5 * 60_000;
 
 export function openCcuSetValueWireType(valueType: unknown): string {
   const normalized = String(valueType ?? "").trim().toLowerCase();
@@ -28,11 +29,12 @@ export function openCcuControlRpcParams(method: string, params: JsonRecord): Jso
 
 function sessionInvalid(error: unknown): boolean {
   const message = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-  return /(invalid|unknown|expired|missing) session|session (?:is )?(?:invalid|unknown|expired|missing)|not (?:logged|signed) in/.test(message);
+  return /(invalid|unknown|expired|missing) session|session (?:is )?(?:invalid|unknown|expired|missing)|not (?:logged|signed) in|access denied\s*\([^)]*needed\s+0\)/.test(message);
 }
 
 export class OpenCcuControlClient implements OpenCcuControlTransport {
   private sessionId?: string;
+  private sessionRenewedAt = 0;
   private loginTask?: Promise<void>;
   private connectionSignature = "";
   private activeConnection?: OpenCcuControlConnection;
@@ -46,6 +48,7 @@ export class OpenCcuControlClient implements OpenCcuControlTransport {
     const signature = this.signature(connection);
     if (signature === this.connectionSignature) return;
     this.sessionId = undefined;
+    this.sessionRenewedAt = 0;
     this.loginTask = undefined;
     this.connectionSignature = signature;
     this.activeConnection = { ...connection };
@@ -97,6 +100,7 @@ export class OpenCcuControlClient implements OpenCcuControlTransport {
         : stringValue(record(result)._session_id_ ?? record(result).session_id);
       if (!sessionId) throw new Error("OPENCCU_AUTHENTICATION_FAILED");
       this.sessionId = sessionId;
+      this.sessionRenewedAt = Date.now();
     })().finally(() => {
       if (this.loginTask === task) this.loginTask = undefined;
     });
@@ -104,17 +108,34 @@ export class OpenCcuControlClient implements OpenCcuControlTransport {
     return task;
   }
 
+  private invalidateSession(): void {
+    this.sessionId = undefined;
+    this.sessionRenewedAt = 0;
+  }
+
+  private async renewSessionIfNeeded(connection: OpenCcuControlConnection): Promise<void> {
+    const sessionId = this.sessionId;
+    if (!sessionId || Date.now() - this.sessionRenewedAt < sessionRenewIntervalMs) return;
+    const result = await this.post(connection, "Session.renew", { _session_id_: sessionId });
+    const renewedSessionId = typeof result === "string"
+      ? result.trim()
+      : stringValue(record(result)._session_id_ ?? record(result).session_id);
+    if (renewedSessionId) this.sessionId = renewedSessionId;
+    this.sessionRenewedAt = Date.now();
+  }
+
   async call(connection: OpenCcuControlConnection, method: string, params: JsonRecord = {}): Promise<unknown> {
     this.resetForConnection(connection);
     for (let attempt = 0; attempt < 2; attempt += 1) {
       await this.login(connection);
-      const sessionId = this.sessionId;
-      if (!sessionId) throw new Error("OPENCCU_AUTHENTICATION_FAILED");
       try {
+        await this.renewSessionIfNeeded(connection);
+        const sessionId = this.sessionId;
+        if (!sessionId) throw new Error("OPENCCU_AUTHENTICATION_FAILED");
         return await this.post(connection, method, { _session_id_: sessionId, ...params });
       } catch (error) {
         if (attempt === 0 && sessionInvalid(error)) {
-          this.sessionId = undefined;
+          this.invalidateSession();
           continue;
         }
         throw error;
@@ -128,6 +149,7 @@ export class OpenCcuControlClient implements OpenCcuControlTransport {
     const sessionId = this.sessionId;
     const connection = this.activeConnection;
     this.sessionId = undefined;
+    this.sessionRenewedAt = 0;
     this.loginTask = undefined;
     this.connectionSignature = "";
     this.activeConnection = undefined;

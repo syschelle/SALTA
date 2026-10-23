@@ -139,6 +139,33 @@ describe("OpenCCU in-app diagnostics", () => {
     expect(adapter.getStatus().connected).toBe(true);
   });
 
+  it("re-authenticates the runtime session when OpenCCU reports GUEST needed 0", async () => {
+    let loginNumber = 0;
+    let rejectFirstInterfaceCall = true;
+    vi.stubGlobal("fetch", vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body ?? "{}")) as { id: number; method: string };
+      if (body.method === "Session.login") return rpcResult(body.id, `session-${++loginNumber}`);
+      if (body.method === "Interface.listInterfaces") {
+        if (rejectFirstInterfaceCall) {
+          rejectFirstInterfaceCall = false;
+          return rpcError(body.id, 400, 'access denied ("GUEST" needed 0)');
+        }
+        return rpcResult(body.id, ["BidCos-RF"]);
+      }
+      if (body.method === "Device.listAllDetail") return rpcResult(body.id, []);
+      if (body.method === "Interface.listDevices") return rpcResult(body.id, []);
+      if (body.method === "Session.logout") return rpcResult(body.id, true);
+      throw new Error(`Unexpected method ${body.method}`);
+    }));
+
+    const adapter = new OpenCcuAdapter(registry);
+    await adapter.reconcile(true, "manual");
+    await adapter.stop();
+
+    expect(loginNumber).toBe(2);
+    expect(adapter.getStatus().connected).toBe(true);
+  });
+
   it("reuses one runtime session across periodic synchronizations and logs out on stop", async () => {
     const methods: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {

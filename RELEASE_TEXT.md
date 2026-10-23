@@ -1,46 +1,41 @@
-# SALTA v0.8.130
+# SALTA v0.8.131
 
-SALTA v0.8.130 makes OpenCCU XML-RPC callback registration recover reliably after SALTA container restarts, including hard container replacements where the previous process could not unregister cleanly.
+SALTA v0.8.131 keeps OpenCCU JSON-RPC sessions alive and automatically recovers sessions that OpenCCU reports as unauthenticated after expiration.
 
 ## Changes
 
-- SALTA now proactively clears any stale OpenCCU XML-RPC registration for its callback URL before registering the current SALTA instance ID.
-- Callback cleanup uses the official HomeMatic XML-RPC `init(url, interface_id)` contract: the callback URL stays unchanged and `interface_id` is empty when unregistering.
-- Normal SALTA shutdown now uses the same correct unregister semantics.
-- Callback lifecycle logs include the callback URL for startup cleanup, registration and clean shutdown diagnostics.
-- Existing classic HomeMatic/BidCos contact `STATE=true/false` handling remains unchanged.
-- The 60-second OpenCCU polling path remains available as fallback and reconciliation.
+- Both SALTA OpenCCU JSON-RPC clients now renew long-lived sessions periodically using `Session.renew`.
+- The dedicated thermostat-control client no longer keeps an unrenewed session indefinitely.
+- The normal OpenCCU synchronization client uses the same renewal behavior.
+- `access denied ("GUEST" needed 0)` is recognized as the OpenCCU expired/unauthenticated-session response seen in production.
+- On that response SALTA discards the stale session, performs one fresh `Session.login`, and retries the original OpenCCU request once.
+- Existing thermostat datapoints, classic HomeMatic/BidCos mappings, XML-RPC callbacks and the v0.8.130 contact-event fix remain unchanged.
 
 ## Root Cause
 
-Production packet capture proved that OpenCCU delivered the `HM-Sec-SCo` door contact events to the SALTA callback URL, but the updated SALTA process still showed only `openccu-poll` as the contact-state origin. A hard container replacement can leave the previous XML-RPC callback registration behind because the old process never reaches its shutdown cleanup.
+SALTA authenticated correctly with OpenCCU but cached the returned JSON-RPC session ID indefinitely. The clients never called `Session.renew`, even though OpenCCU explicitly requires sessions to be renewed before they expire.
 
-SALTA also used the HomeMatic XML-RPC unregister parameters in the wrong direction: it sent an empty callback URL together with the old instance ID. The official HomeMatic XML-RPC contract requires unregistering the same callback URL with an empty `interface_id`.
+After expiration, OpenCCU can answer authenticated methods such as `Interface.getParamset` and `Interface.setValue` with `access denied ("GUEST" needed 0)`. SALTA's previous expired-session detector did not recognize this response, so it kept reusing the stale session instead of logging in again. This caused manual wall-thermostat changes and scheduled temperature automations to fail until a fresh SALTA/OpenCCU session was created.
 
-v0.8.130 corrects shutdown unregister behavior and, more importantly, performs an explicit stale-registration cleanup for the callback URL before every fresh process registration. This makes the callback lifecycle recover after both clean and hard SALTA restarts.
+v0.8.131 adds proactive session renewal and a bounded one-time re-login/retry path for this production response.
 
 ## Compatibility
 
 - No database schema change or migration is required.
-- Existing automations require no editing.
-- Existing OpenCCU device mappings and classic BidCos contact semantics remain unchanged.
-- The SALTA callback port remains TCP 18099 and BidCos-RF XML-RPC remains on port 2001.
+- Existing OpenCCU credentials and device mappings remain unchanged.
+- Classic HomeMatic/BidCos thermostat datapoints remain unchanged.
+- OpenCCU XML-RPC callbacks and contact automations remain unchanged.
 - No npm dependency is added or changed.
 - No new mandatory environment variable is introduced.
 - Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain compatible.
 
 ## Tests
 
-- Regression coverage verifies that stale callback cleanup uses the same callback URL with an empty interface ID.
-- Regression coverage verifies that stale cleanup occurs before registration of the current SALTA instance ID.
-- Regression coverage verifies that clean shutdown also unregisters the same callback URL with an empty interface ID.
-- Release-validator coverage enforces the corrected callback lifecycle contract.
-- Release validator passed for SALTA v0.8.130.
-- JavaScript syntax checks passed.
-- TypeScript production build passed.
-- Test symbol preflight passed for 99 test files.
-- 99 of 99 test files passed.
-- 563 of 563 tests passed.
+- Regression coverage verifies automatic re-login and retry for the production `access denied ("GUEST" needed 0)` response.
+- Regression coverage verifies that the dedicated thermostat-control client renews a long-lived session before reuse.
+- Runtime adapter coverage verifies the same automatic re-authentication behavior for normal OpenCCU synchronization.
+- Release-validator coverage enforces renewal and expired-session recovery in both OpenCCU JSON-RPC clients.
+- Release validator, JavaScript syntax checks, TypeScript production build and the complete test suite must pass before release.
 
 ## Production update
 

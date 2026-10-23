@@ -1,6 +1,6 @@
 # SALTA migration paths
 
-## Current v0.8.130 update
+## Current v0.8.131 update
 
 v0.8.120 separates OpenCCU thermostat execution from automation policy. Existing automation records are not migrated or rewritten: every stored sequence step keeps its configured device ID, action, order and individual value.
 

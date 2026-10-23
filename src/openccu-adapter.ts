@@ -37,6 +37,7 @@ const pollIntervalMs = 60_000;
 const reconnectIntervalMs = 15_000;
 const sessionRetryDelayMs = 60_000;
 const requestTimeoutMs = 15_000;
+const sessionRenewIntervalMs = 5 * 60_000;
 const catalogRefreshMs = 15 * 60_000;
 const supportedInterfaces = new Set(["BidCos-RF", "BidCos-Wired", "HmIP-RF", "VirtualDevices"]);
 const now = (): string => new Date().toISOString();
@@ -90,7 +91,7 @@ export function openCcuErrorInfo(error: unknown): OpenCcuErrorInfo {
 
 function sessionInvalidError(info: OpenCcuErrorInfo): boolean {
   const message = `${info.message ?? ""} ${info.remoteCode ?? ""}`.toLowerCase();
-  return /(invalid|unknown|expired|missing) session|session (?:is )?(?:invalid|unknown|expired|missing)|not (?:logged|signed) in/.test(message);
+  return /(invalid|unknown|expired|missing) session|session (?:is )?(?:invalid|unknown|expired|missing)|not (?:logged|signed) in|access denied\s*\([^)]*needed\s+0\)/.test(message);
 }
 
 function mappedError(error: unknown, method: string): OpenCcuAdapterError {
@@ -113,6 +114,7 @@ function mappedError(error: unknown, method: string): OpenCcuAdapterError {
 
 class OpenCcuJsonRpcClient {
   private sessionId?: string;
+  private sessionRenewedAt = 0;
   private loginTask?: Promise<void>;
   private requestId = 0;
 
@@ -197,6 +199,7 @@ class OpenCcuJsonRpcClient {
         : stringValue(record(result)._session_id_ ?? record(result).session_id);
       if (!sessionId) throw new OpenCcuAdapterError("OPENCCU_AUTHENTICATION_FAILED", "Session.login");
       this.sessionId = sessionId;
+      this.sessionRenewedAt = Date.now();
     })().finally(() => {
       if (this.loginTask === task) this.loginTask = undefined;
     });
@@ -206,13 +209,26 @@ class OpenCcuJsonRpcClient {
 
   invalidateSession(): void {
     this.sessionId = undefined;
+    this.sessionRenewedAt = 0;
+  }
+
+  private async renewSessionIfNeeded(): Promise<void> {
+    const sessionId = this.sessionId;
+    if (!sessionId || Date.now() - this.sessionRenewedAt < sessionRenewIntervalMs) return;
+    const result = await this.post("Session.renew", { _session_id_: sessionId }, undefined, false);
+    const renewedSessionId = typeof result === "string"
+      ? result.trim()
+      : stringValue(record(result)._session_id_ ?? record(result).session_id);
+    if (renewedSessionId) this.sessionId = renewedSessionId;
+    this.sessionRenewedAt = Date.now();
   }
 
   async call(method: string, params: JsonRecord = {}, interfaceName?: string): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       await this.login();
-      if (!this.sessionId) throw new OpenCcuAdapterError("OPENCCU_AUTHENTICATION_FAILED", "Session.login");
       try {
+        await this.renewSessionIfNeeded();
+        if (!this.sessionId) throw new OpenCcuAdapterError("OPENCCU_AUTHENTICATION_FAILED", "Session.login");
         return await this.post(method, { _session_id_: this.sessionId, ...params }, interfaceName);
       } catch (error) {
         const info = openCcuErrorInfo(error);
@@ -230,6 +246,7 @@ class OpenCcuJsonRpcClient {
     await this.loginTask?.catch(() => undefined);
     const sessionId = this.sessionId;
     this.sessionId = undefined;
+    this.sessionRenewedAt = 0;
     if (!sessionId) return true;
     try {
       await this.post("Session.logout", { _session_id_: sessionId }, undefined, observe);

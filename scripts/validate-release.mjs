@@ -728,5 +728,11 @@ if (!styleInspectionHelper.includes("cssMediaRuleContains") || !styleInspectionH
   fail("style-inspection.ts must provide media-query-aware CSS inspection helpers");
 }
 
+const v08131ControlClientSource = read("src/openccu-control-client.ts");
+const v08131SessionTestSource = read("src/openccu-session-renewal.test.ts");
+if (!openCcuAdapterSource.includes('"Session.renew"') || !v08131ControlClientSource.includes('"Session.renew"')) fail("OpenCCU runtime and thermostat clients must renew long-lived JSON-RPC sessions");
+if (!openCcuAdapterSource.includes("needed\\s+0") || !v08131ControlClientSource.includes("needed\\s+0")) fail("OpenCCU clients must recover the production GUEST-needed-0 expired-session response");
+if (!v08131SessionTestSource.includes("re-authenticates and retries when OpenCCU reports access denied GUEST needed 0") || !v08131SessionTestSource.includes("renews a long-lived session before reusing it")) fail("OpenCCU session renewal/re-authentication regression coverage is missing");
+
 console.log(`Release validator contract: SALTA v${version} / test-config-from-tsconfig.json`);
 console.log(`Release validation passed for SALTA v${version}.`);

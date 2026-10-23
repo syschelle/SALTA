@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.131 - OpenCCU JSON-RPC session renewal
+
+- Renew long-lived OpenCCU JSON-RPC sessions before they can silently expire.
+- Treat OpenCCU's real `access denied ("GUEST" needed 0)` response as an expired/unauthenticated session and perform one automatic re-login plus retry.
+- Apply the recovery to both the normal OpenCCU synchronization client and the dedicated thermostat-control client.
+- Prevent manual thermostat changes and scheduled temperature automations from failing after SALTA has been running for an extended period.
+- Add behavior regression coverage for proactive renewal and production-style expired-session recovery.
+
 ## 0.8.130 - Reliable OpenCCU callback re-registration after restart
 
 - Clear any stale HomeMatic XML-RPC registration for the SALTA callback URL before registering the new SALTA instance ID.
