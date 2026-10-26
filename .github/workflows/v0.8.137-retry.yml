@@ -47,12 +47,8 @@ jobs:
           from pathlib import Path
           p=Path('scripts/validate-release.mjs')
           text=p.read_text()
-          old='''const fritzBoxSmartHomeSource = read("src/fritzbox-smarthome.ts");
-if (!fritzBoxSmartHomeSource.includes("FRITZBOX_SMARTHOME_FRITZOS_DETECTED") || !fritzBoxSmartHomeSource.includes("fritzOsVersion")) fail("FRITZ!OS Smart Home diagnostics are missing");
-'''
-          new='''const fritzBoxSmartHomeVersionSource = read("src/fritzbox-smarthome.ts");
-if (!fritzBoxSmartHomeVersionSource.includes("FRITZBOX_SMARTHOME_FRITZOS_DETECTED") || !fritzBoxSmartHomeVersionSource.includes("fritzOsVersion")) fail("FRITZ!OS Smart Home diagnostics are missing");
-'''
+          old = 'const fritzBoxSmartHomeSource = read("src/fritzbox-smarthome.ts");\n' + 'if (!fritzBoxSmartHomeSource.includes("FRITZBOX_SMARTHOME_FRITZOS_DETECTED") || !fritzBoxSmartHomeSource.includes("fritzOsVersion")) fail("FRITZ!OS Smart Home diagnostics are missing");\n'
+          new = 'const fritzBoxSmartHomeVersionSource = read("src/fritzbox-smarthome.ts");\n' + 'if (!fritzBoxSmartHomeVersionSource.includes("FRITZBOX_SMARTHOME_FRITZOS_DETECTED") || !fritzBoxSmartHomeVersionSource.includes("fritzOsVersion")) fail("FRITZ!OS Smart Home diagnostics are missing");\n'
           if text.count(old)!=1: raise SystemExit(f'expected one validator addition, found {text.count(old)}')
           p.write_text(text.replace(old,new,1))
           PY
