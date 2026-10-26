@@ -41,26 +41,40 @@ jobs:
           p.write_text(json.dumps(data, indent=2, ensure_ascii=False)+'\n')
           PY
           npm install --no-audit --no-fund --registry=https://registry.npmjs.org/
-      - name: Adapt SALTA schemas for Zod 4
+      - name: Adapt SALTA schemas and security tests
         run: |
           python3 - <<'PY'
           from pathlib import Path
           replacements = {
-            'src/configuration-backup.ts': (
-              'const backupRowSchema = z.record(z.unknown());',
-              'const backupRowSchema = z.record(z.string(), z.unknown());'
-            ),
-            'src/disaster-recovery-backup.ts': (
-              'runtimeSettings: z.record(z.string()),',
-              'runtimeSettings: z.record(z.string(), z.string()),'
-            )
+            'src/configuration-backup.ts': [
+              ('const backupRowSchema = z.record(z.unknown());', 'const backupRowSchema = z.record(z.string(), z.unknown());')
+            ],
+            'src/disaster-recovery-backup.ts': [
+              ('runtimeSettings: z.record(z.string()),', 'runtimeSettings: z.record(z.string(), z.string()),')
+            ],
+            'src/dependency-security.test.ts': [
+              ('expect(packageJson.dependencies?.fastify).toBe("^5.12.5");', 'expect(packageJson.dependencies?.fastify).toBe("^5.12.6");'),
+              ('versionAtLeast(entry.version, "5.12.5")', 'versionAtLeast(entry.version, "5.12.6")'),
+              ('if (major === 3) expect(versionAtLeast(entry.version, "3.1.8")).toBe(true);', 'if (major === 3) expect(versionAtLeast(entry.version, "3.1.9")).toBe(true);'),
+              ('if (major === 4) expect(versionAtLeast(entry.version, "4.1.5")).toBe(true);', 'if (major === 4) expect(versionAtLeast(entry.version, "4.2.3")).toBe(true);'),
+              ('it("keeps the Vitest toolchain on the patched 4.1.11 line", () => {', 'it("keeps the Vitest toolchain on the patched 4.1.12 line", () => {'),
+              ('expect(packageJson.devDependencies?.vitest).toBe("^4.1.11");', 'expect(packageJson.devDependencies?.vitest).toBe("^4.1.12");'),
+              ('expect(versionAtLeast(entry.version, "4.1.11")).toBe(true);', 'expect(versionAtLeast(entry.version, "4.1.12")).toBe(true);')
+            ]
           }
-          for path, (old, new) in replacements.items():
-            p = Path(path)
-            text = p.read_text()
-            if text.count(old) != 1:
-              raise SystemExit(f'{path}: expected exactly one Zod 3 record signature, found {text.count(old)}')
-            p.write_text(text.replace(old, new, 1))
+          for path, pairs in replacements.items():
+            p=Path(path); text=p.read_text()
+            for old,new in pairs:
+              if text.count(old) != 1:
+                raise SystemExit(f'{path}: expected exactly one match for {old!r}, found {text.count(old)}')
+              text=text.replace(old,new,1)
+            p.write_text(text)
+          p=Path('src/dependency-security.test.ts')
+          text=p.read_text()
+          anchor='''  it("removes vulnerable Tinypool releases and patches source-map-js", () => {\n'''
+          zod_test='''  it("keeps Zod on the patched 4.6.6 release line", () => {\n    const { packageJson, packageLock } = readPackageFiles();\n\n    expect(packageJson.dependencies?.zod).toBe("^4.6.6");\n    const entries = matchingEntries(packageLock, "zod");\n    expect(entries.length).toBeGreaterThan(0);\n    for (const [, entry] of entries) {\n      expect(versionAtLeast(entry.version, "4.6.6")).toBe(true);\n    }\n  });\n\n'''
+          if text.count(anchor) != 1: raise SystemExit('dependency security test anchor missing')
+          p.write_text(text.replace(anchor,zod_test+anchor,1))
           PY
       - name: Update dependency security release contract
         run: |
@@ -98,18 +112,16 @@ jobs:
           from pathlib import Path
           changelog=Path('CHANGELOG.md')
           text=changelog.read_text()
-          entry='''## 0.8.138 - Security dependency updates\n\n- Upgrade Fastify to the patched 5.12.6 release line.\n- Upgrade Zod to the patched 4.6.6 release line and adapt record schemas to the Zod 4 API.\n- Upgrade Vitest to the patched 4.1.12 release line.\n- Pin transitive fast-uri consumers to patched 3.1.9 and 4.2.3 releases.\n- Update the existing release-validator dependency security floors so vulnerable versions cannot regress.\n\n'''
+          entry='''## 0.8.138 - Security dependency updates\n\n- Upgrade Fastify to the patched 5.12.6 release line.\n- Upgrade Zod to the patched 4.6.6 release line and adapt record schemas to the Zod 4 API.\n- Upgrade Vitest to the patched 4.1.12 release line.\n- Pin transitive fast-uri consumers to patched 3.1.9 and 4.2.3 releases.\n- Update release-validator and regression-test security floors so vulnerable versions cannot regress.\n\n'''
           if not text.startswith('# Changelog\n\n'): raise SystemExit('unexpected changelog header')
           changelog.write_text('# Changelog\n\n'+entry+text[len('# Changelog\n\n'):])
-
           migration=Path('MIGRATION_PATH.md')
           m=migration.read_text()
           marker='v0.8.137 adds a diagnostic FRITZ!OS version query through the official TR-064 DeviceInfo service before Smart Home SID authentication. PBKDF2 challenge validation remains authoritative; the firmware version never re-enables legacy MD5 authentication. No schema migration, credential rewrite or device re-import is required.'
           replacement='v0.8.138 updates vulnerable runtime, validation and test dependencies to patched releases. It includes the FRITZ!OS diagnostics introduced in v0.8.137 and keeps PBKDF2-only FRITZ!Box Smart Home authentication unchanged. No schema migration, credential rewrite or device re-import is required.'
           if marker not in m: raise SystemExit('migration marker missing')
           migration.write_text(m.replace(marker,replacement,1))
-
-          Path('RELEASE_TEXT.md').write_text('''# SALTA v0.8.138\n\nSALTA v0.8.138 updates security-sensitive npm dependencies to patched releases and supersedes the unreleased v0.8.137 tree.\n\n## Changes\n\n- Upgrade Fastify from the vulnerable 5.12.5 release to the patched 5.12.6 release line.\n- Upgrade Zod from the vulnerable 3.x release line to the patched 4.6.6 release line.\n- Adapt the two SALTA backup record schemas to the Zod 4 `z.record(keySchema, valueSchema)` API without changing accepted backup data.\n- Upgrade Vitest from 4.1.11 to the patched 4.1.12 release line, which also updates `@vitest/mocker`.\n- Update transitive `fast-uri` overrides from 3.1.8 to 3.1.9 and from 4.2.2 to 4.2.3.\n- Update the existing release-validator dependency security floors so vulnerable versions cannot silently regress.\n- Retain all FRITZ!OS diagnostic improvements from v0.8.137.\n\n## Root Cause\n\nGitHub Dependabot identified newly published advisories affecting the dependency versions present in the v0.8.137 lockfile. The affected packages included direct runtime dependencies (`zod`, `fastify`), a development dependency through `@vitest/mocker`, and multiple transitive `fast-uri` instances that were explicitly pinned by SALTA overrides.\n\nThe previous pins were valid when introduced, but newly disclosed upstream vulnerabilities made those exact versions unsuitable for release. Zod 4 also requires an explicit key schema for `z.record`, so the two existing backup schemas needed a syntax-only compatibility update. v0.8.138 moves every affected dependency family to an upstream patched version and validates the complete SALTA application against the resulting dependency graph.\n\n## Compatibility\n\n- No database schema migration is required.\n- Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain unchanged.\n- Existing configuration and disaster-recovery backup payload formats remain unchanged.\n- Existing FRITZ!Box, Shelly, deCONZ, Hue, OpenCCU, virtual-device and automation configuration remains unchanged.\n- FRITZ!Box Smart Home authentication remains PBKDF2-only.\n- No manual npm installation is required on the production host when using `docker-compose.image.yml`.\n\n## Tests\n\n- GitHub Actions runs the complete SALTA release validator.\n- JavaScript syntax checks run for all release-critical browser bundles.\n- TypeScript production build and type validation run against the updated dependency graph.\n- The complete Vitest suite runs against Zod 4.6.6, Fastify 5.12.6 and Vitest 4.1.12.\n- `npm audit --audit-level=low` must complete without known npm advisories before the validated tree is committed.\n- GitHub CodeQL on `main` remains the final security scan after integration.\n\n## Production update\n\n```bash\ncd /opt/SALTA\ngit pull --ff-only origin main\ndocker compose --env-file .env -f docker-compose.image.yml config\ndocker compose --env-file .env -f docker-compose.image.yml pull\ndocker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans\ndocker compose --env-file .env -f docker-compose.image.yml ps\n```\n\nDo not use `docker compose down -v` during the update. Keep the existing PostgreSQL, SALTA runtime and HomeKit data/volumes.\n''')
+          Path('RELEASE_TEXT.md').write_text('''# SALTA v0.8.138\n\nSALTA v0.8.138 updates security-sensitive npm dependencies to patched releases and supersedes the unreleased v0.8.137 tree.\n\n## Changes\n\n- Upgrade Fastify from the vulnerable 5.12.5 release to the patched 5.12.6 release line.\n- Upgrade Zod from the vulnerable 3.x release line to the patched 4.6.6 release line.\n- Adapt the two SALTA backup record schemas to the Zod 4 `z.record(keySchema, valueSchema)` API without changing accepted backup data.\n- Upgrade Vitest from 4.1.11 to the patched 4.1.12 release line, which also updates `@vitest/mocker`.\n- Update transitive `fast-uri` overrides from 3.1.8 to 3.1.9 and from 4.2.2 to 4.2.3.\n- Update release-validator and regression-test security floors so vulnerable versions cannot silently regress.\n- Retain all FRITZ!OS diagnostic improvements from v0.8.137.\n\n## Root Cause\n\nGitHub Dependabot identified newly published advisories affecting the dependency versions present in the v0.8.137 lockfile. The affected packages included direct runtime dependencies (`zod`, `fastify`), a development dependency through `@vitest/mocker`, and multiple transitive `fast-uri` instances that were explicitly pinned by SALTA overrides.\n\nThe previous pins were valid when introduced, but newly disclosed upstream vulnerabilities made those exact versions unsuitable for release. Zod 4 also requires an explicit key schema for `z.record`, so the two existing backup schemas needed a syntax-only compatibility update. v0.8.138 moves every affected dependency family to an upstream patched version and validates the complete SALTA application against the resulting dependency graph.\n\n## Compatibility\n\n- No database schema migration is required.\n- Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain unchanged.\n- Existing configuration and disaster-recovery backup payload formats remain unchanged.\n- Existing FRITZ!Box, Shelly, deCONZ, Hue, OpenCCU, virtual-device and automation configuration remains unchanged.\n- FRITZ!Box Smart Home authentication remains PBKDF2-only.\n- No manual npm installation is required on the production host when using `docker-compose.image.yml`.\n\n## Tests\n\n- GitHub Actions runs the complete SALTA release validator.\n- JavaScript syntax checks run for all release-critical browser bundles.\n- TypeScript production build and type validation run against the updated dependency graph.\n- The complete Vitest suite runs against Zod 4.6.6, Fastify 5.12.6 and Vitest 4.1.12.\n- `npm audit --audit-level=low` must complete without known npm advisories before the validated tree is committed.\n- GitHub CodeQL on `main` remains the final security scan after integration.\n\n## Production update\n\n```bash\ncd /opt/SALTA\ngit pull --ff-only origin main\ndocker compose --env-file .env -f docker-compose.image.yml config\ndocker compose --env-file .env -f docker-compose.image.yml pull\ndocker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans\ndocker compose --env-file .env -f docker-compose.image.yml ps\n```\n\nDo not use `docker compose down -v` during the update. Keep the existing PostgreSQL, SALTA runtime and HomeKit data/volumes.\n''')
           PY
       - name: Verify dependency advisory state
         run: npm audit --audit-level=low
