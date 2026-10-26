@@ -83,6 +83,27 @@ describe("FRITZ!Box Smart Home adapter", () => {
     expect(adapter.status()).toMatchObject({ enabled: false, connected: false, deviceCount: 0 });
   });
 
+  it("detects, logs and exposes the FRITZ!OS version before Smart Home login", async () => {
+    const loadFritzOsVersion = vi.fn(async () => "8.20");
+    const log = vi.fn(async () => undefined);
+    const request = vi.fn(async (url: string, method: string) => {
+      if (url.includes("login_sid.lua") && method === "GET") return { status: 200, headers: {}, text: "<SessionInfo><SID>0123456789abcdef</SID><Challenge>unused</Challenge><BlockTime>0</BlockTime></SessionInfo>" };
+      if (url.endsWith("/api/v0/smarthome/overview") && method === "GET") return { status: 200, headers: {}, text: JSON.stringify(overview) };
+      throw new Error(`unexpected ${method} ${url}`);
+    });
+    const registry = { all: () => [] as Device[], set: vi.fn(), get: vi.fn() } as never;
+    const adapter = new FritzBoxSmartHomeAdapter(registry, {
+      loadSettings: async () => enabled,
+      loadConnection: async () => ({ baseUrl: "http://fritz.box:49000", username: "user", password: "secret", enabled: true, pollIntervalSeconds: 30, absenceDelaySeconds: 300, tlsInsecure: false }),
+      loadFritzOsVersion,
+      request,
+      log
+    });
+    await expect(adapter.testConnection()).resolves.toMatchObject({ connected: true, fritzOsVersion: "8.20" });
+    expect(loadFritzOsVersion).toHaveBeenCalledWith("http://fritz.box:49000", false);
+    expect(log).toHaveBeenCalledWith("info", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_FRITZOS_DETECTED", "FRITZ!OS version detected", { fritzOsVersion: "8.20", source: "tr064-deviceinfo" });
+  });
+
   it("writes the documented thermostat REST payload", async () => {
     const calls: Array<{url:string;method:string;body?:string}> = [];
     const request = vi.fn(async (url: string, method: string, _headers: Record<string,string>, body?: string) => {

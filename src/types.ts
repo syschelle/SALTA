@@ -307,4 +307,5 @@ export interface FritzBoxSmartHomeStatus {
   lastSync?: string;
   lastError?: string;
   api?: "rest-v0";
+  fritzOsVersion?: string;
 }

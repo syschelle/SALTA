@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.137 - Detect FRITZ!OS version for Smart Home diagnostics
+
+- Query the official TR-064 `DeviceInfo:GetInfo` action and read `NewSoftwareVersion` before FRITZ!Box Smart Home SID authentication.
+- Keep PBKDF2 challenge validation as the security decision; the detected FRITZ!OS version is diagnostic context only.
+- Expose the detected FRITZ!OS version in Smart Home runtime status and show it on the Presence page.
+- Write successful or failed version detection to the persistent system log without credentials or session data.
+- Add regression and release-validator coverage for the DeviceInfo request and Smart Home diagnostics.
+
 ## 0.8.136 - Require PBKDF2 for FRITZ!Box Smart Home login
 
 - Remove the legacy MD5 password challenge fallback from FRITZ!Box Smart Home SID authentication.

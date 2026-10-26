@@ -9,7 +9,7 @@ vi.mock("./db.js", () => ({
   writeSystemLog: vi.fn(async () => undefined)
 }));
 
-import { FritzBoxPresenceAdapter, fritzBoxHostByIp, fritzBoxHostByMac, fritzBoxHostCount, normalizeFritzBoxBaseUrl, normalizePresenceIp, normalizePresenceMac } from "./fritzbox-presence.js";
+import { FritzBoxPresenceAdapter, fritzBoxHostByIp, fritzBoxHostByMac, fritzBoxHostCount, fritzBoxOsVersion, normalizeFritzBoxBaseUrl, normalizePresenceIp, normalizePresenceMac } from "./fritzbox-presence.js";
 import { getFritzBoxPresenceConnection, listPresenceTargets, updatePresenceTargetMacAddress, writeSystemLog } from "./db.js";
 import type { DeviceRegistry } from "./registry.js";
 
@@ -77,6 +77,20 @@ describe("FRITZ!Box presence transport", () => {
     expect(contentLength).toBe(String(Buffer.byteLength(receivedBody, "utf8")));
     expect(Number(contentLength)).toBeGreaterThan(0);
     expect(transferEncoding).toBe("");
+  });
+
+  it("reads the FRITZ!OS version from DeviceInfo:GetInfo", async () => {
+    let soapAction = "";
+    let requestUrl = "";
+    const baseUrl = await localServer((_request, response) => {
+      requestUrl = _request.url ?? "";
+      soapAction = String(_request.headers.soapaction ?? "");
+      response.writeHead(200, { "content-type": "text/xml" });
+      response.end(soap("<u:GetInfoResponse><NewSoftwareVersion>8.20</NewSoftwareVersion></u:GetInfoResponse>"));
+    });
+    await expect(fritzBoxOsVersion(baseUrl)).resolves.toBe("8.20");
+    expect(requestUrl).toBe("/upnp/control/deviceinfo");
+    expect(soapAction).toBe('"urn:dslforum-org:service:DeviceInfo:1#GetInfo"');
   });
 
   it("reads the FRITZ!Box host count from the Hosts service", async () => {

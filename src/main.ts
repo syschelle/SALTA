@@ -79,7 +79,7 @@ async function main(): Promise<void> {
 
   const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"), homekit, hue, vacation);
   registerFritzBoxSmartHomeRoutes(server, fritzSmartHome);
-  registerDiagnosticExportRoute(server, { registry, phoscon, hue, openCcu, presence, fritzSmartHome, climate, vacation, homekit, saltaVersion: "0.8.136" });
+  registerDiagnosticExportRoute(server, { registry, phoscon, hue, openCcu, presence, fritzSmartHome, climate, vacation, homekit, saltaVersion: "0.8.137" });
   registerOpenCcuDutyCycleRoutes(server, openCcuDutyCycle);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   homeKitStatus = await homekit.status();

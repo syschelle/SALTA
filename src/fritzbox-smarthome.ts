@@ -8,6 +8,7 @@ import { sanitizeDiagnosticValue } from "./diagnostic-sanitizer.js";
 import { getFritzBoxPresenceConnection, getFritzBoxSmartHomeSettings, updateFritzBoxSmartHomeSettings, writeSystemLog } from "./db.js";
 import type { Device, DeviceCommand, FritzBoxSmartHomeSettings, FritzBoxSmartHomeStatus } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
+import { fritzBoxOsVersion } from "./fritzbox-presence.js";
 
 const requestTimeoutMs = 10_000;
 const pollIntervalMs = 30_000;
@@ -45,6 +46,7 @@ type AdapterDependencies = {
   updateSettings?: typeof updateFritzBoxSmartHomeSettings;
   request?: RequestFunction;
   log?: typeof writeSystemLog;
+  loadFritzOsVersion?: (baseUrl: string, tlsInsecure: boolean) => Promise<string | undefined>;
 };
 
 function now(): string { return new Date().toISOString(); }
@@ -263,12 +265,15 @@ export class FritzBoxSmartHomeAdapter {
   private reconcileTask?: Promise<void>;
   private loginTask?: Promise<string>;
   private sid = "";
+  private fritzOsVersion?: string;
+  private fritzOsVersionChecked = false;
   private statusValue: FritzBoxSmartHomeStatus = { enabled: false, connected: false, deviceCount: 0 };
   private readonly loadSettings: () => Promise<FritzBoxSmartHomeSettings>;
   private readonly loadConnection: typeof getFritzBoxPresenceConnection;
   private readonly saveSettings: typeof updateFritzBoxSmartHomeSettings;
   private readonly request: RequestFunction;
   private readonly log: typeof writeSystemLog;
+  private readonly loadFritzOsVersion: (baseUrl: string, tlsInsecure: boolean) => Promise<string | undefined>;
 
   constructor(private readonly registry: DeviceRegistry, dependencies: AdapterDependencies = {}) {
     this.loadSettings = dependencies.loadSettings ?? getFritzBoxSmartHomeSettings;
@@ -276,6 +281,7 @@ export class FritzBoxSmartHomeAdapter {
     this.saveSettings = dependencies.updateSettings ?? updateFritzBoxSmartHomeSettings;
     this.request = dependencies.request ?? requestHttp;
     this.log = dependencies.log ?? writeSystemLog;
+    this.loadFritzOsVersion = dependencies.loadFritzOsVersion ?? (dependencies.request ? async () => undefined : fritzBoxOsVersion);
   }
 
   start(): void {
@@ -285,7 +291,7 @@ export class FritzBoxSmartHomeAdapter {
     this.timer = setInterval(() => void this.reconcile(), pollIntervalMs);
     this.timer.unref?.();
   }
-  stop(): void { this.running = false; if (this.timer) clearInterval(this.timer); this.timer = undefined; this.loginTask = undefined; this.sid = ""; }
+  stop(): void { this.running = false; if (this.timer) clearInterval(this.timer); this.timer = undefined; this.loginTask = undefined; this.sid = ""; this.fritzOsVersion = undefined; this.fritzOsVersionChecked = false; }
   status(): FritzBoxSmartHomeStatus { return { ...this.statusValue }; }
   async settings(): Promise<FritzBoxSmartHomeSettings> { return this.loadSettings(); }
 
@@ -293,17 +299,34 @@ export class FritzBoxSmartHomeAdapter {
     const updated = await this.saveSettings(settings);
     this.loginTask = undefined;
     this.sid = "";
+    this.fritzOsVersion = undefined;
+    this.fritzOsVersionChecked = false;
     if (!updated.enabled) this.statusValue = { enabled: false, connected: false, deviceCount: this.registry.all().filter(device => device.source === "fritzbox").length };
     else await this.reconcile();
     return updated;
   }
 
-  private async connection(): Promise<{ origin: string; username: string; password: string; tlsInsecure: boolean }> {
+  private async connection(): Promise<{ baseUrl: string; origin: string; username: string; password: string; tlsInsecure: boolean }> {
     const connection = await this.loadConnection();
-    return { origin: fritzBoxWebOrigin(connection.baseUrl), username: connection.username, password: connection.password, tlsInsecure: connection.tlsInsecure };
+    return { baseUrl: connection.baseUrl, origin: fritzBoxWebOrigin(connection.baseUrl), username: connection.username, password: connection.password, tlsInsecure: connection.tlsInsecure };
   }
 
-  private async ensureSid(connection: { origin: string; username: string; password: string; tlsInsecure: boolean }): Promise<string> {
+  private async ensureFritzOsVersion(connection: { baseUrl: string; tlsInsecure: boolean }): Promise<void> {
+    if (this.fritzOsVersionChecked) return;
+    this.fritzOsVersionChecked = true;
+    try {
+      const version = await this.loadFritzOsVersion(connection.baseUrl, connection.tlsInsecure);
+      if (!version) return;
+      this.fritzOsVersion = version;
+      await this.log("info", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_FRITZOS_DETECTED", "FRITZ!OS version detected", { fritzOsVersion: version, source: "tr064-deviceinfo" }).catch(() => undefined);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await this.log("warning", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_FRITZOS_DETECTION_FAILED", "FRITZ!OS version detection failed", { error: message, source: "tr064-deviceinfo" }).catch(() => undefined);
+    }
+  }
+
+  private async ensureSid(connection: { baseUrl: string; origin: string; username: string; password: string; tlsInsecure: boolean }): Promise<string> {
+    await this.ensureFritzOsVersion(connection);
     if (this.sid) return this.sid;
     if (!this.loginTask) {
       this.loginTask = login(connection.origin, connection.username, connection.password, connection.tlsInsecure, this.request)
@@ -338,9 +361,9 @@ export class FritzBoxSmartHomeAdapter {
     try {
       const overview = record(await this.apiRequest("/smarthome/overview")) as SmartHomeOverview;
       const count = mapFritzBoxSmartHomeOverview(overview, settings).length;
-      return { enabled: true, connected: true, deviceCount: count, lastSync: now(), api: "rest-v0" };
+      return { enabled: true, connected: true, deviceCount: count, lastSync: now(), api: "rest-v0", fritzOsVersion: this.fritzOsVersion };
     } catch (error) {
-      return { enabled: true, connected: false, deviceCount: 0, lastError: error instanceof Error ? error.message : String(error), api: "rest-v0" };
+      return { enabled: true, connected: false, deviceCount: 0, lastError: error instanceof Error ? error.message : String(error), api: "rest-v0", fritzOsVersion: this.fritzOsVersion };
     }
   }
 
@@ -371,14 +394,14 @@ export class FritzBoxSmartHomeAdapter {
         } : mappedDevice;
         await this.registry.set(device);
       }
-      this.statusValue = { enabled: true, connected: true, deviceCount: mapped.length, lastSync: now(), api: "rest-v0" };
+      this.statusValue = { enabled: true, connected: true, deviceCount: mapped.length, lastSync: now(), api: "rest-v0", fritzOsVersion: this.fritzOsVersion };
       await this.log("info", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_SYNC", "FRITZ!Box Smart Home synchronized", { devices: mapped.length, api: "rest-v0" }).catch(() => undefined);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.statusValue = { enabled: true, connected: false, deviceCount: this.registry.all().filter(device => device.source === "fritzbox").length, lastError: message, api: "rest-v0" };
+      this.statusValue = { enabled: true, connected: false, deviceCount: this.registry.all().filter(device => device.source === "fritzbox").length, lastError: message, api: "rest-v0", fritzOsVersion: this.fritzOsVersion };
       const details = error instanceof FritzBoxSmartHomeHttpError
-        ? { error: message, status: error.status, method: error.method, endpoint: error.endpoint, responseBody: error.responseBody }
-        : { error: message };
+        ? { error: message, fritzOsVersion: this.fritzOsVersion, status: error.status, method: error.method, endpoint: error.endpoint, responseBody: error.responseBody }
+        : { error: message, fritzOsVersion: this.fritzOsVersion };
       await this.log("warning", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_SYNC_FAILED", "FRITZ!Box Smart Home synchronization failed", details).catch(() => undefined);
     }
   }

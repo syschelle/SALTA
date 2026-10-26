@@ -7,6 +7,7 @@ import type { Device, FritzBoxPresenceStatus, PresenceTarget, SystemLogLevel } f
 import type { DeviceRegistry } from "./registry.js";
 
 const serviceType = "urn:dslforum-org:service:Hosts:1";
+const deviceInfoServiceType = "urn:dslforum-org:service:DeviceInfo:1";
 const requestTimeoutMs = 10_000;
 const defaultBaseUrl = "http://fritz.box:49000";
 const houseDeviceId = "presence:house";
@@ -96,10 +97,10 @@ function digestAuthHeader(challenge: DigestChallenge, username: string, password
   if (challenge.opaque) fields.push(`opaque="${quoteDigest(challenge.opaque)}"`); if (qop) fields.push(`qop=${qop}`,`nc=${nc}`,`cnonce="${cnonce}"`); return `Digest ${fields.join(", ")}`;
 }
 
-function soapEnvelope(action: string, args: Record<string,string>, headerXml = ""): string {
+function soapEnvelope(action: string, args: Record<string,string>, headerXml = "", targetServiceType = serviceType): string {
   const argumentsXml = Object.entries(args).map(([key,value])=>`<${key}>${xmlEscape(value)}</${key}>`).join("");
   const header = headerXml ? `<s:Header>${headerXml}</s:Header>` : "";
-  return `<?xml version="1.0" encoding="utf-8"?><s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">${header}<s:Body><u:${action} xmlns:u="${serviceType}">${argumentsXml}</u:${action}></s:Body></s:Envelope>`;
+  return `<?xml version="1.0" encoding="utf-8"?><s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">${header}<s:Body><u:${action} xmlns:u="${targetServiceType}">${argumentsXml}</u:${action}></s:Body></s:Envelope>`;
 }
 
 function contentAuthInitHeader(username: string): string {
@@ -311,6 +312,22 @@ async function requestSoap(baseUrl: string, username: string, password: string, 
   }
   if (!text.includes("Envelope")) throw new Error("FRITZBOX_INVALID_RESPONSE");
   return text;
+}
+
+export async function fritzBoxOsVersion(baseUrl: string, tlsInsecure = false): Promise<string> {
+  const normalizedBaseUrl = normalizeFritzBoxBaseUrl(baseUrl);
+  const url = `${normalizedBaseUrl}/upnp/control/deviceinfo`;
+  const body = soapEnvelope("GetInfo", {}, "", deviceInfoServiceType);
+  const response = await executeSoapRequest(url, {
+    "content-type": "text/xml; charset=utf-8",
+    soapaction: `"${deviceInfoServiceType}#GetInfo"`
+  }, body, tlsInsecure);
+  const faultCode = xmlValue(response.text, "errorCode");
+  if (response.status < 200 || response.status >= 300) throw new Error(faultCode ? `FRITZBOX_DEVICEINFO_SOAP_${faultCode}` : `FRITZBOX_DEVICEINFO_HTTP_${response.status}`);
+  if (faultCode) throw new Error(`FRITZBOX_DEVICEINFO_SOAP_${faultCode}`);
+  const version = xmlValue(response.text, "NewSoftwareVersion") ?? xmlValue(response.text, "SoftwareVersion");
+  if (!version) throw new Error("FRITZBOX_DEVICEINFO_INVALID_RESPONSE");
+  return version;
 }
 
 export async function fritzBoxHostCount(baseUrl: string, username = "", password = "", tlsInsecure = false): Promise<number> {

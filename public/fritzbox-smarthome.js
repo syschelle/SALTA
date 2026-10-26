@@ -15,8 +15,9 @@
   function setCategoryAvailability(){for(const input of categoryInputs)if(input)input.disabled=!enabled.checked}
   function statusText(value){
     if(!value?.enabled)return translate('Deaktiviert – keine FRITZ!Box-Smart-Home-Geräte werden abgefragt.');
-    if(value.connected)return `${translate('Verbunden')} · ${Number(value.deviceCount||0)} ${translate('Geräte eingebunden')}`;
-    return value.lastError?`${translate('Nicht verbunden')}: ${value.lastError}`:translate('Noch nicht synchronisiert');
+    const fritzOs=value?.fritzOsVersion?` · FRITZ!OS ${value.fritzOsVersion}`:'';
+    if(value.connected)return `${translate('Verbunden')} · ${Number(value.deviceCount||0)} ${translate('Geräte eingebunden')}${fritzOs}`;
+    return `${value.lastError?`${translate('Nicht verbunden')}: ${value.lastError}`:translate('Noch nicht synchronisiert')}${fritzOs}`;
   }
   function render(data){
     const settings=data?.settings||{};
