@@ -652,29 +652,37 @@ const versionAtLeast = (value, minimum) => {
   return true;
 };
 
-if (packageJson.dependencies?.fastify !== "^5.12.5") {
-  fail("package.json must require fastify ^5.12.5 for the October 2026 security fixes");
+if (packageJson.dependencies?.fastify !== "^5.12.6") {
+  fail("package.json must require fastify ^5.12.6 for the October 2026 security fixes");
 }
-if (packageJson.devDependencies?.vitest !== "^4.1.11") {
-  fail("package.json must require vitest ^4.1.11 for the October 2026 security fixes");
+if (packageJson.devDependencies?.vitest !== "^4.1.12") {
+  fail("package.json must require vitest ^4.1.12 for the October 2026 security fixes");
+}
+if (packageJson.dependencies?.zod !== "^4.6.6") {
+  fail("package.json must require zod ^4.6.6 for the October 2026 security fixes");
 }
 for (const [path, entry] of Object.entries(packageLock.packages ?? {})) {
   if (path === "node_modules/fastify" || path.endsWith("/node_modules/fastify")) {
-    if (!versionAtLeast(entry?.version, "5.12.5")) {
-      fail(`${path} resolves to vulnerable fastify ${entry?.version}; expected at least 5.12.5`);
+    if (!versionAtLeast(entry?.version, "5.12.6")) {
+      fail(`${path} resolves to vulnerable fastify ${entry?.version}; expected at least 5.12.6`);
     }
   }
   if (path === "node_modules/fast-uri" || path.endsWith("/node_modules/fast-uri")) {
     const major = parseNumericVersion(entry?.version)?.[0];
-    const minimum = major === 2 ? "2.4.4" : major === 3 ? "3.1.8" : major === 4 ? "4.1.5" : null;
+    const minimum = major === 2 ? "2.4.8" : major === 3 ? "3.1.9" : major === 4 ? "4.2.3" : null;
     if (minimum && !versionAtLeast(entry?.version, minimum)) {
       fail(`${path} resolves to vulnerable fast-uri ${entry?.version}; expected at least ${minimum}`);
     }
   }
   if (path === "node_modules/vitest" || path.endsWith("/node_modules/vitest") ||
       path === "node_modules/@vitest/mocker" || path.endsWith("/node_modules/@vitest/mocker")) {
-    if (!versionAtLeast(entry?.version, "4.1.11")) {
-      fail(`${path} resolves to vulnerable Vitest tooling ${entry?.version}; expected at least 4.1.11`);
+    if (!versionAtLeast(entry?.version, "4.1.12")) {
+      fail(`${path} resolves to vulnerable Vitest tooling ${entry?.version}; expected at least 4.1.12`);
+    }
+  }
+  if (path === "node_modules/zod" || path.endsWith("/node_modules/zod")) {
+    if (!versionAtLeast(entry?.version, "4.6.6")) {
+      fail(`${path} resolves to vulnerable zod ${entry?.version}; expected at least 4.6.6`);
     }
   }
   if (path === "node_modules/tinypool" || path.endsWith("/node_modules/tinypool")) {

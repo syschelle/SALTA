@@ -7,7 +7,7 @@ import { DATABASE_SCHEMA_VERSION, pool } from "./db.js";
 export const CONFIGURATION_BACKUP_FORMAT = "salta-configuration-backup";
 export const CONFIGURATION_BACKUP_FORMAT_VERSION = 1;
 
-const backupRowSchema = z.record(z.unknown());
+const backupRowSchema = z.record(z.string(), z.unknown());
 const backupRows = (max = 10000) => z.array(backupRowSchema).max(max);
 
 const backupDataSchema = z.object({

@@ -1,39 +1,40 @@
-# SALTA v0.8.137
+# SALTA v0.8.138
 
-SALTA v0.8.137 adds FRITZ!OS version detection to FRITZ!Box Smart Home diagnostics while keeping PBKDF2 challenge validation authoritative.
+SALTA v0.8.138 updates security-sensitive npm dependencies to patched releases and supersedes the unreleased v0.8.137 tree.
 
 ## Changes
 
-- Query the official FRITZ!Box TR-064 `DeviceInfo:GetInfo` action before Smart Home SID authentication.
-- Read and expose `NewSoftwareVersion` as the detected FRITZ!OS version.
-- Show the detected FRITZ!OS version in the Smart Home connection status on the Presence page.
-- Record successful and failed FRITZ!OS detection in the persistent system log without credentials, passwords or SID values.
-- Keep the v0.8.136 PBKDF2-only Smart Home login policy unchanged.
+- Upgrade Fastify from the vulnerable 5.12.5 release to the patched 5.12.6 release line.
+- Upgrade Zod from the vulnerable 3.x release line to the patched 4.6.6 release line.
+- Adapt the two SALTA backup record schemas to the Zod 4 `z.record(keySchema, valueSchema)` API without changing accepted backup data.
+- Upgrade Vitest from 4.1.11 to the patched 4.1.12 release line, which also updates `@vitest/mocker`.
+- Update transitive `fast-uri` overrides from 3.1.8 to 3.1.9 and from 4.2.2 to 4.2.3.
+- Update release-validator and regression-test security floors so vulnerable versions cannot silently regress.
+- Retain all FRITZ!OS diagnostic improvements from v0.8.137.
 
 ## Root Cause
 
-The v0.8.136 security fix correctly removed the legacy MD5 SID challenge fallback, but a rejected non-PBKDF2 challenge did not identify the FRITZ!OS version of the connected router. This made it harder to distinguish an outdated FRITZ!OS installation from another authentication problem.
+GitHub Dependabot identified newly published advisories affecting the dependency versions present in the v0.8.137 lockfile. The affected packages included direct runtime dependencies (`zod`, `fastify`), a development dependency through `@vitest/mocker`, and multiple transitive `fast-uri` instances that were explicitly pinned by SALTA overrides.
 
-v0.8.137 uses AVM's documented TR-064 DeviceInfo service to obtain the FRITZ!OS software version before Smart Home authentication. The version is diagnostic context only. SALTA still decides whether authentication is acceptable exclusively from the actual SID challenge and never restores the legacy MD5 password path.
+The previous pins were valid when introduced, but newly disclosed upstream vulnerabilities made those exact versions unsuitable for release. Zod 4 also requires an explicit key schema for `z.record`, so the two existing backup schemas needed a syntax-only compatibility update. v0.8.138 moves every affected dependency family to an upstream patched version and validates the complete SALTA application against the resulting dependency graph.
 
 ## Compatibility
 
-- No database schema change or manual migration is required.
-- Existing FRITZ!Box presence and Smart Home credentials remain unchanged.
-- Existing imported FRITZ!Box device IDs, room assignments and presentation settings remain unchanged.
+- No database schema migration is required.
+- Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain unchanged.
+- Existing configuration and disaster-recovery backup payload formats remain unchanged.
+- Existing FRITZ!Box, Shelly, deCONZ, Hue, OpenCCU, virtual-device and automation configuration remains unchanged.
 - FRITZ!Box Smart Home authentication remains PBKDF2-only.
-- A failure to read DeviceInfo does not block an otherwise valid Smart Home login.
-- Existing Shelly, deCONZ, Hue, OpenCCU, virtual-device, automation and HomeKit data remain unchanged.
-- Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain compatible.
+- No manual npm installation is required on the production host when using `docker-compose.image.yml`.
 
 ## Tests
 
-- Regression coverage verifies the TR-064 DeviceInfo SOAP action and `NewSoftwareVersion` parsing.
-- Regression coverage verifies that Smart Home connection status exposes the detected FRITZ!OS version.
-- Regression coverage verifies that the version is written to diagnostics before Smart Home login.
-- Release validator enforces the DeviceInfo and Smart Home diagnostic contracts.
-- Full GitHub Actions quality gate must pass before release.
-- GitHub CodeQL on `main` remains the authoritative security scan after integration.
+- GitHub Actions runs the complete SALTA release validator.
+- JavaScript syntax checks run for all release-critical browser bundles.
+- TypeScript production build and type validation run against the updated dependency graph.
+- The complete Vitest suite runs against Zod 4.6.6, Fastify 5.12.6 and Vitest 4.1.12.
+- `npm audit --audit-level=low` must complete without known npm advisories before the validated tree is committed.
+- GitHub CodeQL on `main` remains the final security scan after integration.
 
 ## Production update
 

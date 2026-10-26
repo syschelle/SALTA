@@ -1,17 +1,17 @@
-# Publish SALTA v0.8.137 to GHCR
+# Publish SALTA v0.8.138 to GHCR
 
 ```bash
 git checkout main
 git pull --ff-only origin main
 
-git tag -a v0.8.137 -m "SALTA v0.8.137"
-git push origin v0.8.137
+git tag -a v0.8.138 -m "SALTA v0.8.138"
+git push origin v0.8.138
 ```
 
 Default image tag in `docker-compose.image.yml`:
 
 ```text
-ghcr.io/syschelle/salta:0.8.137
+ghcr.io/syschelle/salta:0.8.138
 ```
 
 HomeKit migration compatibility boundary:

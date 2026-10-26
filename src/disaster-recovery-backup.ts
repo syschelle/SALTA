@@ -53,7 +53,7 @@ const payloadSchema = z.object({
   schemaVersion: z.string().min(1).max(32),
   createdAt: z.string().datetime(),
   saltaVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
-  runtimeSettings: z.record(z.string()),
+  runtimeSettings: z.record(z.string(), z.string()),
   deploymentHints: z.object({
     webPort: z.number().int().min(1).max(65535),
     homeKitPort: z.number().int().min(1).max(65535),

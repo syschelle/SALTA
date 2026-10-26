@@ -82,32 +82,43 @@ describe("dependency security and reproducibility", () => {
   it("keeps Fastify and fast-uri above the October 2026 security floors", () => {
     const { packageJson, packageLock } = readPackageFiles();
 
-    expect(packageJson.dependencies?.fastify).toBe("^5.12.5");
+    expect(packageJson.dependencies?.fastify).toBe("^5.12.6");
     const fastifyEntries = matchingEntries(packageLock, "fastify");
     expect(fastifyEntries.length).toBeGreaterThan(0);
     for (const [, entry] of fastifyEntries) {
-      expect(versionAtLeast(entry.version, "5.12.5")).toBe(true);
+      expect(versionAtLeast(entry.version, "5.12.6")).toBe(true);
     }
 
     const fastUriEntries = matchingEntries(packageLock, "fast-uri");
     expect(fastUriEntries.length).toBeGreaterThan(0);
     for (const [, entry] of fastUriEntries) {
       const major = Number(entry.version?.split(".")[0]);
-      if (major === 3) expect(versionAtLeast(entry.version, "3.1.8")).toBe(true);
-      if (major === 4) expect(versionAtLeast(entry.version, "4.1.5")).toBe(true);
+      if (major === 3) expect(versionAtLeast(entry.version, "3.1.9")).toBe(true);
+      if (major === 4) expect(versionAtLeast(entry.version, "4.2.3")).toBe(true);
     }
   });
 
-  it("keeps the Vitest toolchain on the patched 4.1.11 line", () => {
+  it("keeps the Vitest toolchain on the patched 4.1.12 line", () => {
     const { packageJson, packageLock } = readPackageFiles();
 
-    expect(packageJson.devDependencies?.vitest).toBe("^4.1.11");
+    expect(packageJson.devDependencies?.vitest).toBe("^4.1.12");
     for (const dependency of ["vitest", "@vitest/mocker"]) {
       const entries = matchingEntries(packageLock, dependency);
       expect(entries.length).toBeGreaterThan(0);
       for (const [, entry] of entries) {
-        expect(versionAtLeast(entry.version, "4.1.11")).toBe(true);
+        expect(versionAtLeast(entry.version, "4.1.12")).toBe(true);
       }
+    }
+  });
+
+  it("keeps Zod on the patched 4.6.6 release line", () => {
+    const { packageJson, packageLock } = readPackageFiles();
+
+    expect(packageJson.dependencies?.zod).toBe("^4.6.6");
+    const entries = matchingEntries(packageLock, "zod");
+    expect(entries.length).toBeGreaterThan(0);
+    for (const [, entry] of entries) {
+      expect(versionAtLeast(entry.version, "4.6.6")).toBe(true);
     }
   });
 

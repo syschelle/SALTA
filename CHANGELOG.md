@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.138 - Security dependency updates
+
+- Upgrade Fastify to the patched 5.12.6 release line.
+- Upgrade Zod to the patched 4.6.6 release line and adapt record schemas to the Zod 4 API.
+- Upgrade Vitest to the patched 4.1.12 release line.
+- Pin transitive fast-uri consumers to patched 3.1.9 and 4.2.3 releases.
+- Update release-validator and regression-test security floors so vulnerable versions cannot regress.
+
 ## 0.8.137 - Detect FRITZ!OS version for Smart Home diagnostics
 
 - Query the official TR-064 `DeviceInfo:GetInfo` action and read `NewSoftwareVersion` before FRITZ!Box Smart Home SID authentication.

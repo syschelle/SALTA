@@ -1,8 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.137 update
+## Current v0.8.138 update
 
-v0.8.137 adds a diagnostic FRITZ!OS version query through the official TR-064 DeviceInfo service before Smart Home SID authentication. PBKDF2 challenge validation remains authoritative; the firmware version never re-enables legacy MD5 authentication. No schema migration, credential rewrite or device re-import is required.
+v0.8.138 updates vulnerable runtime, validation and test dependencies to patched releases. It includes the FRITZ!OS diagnostics introduced in v0.8.137 and keeps PBKDF2-only FRITZ!Box Smart Home authentication unchanged. No schema migration, credential rewrite or device re-import is required.
 
 v0.8.120 separates OpenCCU thermostat execution from automation policy. Existing automation records are not migrated or rewritten: every stored sequence step keeps its configured device ID, action, order and individual value.
 
