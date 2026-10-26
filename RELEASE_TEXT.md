@@ -1,45 +1,39 @@
-# SALTA v0.8.132
+# SALTA v0.8.133
 
-SALTA v0.8.132 adds an optional FRITZ!Box Smart Home integration while preserving the behavior of every existing installation by default.
+SALTA v0.8.133 improves FRITZ!Box Smart Home login handling and makes intermittent REST synchronization failures diagnosable without exposing credentials.
 
 ## Changes
 
-- Add an independent FRITZ!Box Smart Home adapter using the local Smart Home REST API.
-- Add an explicit master switch plus separate opt-ins for radiator controls, outlets/switches, lights and temperature/humidity sensors.
-- Keep the master switch and every category disabled by default on new and upgraded installations.
-- Reuse the existing FRITZ!Box host, credentials and TLS settings without tying Smart Home enablement to presence detection.
-- Map documented thermostat, on/off, level, temperature and humidity interfaces into SALTA devices.
-- Support target-temperature commands for FRITZ! thermostats, on/off/toggle for switchable units and brightness for supported lights.
-- Keep newly imported FRITZ!Box Smart Home devices out of HomeKit until the user explicitly enables HomeKit for that device.
-- Store the Smart Home opt-in in the existing backed-up notification-state store; no database schema version change is required.
+- Respect the FRITZ!Box login `BlockTime` and wait until AVM allows the next credential submission.
+- Serialize concurrent Smart Home login attempts so periodic synchronization and manual connection tests cannot authenticate in parallel.
+- Record HTTP status, request method, Smart Home REST endpoint and a sanitized structured AVM error response when synchronization fails.
+- Add FRITZ!Box Smart Home opt-in settings and runtime connection status to the sanitized SALTA diagnostic export.
+- Strip credential, authorization, token and session fields from structured AVM error bodies before they reach the system log.
+- Keep non-JSON HTTP error responses limited to format/size metadata instead of logging arbitrary response text.
 
-## Root Cause / Motivation
+## Root Cause
 
-SALTA already used FRITZ!Box TR-064 for optional WLAN presence detection, but that adapter intentionally represented people/presence rather than FRITZ!Box Smart Home actuators and sensors. Mixing both concerns would make upgrades risky and could silently introduce devices into established systems.
+SALTA v0.8.132 treated AVM's `BlockTime` as an immediate failure. The 30-second reconciliation cycle could therefore start another login attempt even while the FRITZ!Box explicitly prohibited additional attempts. AVM documents `BlockTime` as the number of seconds during which no further login attempt is allowed.
 
-v0.8.132 therefore adds Smart Home as a separate opt-in adapter. When the new master switch is disabled, the adapter exits before authentication or REST requests and does not create or modify FRITZ!Box Smart Home devices. This makes the new capability safe for existing installations while allowing a new installation to enable only the desired device categories.
+The production diagnostic also showed successful Smart Home synchronization followed by repeated HTTP 400 responses. v0.8.132 discarded the FRITZ!Box response body for non-2xx REST responses, so the actual AVM error details were unavailable for diagnosis. v0.8.133 preserves safe structured error details while deliberately avoiding an unproven protocol workaround for HTTP 400.
 
 ## Compatibility
 
-- Existing SALTA installations remain unchanged unless FRITZ!Box Smart Home is explicitly enabled.
-- Existing FRITZ!Box presence settings and behavior remain independent and unchanged.
-- Database schema version remains 0.5; no ALTER TABLE or manual migration is required.
-- Existing Shelly, Phoscon/deCONZ, Hue, OpenCCU, virtual-device, automation and HomeKit data remain unchanged.
-- Existing PostgreSQL, SALTA runtime and HomeKit volumes remain compatible.
-- FRITZ!Box Smart Home REST support requires a FRITZ!OS version that provides the Smart Home REST API.
+- Existing FRITZ!Box Smart Home opt-in settings remain unchanged.
+- FRITZ!Box Smart Home remains disabled by default on new and upgraded installations unless explicitly enabled.
+- Existing imported FRITZ!Box devices remain unchanged.
+- Existing FRITZ!Box presence detection remains independent and unchanged.
+- No database schema change or manual migration is required.
+- Existing Shelly, Phoscon/deCONZ, Hue, OpenCCU, automation and HomeKit data remain unchanged.
 - No new npm dependency or mandatory environment variable is introduced.
 
 ## Tests
 
-- Verify all FRITZ!Box Smart Home opt-ins default to false.
-- Verify the disabled adapter performs no FRITZ!Box network request and creates no devices.
-- Verify thermostat, outlet, light and sensor REST-interface mapping.
-- Verify newly imported devices default to HomeKit disabled.
-- Verify per-category opt-ins.
-- Verify PBKDF2 Session-ID response generation and TR-064-to-web-origin normalization.
-- Verify the thermostat REST command payload.
-- Verify the browser UI exposes unchecked opt-in controls and never embeds FRITZ!Box credentials.
-- Verify database schema version 0.5 remains unchanged and the existing notification-state persistence is used.
+- Verify that no credential POST is sent before AVM `BlockTime` expires.
+- Verify that structured HTTP 400 error details retain status/method/endpoint while secret fields are removed.
+- Verify structured Smart Home error-body sanitization.
+- Verify Smart Home settings and runtime status are wired into the sanitized diagnostic export.
+- Release validator, JavaScript syntax checks, TypeScript build and the complete Vitest suite must pass before release.
 
 ## Production update
 

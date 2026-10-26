@@ -1,6 +1,6 @@
 # SALTA migration paths
 
-## Current v0.8.132 update
+## Current v0.8.133 update
 
 FRITZ!Box Smart Home is additive and disabled by default. Its opt-in state uses the existing backed-up notification_state table, so v0.8.132 requires no schema migration and does not import devices unless explicitly enabled.
 

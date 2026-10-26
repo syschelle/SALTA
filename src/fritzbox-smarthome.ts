@@ -4,6 +4,7 @@ import { request as httpsRequest } from "node:https";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { config } from "./config.js";
+import { sanitizeDiagnosticValue } from "./diagnostic-sanitizer.js";
 import { getFritzBoxPresenceConnection, getFritzBoxSmartHomeSettings, updateFritzBoxSmartHomeSettings, writeSystemLog } from "./db.js";
 import type { Device, DeviceCommand, FritzBoxSmartHomeSettings, FritzBoxSmartHomeStatus } from "./types.js";
 import type { DeviceRegistry } from "./registry.js";
@@ -56,6 +57,27 @@ function xmlValue(xml: string, name: string): string | undefined {
   return new RegExp(`<${escaped}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${escaped}>`, "i").exec(xml)?.[1]?.trim();
 }
 function validSid(value: string | undefined): value is string { return Boolean(value && /^[0-9a-f]{16}$/i.test(value) && value !== zeroSid); }
+
+function sleep(ms: number): Promise<void> { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+export function fritzBoxSmartHomeSafeErrorBody(text: string): unknown {
+  const trimmed = text.trim();
+  if (!trimmed) return undefined;
+  try { return sanitizeDiagnosticValue(JSON.parse(trimmed)); }
+  catch { return { format: "non-json", bytes: Buffer.byteLength(trimmed, "utf8") }; }
+}
+
+class FritzBoxSmartHomeHttpError extends Error {
+  constructor(
+    readonly status: number,
+    readonly method: string,
+    readonly endpoint: string,
+    readonly responseBody: unknown
+  ) {
+    super(`FRITZBOX_SMARTHOME_HTTP_${status}`);
+    this.name = "FritzBoxSmartHomeHttpError";
+  }
+}
 
 export function fritzBoxWebOrigin(baseUrl: string): string {
   const parsed = new URL(baseUrl);
@@ -131,10 +153,10 @@ async function login(origin: string, username: string, password: string, tlsInse
   const existingSid = xmlValue(initial.text, "SID");
   if (validSid(existingSid)) return existingSid;
   const blockTime = Number.parseInt(xmlValue(initial.text, "BlockTime") ?? "0", 10);
-  if (Number.isFinite(blockTime) && blockTime > 0) throw new Error("FRITZBOX_SMARTHOME_LOGIN_BLOCKED");
   const challenge = xmlValue(initial.text, "Challenge");
   if (!challenge) throw new Error("FRITZBOX_SMARTHOME_AUTH_CHALLENGE");
   const form = new URLSearchParams({ username, response: fritzBoxSidResponse(challenge, password) }).toString();
+  if (Number.isFinite(blockTime) && blockTime > 0) await sleep(blockTime * 1000);
   const authenticated = await request(`${origin}/login_sid.lua?version=2`, "POST", { accept: "application/xml,text/xml", "content-type": "application/x-www-form-urlencoded" }, form, tlsInsecure);
   if (authenticated.status < 200 || authenticated.status >= 300) throw new Error(`FRITZBOX_SMARTHOME_LOGIN_HTTP_${authenticated.status}`);
   const sid = xmlValue(authenticated.text, "SID");
@@ -244,6 +266,7 @@ export class FritzBoxSmartHomeAdapter {
   private timer?: NodeJS.Timeout;
   private running = false;
   private reconcileTask?: Promise<void>;
+  private loginTask?: Promise<string>;
   private sid = "";
   private statusValue: FritzBoxSmartHomeStatus = { enabled: false, connected: false, deviceCount: 0 };
   private readonly loadSettings: () => Promise<FritzBoxSmartHomeSettings>;
@@ -267,12 +290,13 @@ export class FritzBoxSmartHomeAdapter {
     this.timer = setInterval(() => void this.reconcile(), pollIntervalMs);
     this.timer.unref?.();
   }
-  stop(): void { this.running = false; if (this.timer) clearInterval(this.timer); this.timer = undefined; this.sid = ""; }
+  stop(): void { this.running = false; if (this.timer) clearInterval(this.timer); this.timer = undefined; this.loginTask = undefined; this.sid = ""; }
   status(): FritzBoxSmartHomeStatus { return { ...this.statusValue }; }
   async settings(): Promise<FritzBoxSmartHomeSettings> { return this.loadSettings(); }
 
   async updateSettings(settings: FritzBoxSmartHomeSettings): Promise<FritzBoxSmartHomeSettings> {
     const updated = await this.saveSettings(settings);
+    this.loginTask = undefined;
     this.sid = "";
     if (!updated.enabled) this.statusValue = { enabled: false, connected: false, deviceCount: this.registry.all().filter(device => device.source === "fritzbox").length };
     else await this.reconcile();
@@ -284,17 +308,27 @@ export class FritzBoxSmartHomeAdapter {
     return { origin: fritzBoxWebOrigin(connection.baseUrl), username: connection.username, password: connection.password, tlsInsecure: connection.tlsInsecure };
   }
 
+  private async ensureSid(connection: { origin: string; username: string; password: string; tlsInsecure: boolean }): Promise<string> {
+    if (this.sid) return this.sid;
+    if (!this.loginTask) {
+      this.loginTask = login(connection.origin, connection.username, connection.password, connection.tlsInsecure, this.request)
+        .then(sid => { this.sid = sid; return sid; })
+        .finally(() => { this.loginTask = undefined; });
+    }
+    return this.loginTask;
+  }
+
   private async apiRequest(path: string, method = "GET", body?: unknown, retry = true): Promise<unknown> {
     const connection = await this.connection();
-    if (!this.sid) this.sid = await login(connection.origin, connection.username, connection.password, connection.tlsInsecure, this.request);
+    await this.ensureSid(connection);
     const textBody = body === undefined ? undefined : JSON.stringify(body);
     const response = await this.request(`${connection.origin}/api/v0${path}`, method, {
       accept: "application/json",
       authorization: `AVM-SID ${this.sid}`,
       ...(textBody === undefined ? {} : { "content-type": "application/json" })
     }, textBody, connection.tlsInsecure);
-    if ((response.status === 401 || response.status === 403) && retry) { this.sid = ""; return this.apiRequest(path, method, body, false); }
-    if (response.status < 200 || response.status >= 300) throw new Error(`FRITZBOX_SMARTHOME_HTTP_${response.status}`);
+    if ((response.status === 401 || response.status === 403) && retry) { this.loginTask = undefined; this.sid = ""; return this.apiRequest(path, method, body, false); }
+    if (response.status < 200 || response.status >= 300) throw new FritzBoxSmartHomeHttpError(response.status, method, path, fritzBoxSmartHomeSafeErrorBody(response.text));
     if (!response.text.trim()) return undefined;
     let parsed: unknown;
     try { parsed = JSON.parse(response.text); } catch { throw new Error("FRITZBOX_SMARTHOME_RESPONSE_INVALID"); }
@@ -336,7 +370,10 @@ export class FritzBoxSmartHomeAdapter {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.statusValue = { enabled: true, connected: false, deviceCount: this.registry.all().filter(device => device.source === "fritzbox").length, lastError: message, api: "rest-v0" };
-      await this.log("warning", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_SYNC_FAILED", "FRITZ!Box Smart Home synchronization failed", { error: message }).catch(() => undefined);
+      const details = error instanceof FritzBoxSmartHomeHttpError
+        ? { error: message, status: error.status, method: error.method, endpoint: error.endpoint, responseBody: error.responseBody }
+        : { error: message };
+      await this.log("warning", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_SYNC_FAILED", "FRITZ!Box Smart Home synchronization failed", details).catch(() => undefined);
     }
   }
 

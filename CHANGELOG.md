@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.133 - FRITZ!Box Smart Home connection diagnostics
+
+- Respect AVM login `BlockTime` instead of retrying credentials during the enforced login lockout.
+- Serialize concurrent Smart Home logins so reconciliation and connection tests cannot start duplicate login attempts.
+- Preserve HTTP status, method, REST endpoint and a sanitized structured AVM response body for Smart Home synchronization failures.
+- Add FRITZ!Box Smart Home settings and runtime status to the sanitized SALTA diagnostic export.
+- Keep credentials, authorization/session fields and other secret fields out of logs and diagnostic exports.
+- Keep the existing v0.8.132 opt-in defaults and imported devices unchanged.
+
 ## 0.8.132 - Optional FRITZ!Box Smart Home integration
 
 - Added an independent FRITZ!Box Smart Home adapter based on the local Smart Home REST API.

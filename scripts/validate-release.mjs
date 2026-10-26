@@ -23,6 +23,7 @@ const requiredReleaseFiles = [
   "src/openccu-thermostat-controller.ts",
   "src/openccu-duty-cycle.ts",
   "src/fritzbox-presence.ts",
+  "src/fritzbox-smarthome.ts",
   "src/climate-mode.ts",
   "src/battery-monitor.ts",
   "src/configuration-backup.ts",
@@ -121,6 +122,9 @@ if (!serverSource.includes('immutableVendorAsset ? "public, max-age=31536000, im
 
 
 const diagnosticExportSource = read("src/diagnostic-export.ts");
+const fritzBoxSmartHomeSource = read("src/fritzbox-smarthome.ts");
+if (!fritzBoxSmartHomeSource.includes("await sleep(blockTime * 1000)") || !fritzBoxSmartHomeSource.includes("FritzBoxSmartHomeHttpError") || !fritzBoxSmartHomeSource.includes("responseBody: error.responseBody")) fail("FRITZ!Box Smart Home BlockTime/error diagnostics contract is incomplete");
+if (!diagnosticExportSource.includes("fritzBoxSmartHome: deps.fritzSmartHome.status()") || !diagnosticExportSource.includes("fritzBoxSmartHome: fritzBoxSmartHomeSettings")) fail("FRITZ!Box Smart Home diagnostic export wiring is incomplete");
 const diagnosticSanitizerSource = read("src/diagnostic-sanitizer.ts");
 const diagnosticExportFrontend = read("public/diagnostic-export.js");
 if (!publicIndex.includes('id="diagnosticExportButton"') || !publicIndex.includes('onclick="exportSaltaDiagnostics()"') || !publicIndex.includes('<script src="/diagnostic-export.js"></script>')) fail("Sanitized diagnostic export frontend is missing");

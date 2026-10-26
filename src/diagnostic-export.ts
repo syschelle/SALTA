@@ -5,6 +5,7 @@ import type { PhosconAdapter } from "./phoscon-adapter.js";
 import type { HueAdapter } from "./hue-adapter.js";
 import type { OpenCcuAdapter } from "./openccu-adapter.js";
 import type { FritzBoxPresenceAdapter } from "./fritzbox-presence.js";
+import type { FritzBoxSmartHomeAdapter } from "./fritzbox-smarthome.js";
 import type { ClimateModeManager } from "./climate-mode.js";
 import type { VacationModeManager } from "./vacation-mode.js";
 import type { HomeKitBridge } from "./homekit.js";
@@ -14,6 +15,7 @@ import {
   getClimateModeSettings,
   getFritzBoxPresenceConnection,
   getFritzBoxPresenceSettings,
+  getFritzBoxSmartHomeSettings,
   getGeneralSettings,
   getGlobalShellyCredentials,
   getHomeKitSettings,
@@ -120,6 +122,7 @@ interface DiagnosticExportDependencies {
   hue: Pick<HueAdapter, "getStatus">;
   openCcu: Pick<OpenCcuAdapter, "getStatus">;
   presence: Pick<FritzBoxPresenceAdapter, "getStatus">;
+  fritzSmartHome: Pick<FritzBoxSmartHomeAdapter, "status">;
   climate: Pick<ClimateModeManager, "status">;
   vacation: Pick<VacationModeManager, "status">;
   homekit: Pick<HomeKitBridge, "status">;
@@ -178,6 +181,7 @@ export async function createSanitizedDiagnosticExport(deps: DiagnosticExportDepe
     hueSettings,
     openCcuSettings,
     fritzBoxSettings,
+    fritzBoxSmartHomeSettings,
     pushoverSettings,
     presenceTargets,
     climateStatus,
@@ -196,6 +200,7 @@ export async function createSanitizedDiagnosticExport(deps: DiagnosticExportDepe
     getHueSettings(),
     getOpenCcuSettings(),
     getFritzBoxPresenceSettings(),
+    getFritzBoxSmartHomeSettings(),
     getPushoverSettings(),
     listPresenceTargets(),
     deps.climate.status(),
@@ -262,6 +267,7 @@ export async function createSanitizedDiagnosticExport(deps: DiagnosticExportDepe
         absenceDelaySeconds: fritzBoxSettings.absenceDelaySeconds,
         tlsInsecure: fritzBoxSettings.tlsInsecure
       },
+      fritzBoxSmartHome: fritzBoxSmartHomeSettings,
       pushover: pushoverSettings
     },
     statuses: {
@@ -269,6 +275,7 @@ export async function createSanitizedDiagnosticExport(deps: DiagnosticExportDepe
       hue: deps.hue.getStatus(),
       openCcu: deps.openCcu.getStatus(),
       fritzBoxPresence: deps.presence.getStatus(),
+      fritzBoxSmartHome: deps.fritzSmartHome.status(),
       climate: climateStatus,
       vacation: vacationStatus,
       homeKit: safeHomeKitStatus(homeKitStatus)
