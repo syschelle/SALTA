@@ -48,5 +48,6 @@
   refreshButton?.addEventListener('click',refresh);
   window.addEventListener('hashchange',()=>{if(location.hash==='#presence')void load()});
   document.addEventListener('salta:languagechange',()=>{void load()});
+  globalThis.refreshFritzBoxSmartHomeStatus=load;
   void load();
 })();

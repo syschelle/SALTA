@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.135 - Preserve FRITZ!Box rooms and live connection status
+
+- Preserve SALTA-local room assignments when the FRITZ!Box Smart Home adapter performs its periodic REST synchronization.
+- Preserve local FRITZ!Box device names, favorites and presentation overrides during synchronization.
+- Refresh the FRITZ!Box Smart Home runtime connection status whenever the Presence page is loaded or live-refreshed.
+- Keep the existing FRITZ!Box presence, Smart Home opt-in settings, device IDs and REST protocol behavior unchanged.
+
 ## 0.8.134 - Dedicated FRITZ!Box Smart Home device page
 
 - Add a dedicated FRITZ!Box entry to the main navigation between Philips Hue and HomeMatic.

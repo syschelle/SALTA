@@ -1,4 +1,4 @@
-# SALTA v0.8.134 Git commands
+# SALTA v0.8.135 Git commands
 
 The authoritative commands are provided directly in the release chat. This file only mirrors the repository-side integration path.
 
@@ -14,8 +14,8 @@ Post-push verification:
 
 ```bash
 git fetch origin
-git show origin/main:package.json | grep -F '"version": "0.8.134"'
-git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.134'
+git show origin/main:package.json | grep -F '"version": "0.8.135"'
+git show origin/main:docker-compose.image.yml | grep -F 'ghcr.io/syschelle/salta:0.8.135'
 ```
 
 After GitHub CI and CodeQL on `main` are green:
@@ -24,11 +24,11 @@ After GitHub CI and CodeQL on `main` are green:
 git checkout main
 git pull --ff-only origin main
 git fetch origin --tags
-git tag -a v0.8.134 -m "SALTA v0.8.134"
-git push origin v0.8.134
+git tag -a v0.8.135 -m "SALTA v0.8.135"
+git push origin v0.8.135
 git rev-list -n 1 v0.8.118
 ```
 
 Create the GitHub release for tag `v0.8.118` and paste the release text from the chat.
 
-Production uses `ghcr.io/syschelle/salta:0.8.134` with `docker-compose.image.yml`.
+Production uses `ghcr.io/syschelle/salta:0.8.135` with `docker-compose.image.yml`.

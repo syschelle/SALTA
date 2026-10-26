@@ -364,7 +364,18 @@ export class FritzBoxSmartHomeAdapter {
     try {
       const overview = record(await this.apiRequest("/smarthome/overview")) as SmartHomeOverview;
       const mapped = mapFritzBoxSmartHomeOverview(overview, settings);
-      for (const device of mapped) await this.registry.set(device);
+      for (const mappedDevice of mapped) {
+        const current = this.registry.get(mappedDevice.id);
+        const device = current ? {
+          ...mappedDevice,
+          name: current.name,
+          roomId: current.roomId,
+          room: current.room,
+          favorite: current.favorite,
+          presentationType: current.presentationType
+        } : mappedDevice;
+        await this.registry.set(device);
+      }
       this.statusValue = { enabled: true, connected: true, deviceCount: mapped.length, lastSync: now(), api: "rest-v0" };
       await this.log("info", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_SYNC", "FRITZ!Box Smart Home synchronized", { devices: mapped.length, api: "rest-v0" }).catch(() => undefined);
     } catch (error) {

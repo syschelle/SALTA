@@ -1,8 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.134 update
+## Current v0.8.135 update
 
-v0.8.134 adds a dedicated FRITZ!Box Smart Home device page for devices that are already imported by the existing adapter. Existing opt-in settings, credentials, imported device IDs and room assignments are reused unchanged; no database schema migration or device re-import is required.
+v0.8.135 preserves SALTA-local FRITZ!Box device room and presentation metadata across Smart Home synchronization and refreshes the Smart Home runtime status on the Presence page. No schema migration or device re-import is required.
 
 v0.8.120 separates OpenCCU thermostat execution from automation policy. Existing automation records are not migrated or rewritten: every stored sequence step keeps its configured device ID, action, order and individual value.
 

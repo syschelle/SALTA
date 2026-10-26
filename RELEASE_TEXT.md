@@ -1,28 +1,27 @@
-# SALTA v0.8.134
+# SALTA v0.8.135
 
-SALTA v0.8.134 adds a dedicated FRITZ!Box Smart Home device page so imported FRITZ!Box devices are directly visible and controllable inside SALTA.
+SALTA v0.8.135 keeps FRITZ!Box Smart Home device room assignments stable across synchronization and keeps the FRITZ!Box Smart Home connection state current on the Presence page.
 
 ## Changes
 
-- Add a dedicated **FRITZ!Box** entry to the main navigation between Philips Hue and HomeMatic.
-- Add a dedicated FRITZ!Box Smart Home device page using the existing SALTA room-grouped device renderer.
-- Show devices without a SALTA room assignment under **Nicht zugeordnet / Unassigned** instead of making them effectively invisible from the room-only overview.
-- Reuse the existing SALTA device cards and controls, including thermostat target-temperature control, favorites, room assignment and device configuration.
-- Add FRITZ!Box room filtering and device search.
-- Add a page-level synchronization action using the existing authenticated `/api/fritzbox/smarthome/refresh` endpoint.
-- Keep the existing FRITZ!Box Smart Home opt-in settings and FRITZ!Box presence integration unchanged.
+- Preserve SALTA room assignments for already imported FRITZ!Box Smart Home devices during the 30-second REST reconciliation cycle.
+- Preserve locally configured FRITZ!Box device names, favorites and presentation overrides during reconciliation.
+- Refresh the FRITZ!Box Smart Home runtime status whenever the Presence page loads or performs its regular live refresh.
+- Continue using the existing FRITZ!Box presence credentials and the existing Smart Home REST adapter without changing device IDs or protocol behavior.
 
 ## Root Cause
 
-FRITZ!Box Smart Home devices were already imported into the SALTA registry with source `fritzbox`, but the main application had no dedicated FRITZ!Box device page. The overview intentionally displays only devices that have a valid SALTA room assignment. Newly imported FRITZ!Box devices without a room therefore had no obvious place in the user interface even though synchronization reported them as successfully integrated.
+The FRITZ!Box Smart Home mapper creates a fresh device snapshot from the FRITZ!Box REST response on every reconciliation. That snapshot intentionally contains device runtime data but does not contain SALTA-local room metadata. v0.8.134 passed the fresh snapshot directly to the registry, and the registry did not restore the existing room fields. The next periodic synchronization therefore replaced a user's saved room assignment with an unassigned device. The same path could also overwrite other local presentation fields.
 
-v0.8.134 adds an explicit FRITZ!Box navigation target and renders the existing imported devices with the shared SALTA device UI. Devices that do not yet have a room appear under the standard **Unassigned** group and can be assigned through the existing device configuration dialog.
+The Smart Home status block on the Presence page had a separate refresh issue. Its browser module refreshed only at initial script load, on a hash change to the Presence page, on language changes, or after Smart Home-specific save/test/refresh actions. The Presence page itself refreshes every five seconds, but that live refresh did not request the current Smart Home adapter status. A successful background synchronization could therefore leave a stale connection state visible until another Smart Home action was performed.
+
+v0.8.135 merges the existing SALTA-local device configuration into each new FRITZ!Box runtime snapshot before registry persistence and explicitly refreshes the Smart Home status as part of Presence-page refreshes.
 
 ## Compatibility
 
 - No database schema change or manual migration is required.
+- Existing FRITZ!Box Smart Home device IDs and room assignments are reused.
 - Existing FRITZ!Box credentials and Smart Home opt-in settings remain unchanged.
-- Existing imported FRITZ!Box device IDs, states and room assignments remain unchanged.
 - FRITZ!Box presence detection remains independent and unchanged.
 - Existing Shelly, Phoscon/deCONZ, Hue, OpenCCU, virtual-device, automation and HomeKit data remain unchanged.
 - No new npm dependency or mandatory environment variable is introduced.
@@ -30,17 +29,17 @@ v0.8.134 adds an explicit FRITZ!Box navigation target and renders the existing i
 
 ## Tests
 
-- Verify that the FRITZ!Box navigation entry is positioned between Philips Hue and HomeMatic.
-- Verify the dedicated FRITZ!Box page, room filter, search field and device grid.
-- Verify that source `fritzbox` is wired to the shared room-grouped device renderer.
-- Verify that the page-level synchronization button uses the existing authenticated Smart Home refresh endpoint.
-- Release validator passed for SALTA v0.8.134.
+- Regression coverage verifies that a FRITZ!Box device keeps its SALTA room assignment after adapter reconciliation.
+- Regression coverage verifies that local FRITZ!Box device name, favorite and presentation settings survive reconciliation.
+- Frontend regression coverage verifies that Presence-page refreshes request the current FRITZ!Box Smart Home runtime status.
+- Release validator enforces both persistence and status-refresh contracts.
+- Release validator passed for SALTA v0.8.135.
 - JavaScript syntax checks passed.
 - TypeScript production build passed.
-- Test symbol preflight passed for 104 test files.
-- 104 of 104 test files passed.
-- 583 of 583 tests passed.
-- Full CI on `main` passed successfully.
+- Test symbol preflight passed for 106 test files.
+- 106 of 106 test files passed.
+- 585 of 585 tests passed.
+- Full CI on main passed successfully.
 
 ## Production update
 
