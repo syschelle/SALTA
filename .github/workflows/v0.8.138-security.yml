@@ -41,16 +41,35 @@ jobs:
           p.write_text(json.dumps(data, indent=2, ensure_ascii=False)+'\n')
           PY
           npm install --no-audit --no-fund --registry=https://registry.npmjs.org/
-      - name: Add dependency security release contract
+      - name: Update dependency security release contract
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('scripts/validate-release.mjs')
           text=p.read_text()
-          anchor='const ciWorkflow = read(".github/workflows/ci.yml");\n'
-          addition='''const securityPackageJson = json("package.json");\nif (securityPackageJson.dependencies?.fastify !== "^5.12.6") fail("Fastify must remain on the patched >=5.12.6 release line");\nif (securityPackageJson.dependencies?.zod !== "^4.6.6") fail("Zod must remain on the patched >=4.6.6 release line");\nif (securityPackageJson.devDependencies?.vitest !== "^4.1.12") fail("Vitest must remain on the patched >=4.1.12 release line");\nif (securityPackageJson.overrides?.["@fastify/ajv-compiler"]?.["fast-uri"] !== "3.1.9" || securityPackageJson.overrides?.ajv?.["fast-uri"] !== "3.1.9" || securityPackageJson.overrides?.["fast-json-stringify"]?.["fast-uri"] !== "4.2.3") fail("fast-uri security overrides must use the patched 3.1.9/4.2.3 releases");\n'''
-          if anchor not in text: raise SystemExit('validator anchor missing')
-          p.write_text(text.replace(anchor, addition+anchor, 1))
+          replacements={
+            'packageJson.dependencies?.fastify !== "^5.12.5"':'packageJson.dependencies?.fastify !== "^5.12.6"',
+            'package.json must require fastify ^5.12.5 for the October 2026 security fixes':'package.json must require fastify ^5.12.6 for the October 2026 security fixes',
+            'packageJson.devDependencies?.vitest !== "^4.1.11"':'packageJson.devDependencies?.vitest !== "^4.1.12"',
+            'package.json must require vitest ^4.1.11 for the October 2026 security fixes':'package.json must require vitest ^4.1.12 for the October 2026 security fixes',
+            'versionAtLeast(entry?.version, "5.12.5")':'versionAtLeast(entry?.version, "5.12.6")',
+            'expected at least 5.12.5':'expected at least 5.12.6',
+            'major === 2 ? "2.4.4" : major === 3 ? "3.1.8" : major === 4 ? "4.1.5" : null':'major === 2 ? "2.4.8" : major === 3 ? "3.1.9" : major === 4 ? "4.2.3" : null',
+            'versionAtLeast(entry?.version, "4.1.11")':'versionAtLeast(entry?.version, "4.1.12")',
+            'expected at least 4.1.11':'expected at least 4.1.12'
+          }
+          for old,new in replacements.items():
+            if old not in text: raise SystemExit(f'missing validator pattern: {old}')
+            text=text.replace(old,new)
+          direct='''if (packageJson.devDependencies?.vitest !== "^4.1.12") {\n  fail("package.json must require vitest ^4.1.12 for the October 2026 security fixes");\n}\n'''
+          direct_add=direct+'''if (packageJson.dependencies?.zod !== "^4.6.6") {\n  fail("package.json must require zod ^4.6.6 for the October 2026 security fixes");\n}\n'''
+          if direct not in text: raise SystemExit('vitest direct guard missing')
+          text=text.replace(direct,direct_add,1)
+          loop='''  if (path === "node_modules/vitest" || path.endsWith("/node_modules/vitest") ||\n      path === "node_modules/@vitest/mocker" || path.endsWith("/node_modules/@vitest/mocker")) {\n    if (!versionAtLeast(entry?.version, "4.1.12")) {\n      fail(`${path} resolves to vulnerable Vitest tooling ${entry?.version}; expected at least 4.1.12`);\n    }\n  }\n'''
+          loop_add=loop+'''  if (path === "node_modules/zod" || path.endsWith("/node_modules/zod")) {\n    if (!versionAtLeast(entry?.version, "4.6.6")) {\n      fail(`${path} resolves to vulnerable zod ${entry?.version}; expected at least 4.6.6`);\n    }\n  }\n'''
+          if loop not in text: raise SystemExit('vitest lock guard missing')
+          text=text.replace(loop,loop_add,1)
+          p.write_text(text)
           PY
       - name: Update release documentation
         run: |
@@ -58,7 +77,7 @@ jobs:
           from pathlib import Path
           changelog=Path('CHANGELOG.md')
           text=changelog.read_text()
-          entry='''## 0.8.138 - Security dependency updates\n\n- Upgrade Fastify to the patched 5.12.6 release line.\n- Upgrade Zod to the patched 4.6.6 release line.\n- Upgrade Vitest to the patched 4.1.12 release line.\n- Pin transitive fast-uri consumers to patched 3.1.9 and 4.2.3 releases.\n- Add release-validator guards that prevent these dependency floors from regressing.\n\n'''
+          entry='''## 0.8.138 - Security dependency updates\n\n- Upgrade Fastify to the patched 5.12.6 release line.\n- Upgrade Zod to the patched 4.6.6 release line.\n- Upgrade Vitest to the patched 4.1.12 release line.\n- Pin transitive fast-uri consumers to patched 3.1.9 and 4.2.3 releases.\n- Update the existing release-validator dependency security floors so vulnerable versions cannot regress.\n\n'''
           if not text.startswith('# Changelog\n\n'): raise SystemExit('unexpected changelog header')
           changelog.write_text('# Changelog\n\n'+entry+text[len('# Changelog\n\n'):])
 
@@ -69,7 +88,7 @@ jobs:
           if marker not in m: raise SystemExit('migration marker missing')
           migration.write_text(m.replace(marker,replacement,1))
 
-          Path('RELEASE_TEXT.md').write_text('''# SALTA v0.8.138\n\nSALTA v0.8.138 updates security-sensitive npm dependencies to patched releases and supersedes the unreleased v0.8.137 tree.\n\n## Changes\n\n- Upgrade Fastify from the vulnerable 5.12.5 release to the patched 5.12.6 release line.\n- Upgrade Zod from the vulnerable 3.x release line to the patched 4.6.6 release line.\n- Upgrade Vitest from 4.1.11 to the patched 4.1.12 release line, which also updates `@vitest/mocker`.\n- Update transitive `fast-uri` overrides from 3.1.8 to 3.1.9 and from 4.2.2 to 4.2.3.\n- Add release-validator guards so these security floors cannot silently regress in later SALTA releases.\n- Retain all FRITZ!OS diagnostic improvements from v0.8.137.\n\n## Root Cause\n\nGitHub Dependabot identified newly published advisories affecting the dependency versions present in the v0.8.137 lockfile. The affected packages included direct runtime dependencies (`zod`, `fastify`), a development dependency through `@vitest/mocker`, and multiple transitive `fast-uri` instances that were explicitly pinned by SALTA overrides.\n\nThe previous pins were valid when introduced, but newly disclosed upstream vulnerabilities made those exact versions unsuitable for release. v0.8.138 moves every affected dependency family to an upstream patched version and validates the complete SALTA application against the resulting dependency graph.\n\n## Compatibility\n\n- No database schema migration is required.\n- Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain unchanged.\n- Existing FRITZ!Box, Shelly, deCONZ, Hue, OpenCCU, virtual-device and automation configuration remains unchanged.\n- FRITZ!Box Smart Home authentication remains PBKDF2-only.\n- Zod is upgraded across a major version boundary; the full SALTA TypeScript build and complete test suite are therefore mandatory release gates.\n- No manual npm installation is required on the production host when using `docker-compose.image.yml`.\n\n## Tests\n\n- GitHub Actions runs the complete SALTA release validator.\n- JavaScript syntax checks run for all release-critical browser bundles.\n- TypeScript production build and type validation run against the updated dependency graph.\n- The complete Vitest suite runs against Zod 4.6.6, Fastify 5.12.6 and Vitest 4.1.12.\n- `npm audit --audit-level=low` must complete without known npm advisories before the validated tree is committed.\n- GitHub CodeQL on `main` remains the final security scan after integration.\n\n## Production update\n\n```bash\ncd /opt/SALTA\ngit pull --ff-only origin main\ndocker compose --env-file .env -f docker-compose.image.yml config\ndocker compose --env-file .env -f docker-compose.image.yml pull\ndocker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans\ndocker compose --env-file .env -f docker-compose.image.yml ps\n```\n\nDo not use `docker compose down -v` during the update. Keep the existing PostgreSQL, SALTA runtime and HomeKit data/volumes.\n''')
+          Path('RELEASE_TEXT.md').write_text('''# SALTA v0.8.138\n\nSALTA v0.8.138 updates security-sensitive npm dependencies to patched releases and supersedes the unreleased v0.8.137 tree.\n\n## Changes\n\n- Upgrade Fastify from the vulnerable 5.12.5 release to the patched 5.12.6 release line.\n- Upgrade Zod from the vulnerable 3.x release line to the patched 4.6.6 release line.\n- Upgrade Vitest from 4.1.11 to the patched 4.1.12 release line, which also updates `@vitest/mocker`.\n- Update transitive `fast-uri` overrides from 3.1.8 to 3.1.9 and from 4.2.2 to 4.2.3.\n- Update the existing release-validator dependency security floors so vulnerable versions cannot silently regress.\n- Retain all FRITZ!OS diagnostic improvements from v0.8.137.\n\n## Root Cause\n\nGitHub Dependabot identified newly published advisories affecting the dependency versions present in the v0.8.137 lockfile. The affected packages included direct runtime dependencies (`zod`, `fastify`), a development dependency through `@vitest/mocker`, and multiple transitive `fast-uri` instances that were explicitly pinned by SALTA overrides.\n\nThe previous pins were valid when introduced, but newly disclosed upstream vulnerabilities made those exact versions unsuitable for release. v0.8.138 moves every affected dependency family to an upstream patched version and validates the complete SALTA application against the resulting dependency graph.\n\n## Compatibility\n\n- No database schema migration is required.\n- Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain unchanged.\n- Existing FRITZ!Box, Shelly, deCONZ, Hue, OpenCCU, virtual-device and automation configuration remains unchanged.\n- FRITZ!Box Smart Home authentication remains PBKDF2-only.\n- Zod is upgraded across a major version boundary; the full SALTA TypeScript build and complete test suite are mandatory release gates.\n- No manual npm installation is required on the production host when using `docker-compose.image.yml`.\n\n## Tests\n\n- GitHub Actions runs the complete SALTA release validator.\n- JavaScript syntax checks run for all release-critical browser bundles.\n- TypeScript production build and type validation run against the updated dependency graph.\n- The complete Vitest suite runs against Zod 4.6.6, Fastify 5.12.6 and Vitest 4.1.12.\n- `npm audit --audit-level=low` must complete without known npm advisories before the validated tree is committed.\n- GitHub CodeQL on `main` remains the final security scan after integration.\n\n## Production update\n\n```bash\ncd /opt/SALTA\ngit pull --ff-only origin main\ndocker compose --env-file .env -f docker-compose.image.yml config\ndocker compose --env-file .env -f docker-compose.image.yml pull\ndocker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans\ndocker compose --env-file .env -f docker-compose.image.yml ps\n```\n\nDo not use `docker compose down -v` during the update. Keep the existing PostgreSQL, SALTA runtime and HomeKit data/volumes.\n''')
           PY
       - name: Verify dependency advisory state
         run: npm audit --audit-level=low
