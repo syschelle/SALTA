@@ -14,7 +14,7 @@ describe("Philips Hue persistence and wiring", () => {
 
   it("wires Hue into the central command router and lifecycle", () => {
     expect(mainSource).toContain("new HueAdapter(registry)");
-    expect(mainSource).toContain("{ shelly, phoscon, hue, openccu: openCcu, virtual }");
+    expect(mainSource).toContain("{ shelly, phoscon, hue, openccu: openCcu, virtual, fritzbox: fritzSmartHome }");
     expect(mainSource).toContain("hue.start()");
     expect(mainSource).toContain("hue.stop()");
   });
