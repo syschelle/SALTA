@@ -1,0 +1,39 @@
+name: Validate v0.8.133 work branch
+
+on:
+  push:
+    branches:
+      - work/v0.8.133-fritz-smarthome-diagnostics
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-and-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/v0.8.133-fritz-smarthome-diagnostics
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+      - name: Prepare release tree
+        run: node scripts/prepare-v0.8.133.mjs
+      - name: Remove temporary preparation files
+        run: |
+          rm scripts/prepare-v0.8.133.mjs
+          rm .github/workflows/v0.8.133-prep.yml
+      - name: Full SALTA quality gate
+        run: npm run check
+      - name: Commit validated release tree
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: improve FRITZ!Box Smart Home diagnostics"
+          git push origin HEAD:work/v0.8.133-fritz-smarthome-diagnostics
