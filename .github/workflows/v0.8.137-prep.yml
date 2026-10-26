@@ -1,0 +1,138 @@
+name: Validate v0.8.137 work branch
+
+on:
+  push:
+    branches:
+      - work/v0.8.137-fritzos-diagnostics
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-and-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/v0.8.137-fritzos-diagnostics
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+      - name: Implement FRITZ!OS diagnostics
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p=Path(path); text=p.read_text()
+              count=text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, found {count}: {old[:100]!r}')
+              p.write_text(text.replace(old,new,1))
+
+          replace_once('src/fritzbox-presence.ts',
+            'const serviceType = "urn:dslforum-org:service:Hosts:1";\n',
+            'const serviceType = "urn:dslforum-org:service:Hosts:1";\nconst deviceInfoServiceType = "urn:dslforum-org:service:DeviceInfo:1";\n')
+
+          replace_once('src/fritzbox-presence.ts',
+            'function soapEnvelope(action: string, args: Record<string,string>, headerXml = ""): string {\n  const argumentsXml = Object.entries(args).map(([key,value])=>`<${key}>${xmlEscape(value)}</${key}>`).join("");\n  const header = headerXml ? `<s:Header>${headerXml}</s:Header>` : "";\n  return `<?xml version="1.0" encoding="utf-8"?><s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">${header}<s:Body><u:${action} xmlns:u="${serviceType}">${argumentsXml}</u:${action}></s:Body></s:Envelope>`;\n}\n',
+            'function soapEnvelope(action: string, args: Record<string,string>, headerXml = "", targetServiceType = serviceType): string {\n  const argumentsXml = Object.entries(args).map(([key,value])=>`<${key}>${xmlEscape(value)}</${key}>`).join("");\n  const header = headerXml ? `<s:Header>${headerXml}</s:Header>` : "";\n  return `<?xml version="1.0" encoding="utf-8"?><s:Envelope s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:s="http://schemas.xmlsoap.org/soap/envelope/">${header}<s:Body><u:${action} xmlns:u="${targetServiceType}">${argumentsXml}</u:${action}></s:Body></s:Envelope>`;\n}\n')
+
+          marker='export async function fritzBoxHostCount(baseUrl: string, username = "", password = "", tlsInsecure = false): Promise<number> {\n'
+          addition='''export async function fritzBoxOsVersion(baseUrl: string, tlsInsecure = false): Promise<string> {\n  const normalizedBaseUrl = normalizeFritzBoxBaseUrl(baseUrl);\n  const url = `${normalizedBaseUrl}/upnp/control/deviceinfo`;\n  const body = soapEnvelope("GetInfo", {}, "", deviceInfoServiceType);\n  const response = await executeSoapRequest(url, {\n    "content-type": "text/xml; charset=utf-8",\n    soapaction: `"${deviceInfoServiceType}#GetInfo"`\n  }, body, tlsInsecure);\n  const faultCode = xmlValue(response.text, "errorCode");\n  if (response.status < 200 || response.status >= 300) throw new Error(faultCode ? `FRITZBOX_DEVICEINFO_SOAP_${faultCode}` : `FRITZBOX_DEVICEINFO_HTTP_${response.status}`);\n  if (faultCode) throw new Error(`FRITZBOX_DEVICEINFO_SOAP_${faultCode}`);\n  const version = xmlValue(response.text, "NewSoftwareVersion") ?? xmlValue(response.text, "SoftwareVersion");\n  if (!version) throw new Error("FRITZBOX_DEVICEINFO_INVALID_RESPONSE");\n  return version;\n}\n\n'''
+          replace_once('src/fritzbox-presence.ts', marker, addition+marker)
+
+          replace_once('src/fritzbox-smarthome.ts',
+            'import type { DeviceRegistry } from "./registry.js";\n',
+            'import type { DeviceRegistry } from "./registry.js";\nimport { fritzBoxOsVersion } from "./fritzbox-presence.js";\n')
+          replace_once('src/fritzbox-smarthome.ts',
+            '  log?: typeof writeSystemLog;\n};\n',
+            '  log?: typeof writeSystemLog;\n  loadFritzOsVersion?: (baseUrl: string, tlsInsecure: boolean) => Promise<string | undefined>;\n};\n')
+          replace_once('src/fritzbox-smarthome.ts',
+            '  private sid = "";\n  private statusValue: FritzBoxSmartHomeStatus = { enabled: false, connected: false, deviceCount: 0 };\n',
+            '  private sid = "";\n  private fritzOsVersion?: string;\n  private fritzOsVersionChecked = false;\n  private statusValue: FritzBoxSmartHomeStatus = { enabled: false, connected: false, deviceCount: 0 };\n')
+          replace_once('src/fritzbox-smarthome.ts',
+            '  private readonly request: RequestFunction;\n  private readonly log: typeof writeSystemLog;\n',
+            '  private readonly request: RequestFunction;\n  private readonly log: typeof writeSystemLog;\n  private readonly loadFritzOsVersion: (baseUrl: string, tlsInsecure: boolean) => Promise<string | undefined>;\n')
+          replace_once('src/fritzbox-smarthome.ts',
+            '    this.request = dependencies.request ?? requestHttp;\n    this.log = dependencies.log ?? writeSystemLog;\n',
+            '    this.request = dependencies.request ?? requestHttp;\n    this.log = dependencies.log ?? writeSystemLog;\n    this.loadFritzOsVersion = dependencies.loadFritzOsVersion ?? (dependencies.request ? async () => undefined : fritzBoxOsVersion);\n')
+          replace_once('src/fritzbox-smarthome.ts',
+            '  stop(): void { this.running = false; if (this.timer) clearInterval(this.timer); this.timer = undefined; this.loginTask = undefined; this.sid = ""; }\n',
+            '  stop(): void { this.running = false; if (this.timer) clearInterval(this.timer); this.timer = undefined; this.loginTask = undefined; this.sid = ""; this.fritzOsVersion = undefined; this.fritzOsVersionChecked = false; }\n')
+          replace_once('src/fritzbox-smarthome.ts',
+            '    this.loginTask = undefined;\n    this.sid = "";\n',
+            '    this.loginTask = undefined;\n    this.sid = "";\n    this.fritzOsVersion = undefined;\n    this.fritzOsVersionChecked = false;\n')
+          replace_once('src/fritzbox-smarthome.ts',
+            '  private async connection(): Promise<{ origin: string; username: string; password: string; tlsInsecure: boolean }> {\n    const connection = await this.loadConnection();\n    return { origin: fritzBoxWebOrigin(connection.baseUrl), username: connection.username, password: connection.password, tlsInsecure: connection.tlsInsecure };\n  }\n\n  private async ensureSid(connection: { origin: string; username: string; password: string; tlsInsecure: boolean }): Promise<string> {\n',
+            '  private async connection(): Promise<{ baseUrl: string; origin: string; username: string; password: string; tlsInsecure: boolean }> {\n    const connection = await this.loadConnection();\n    return { baseUrl: connection.baseUrl, origin: fritzBoxWebOrigin(connection.baseUrl), username: connection.username, password: connection.password, tlsInsecure: connection.tlsInsecure };\n  }\n\n  private async ensureFritzOsVersion(connection: { baseUrl: string; tlsInsecure: boolean }): Promise<void> {\n    if (this.fritzOsVersionChecked) return;\n    this.fritzOsVersionChecked = true;\n    try {\n      const version = await this.loadFritzOsVersion(connection.baseUrl, connection.tlsInsecure);\n      if (!version) return;\n      this.fritzOsVersion = version;\n      await this.log("info", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_FRITZOS_DETECTED", "FRITZ!OS version detected", { fritzOsVersion: version, source: "tr064-deviceinfo" }).catch(() => undefined);\n    } catch (error) {\n      const message = error instanceof Error ? error.message : String(error);\n      await this.log("warning", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_FRITZOS_DETECTION_FAILED", "FRITZ!OS version detection failed", { error: message, source: "tr064-deviceinfo" }).catch(() => undefined);\n    }\n  }\n\n  private async ensureSid(connection: { baseUrl: string; origin: string; username: string; password: string; tlsInsecure: boolean }): Promise<string> {\n    await this.ensureFritzOsVersion(connection);\n')
+
+          text=Path('src/fritzbox-smarthome.ts').read_text()
+          text=text.replace('lastSync: now(), api: "rest-v0" }', 'lastSync: now(), api: "rest-v0", fritzOsVersion: this.fritzOsVersion }')
+          text=text.replace('lastError: error instanceof Error ? error.message : String(error), api: "rest-v0" }', 'lastError: error instanceof Error ? error.message : String(error), api: "rest-v0", fritzOsVersion: this.fritzOsVersion }')
+          text=text.replace('lastError: message, api: "rest-v0" }', 'lastError: message, api: "rest-v0", fritzOsVersion: this.fritzOsVersion }')
+          text=text.replace('? { error: message, status: error.status, method: error.method, endpoint: error.endpoint, responseBody: error.responseBody }\n        : { error: message };', '? { error: message, fritzOsVersion: this.fritzOsVersion, status: error.status, method: error.method, endpoint: error.endpoint, responseBody: error.responseBody }\n        : { error: message, fritzOsVersion: this.fritzOsVersion };')
+          Path('src/fritzbox-smarthome.ts').write_text(text)
+
+          replace_once('src/types.ts',
+            '  api?: "rest-v0";\n}\n',
+            '  api?: "rest-v0";\n  fritzOsVersion?: string;\n}\n')
+
+          replace_once('public/fritzbox-smarthome.js',
+            "  function statusText(value){\n    if(!value?.enabled)return translate('Deaktiviert – keine FRITZ!Box-Smart-Home-Geräte werden abgefragt.');\n    if(value.connected)return `${translate('Verbunden')} · ${Number(value.deviceCount||0)} ${translate('Geräte eingebunden')}`;\n    return value.lastError?`${translate('Nicht verbunden')}: ${value.lastError}`:translate('Noch nicht synchronisiert');\n  }\n",
+            "  function statusText(value){\n    if(!value?.enabled)return translate('Deaktiviert – keine FRITZ!Box-Smart-Home-Geräte werden abgefragt.');\n    const fritzOs=value?.fritzOsVersion?` · FRITZ!OS ${value.fritzOsVersion}`:'';\n    if(value.connected)return `${translate('Verbunden')} · ${Number(value.deviceCount||0)} ${translate('Geräte eingebunden')}${fritzOs}`;\n    return `${value.lastError?`${translate('Nicht verbunden')}: ${value.lastError}`:translate('Noch nicht synchronisiert')}${fritzOs}`;\n  }\n")
+
+          replace_once('src/fritzbox-presence.test.ts',
+            'import { FritzBoxPresenceAdapter, fritzBoxHostByIp, fritzBoxHostByMac, fritzBoxHostCount, normalizeFritzBoxBaseUrl, normalizePresenceIp, normalizePresenceMac } from "./fritzbox-presence.js";\n',
+            'import { FritzBoxPresenceAdapter, fritzBoxHostByIp, fritzBoxHostByMac, fritzBoxHostCount, fritzBoxOsVersion, normalizeFritzBoxBaseUrl, normalizePresenceIp, normalizePresenceMac } from "./fritzbox-presence.js";\n')
+          marker='''  it("reads the FRITZ!Box host count from the Hosts service", async () => {\n'''
+          test='''  it("reads the FRITZ!OS version from DeviceInfo:GetInfo", async () => {\n    let soapAction = "";\n    let requestUrl = "";\n    const baseUrl = await localServer((_request, response) => {\n      requestUrl = _request.url ?? "";\n      soapAction = String(_request.headers.soapaction ?? "");\n      response.writeHead(200, { "content-type": "text/xml" });\n      response.end(soap("<u:GetInfoResponse><NewSoftwareVersion>8.20</NewSoftwareVersion></u:GetInfoResponse>"));\n    });\n    await expect(fritzBoxOsVersion(baseUrl)).resolves.toBe("8.20");\n    expect(requestUrl).toBe("/upnp/control/deviceinfo");\n    expect(soapAction).toBe('"urn:dslforum-org:service:DeviceInfo:1#GetInfo"');\n  });\n\n'''
+          replace_once('src/fritzbox-presence.test.ts', marker, test+marker)
+
+          marker='''  it("writes the documented thermostat REST payload", async () => {\n'''
+          test='''  it("detects, logs and exposes the FRITZ!OS version before Smart Home login", async () => {\n    const loadFritzOsVersion = vi.fn(async () => "8.20");\n    const log = vi.fn(async () => undefined);\n    const request = vi.fn(async (url: string, method: string) => {\n      if (url.includes("login_sid.lua") && method === "GET") return { status: 200, headers: {}, text: "<SessionInfo><SID>0123456789abcdef</SID><Challenge>unused</Challenge><BlockTime>0</BlockTime></SessionInfo>" };\n      if (url.endsWith("/api/v0/smarthome/overview") && method === "GET") return { status: 200, headers: {}, text: JSON.stringify(overview) };\n      throw new Error(`unexpected ${method} ${url}`);\n    });\n    const registry = { all: () => [] as Device[], set: vi.fn(), get: vi.fn() } as never;\n    const adapter = new FritzBoxSmartHomeAdapter(registry, {\n      loadSettings: async () => enabled,\n      loadConnection: async () => ({ baseUrl: "http://fritz.box:49000", username: "user", password: "secret", enabled: true, pollIntervalSeconds: 30, absenceDelaySeconds: 300, tlsInsecure: false }),\n      loadFritzOsVersion,\n      request,\n      log\n    });\n    await expect(adapter.testConnection()).resolves.toMatchObject({ connected: true, fritzOsVersion: "8.20" });\n    expect(loadFritzOsVersion).toHaveBeenCalledWith("http://fritz.box:49000", false);\n    expect(log).toHaveBeenCalledWith("info", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_FRITZOS_DETECTED", "FRITZ!OS version detected", { fritzOsVersion: "8.20", source: "tr064-deviceinfo" });\n  });\n\n'''
+          replace_once('src/fritzbox-smarthome.test.ts', marker, test+marker)
+
+          validator=Path('scripts/validate-release.mjs')
+          v=validator.read_text()
+          anchor='const fritzBoxSmartHomeFrontend = read("public/fritzbox-smarthome.js");\n'
+          if anchor not in v: raise SystemExit('release validator anchor missing')
+          addition='''const fritzBoxPresenceSource = read("src/fritzbox-presence.ts");\nif (!fritzBoxPresenceSource.includes("export async function fritzBoxOsVersion") || !fritzBoxPresenceSource.includes("urn:dslforum-org:service:DeviceInfo:1")) fail("FRITZ!OS DeviceInfo version detection is missing");\nconst fritzBoxSmartHomeSource = read("src/fritzbox-smarthome.ts");\nif (!fritzBoxSmartHomeSource.includes("FRITZBOX_SMARTHOME_FRITZOS_DETECTED") || !fritzBoxSmartHomeSource.includes("fritzOsVersion")) fail("FRITZ!OS Smart Home diagnostics are missing");\n'''
+          validator.write_text(v.replace(anchor, addition+anchor,1))
+          PY
+      - name: Bump release version
+        run: npm run version:set -- 0.8.137
+      - name: Update release documentation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          changelog=Path('CHANGELOG.md')
+          text=changelog.read_text()
+          entry='''## 0.8.137 - Detect FRITZ!OS version for Smart Home diagnostics\n\n- Query the official TR-064 `DeviceInfo:GetInfo` action and read `NewSoftwareVersion` before FRITZ!Box Smart Home SID authentication.\n- Keep PBKDF2 challenge validation as the security decision; the detected FRITZ!OS version is diagnostic context only.\n- Expose the detected FRITZ!OS version in Smart Home runtime status and show it on the Presence page.\n- Write successful or failed version detection to the persistent system log without credentials or session data.\n- Add regression and release-validator coverage for the DeviceInfo request and Smart Home diagnostics.\n\n'''
+          if not text.startswith('# Changelog\n\n'): raise SystemExit('unexpected changelog header')
+          changelog.write_text('# Changelog\n\n'+entry+text[len('# Changelog\n\n'):])
+
+          migration=Path('MIGRATION_PATH.md')
+          m=migration.read_text()
+          old='v0.8.136 requires PBKDF2-capable FRITZ!Box Smart Home SID authentication and removes the legacy MD5 password challenge fallback. No schema migration, credential rewrite or device re-import is required. Existing FRITZ!Box Smart Home settings and room assignments remain unchanged.'
+          new='v0.8.137 adds a diagnostic FRITZ!OS version query through the official TR-064 DeviceInfo service before Smart Home SID authentication. PBKDF2 challenge validation remains authoritative; the firmware version never re-enables legacy MD5 authentication. No schema migration, credential rewrite or device re-import is required.'
+          if m.count(old)!=1: raise SystemExit('migration text mismatch')
+          migration.write_text(m.replace(old,new,1))
+
+          Path('RELEASE_TEXT.md').write_text('''# SALTA v0.8.137\n\nSALTA v0.8.137 adds FRITZ!OS version detection to FRITZ!Box Smart Home diagnostics while keeping PBKDF2 challenge validation authoritative.\n\n## Changes\n\n- Query the official FRITZ!Box TR-064 `DeviceInfo:GetInfo` action before Smart Home SID authentication.\n- Read and expose `NewSoftwareVersion` as the detected FRITZ!OS version.\n- Show the detected FRITZ!OS version in the Smart Home connection status on the Presence page.\n- Record successful and failed FRITZ!OS detection in the persistent system log without credentials, passwords or SID values.\n- Keep the v0.8.136 PBKDF2-only Smart Home login policy unchanged.\n\n## Root Cause\n\nThe v0.8.136 security fix correctly removed the legacy MD5 SID challenge fallback, but a rejected non-PBKDF2 challenge did not identify the FRITZ!OS version of the connected router. This made it harder to distinguish an outdated FRITZ!OS installation from another authentication problem.\n\nv0.8.137 uses AVM's documented TR-064 DeviceInfo service to obtain the FRITZ!OS software version before Smart Home authentication. The version is diagnostic context only. SALTA still decides whether authentication is acceptable exclusively from the actual SID challenge and never restores the legacy MD5 password path.\n\n## Compatibility\n\n- No database schema change or manual migration is required.\n- Existing FRITZ!Box presence and Smart Home credentials remain unchanged.\n- Existing imported FRITZ!Box device IDs, room assignments and presentation settings remain unchanged.\n- FRITZ!Box Smart Home authentication remains PBKDF2-only.\n- A failure to read DeviceInfo does not block an otherwise valid Smart Home login.\n- Existing Shelly, deCONZ, Hue, OpenCCU, virtual-device, automation and HomeKit data remain unchanged.\n- Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain compatible.\n\n## Tests\n\n- Regression coverage verifies the TR-064 DeviceInfo SOAP action and `NewSoftwareVersion` parsing.\n- Regression coverage verifies that Smart Home connection status exposes the detected FRITZ!OS version.\n- Regression coverage verifies that the version is written to diagnostics before Smart Home login.\n- Release validator enforces the DeviceInfo and Smart Home diagnostic contracts.\n- Full GitHub Actions quality gate must pass before release.\n- GitHub CodeQL on `main` remains the authoritative security scan after integration.\n\n## Production update\n\n```bash\ncd /opt/SALTA\ngit pull --ff-only origin main\ndocker compose --env-file .env -f docker-compose.image.yml config\ndocker compose --env-file .env -f docker-compose.image.yml pull\ndocker compose --env-file .env -f docker-compose.image.yml up -d --force-recreate --remove-orphans\ndocker compose --env-file .env -f docker-compose.image.yml ps\n```\n\nDo not use `docker compose down -v` during the update. Keep the existing PostgreSQL, SALTA runtime and HomeKit data/volumes.\n''')
+          PY
+      - name: Remove temporary preparation workflow
+        run: rm .github/workflows/v0.8.137-prep.yml
+      - name: Full SALTA quality gate
+        run: npm run check
+      - name: Commit validated release tree
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: add FRITZ!OS Smart Home diagnostics"
+          git push origin HEAD:work/v0.8.137-fritzos-diagnostics
