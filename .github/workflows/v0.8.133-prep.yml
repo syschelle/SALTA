@@ -23,9 +23,12 @@ jobs:
           cache: npm
       - run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
       - name: Prepare release tree
-        run: node scripts/prepare-v0.8.133.mjs
+        run: |
+          node scripts/fix-v0.8.133-prep.mjs
+          node scripts/prepare-v0.8.133.mjs
       - name: Remove temporary preparation files
         run: |
+          rm scripts/fix-v0.8.133-prep.mjs
           rm scripts/prepare-v0.8.133.mjs
           rm .github/workflows/v0.8.133-prep.yml
       - name: Full SALTA quality gate
