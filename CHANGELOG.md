@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.134 - Dedicated FRITZ!Box Smart Home device page
+
+- Add a dedicated FRITZ!Box entry to the main navigation between Philips Hue and HomeMatic.
+- Show imported FRITZ!Box Smart Home devices on their own room-grouped page, including devices without a room under "Nicht zugeordnet".
+- Reuse the common SALTA device cards so thermostat target-temperature controls, room assignment, favorites and device configuration remain consistent.
+- Add room and text filters for FRITZ!Box devices.
+- Add a page-level Smart Home refresh button using the existing authenticated FRITZ!Box REST adapter.
+- Keep FRITZ!Box presence detection and Smart Home configuration behavior unchanged.
+
 ## 0.8.133 - FRITZ!Box Smart Home connection diagnostics
 
 - Respect AVM login `BlockTime` instead of retrying credentials during the enforced login lockout.
