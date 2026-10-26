@@ -14,7 +14,7 @@ describe("FRITZ!Box Smart Home diagnostics and login throttling", () => {
       const calls: string[] = [];
       const request = vi.fn(async (url: string, method: string) => {
         calls.push(method + " " + url);
-        if (url.includes("login_sid.lua") && method === "GET") return { status: 200, headers: {}, text: "<SessionInfo><SID>0000000000000000</SID><Challenge>12345678</Challenge><BlockTime>2</BlockTime></SessionInfo>" };
+        if (url.includes("login_sid.lua") && method === "GET") return { status: 200, headers: {}, text: "<SessionInfo><SID>0000000000000000</SID><Challenge>2$10000$bc2fb16126ab227e004015d24c1849b2$2000$0a9cd1ef5dc0504377fa78d9c661e1fd</Challenge><BlockTime>2</BlockTime></SessionInfo>" };
         if (url.includes("login_sid.lua") && method === "POST") return { status: 200, headers: {}, text: "<SessionInfo><SID>0123456789abcdef</SID><Challenge>unused</Challenge><BlockTime>0</BlockTime></SessionInfo>" };
         if (url.endsWith("/api/v0/smarthome/overview")) return { status: 200, headers: {}, text: JSON.stringify({ devices: [], units: [] }) };
         throw new Error("unexpected " + method + " " + url);

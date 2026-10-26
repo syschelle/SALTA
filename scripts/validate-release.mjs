@@ -124,6 +124,7 @@ if (!serverSource.includes('immutableVendorAsset ? "public, max-age=31536000, im
 const diagnosticExportSource = read("src/diagnostic-export.ts");
 const fritzBoxSmartHomeSource = read("src/fritzbox-smarthome.ts");
 if (!fritzBoxSmartHomeSource.includes("await sleep(blockTime * 1000)") || !fritzBoxSmartHomeSource.includes("FritzBoxSmartHomeHttpError") || !fritzBoxSmartHomeSource.includes("responseBody: error.responseBody")) fail("FRITZ!Box Smart Home BlockTime/error diagnostics contract is incomplete");
+if (!fritzBoxSmartHomeSource.includes("FRITZBOX_SMARTHOME_PBKDF2_REQUIRED") || fritzBoxSmartHomeSource.includes('createHash("md5")') || fritzBoxSmartHomeSource.includes("legacyPassword(")) fail("FRITZ!Box Smart Home SID authentication must be PBKDF2-only");
 if (!fritzBoxSmartHomeSource.includes("name: current.name") || !fritzBoxSmartHomeSource.includes("roomId: current.roomId") || !fritzBoxSmartHomeSource.includes("room: current.room") || !fritzBoxSmartHomeSource.includes("favorite: current.favorite") || !fritzBoxSmartHomeSource.includes("presentationType: current.presentationType")) fail("FRITZ!Box reconciliation does not preserve SALTA-local device configuration");
 const fritzBoxSmartHomeFrontend = read("public/fritzbox-smarthome.js");
 if (!fritzBoxSmartHomeFrontend.includes("globalThis.refreshFritzBoxSmartHomeStatus=load") || !read("public/app.js").includes("await globalThis.refreshFritzBoxSmartHomeStatus()")) fail("Presence page does not refresh the current FRITZ!Box Smart Home status");

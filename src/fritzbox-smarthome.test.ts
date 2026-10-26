@@ -62,6 +62,10 @@ describe("FRITZ!Box Smart Home core", () => {
     const second = pbkdf2Sync(first, Buffer.from("0a9cd1ef5dc0504377fa78d9c661e1fd", "hex"), 6000, 32, "sha256").toString("hex");
     expect(fritzBoxSidResponse(challenge, password)).toBe(`0a9cd1ef5dc0504377fa78d9c661e1fd$${second}`);
   });
+
+  it("rejects legacy SID challenges instead of hashing the password with MD5", () => {
+    expect(() => fritzBoxSidResponse("legacy-challenge", "test-password")).toThrowError("FRITZBOX_SMARTHOME_PBKDF2_REQUIRED");
+  });
 });
 
 describe("FRITZ!Box Smart Home adapter", () => {

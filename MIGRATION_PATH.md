@@ -1,8 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.135 update
+## Current v0.8.136 update
 
-v0.8.135 preserves SALTA-local FRITZ!Box device room and presentation metadata across Smart Home synchronization and refreshes the Smart Home runtime status on the Presence page. No schema migration or device re-import is required.
+v0.8.136 requires PBKDF2-capable FRITZ!Box Smart Home SID authentication and removes the legacy MD5 password challenge fallback. No schema migration, credential rewrite or device re-import is required. Existing FRITZ!Box Smart Home settings and room assignments remain unchanged.
 
 v0.8.120 separates OpenCCU thermostat execution from automation policy. Existing automation records are not migrated or rewritten: every stored sequence step keeps its configured device ID, action, order and individual value.
 

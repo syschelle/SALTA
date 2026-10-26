@@ -91,12 +91,9 @@ export function fritzBoxWebOrigin(baseUrl: string): string {
   return parsed.toString().replace(/\/$/, "");
 }
 
-function legacyPassword(value: string): string {
-  return [...value].map(character => character.codePointAt(0)! > 255 ? "." : character).join("");
-}
-
 export function fritzBoxSidResponse(challenge: string, password: string): string {
-  if (challenge.startsWith("2$")) {
+  if (!challenge.startsWith("2$")) throw new Error("FRITZBOX_SMARTHOME_PBKDF2_REQUIRED");
+  {
     const parts = challenge.split("$");
     if (parts.length !== 5) throw new Error("FRITZBOX_SMARTHOME_AUTH_CHALLENGE");
     const iteration1 = Number.parseInt(parts[1]!, 10);
@@ -108,8 +105,6 @@ export function fritzBoxSidResponse(challenge: string, password: string): string
     const hash2 = pbkdf2Sync(hash1, salt2, iteration2, 32, "sha256");
     return `${parts[4]}$${hash2.toString("hex")}`;
   }
-  const response = `${challenge}-${legacyPassword(password)}`;
-  return `${challenge}-${createHash("md5").update(Buffer.from(response, "utf16le")).digest("hex")}`;
 }
 
 async function requestHttp(url: string, method: string, headers: Record<string,string>, body: string | undefined, tlsInsecure: boolean): Promise<HttpResponse> {

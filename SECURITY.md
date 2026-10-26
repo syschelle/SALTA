@@ -45,6 +45,8 @@ The official FRITZ! TR-064 *First Steps* specification defines HTTP Digest authe
 
 SALTA centralizes protocol hashing in `digestHash()` in `src/fritzbox-presence.ts`. The SOAP `contentAuthDigest()` path reuses that helper instead of containing direct `createHash("md5")` calls. Release validation rejects any direct literal MD5 `createHash()` call in the FRITZ!Box Presence source and verifies that the content-level calculation remains exactly two protocol `digestHash("MD5", ...)` operations. Do not reuse MD5 for application password hashing or any other SALTA security primitive.
 
+FRITZ!Box Smart Home SID authentication is deliberately stricter. SALTA requests `login_sid.lua?version=2` and accepts only the AVM PBKDF2 challenge format beginning with `2$`. A legacy SID challenge is rejected with `FRITZBOX_SMARTHOME_PBKDF2_REQUIRED`; SALTA no longer falls back to the legacy MD5 password challenge for Smart Home REST access.
+
 ## Authentication and browser sessions
 
 - `ADMIN_PASSWORD` is mandatory, must contain at least 16 characters and must not use a placeholder value.

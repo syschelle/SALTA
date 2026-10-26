@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.136 - Require PBKDF2 for FRITZ!Box Smart Home login
+
+- Remove the legacy MD5 password challenge fallback from FRITZ!Box Smart Home SID authentication.
+- Require the AVM PBKDF2 `2$...` challenge format for Smart Home REST login.
+- Return an explicit `FRITZBOX_SMARTHOME_PBKDF2_REQUIRED` diagnostic when a legacy challenge is received.
+- Keep protocol-mandated MD5 compatibility isolated to the separate TR-064 Presence authentication path.
+- Add regression and release-validator coverage preventing the Smart Home MD5 path from returning.
+
 ## 0.8.135 - Preserve FRITZ!Box rooms and live connection status
 
 - Preserve SALTA-local room assignments when the FRITZ!Box Smart Home adapter performs its periodic REST synchronization.
