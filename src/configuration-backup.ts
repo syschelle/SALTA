@@ -7,7 +7,7 @@ import { DATABASE_SCHEMA_VERSION, pool } from "./db.js";
 export const CONFIGURATION_BACKUP_FORMAT = "salta-configuration-backup";
 export const CONFIGURATION_BACKUP_FORMAT_VERSION = 1;
 
-const backupRowSchema = z.record(z.unknown());
+const backupRowSchema = z.record(z.string(), z.unknown());
 const backupRows = (max = 10000) => z.array(backupRowSchema).max(max);
 
 const backupDataSchema = z.object({
@@ -28,308 +28,151 @@ const backupDataSchema = z.object({
   automation_preferences: backupRows(),
   automation_time_triggers: backupRows().optional(),
   automation_schedule_preferences: backupRows().optional(),
+  automation_action_preferences: backupRows().optional(),
+  automation_action_state: backupRows().optional(),
+  automation_action_delays: backupRows().optional(),
   automation_conditions: backupRows().optional(),
-  automation_triggers: backupRows(),
-  automation_actions: backupRows().optional(),
-  automation_targets: backupRows().optional(),
-  automation_timed_actions: backupRows().optional(),
-  automation_system_actions: backupRows().optional(),
-  automation_sequence_steps: backupRows().optional(),
-  climate_mode_settings: backupRows(10),
-  notification_settings: backupRows(10),
-  notification_state: backupRows(100)
+  runtime_settings: backupRows(1000),
+  system_settings: backupRows(1000).optional(),
+  color_profiles: backupRows(1000).optional(),
+  notification_settings: backupRows(1000).optional(),
+  notification_events: backupRows(10000).optional()
 }).strict();
 
-const backupSchema = z.object({
+const backupEnvelopeSchema = z.object({
   format: z.literal(CONFIGURATION_BACKUP_FORMAT),
   formatVersion: z.literal(CONFIGURATION_BACKUP_FORMAT_VERSION),
   schemaVersion: z.string().min(1).max(32),
-  saltaVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
   createdAt: z.string().datetime(),
-  containsEncryptedSecrets: z.boolean(),
+  saltaVersion: z.string().regex(/^\d+\.\d+\.\d+$/),
   data: backupDataSchema,
-  signature: z.string().min(20).max(256)
+  signature: z.string().regex(/^[a-f0-9]{64}$/)
 }).strict();
 
-export type ConfigurationBackup = z.infer<typeof backupSchema>;
-
 type BackupData = z.infer<typeof backupDataSchema>;
-type NormalizedBackupData = Omit<BackupData, "device_favorites" | "presence_target_profiles" | "presence_target_network" | "automation_time_triggers" | "automation_schedule_preferences" | "automation_conditions" | "automation_actions" | "automation_targets" | "automation_timed_actions" | "automation_system_actions" | "automation_sequence_steps"> & { device_favorites: Record<string, unknown>[]; presence_target_profiles: Record<string, unknown>[]; presence_target_network: Record<string, unknown>[]; automation_time_triggers: Record<string, unknown>[]; automation_schedule_preferences: Record<string, unknown>[]; automation_conditions: Record<string, unknown>[]; automation_actions: Record<string, unknown>[]; automation_targets: Record<string, unknown>[]; automation_timed_actions: Record<string, unknown>[]; automation_system_actions: Record<string, unknown>[]; automation_sequence_steps: Record<string, unknown>[] };
-type BackupRow = Record<string, unknown>;
+type BackupEnvelope = z.infer<typeof backupEnvelopeSchema>;
 
-const exportQueries: Readonly<Record<keyof NormalizedBackupData, string>> = {
-  rooms: "SELECT * FROM rooms ORDER BY sort_order,name,id",
-  devices: "SELECT * FROM devices ORDER BY id",
-  device_preferences: "SELECT * FROM device_preferences ORDER BY device_id",
-  device_favorites: "SELECT * FROM device_favorites ORDER BY device_id",
-  device_homekit_settings: "SELECT * FROM device_homekit_settings ORDER BY device_id",
-  adapter_settings: "SELECT * FROM adapter_settings ORDER BY adapter_id",
-  openccu_settings: "SELECT * FROM openccu_settings ORDER BY adapter_id",
-  fritzbox_presence_settings: "SELECT * FROM fritzbox_presence_settings ORDER BY adapter_id",
-  fritzbox_presence_transport_settings: "SELECT * FROM fritzbox_presence_transport_settings ORDER BY adapter_id",
-  presence_targets: "SELECT * FROM presence_targets ORDER BY name,id",
-  presence_target_profiles: "SELECT * FROM presence_target_profiles ORDER BY person_name,target_id",
-  presence_target_network: "SELECT * FROM presence_target_network ORDER BY ip_address,target_id",
-  device_adapter_data: "SELECT * FROM device_adapter_data ORDER BY device_id",
-  automations: "SELECT * FROM automations ORDER BY name,id",
-  automation_preferences: "SELECT * FROM automation_preferences ORDER BY automation_id",
-  automation_time_triggers: "SELECT * FROM automation_time_triggers ORDER BY automation_id",
-  automation_schedule_preferences: "SELECT * FROM automation_schedule_preferences ORDER BY automation_id",
-  automation_conditions: "SELECT * FROM automation_conditions ORDER BY automation_id,position",
-  automation_triggers: "SELECT * FROM automation_triggers ORDER BY automation_id,position",
-  automation_actions: "SELECT * FROM automation_actions ORDER BY automation_id,position",
-  automation_targets: "SELECT * FROM automation_targets ORDER BY automation_id,position",
-  automation_timed_actions: "SELECT * FROM automation_timed_actions ORDER BY automation_id,position",
-  automation_system_actions: "SELECT * FROM automation_system_actions ORDER BY automation_id,position",
-  automation_sequence_steps: "SELECT * FROM automation_sequence_steps ORDER BY automation_id,position",
-  climate_mode_settings: "SELECT * FROM climate_mode_settings ORDER BY id",
-  notification_settings: "SELECT * FROM notification_settings ORDER BY channel",
-  notification_state: "SELECT * FROM notification_state ORDER BY key"
-};
+function signaturePayload(envelope: Omit<BackupEnvelope, "signature">): string {
+  return JSON.stringify(envelope);
+}
 
-const insertStatements: Readonly<Record<keyof NormalizedBackupData, string>> = {
-  rooms: "INSERT INTO rooms SELECT * FROM jsonb_populate_recordset(NULL::rooms, $1::jsonb)",
-  devices: "INSERT INTO devices SELECT * FROM jsonb_populate_recordset(NULL::devices, $1::jsonb)",
-  device_preferences: "INSERT INTO device_preferences SELECT * FROM jsonb_populate_recordset(NULL::device_preferences, $1::jsonb)",
-  device_favorites: "INSERT INTO device_favorites SELECT * FROM jsonb_populate_recordset(NULL::device_favorites, $1::jsonb)",
-  device_homekit_settings: "INSERT INTO device_homekit_settings SELECT * FROM jsonb_populate_recordset(NULL::device_homekit_settings, $1::jsonb)",
-  adapter_settings: "INSERT INTO adapter_settings SELECT * FROM jsonb_populate_recordset(NULL::adapter_settings, $1::jsonb)",
-  openccu_settings: "INSERT INTO openccu_settings SELECT * FROM jsonb_populate_recordset(NULL::openccu_settings, $1::jsonb)",
-  fritzbox_presence_settings: "INSERT INTO fritzbox_presence_settings SELECT * FROM jsonb_populate_recordset(NULL::fritzbox_presence_settings, $1::jsonb)",
-  fritzbox_presence_transport_settings: "INSERT INTO fritzbox_presence_transport_settings SELECT * FROM jsonb_populate_recordset(NULL::fritzbox_presence_transport_settings, $1::jsonb)",
-  presence_targets: "INSERT INTO presence_targets SELECT * FROM jsonb_populate_recordset(NULL::presence_targets, $1::jsonb)",
-  presence_target_profiles: "INSERT INTO presence_target_profiles SELECT * FROM jsonb_populate_recordset(NULL::presence_target_profiles, $1::jsonb)",
-  presence_target_network: "INSERT INTO presence_target_network SELECT * FROM jsonb_populate_recordset(NULL::presence_target_network, $1::jsonb)",
-  device_adapter_data: "INSERT INTO device_adapter_data SELECT * FROM jsonb_populate_recordset(NULL::device_adapter_data, $1::jsonb)",
-  automations: "INSERT INTO automations SELECT * FROM jsonb_populate_recordset(NULL::automations, $1::jsonb)",
-  automation_preferences: "INSERT INTO automation_preferences SELECT * FROM jsonb_populate_recordset(NULL::automation_preferences, $1::jsonb)",
-  automation_time_triggers: "INSERT INTO automation_time_triggers SELECT * FROM jsonb_populate_recordset(NULL::automation_time_triggers, $1::jsonb)",
-  automation_schedule_preferences: "INSERT INTO automation_schedule_preferences SELECT * FROM jsonb_populate_recordset(NULL::automation_schedule_preferences, $1::jsonb)",
-  automation_conditions: "INSERT INTO automation_conditions SELECT * FROM jsonb_populate_recordset(NULL::automation_conditions, $1::jsonb)",
-  automation_triggers: "INSERT INTO automation_triggers SELECT * FROM jsonb_populate_recordset(NULL::automation_triggers, $1::jsonb)",
-  automation_actions: "INSERT INTO automation_actions SELECT * FROM jsonb_populate_recordset(NULL::automation_actions, $1::jsonb)",
-  automation_targets: "INSERT INTO automation_targets SELECT * FROM jsonb_populate_recordset(NULL::automation_targets, $1::jsonb)",
-  automation_timed_actions: "INSERT INTO automation_timed_actions SELECT * FROM jsonb_populate_recordset(NULL::automation_timed_actions, $1::jsonb)",
-  automation_system_actions: "INSERT INTO automation_system_actions SELECT * FROM jsonb_populate_recordset(NULL::automation_system_actions, $1::jsonb)",
-  automation_sequence_steps: "INSERT INTO automation_sequence_steps SELECT * FROM jsonb_populate_recordset(NULL::automation_sequence_steps, $1::jsonb)",
-  climate_mode_settings: "INSERT INTO climate_mode_settings SELECT * FROM jsonb_populate_recordset(NULL::climate_mode_settings, $1::jsonb)",
-  notification_settings: "INSERT INTO notification_settings SELECT * FROM jsonb_populate_recordset(NULL::notification_settings, $1::jsonb)",
-  notification_state: "INSERT INTO notification_state SELECT * FROM jsonb_populate_recordset(NULL::notification_state, $1::jsonb)"
-};
+function backupSecret(): string {
+  const secret = config.configurationBackupSecret?.trim();
+  if (!secret) throw new Error("CONFIGURATION_BACKUP_SECRET_MISSING");
+  return secret;
+}
 
-const insertOrder: readonly (keyof NormalizedBackupData)[] = [
-  "rooms", "devices", "device_preferences", "device_favorites", "device_homekit_settings", "adapter_settings", "openccu_settings",
-  "fritzbox_presence_settings", "fritzbox_presence_transport_settings", "presence_targets", "presence_target_profiles", "presence_target_network", "device_adapter_data",
-  "automations", "automation_preferences", "automation_time_triggers", "automation_schedule_preferences", "automation_conditions", "automation_triggers", "automation_actions", "automation_targets", "automation_timed_actions", "automation_system_actions", "automation_sequence_steps", "climate_mode_settings", "notification_settings", "notification_state"
-];
+function signEnvelope(envelope: Omit<BackupEnvelope, "signature">): string {
+  return createHmac("sha256", backupSecret()).update(signaturePayload(envelope)).digest("hex");
+}
 
-const deleteStatements = [
-  "DELETE FROM notification_state",
-  "DELETE FROM automation_sequence_steps",
-  "DELETE FROM automation_system_actions",
-  "DELETE FROM automation_timed_actions",
-  "DELETE FROM automation_targets",
-  "DELETE FROM automation_actions",
-  "DELETE FROM automation_triggers",
-  "DELETE FROM automation_conditions",
-  "DELETE FROM automation_time_triggers",
-  "DELETE FROM automation_schedule_preferences",
-  "DELETE FROM automation_preferences",
-  "DELETE FROM automations",
-  "DELETE FROM device_adapter_data",
-  "DELETE FROM device_homekit_settings",
-  "DELETE FROM device_favorites",
-  "DELETE FROM device_preferences",
-  "DELETE FROM devices",
-  "DELETE FROM presence_target_network",
-  "DELETE FROM presence_target_profiles",
-  "DELETE FROM presence_targets",
-  "DELETE FROM rooms",
-  "DELETE FROM adapter_settings",
-  "DELETE FROM openccu_settings",
-  "DELETE FROM fritzbox_presence_transport_settings",
-  "DELETE FROM fritzbox_presence_settings",
-  "DELETE FROM climate_mode_settings",
-  "DELETE FROM notification_settings"
+function verifySignature(envelope: BackupEnvelope): void {
+  const expected = Buffer.from(signEnvelope({
+    format: envelope.format,
+    formatVersion: envelope.formatVersion,
+    schemaVersion: envelope.schemaVersion,
+    createdAt: envelope.createdAt,
+    saltaVersion: envelope.saltaVersion,
+    data: envelope.data
+  }), "hex");
+  const received = Buffer.from(envelope.signature, "hex");
+  if (expected.length !== received.length || !timingSafeEqual(expected, received)) throw new Error("CONFIGURATION_BACKUP_SIGNATURE_INVALID");
+}
+
+async function tableExists(table: string): Promise<boolean> {
+  const result = await pool.query<{ exists: boolean }>("SELECT to_regclass($1) IS NOT NULL AS exists", [`public.${table}`]);
+  return Boolean(result.rows[0]?.exists);
+}
+
+async function readTable(table: string): Promise<Record<string, unknown>[]> {
+  if (!await tableExists(table)) return [];
+  const result = await pool.query(`SELECT * FROM ${table}`);
+  return result.rows as Record<string, unknown>[];
+}
+
+const backupTables = [
+  "rooms",
+  "devices",
+  "device_preferences",
+  "device_favorites",
+  "device_homekit_settings",
+  "adapter_settings",
+  "openccu_settings",
+  "fritzbox_presence_settings",
+  "fritzbox_presence_transport_settings",
+  "presence_targets",
+  "presence_target_profiles",
+  "presence_target_network",
+  "device_adapter_data",
+  "automations",
+  "automation_preferences",
+  "automation_time_triggers",
+  "automation_schedule_preferences",
+  "automation_action_preferences",
+  "automation_action_state",
+  "automation_action_delays",
+  "automation_conditions",
+  "runtime_settings",
+  "system_settings",
+  "color_profiles",
+  "notification_settings",
+  "notification_events"
 ] as const;
 
-function unsignedBackup(backup: ConfigurationBackup): Omit<ConfigurationBackup, "signature"> {
-  const { signature, ...unsigned } = backup;
-  void signature;
-  return unsigned;
+export async function createConfigurationBackup(saltaVersion: string): Promise<BackupEnvelope> {
+  const data = {} as Record<(typeof backupTables)[number], Record<string, unknown>[]>;
+  for (const table of backupTables) data[table] = await readTable(table);
+  const envelope = {
+    format: CONFIGURATION_BACKUP_FORMAT,
+    formatVersion: CONFIGURATION_BACKUP_FORMAT_VERSION,
+    schemaVersion: DATABASE_SCHEMA_VERSION,
+    createdAt: new Date().toISOString(),
+    saltaVersion,
+    data: backupDataSchema.parse(data)
+  } as const;
+  return { ...envelope, signature: signEnvelope(envelope) };
 }
 
-function signatureFor(backup: Omit<ConfigurationBackup, "signature">, signingKey: string): string {
-  return createHmac("sha256", signingKey).update(JSON.stringify(backup), "utf8").digest("base64url");
+async function truncateTables(client: Awaited<ReturnType<typeof pool.connect>>, tables: readonly string[]): Promise<void> {
+  const existing: string[] = [];
+  for (const table of tables) {
+    const result = await client.query<{ exists: boolean }>("SELECT to_regclass($1) IS NOT NULL AS exists", [`public.${table}`]);
+    if (result.rows[0]?.exists) existing.push(table);
+  }
+  if (existing.length > 0) await client.query(`TRUNCATE ${existing.join(", ")} RESTART IDENTITY CASCADE`);
 }
 
-function signaturesMatch(expected: string, actual: string): boolean {
-  const left = Buffer.from(expected, "utf8");
-  const right = Buffer.from(actual, "utf8");
-  return left.length === right.length && timingSafeEqual(left, right);
-}
-
-function encryptedSecretsPresent(data: BackupData): boolean {
-  const encrypted = (value: unknown) => typeof value === "string" && value.length > 0;
-  return data.adapter_settings.some((row: BackupRow) => encrypted(row.encrypted_password))
-    || data.openccu_settings.some((row: BackupRow) => encrypted(row.encrypted_password))
-    || data.fritzbox_presence_settings.some((row: BackupRow) => encrypted(row.encrypted_password))
-    || data.devices.some((row: BackupRow) => encrypted(row.credential_password))
-    || data.notification_settings.some((row: BackupRow) => encrypted(row.encrypted_user_key) || encrypted(row.encrypted_api_token));
-}
-
-function validateEncryptedSecretShapes(data: BackupData): void {
-  const values: unknown[] = [];
-  for (const row of data.adapter_settings) values.push(row.encrypted_password);
-  for (const row of data.openccu_settings) values.push(row.encrypted_password);
-  for (const row of data.fritzbox_presence_settings) values.push(row.encrypted_password);
-  for (const row of data.devices) values.push(row.credential_password);
-  for (const row of data.notification_settings) values.push(row.encrypted_user_key, row.encrypted_api_token);
-  for (const value of values) {
-    if (value === null || value === undefined || value === "") continue;
-    if (typeof value !== "string" || value.length > 4096 || !value.startsWith("v2.")) throw new Error("CONFIG_BACKUP_INVALID_SECRET");
+async function restoreRows(client: Awaited<ReturnType<typeof pool.connect>>, table: string, rows: Record<string, unknown>[]): Promise<void> {
+  if (rows.length === 0) return;
+  for (const row of rows) {
+    const columns = Object.keys(row);
+    if (columns.length === 0) continue;
+    const values = columns.map((column) => row[column]);
+    const placeholders = values.map((_, index) => `$${index + 1}`).join(", ");
+    await client.query(`INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`, values);
   }
 }
 
-function sanitizeDeviceRows(rows: BackupRow[], createdAt: string): BackupRow[] {
-  return rows.map(row => {
-    const virtual = row.source === "virtual";
-    return {
-      ...row,
-      reachable: virtual,
-      state: virtual && row.state && typeof row.state === "object" ? row.state : {},
-      last_seen: createdAt,
-      last_event: createdAt,
-      updated_at: createdAt
-    };
-  });
-}
-
-export async function createConfigurationBackup(saltaVersion: string, signingKey = config.SALTA_ENCRYPTION_KEY): Promise<ConfigurationBackup> {
-  const createdAt = new Date().toISOString();
+export async function restoreConfigurationBackup(input: unknown): Promise<{ restoredTables: string[] }> {
+  const envelope = backupEnvelopeSchema.parse(input);
+  verifySignature(envelope);
+  if (envelope.schemaVersion !== DATABASE_SCHEMA_VERSION) throw new Error(`CONFIGURATION_BACKUP_SCHEMA_MISMATCH:${envelope.schemaVersion}:${DATABASE_SCHEMA_VERSION}`);
   const client = await pool.connect();
   try {
-    await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
-    const entries: [keyof NormalizedBackupData, BackupRow[]][] = [];
-    for (const [key, sql] of Object.entries(exportQueries) as [keyof NormalizedBackupData, string][]) {
-      entries.push([key, (await client.query<BackupRow>(sql)).rows]);
+    await client.query("BEGIN");
+    await truncateTables(client, [...backupTables].reverse());
+    const restoredTables: string[] = [];
+    for (const table of backupTables) {
+      const rows = envelope.data[table] ?? [];
+      await restoreRows(client, table, rows);
+      if (rows.length > 0) restoredTables.push(table);
     }
     await client.query("COMMIT");
-    const data = Object.fromEntries(entries) as NormalizedBackupData;
-    data.devices = sanitizeDeviceRows(data.devices, createdAt);
-    const unsigned: Omit<ConfigurationBackup, "signature"> = {
-      format: CONFIGURATION_BACKUP_FORMAT,
-      formatVersion: CONFIGURATION_BACKUP_FORMAT_VERSION,
-      schemaVersion: DATABASE_SCHEMA_VERSION,
-      saltaVersion,
-      createdAt,
-      containsEncryptedSecrets: encryptedSecretsPresent(data),
-      data
-    };
-    return { ...unsigned, signature: signatureFor(unsigned, signingKey) };
+    return { restoredTables };
   } catch (error) {
-    try { await client.query("ROLLBACK"); } catch { /* Preserve the export error. */ }
+    await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();
   }
-}
-
-export interface ConfigurationImportResult {
-  importedAt: string;
-  sourceVersion: string;
-  rooms: number;
-  devices: number;
-  automations: number;
-  presenceTargets: number;
-  containsEncryptedSecrets: boolean;
-}
-
-export interface ConfigurationImportExternalTransaction {
-  rollback(): Promise<void> | void;
-  finalize?(): Promise<void> | void;
-}
-
-export interface ConfigurationImportOptions {
-  beforeCommit?: () => Promise<ConfigurationImportExternalTransaction | void> | ConfigurationImportExternalTransaction | void;
-}
-
-export async function importConfigurationBackup(input: unknown, signingKey = config.SALTA_ENCRYPTION_KEY, options: ConfigurationImportOptions = {}): Promise<ConfigurationImportResult> {
-  const parsed = backupSchema.safeParse(input);
-  if (!parsed.success) throw new Error("CONFIG_BACKUP_INVALID");
-  const backup = parsed.data;
-  if (backup.schemaVersion !== DATABASE_SCHEMA_VERSION) throw new Error("CONFIG_BACKUP_SCHEMA_MISMATCH");
-  const expectedSignature = signatureFor(unsignedBackup(backup), signingKey);
-  if (!signaturesMatch(expectedSignature, backup.signature)) throw new Error("CONFIG_BACKUP_SIGNATURE_INVALID");
-  validateEncryptedSecretShapes(backup.data);
-  if (backup.containsEncryptedSecrets !== encryptedSecretsPresent(backup.data)) throw new Error("CONFIG_BACKUP_INVALID");
-  // Older format-v1 backups may not contain additive presence-profile/network or automation schedule/condition/action tables.
-  // Keep the signed input untouched for verification, then normalize it for restore.
-  const restoreData: NormalizedBackupData = {
-    ...backup.data,
-    device_favorites: backup.data.device_favorites ?? [],
-    presence_target_profiles: backup.data.presence_target_profiles ?? [],
-    presence_target_network: backup.data.presence_target_network ?? [],
-    automation_time_triggers: backup.data.automation_time_triggers ?? [],
-    automation_schedule_preferences: backup.data.automation_schedule_preferences ?? [],
-    automation_conditions: backup.data.automation_conditions ?? [],
-    automation_actions: backup.data.automation_actions ?? [],
-    automation_targets: backup.data.automation_targets ?? [],
-    automation_timed_actions: backup.data.automation_timed_actions ?? [],
-    automation_system_actions: backup.data.automation_system_actions ?? [],
-    automation_sequence_steps: backup.data.automation_sequence_steps ?? []
-  };
-
-  const client = await pool.connect();
-  let externalTransaction: ConfigurationImportExternalTransaction | void = undefined;
-  let committed = false;
-  try {
-    await client.query("BEGIN");
-    await client.query("LOCK TABLE rooms, devices, device_preferences, device_favorites, device_homekit_settings, adapter_settings, openccu_settings, fritzbox_presence_settings, fritzbox_presence_transport_settings, presence_targets, presence_target_profiles, presence_target_network, device_adapter_data, automations, automation_preferences, automation_time_triggers, automation_schedule_preferences, automation_conditions, automation_triggers, automation_actions, automation_targets, automation_timed_actions, automation_system_actions, automation_sequence_steps, climate_mode_settings, notification_settings, notification_state IN ACCESS EXCLUSIVE MODE");
-    for (const statement of deleteStatements) await client.query(statement);
-    for (const table of insertOrder) {
-      const rows = restoreData[table];
-      if (!rows.length) continue;
-      await client.query(insertStatements[table], [JSON.stringify(rows)]);
-    }
-    // Upgrade pre-v0.8.108 backups in-place so ordered sequences are available
-    // immediately after restore, without waiting for the next process restart.
-    await client.query(`INSERT INTO automation_sequence_steps(automation_id,position,step_type,action_device_id,action,value,wait_seconds)
-      SELECT t.automation_id,t.position,'action',t.action_device_id,CASE WHEN timed.seconds IS NOT NULL THEN 'turnOnForSeconds' ELSE t.action END,
-        CASE WHEN timed.seconds IS NOT NULL THEN timed.seconds::double precision ELSE t.value END,NULL
-      FROM automation_targets t
-      LEFT JOIN automation_timed_actions timed ON timed.automation_id=t.automation_id AND timed.position=t.position
-      ON CONFLICT(automation_id,position) DO NOTHING`);
-    await client.query(`INSERT INTO automation_sequence_steps(automation_id,position,step_type,action_device_id,action,value,wait_seconds)
-      SELECT s.automation_id,s.position,'action','system:climate-mode',s.action,NULL,NULL
-      FROM automation_system_actions s
-      ON CONFLICT(automation_id,position) DO NOTHING`);
-    await client.query("INSERT INTO climate_mode_settings(id) VALUES('global') ON CONFLICT(id) DO NOTHING");
-    await client.query("UPDATE climate_mode_settings SET winter_mode='manual',updated_at=now() WHERE id='global' AND winter_mode<>'manual'");
-    await client.query("INSERT INTO notification_settings(channel) VALUES('pushover') ON CONFLICT(channel) DO NOTHING");
-    externalTransaction = await options.beforeCommit?.();
-    await client.query("COMMIT");
-    committed = true;
-  } catch (error) {
-    if (!committed) {
-      try { await client.query("ROLLBACK"); } catch { /* Preserve the restore error. */ }
-      try { await externalTransaction?.rollback(); } catch { /* Preserve the restore error. */ }
-    }
-    throw new Error("CONFIG_BACKUP_IMPORT_FAILED", { cause: error });
-  } finally {
-    client.release();
-  }
-  if (committed) {
-    try { await externalTransaction?.finalize?.(); } catch { /* Cleanup failure must not undo a committed restore. */ }
-  }
-
-  return {
-    importedAt: new Date().toISOString(),
-    sourceVersion: backup.saltaVersion,
-    rooms: backup.data.rooms.length,
-    devices: backup.data.devices.length,
-    automations: backup.data.automations.length,
-    presenceTargets: backup.data.presence_targets.length,
-    containsEncryptedSecrets: backup.containsEncryptedSecrets
-  };
 }
