@@ -22,6 +22,18 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+      - name: Correct preparation validator scope
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/prepare-v0.8.135.mjs')
+          text = path.read_text()
+          old = '!virtualFrontend.includes("await globalThis.refreshFritzBoxSmartHomeStatus()")'
+          new = '!read("public/app.js").includes("await globalThis.refreshFritzBoxSmartHomeStatus()")'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one validator scope match, found {text.count(old)}')
+          path.write_text(text.replace(old, new))
+          PY
       - name: Prepare release tree
         run: node scripts/prepare-v0.8.135.mjs
       - name: Remove temporary preparation files
