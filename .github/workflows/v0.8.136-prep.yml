@@ -22,6 +22,18 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+      - name: Align migration preparation with set-version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('scripts/prepare-v0.8.136.mjs')
+          text = path.read_text()
+          old = "'## Current v0.8.135 update\\n\\nv0.8.135 preserves SALTA-local FRITZ!Box device room and presentation metadata across Smart Home synchronization and refreshes the Smart Home runtime status on the Presence page. No schema migration or device re-import is required.'"
+          new = "'## Current v0.8.136 update\\n\\nv0.8.135 preserves SALTA-local FRITZ!Box device room and presentation metadata across Smart Home synchronization and refreshes the Smart Home runtime status on the Presence page. No schema migration or device re-import is required.'"
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one migration-prep match, found {text.count(old)}')
+          path.write_text(text.replace(old, new))
+          PY
       - name: Prepare release tree
         run: node scripts/prepare-v0.8.136.mjs
       - name: Remove temporary preparation files
