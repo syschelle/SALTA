@@ -143,6 +143,13 @@ if (virtualFrontend.includes(".toLocaleString()")) fail("Frontend contains local
 if (!virtualFrontend.includes("new Date(report.completedAt).toLocaleString(appLocale())") || !virtualFrontend.includes("new Date(gateway.lastSync).toLocaleString(appLocale())")) fail("OpenCCU timestamps do not follow the selected SALTA language");
 if (!virtualFrontend.includes("function liveRefreshAllowedForRoute(route){return route!=='automations'&&route!=='settings'}")) fail("Periodic live refresh must be paused on Automations and Settings pages");
 if (/function refreshLiveData\(\)[\s\S]*?loadAutomations\(/.test(virtualFrontend)) fail("Periodic live refresh must not reload the automation editor");
+const hueNavIndex = publicIndex.indexOf('data-nav="hue"');
+const fritzBoxNavIndex = publicIndex.indexOf('data-nav="fritzbox"');
+const openCcuNavIndex = publicIndex.indexOf('data-nav="openccu"');
+if (fritzBoxNavIndex < 0 || !(hueNavIndex < fritzBoxNavIndex && fritzBoxNavIndex < openCcuNavIndex)) fail("FRITZ!Box navigation must exist between Hue and HomeMatic");
+if (!publicIndex.includes('data-page="fritzbox"') || !publicIndex.includes('id="fritzBoxGrid" class="device-groups"') || !publicIndex.includes('id="fritzBoxRoomFilter"') || !publicIndex.includes('id="fritzBoxFilter"')) fail("FRITZ!Box device page is incomplete");
+if (!virtualFrontend.includes("renderDeviceGrid('fritzbox',fritzBoxGrid,fritzBoxFilter,fritzBoxRoomFilter)")) fail("FRITZ!Box device page is not wired to the common renderer");
+if (!virtualFrontend.includes("api('/api/fritzbox/smarthome/refresh',{method:'POST'})")) fail("FRITZ!Box page refresh is not wired to the Smart Home adapter");
 if (!publicIndex.includes('data-nav="virtual"')) fail("Virtual Devices navigation is missing");
 if (!publicIndex.includes('data-page="virtual"')) fail("Virtual Devices page is missing");
 if (!virtualFrontend.includes("renderDeviceGrid('virtual',virtualGrid,virtualFilter,virtualRoomFilter)")) fail("Virtual Devices page is not wired to the common renderer");

@@ -1064,7 +1064,14 @@
     "FRITZ!Box Smart Home konnte nicht verbunden werden.": "FRITZ!Box Smart Home konnte nicht verbunden werden.",
     "FRITZ!Box Smart Home synchronisiert.": "FRITZ!Box Smart Home synchronisiert.",
     "Geräte eingebunden": "Geräte eingebunden",
-    "Noch nicht synchronisiert": "Noch nicht synchronisiert"
+    "Noch nicht synchronisiert": "Noch nicht synchronisiert",
+    "FRITZ!BOX SMART HOME": "FRITZ!BOX SMART HOME",
+    "FRITZ!Box-Smart-Home-Geräte anzeigen und direkt über SALTA steuern.": "FRITZ!Box-Smart-Home-Geräte anzeigen und direkt über SALTA steuern.",
+    "FRITZ!Box konfigurieren": "FRITZ!Box konfigurieren",
+    "FRITZ!Box-Geräte nach Räumen": "FRITZ!Box-Geräte nach Räumen",
+    "Die Geräte werden lokal aus der FRITZ!Box übernommen; SALTA verwaltet die Raumzuordnung und Steuerung.": "Die Geräte werden lokal aus der FRITZ!Box übernommen; SALTA verwaltet die Raumzuordnung und Steuerung.",
+    "FRITZ!Box-Gerät suchen": "FRITZ!Box-Gerät suchen",
+    "FRITZ!Box-Smart-Home-Synchronisierung abgeschlossen.": "FRITZ!Box-Smart-Home-Synchronisierung abgeschlossen."
   },
   "patterns": [
     {

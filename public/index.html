@@ -19,6 +19,7 @@
     <a href="#shelly" data-nav="shelly"><span class="nav-icon mdi mdi-power-plug-outline" aria-hidden="true"></span><span>Shelly</span></a>
     <a href="#zigbee" data-nav="zigbee"><span class="nav-icon mdi mdi-zigbee" aria-hidden="true"></span><span>Zigbee</span></a>
     <a href="#hue" data-nav="hue"><span class="nav-icon mdi mdi-lightbulb-group-outline" aria-hidden="true"></span><span>Philips Hue</span></a>
+    <a href="#fritzbox" data-nav="fritzbox"><span class="nav-icon mdi mdi-router-wireless" aria-hidden="true"></span><span>FRITZ!Box</span></a>
     <a href="#openccu" data-nav="openccu"><span class="nav-icon mdi mdi-access-point-network" aria-hidden="true"></span><span>HomeMatic</span></a>
     <a href="#virtual" data-nav="virtual"><span class="nav-icon mdi mdi-toggle-switch-outline" aria-hidden="true"></span><span>Virtuelle Geräte</span></a>
     <a href="#presence" data-nav="presence"><span class="nav-icon mdi mdi-account-check-outline" aria-hidden="true"></span><span>Präsenz</span></a>
@@ -35,7 +36,7 @@
     </button>
     <label class="language-control" for="languageSelector"><span class="language-control-label"><span class="mdi mdi-translate" aria-hidden="true"></span><span>Sprache</span></span><select id="languageSelector" aria-label="Sprache dieses Browsers"><option value="auto">Automatisch</option><option value="de">Deutsch</option><option value="en">English</option></select></label>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.133</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.134</strong></div>
   </div>
 </aside>
 
@@ -119,6 +120,12 @@
     <div id="hueConnectionNotice" class="settings-warning" role="status" hidden></div>
     <section class="section-head"><div><h2>Hue-Geräte nach Räumen</h2><p class="muted">Die Geräte bleiben an der Hue Bridge gekoppelt; SALTA verwaltet seine eigene Raumzuordnung lokal.</p></div><div class="filters"><select id="hueRoomFilter"><option value="">Alle Räume</option></select><label class="search"><span class="mdi mdi-magnify" aria-hidden="true"></span><input id="hueFilter" placeholder="Hue-Gerät suchen"></label></div></section>
     <section id="hueGrid" class="device-groups"></section>
+  </section>
+
+  <section class="page" data-page="fritzbox" aria-labelledby="fritzbox-title" hidden>
+    <header class="page-header"><div><p class="eyebrow">FRITZ!BOX SMART HOME</p><h1 id="fritzbox-title">FRITZ!Box</h1><p class="muted">FRITZ!Box-Smart-Home-Geräte anzeigen und direkt über SALTA steuern.</p></div><div class="header-actions"><button class="secondary" onclick="reconcileFritzBox()"><span class="mdi mdi-sync" aria-hidden="true"></span>Synchronisieren</button><a class="button-link" href="#presence"><span class="mdi mdi-cog-outline" aria-hidden="true"></span>FRITZ!Box konfigurieren</a></div></header>
+    <section class="section-head"><div><h2>FRITZ!Box-Geräte nach Räumen</h2><p class="muted">Die Geräte werden lokal aus der FRITZ!Box übernommen; SALTA verwaltet die Raumzuordnung und Steuerung.</p></div><div class="filters"><select id="fritzBoxRoomFilter"><option value="">Alle Räume</option></select><label class="search"><span class="mdi mdi-magnify" aria-hidden="true"></span><input id="fritzBoxFilter" placeholder="FRITZ!Box-Gerät suchen"></label></div></section>
+    <section id="fritzBoxGrid" class="device-groups"></section>
   </section>
 
   <section class="page" data-page="openccu" aria-labelledby="openccu-title" hidden>

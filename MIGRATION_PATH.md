@@ -1,8 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.133 update
+## Current v0.8.134 update
 
-FRITZ!Box Smart Home is additive and disabled by default. Its opt-in state uses the existing backed-up notification_state table, so v0.8.132 requires no schema migration and does not import devices unless explicitly enabled.
+v0.8.134 adds a dedicated FRITZ!Box Smart Home device page for devices that are already imported by the existing adapter. Existing opt-in settings, credentials, imported device IDs and room assignments are reused unchanged; no database schema migration or device re-import is required.
 
 v0.8.120 separates OpenCCU thermostat execution from automation policy. Existing automation records are not migrated or rewritten: every stored sequence step keeps its configured device ID, action, order and individual value.
 

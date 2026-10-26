@@ -1,39 +1,46 @@
-# SALTA v0.8.133
+# SALTA v0.8.134
 
-SALTA v0.8.133 improves FRITZ!Box Smart Home login handling and makes intermittent REST synchronization failures diagnosable without exposing credentials.
+SALTA v0.8.134 adds a dedicated FRITZ!Box Smart Home device page so imported FRITZ!Box devices are directly visible and controllable inside SALTA.
 
 ## Changes
 
-- Respect the FRITZ!Box login `BlockTime` and wait until AVM allows the next credential submission.
-- Serialize concurrent Smart Home login attempts so periodic synchronization and manual connection tests cannot authenticate in parallel.
-- Record HTTP status, request method, Smart Home REST endpoint and a sanitized structured AVM error response when synchronization fails.
-- Add FRITZ!Box Smart Home opt-in settings and runtime connection status to the sanitized SALTA diagnostic export.
-- Strip credential, authorization, token and session fields from structured AVM error bodies before they reach the system log.
-- Keep non-JSON HTTP error responses limited to format/size metadata instead of logging arbitrary response text.
+- Add a dedicated **FRITZ!Box** entry to the main navigation between Philips Hue and HomeMatic.
+- Add a dedicated FRITZ!Box Smart Home device page using the existing SALTA room-grouped device renderer.
+- Show devices without a SALTA room assignment under **Nicht zugeordnet / Unassigned** instead of making them effectively invisible from the room-only overview.
+- Reuse the existing SALTA device cards and controls, including thermostat target-temperature control, favorites, room assignment and device configuration.
+- Add FRITZ!Box room filtering and device search.
+- Add a page-level synchronization action using the existing authenticated `/api/fritzbox/smarthome/refresh` endpoint.
+- Keep the existing FRITZ!Box Smart Home opt-in settings and FRITZ!Box presence integration unchanged.
 
 ## Root Cause
 
-SALTA v0.8.132 treated AVM's `BlockTime` as an immediate failure. The 30-second reconciliation cycle could therefore start another login attempt even while the FRITZ!Box explicitly prohibited additional attempts. AVM documents `BlockTime` as the number of seconds during which no further login attempt is allowed.
+FRITZ!Box Smart Home devices were already imported into the SALTA registry with source `fritzbox`, but the main application had no dedicated FRITZ!Box device page. The overview intentionally displays only devices that have a valid SALTA room assignment. Newly imported FRITZ!Box devices without a room therefore had no obvious place in the user interface even though synchronization reported them as successfully integrated.
 
-The production diagnostic also showed successful Smart Home synchronization followed by repeated HTTP 400 responses. v0.8.132 discarded the FRITZ!Box response body for non-2xx REST responses, so the actual AVM error details were unavailable for diagnosis. v0.8.133 preserves safe structured error details while deliberately avoiding an unproven protocol workaround for HTTP 400.
+v0.8.134 adds an explicit FRITZ!Box navigation target and renders the existing imported devices with the shared SALTA device UI. Devices that do not yet have a room appear under the standard **Unassigned** group and can be assigned through the existing device configuration dialog.
 
 ## Compatibility
 
-- Existing FRITZ!Box Smart Home opt-in settings remain unchanged.
-- FRITZ!Box Smart Home remains disabled by default on new and upgraded installations unless explicitly enabled.
-- Existing imported FRITZ!Box devices remain unchanged.
-- Existing FRITZ!Box presence detection remains independent and unchanged.
 - No database schema change or manual migration is required.
-- Existing Shelly, Phoscon/deCONZ, Hue, OpenCCU, automation and HomeKit data remain unchanged.
+- Existing FRITZ!Box credentials and Smart Home opt-in settings remain unchanged.
+- Existing imported FRITZ!Box device IDs, states and room assignments remain unchanged.
+- FRITZ!Box presence detection remains independent and unchanged.
+- Existing Shelly, Phoscon/deCONZ, Hue, OpenCCU, virtual-device, automation and HomeKit data remain unchanged.
 - No new npm dependency or mandatory environment variable is introduced.
+- Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain compatible.
 
 ## Tests
 
-- Verify that no credential POST is sent before AVM `BlockTime` expires.
-- Verify that structured HTTP 400 error details retain status/method/endpoint while secret fields are removed.
-- Verify structured Smart Home error-body sanitization.
-- Verify Smart Home settings and runtime status are wired into the sanitized diagnostic export.
-- Release validator, JavaScript syntax checks, TypeScript build and the complete Vitest suite must pass before release.
+- Verify that the FRITZ!Box navigation entry is positioned between Philips Hue and HomeMatic.
+- Verify the dedicated FRITZ!Box page, room filter, search field and device grid.
+- Verify that source `fritzbox` is wired to the shared room-grouped device renderer.
+- Verify that the page-level synchronization button uses the existing authenticated Smart Home refresh endpoint.
+- Release validator passed for SALTA v0.8.134.
+- JavaScript syntax checks passed.
+- TypeScript production build passed.
+- Test symbol preflight passed for 104 test files.
+- 104 of 104 test files passed.
+- 583 of 583 tests passed.
+- Full CI on `main` passed successfully.
 
 ## Production update
 
