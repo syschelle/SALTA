@@ -3,7 +3,7 @@ import type { PoolClient } from "pg";
 import { randomUUID } from "node:crypto";
 import { config } from "./config.js";
 import { decryptSecret, encryptSecret } from "./security/secrets.js";
-import type { AppearanceSettings, ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, GeneralSettings, HomeKitSettings, HueSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel, SystemLogSettings, VacationModeSettings } from "./types.js";
+import type { AppearanceSettings, ClimateModeSettings, CredentialMode, Device, FritzBoxPresenceSettings, FritzBoxSmartHomeSettings, GeneralSettings, HomeKitSettings, HueSettings, OpenCcuSettings, PhosconSettings, PresenceTarget, PushoverSettings, Room, ShellySettings, SystemDebugLevel, SystemLogEntry, SystemLogLevel, SystemLogSettings, VacationModeSettings } from "./types.js";
 import { collapseSystemLogEntries, normalizeSystemLogSettings, systemLogEntryMatchesHiddenPatterns } from "./system-log-policy.js";
 import type { AutomationInput, AutomationRule, AutomationSequenceStep, AutomationTargetAction } from "./automations.js";
 const { Pool } = pg;
@@ -1167,6 +1167,34 @@ export async function updatePresenceTargetMacAddress(id: string, expectedMacAddr
 export async function deletePresenceTarget(id: string): Promise<boolean> {
   const result = await pool.query("DELETE FROM presence_targets WHERE id=$1", [id]);
   return result.rowCount === 1;
+}
+
+
+export async function getFritzBoxSmartHomeSettings(): Promise<FritzBoxSmartHomeSettings> {
+  const result = await pool.query<{ details: Record<string, unknown> }>(
+    "SELECT details FROM notification_state WHERE key='fritzbox-smarthome-settings'"
+  );
+  const details = result.rows[0]?.details;
+  return {
+    enabled: details?.enabled === true,
+    thermostats: details?.thermostats === true,
+    outlets: details?.outlets === true,
+    lights: details?.lights === true,
+    sensors: details?.sensors === true
+  };
+}
+
+export async function updateFritzBoxSmartHomeSettings(input: FritzBoxSmartHomeSettings): Promise<FritzBoxSmartHomeSettings> {
+  const normalized: FritzBoxSmartHomeSettings = {
+    enabled: input.enabled === true,
+    thermostats: input.thermostats === true,
+    outlets: input.outlets === true,
+    lights: input.lights === true,
+    sensors: input.sensors === true
+  };
+  await pool.query(`INSERT INTO notification_state(key,details,updated_at) VALUES('fritzbox-smarthome-settings',$1::jsonb,now())
+    ON CONFLICT(key) DO UPDATE SET details=EXCLUDED.details,updated_at=now()`, [JSON.stringify(normalized)]);
+  return normalized;
 }
 
 

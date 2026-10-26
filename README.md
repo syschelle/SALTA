@@ -411,3 +411,8 @@ SALTA bundles Material Design Icons (MDI) by Pictogrammers locally. No icon CDN 
 SALTA source code: Apache License 2.0. See `LICENSE`.
 
 Bundled Material Design Icons: Apache License 2.0. See `public/vendor/mdi/LICENSE`.
+
+
+## FRITZ!Box Smart Home
+
+SALTA can optionally import compatible FRITZ!Box Smart Home units through the local Smart Home REST API. The integration is independent from FRITZ!Box presence detection and is disabled by default on both new and upgraded installations. Nothing is queried or imported until the Smart Home master switch is explicitly enabled. Radiator controls, outlets/switches, lights and temperature/humidity sensors can be enabled per category. Newly imported FRITZ!Box devices are not exposed to HomeKit automatically.

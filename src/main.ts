@@ -12,6 +12,7 @@ import { OpenCcuThermostatController } from "./openccu-thermostat-controller.js"
 import { OpenCcuDutyCycleMonitor, registerOpenCcuDutyCycleRoutes } from "./openccu-duty-cycle.js";
 import { VirtualDeviceAdapter } from "./virtual-adapter.js";
 import { FritzBoxPresenceAdapter } from "./fritzbox-presence.js";
+import { FritzBoxSmartHomeAdapter, registerFritzBoxSmartHomeRoutes } from "./fritzbox-smarthome.js";
 import { DeviceCommandRouter } from "./device-command-router.js";
 import { AutomationEngine } from "./automations.js";
 import { databaseAutomationLogger, databaseAutomationStore } from "./automation-persistence.js";
@@ -34,9 +35,10 @@ async function main(): Promise<void> {
   const openCcuDutyCycle = new OpenCcuDutyCycleMonitor(openCcuControl);
   const virtual = new VirtualDeviceAdapter(registry);
   const presence = new FritzBoxPresenceAdapter(registry);
+  const fritzSmartHome = new FritzBoxSmartHomeAdapter(registry);
   const commands = new DeviceCommandRouter(
     registry,
-    { shelly, phoscon, hue, openccu: openCcu, virtual },
+    { shelly, phoscon, hue, openccu: openCcu, virtual, fritzbox: fritzSmartHome },
     [{
       source: "openccu",
       type: "thermostat",
@@ -65,6 +67,7 @@ async function main(): Promise<void> {
   openCcu.start();
   openCcuDutyCycle.start();
   presence.start();
+  fritzSmartHome.start();
   batteryMonitor.start();
   climate.start();
 
@@ -75,7 +78,8 @@ async function main(): Promise<void> {
   let homeKitStatus = await homekit.start().catch(async () => homekit.status());
 
   const server = buildServer(registry, shelly, phoscon, openCcu, virtual, commands, automations, presence, climate, batteryMonitor, () => process.kill(process.pid, "SIGTERM"), homekit, hue, vacation);
-  registerDiagnosticExportRoute(server, { registry, phoscon, hue, openCcu, presence, climate, vacation, homekit, saltaVersion: "0.8.131" });
+  registerFritzBoxSmartHomeRoutes(server, fritzSmartHome);
+  registerDiagnosticExportRoute(server, { registry, phoscon, hue, openCcu, presence, climate, vacation, homekit, saltaVersion: "0.8.132" });
   registerOpenCcuDutyCycleRoutes(server, openCcuDutyCycle);
   await server.listen({ host: config.WEB_HOST, port: config.WEB_PORT });
   homeKitStatus = await homekit.status();
@@ -106,6 +110,7 @@ async function main(): Promise<void> {
     vacation.stop();
     batteryMonitor.stop();
     presence.stop();
+    fritzSmartHome.stop();
     openCcuDutyCycle.stop();
     await openCcuControl.close();
     await openCcu.stop();

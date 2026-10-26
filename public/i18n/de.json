@@ -1045,7 +1045,26 @@
     "Wiederholungen": "Wiederholungen",
     "Erstmals": "Erstmals",
     "Zuletzt": "Zuletzt",
-    "Systemprotokoll-Einstellungen wurden gespeichert.": "Systemprotokoll-Einstellungen wurden gespeichert."
+    "Systemprotokoll-Einstellungen wurden gespeichert.": "Systemprotokoll-Einstellungen wurden gespeichert.",
+    "FRITZ!Box Smart Home": "FRITZ!Box Smart Home",
+    "Optional. Ohne Aktivierung werden keine Smart-Home-Geräte abgefragt oder angelegt.": "Optional. Ohne Aktivierung werden keine Smart-Home-Geräte abgefragt oder angelegt.",
+    "Deaktiviert – keine FRITZ!Box-Smart-Home-Geräte werden abgefragt.": "Deaktiviert – keine FRITZ!Box-Smart-Home-Geräte werden abgefragt.",
+    "Smart-Home-Geräte einbinden": "Smart-Home-Geräte einbinden",
+    "Getrennt von der Präsenzerkennung und standardmäßig deaktiviert.": "Getrennt von der Präsenzerkennung und standardmäßig deaktiviert.",
+    "Heizkörperregler": "Heizkörperregler",
+    "Temperatur und Solltemperatur": "Temperatur und Solltemperatur",
+    "Steckdosen / Schalter": "Steckdosen / Schalter",
+    "Schaltzustand und Steuerung": "Schaltzustand und Steuerung",
+    "Leuchten": "Leuchten",
+    "Ein/Aus und Helligkeit, soweit unterstützt": "Ein/Aus und Helligkeit, soweit unterstützt",
+    "Sensoren": "Sensoren",
+    "Temperatur und Luftfeuchte, soweit verfügbar": "Temperatur und Luftfeuchte, soweit verfügbar",
+    "FRITZ!Box Smart Home gespeichert.": "FRITZ!Box Smart Home gespeichert.",
+    "FRITZ!Box Smart Home verbunden.": "FRITZ!Box Smart Home verbunden.",
+    "FRITZ!Box Smart Home konnte nicht verbunden werden.": "FRITZ!Box Smart Home konnte nicht verbunden werden.",
+    "FRITZ!Box Smart Home synchronisiert.": "FRITZ!Box Smart Home synchronisiert.",
+    "Geräte eingebunden": "Geräte eingebunden",
+    "Noch nicht synchronisiert": "Noch nicht synchronisiert"
   },
   "patterns": [
     {

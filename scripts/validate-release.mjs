@@ -736,3 +736,14 @@ if (!v08131SessionTestSource.includes("re-authenticates and retries when OpenCCU
 
 console.log(`Release validator contract: SALTA v${version} / test-config-from-tsconfig.json`);
 console.log(`Release validation passed for SALTA v${version}.`);
+
+const fritzSmartHomeSource = read("src/fritzbox-smarthome.ts");
+const fritzSmartHomeFrontend = read("public/fritzbox-smarthome.js");
+if (!fritzSmartHomeSource.includes("if (!settings.enabled)") || !fritzSmartHomeSource.includes("homekitEnabled: false")) fail("FRITZ!Box Smart Home must remain opt-in and HomeKit-off by default");
+if (!fritzSmartHomeSource.includes("/api/v0") || !fritzSmartHomeSource.includes("AVM-SID")) fail("FRITZ!Box Smart Home REST transport contract is missing");
+if (!fritzSmartHomeSource.includes("setPointTemperature: { mode: \"temperature\", celsius: value }") || !fritzSmartHomeSource.includes("onOffInterface: { active }")) fail("FRITZ!Box Smart Home command mappings are incomplete");
+if (!read("src/db.ts").includes("WHERE key='fritzbox-smarthome-settings'") || !read("src/db.ts").includes("export const DATABASE_SCHEMA_VERSION = \"0.5\"")) fail("FRITZ!Box Smart Home settings must use existing notification_state without a schema bump");
+if (!read("src/main.ts").includes("fritzbox: fritzSmartHome") || !read("src/main.ts").includes("registerFritzBoxSmartHomeRoutes(server, fritzSmartHome)")) fail("FRITZ!Box Smart Home runtime wiring is missing");
+for (const id of ["fritzSmartHomeEnabled","fritzSmartHomeThermostats","fritzSmartHomeOutlets","fritzSmartHomeLights","fritzSmartHomeSensors"]) if (!read("public/index.html").includes("id=\"" + id + "\"")) fail("FRITZ!Box Smart Home option is missing: " + id);
+if (!fritzSmartHomeFrontend.includes("api('/api/fritzbox/smarthome/settings'") || fritzSmartHomeFrontend.includes("password")) fail("FRITZ!Box Smart Home frontend must use the authenticated SALTA API without credentials");
+if (!read("src/server.ts").includes("[\"/fritzbox-smarthome.js\", \"fritzbox-smarthome.js\"]")) fail("FRITZ!Box Smart Home browser module is not served");

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.132 - Optional FRITZ!Box Smart Home integration
+
+- Added an independent FRITZ!Box Smart Home adapter based on the local Smart Home REST API.
+- Added explicit master and per-category opt-ins for radiator controls, outlets/switches, lights and temperature/humidity sensors; every new option defaults to disabled.
+- Reused the existing FRITZ!Box connection credentials without coupling Smart Home enablement to presence detection.
+- Imported FRITZ!Box devices use their own `fritzbox` source and start with HomeKit exposure disabled.
+- Added direct target-temperature, on/off/toggle and brightness commands for documented REST interfaces.
+- Kept database schema version 0.5 unchanged by storing Smart Home opt-in state in the already-backed-up `notification_state` table.
+- Added regression coverage proving that disabled Smart Home performs no network access and creates no devices.
+
 ## 0.8.131 - OpenCCU JSON-RPC session renewal
 
 - Renew long-lived OpenCCU JSON-RPC sessions before they can silently expire.

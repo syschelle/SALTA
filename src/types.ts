@@ -291,3 +291,20 @@ export interface SystemLogEntry {
   details: Record<string, unknown>;
   createdAt: string;
 }
+
+export interface FritzBoxSmartHomeSettings {
+  enabled: boolean;
+  thermostats: boolean;
+  outlets: boolean;
+  lights: boolean;
+  sensors: boolean;
+}
+
+export interface FritzBoxSmartHomeStatus {
+  enabled: boolean;
+  connected: boolean;
+  deviceCount: number;
+  lastSync?: string;
+  lastError?: string;
+  api?: "rest-v0";
+}

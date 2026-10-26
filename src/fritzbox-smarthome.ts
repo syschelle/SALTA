@@ -43,6 +43,7 @@ type AdapterDependencies = {
   loadConnection?: typeof getFritzBoxPresenceConnection;
   updateSettings?: typeof updateFritzBoxSmartHomeSettings;
   request?: RequestFunction;
+  log?: typeof writeSystemLog;
 };
 
 function now(): string { return new Date().toISOString(); }
@@ -151,7 +152,7 @@ function parentDevice(unit: SmartHomeUnit, devices: SmartHomeDevice[]): SmartHom
 function stableDeviceId(unitUid: string): string {
   return `fritzbox:${createHash("sha256").update(unitUid).digest("hex").slice(0, 24)}`;
 }
-function unitCategory(unit: SmartHomeUnit, parent: SmartHomeDevice | undefined): "thermostat" | "light" | "outlet" | "sensor" | undefined {
+function unitCategory(unit: SmartHomeUnit): "thermostat" | "light" | "outlet" | "sensor" | undefined {
   const interfaces = record(unit.interfaces);
   if (Object.hasOwn(interfaces, "thermostatInterface")) return "thermostat";
   if (Object.hasOwn(interfaces, "onOffInterface")) {
@@ -179,7 +180,7 @@ export function mapFritzBoxSmartHomeOverview(overview: SmartHomeOverview, settin
     const unitUid = stringValue(unit.UID) ?? stringValue(unit.ain);
     if (!unitUid) continue;
     const parent = parentDevice(unit, devices);
-    const category = unitCategory(unit, parent);
+    const category = unitCategory(unit);
     if (!categoryEnabled(category, settings)) continue;
     const temperature = numberValue(interfaceRecord(unit, "temperatureInterface").celsius);
     const humidity = numberValue(interfaceRecord(unit, "humidityInterface").relativeHumidity);
@@ -249,12 +250,14 @@ export class FritzBoxSmartHomeAdapter {
   private readonly loadConnection: typeof getFritzBoxPresenceConnection;
   private readonly saveSettings: typeof updateFritzBoxSmartHomeSettings;
   private readonly request: RequestFunction;
+  private readonly log: typeof writeSystemLog;
 
   constructor(private readonly registry: DeviceRegistry, dependencies: AdapterDependencies = {}) {
     this.loadSettings = dependencies.loadSettings ?? getFritzBoxSmartHomeSettings;
     this.loadConnection = dependencies.loadConnection ?? getFritzBoxPresenceConnection;
     this.saveSettings = dependencies.updateSettings ?? updateFritzBoxSmartHomeSettings;
     this.request = dependencies.request ?? requestHttp;
+    this.log = dependencies.log ?? writeSystemLog;
   }
 
   start(): void {
@@ -329,11 +332,11 @@ export class FritzBoxSmartHomeAdapter {
       const mapped = mapFritzBoxSmartHomeOverview(overview, settings);
       for (const device of mapped) await this.registry.set(device);
       this.statusValue = { enabled: true, connected: true, deviceCount: mapped.length, lastSync: now(), api: "rest-v0" };
-      await writeSystemLog("info", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_SYNC", "FRITZ!Box Smart Home synchronized", { devices: mapped.length, api: "rest-v0" }).catch(() => undefined);
+      await this.log("info", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_SYNC", "FRITZ!Box Smart Home synchronized", { devices: mapped.length, api: "rest-v0" }).catch(() => undefined);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.statusValue = { enabled: true, connected: false, deviceCount: this.registry.all().filter(device => device.source === "fritzbox").length, lastError: message, api: "rest-v0" };
-      await writeSystemLog("warning", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_SYNC_FAILED", "FRITZ!Box Smart Home synchronization failed", { error: message }).catch(() => undefined);
+      await this.log("warning", "fritzbox-smarthome", "FRITZBOX_SMARTHOME_SYNC_FAILED", "FRITZ!Box Smart Home synchronization failed", { error: message }).catch(() => undefined);
     }
   }
 

@@ -71,7 +71,8 @@ describe("FRITZ!Box Smart Home adapter", () => {
     const adapter = new FritzBoxSmartHomeAdapter(registry, {
       loadSettings: async () => disabled,
       loadConnection: async () => ({ baseUrl: "http://fritz.box:49000", username: "user", password: "secret", enabled: true, pollIntervalSeconds: 30, absenceDelaySeconds: 300, tlsInsecure: false }),
-      request
+      request,
+      log: vi.fn(async () => undefined)
     });
     await adapter.reconcile();
     expect(request).not.toHaveBeenCalled();
@@ -97,7 +98,8 @@ describe("FRITZ!Box Smart Home adapter", () => {
     const adapter = new FritzBoxSmartHomeAdapter(registry, {
       loadSettings: async () => enabled,
       loadConnection: async () => ({ baseUrl: "http://fritz.box:49000", username: "user", password: "secret", enabled: false, pollIntervalSeconds: 30, absenceDelaySeconds: 300, tlsInsecure: false }),
-      request
+      request,
+      log: vi.fn(async () => undefined)
     });
     await adapter.command({ deviceId: thermostat.id, capability: "setTargetTemperature", value: 19.5, source: "api" });
     const write = calls.find(call => call.method === "PUT")!;

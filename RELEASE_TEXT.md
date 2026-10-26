@@ -1,47 +1,45 @@
-# SALTA v0.8.131
+# SALTA v0.8.132
 
-SALTA v0.8.131 keeps OpenCCU JSON-RPC sessions alive and automatically recovers sessions that OpenCCU reports as unauthenticated after expiration.
+SALTA v0.8.132 adds an optional FRITZ!Box Smart Home integration while preserving the behavior of every existing installation by default.
 
 ## Changes
 
-- Both SALTA OpenCCU JSON-RPC clients now renew long-lived sessions periodically using `Session.renew`.
-- The dedicated thermostat-control client no longer keeps an unrenewed session indefinitely.
-- The normal OpenCCU synchronization client uses the same renewal behavior.
-- `access denied ("GUEST" needed 0)` is recognized as the OpenCCU expired/unauthenticated-session response seen in production.
-- On that response SALTA discards the stale session, performs one fresh `Session.login`, and retries the original OpenCCU request once.
-- Existing thermostat datapoints, classic HomeMatic/BidCos mappings, XML-RPC callbacks and the v0.8.130 contact-event fix remain unchanged.
+- Add an independent FRITZ!Box Smart Home adapter using the local Smart Home REST API.
+- Add an explicit master switch plus separate opt-ins for radiator controls, outlets/switches, lights and temperature/humidity sensors.
+- Keep the master switch and every category disabled by default on new and upgraded installations.
+- Reuse the existing FRITZ!Box host, credentials and TLS settings without tying Smart Home enablement to presence detection.
+- Map documented thermostat, on/off, level, temperature and humidity interfaces into SALTA devices.
+- Support target-temperature commands for FRITZ! thermostats, on/off/toggle for switchable units and brightness for supported lights.
+- Keep newly imported FRITZ!Box Smart Home devices out of HomeKit until the user explicitly enables HomeKit for that device.
+- Store the Smart Home opt-in in the existing backed-up notification-state store; no database schema version change is required.
 
-## Root Cause
+## Root Cause / Motivation
 
-SALTA authenticated correctly with OpenCCU but cached the returned JSON-RPC session ID indefinitely. The clients never called `Session.renew`, even though OpenCCU requires sessions to be renewed before they expire.
+SALTA already used FRITZ!Box TR-064 for optional WLAN presence detection, but that adapter intentionally represented people/presence rather than FRITZ!Box Smart Home actuators and sensors. Mixing both concerns would make upgrades risky and could silently introduce devices into established systems.
 
-After expiration, OpenCCU can answer authenticated methods such as `Interface.getParamset` and `Interface.setValue` with `access denied ("GUEST" needed 0)`. SALTA's previous expired-session detector did not recognize this response, so it kept reusing the stale session instead of logging in again. This caused manual wall-thermostat changes and scheduled temperature automations to fail until a fresh SALTA/OpenCCU session was created.
-
-v0.8.131 adds proactive session renewal and a bounded one-time re-login/retry path for this production response.
+v0.8.132 therefore adds Smart Home as a separate opt-in adapter. When the new master switch is disabled, the adapter exits before authentication or REST requests and does not create or modify FRITZ!Box Smart Home devices. This makes the new capability safe for existing installations while allowing a new installation to enable only the desired device categories.
 
 ## Compatibility
 
-- No database schema change or migration is required.
-- Existing OpenCCU credentials and device mappings remain unchanged.
-- Classic HomeMatic/BidCos thermostat datapoints remain unchanged.
-- OpenCCU XML-RPC callbacks and contact automations remain unchanged.
-- No npm dependency is added or changed.
-- No new mandatory environment variable is introduced.
-- Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain compatible.
+- Existing SALTA installations remain unchanged unless FRITZ!Box Smart Home is explicitly enabled.
+- Existing FRITZ!Box presence settings and behavior remain independent and unchanged.
+- Database schema version remains 0.5; no ALTER TABLE or manual migration is required.
+- Existing Shelly, Phoscon/deCONZ, Hue, OpenCCU, virtual-device, automation and HomeKit data remain unchanged.
+- Existing PostgreSQL, SALTA runtime and HomeKit volumes remain compatible.
+- FRITZ!Box Smart Home REST support requires a FRITZ!OS version that provides the Smart Home REST API.
+- No new npm dependency or mandatory environment variable is introduced.
 
 ## Tests
 
-- Regression coverage verifies automatic re-login and retry for the production `access denied ("GUEST" needed 0)` response.
-- Regression coverage verifies that the dedicated thermostat-control client renews a long-lived session before reuse.
-- Runtime adapter coverage verifies the same automatic re-authentication behavior for normal OpenCCU synchronization.
-- Release-validator coverage enforces renewal and expired-session recovery in both OpenCCU JSON-RPC clients.
-- Release validator passed for SALTA v0.8.131.
-- JavaScript syntax checks passed.
-- TypeScript production build passed.
-- Test symbol preflight passed for 100 test files.
-- 100 of 100 test files passed.
-- 566 of 566 tests passed.
-- Full CI on `main` passed successfully.
+- Verify all FRITZ!Box Smart Home opt-ins default to false.
+- Verify the disabled adapter performs no FRITZ!Box network request and creates no devices.
+- Verify thermostat, outlet, light and sensor REST-interface mapping.
+- Verify newly imported devices default to HomeKit disabled.
+- Verify per-category opt-ins.
+- Verify PBKDF2 Session-ID response generation and TR-064-to-web-origin normalization.
+- Verify the thermostat REST command payload.
+- Verify the browser UI exposes unchecked opt-in controls and never embeds FRITZ!Box credentials.
+- Verify database schema version 0.5 remains unchanged and the existing notification-state persistence is used.
 
 ## Production update
 

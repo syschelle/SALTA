@@ -35,7 +35,7 @@
     </button>
     <label class="language-control" for="languageSelector"><span class="language-control-label"><span class="mdi mdi-translate" aria-hidden="true"></span><span>Sprache</span></span><select id="languageSelector" aria-label="Sprache dieses Browsers"><option value="auto">Automatisch</option><option value="de">Deutsch</option><option value="en">English</option></select></label>
     <button id="logoutButton" class="logout-button" type="button"><span class="mdi mdi-logout" aria-hidden="true"></span><span>Abmelden</span></button>
-    <div class="version" aria-label="Installierte Version">Version <strong>0.8.131</strong></div>
+    <div class="version" aria-label="Installierte Version">Version <strong>0.8.132</strong></div>
   </div>
 </aside>
 
@@ -159,6 +159,20 @@
           <div class="presence-form-row"><label>Prüfintervall<select id="presencePollInterval"><option value="15">15 Sekunden</option><option value="30">30 Sekunden</option><option value="60">60 Sekunden</option><option value="120">2 Minuten</option></select></label><label>Standard: abwesend nach<select id="presenceAbsenceDelay"><option value="0">sofort</option><option value="60">1 Minute</option><option value="180">3 Minuten</option><option value="300">5 Minuten</option><option value="600">10 Minuten</option><option value="900">15 Minuten</option></select></label></div>
           <div class="form-actions"><button type="submit">Einstellungen speichern</button></div>
         </form>
+        <section class="panel fritz-smarthome-settings" aria-labelledby="fritzSmartHomeTitle">
+          <div class="section-head"><div><h2 id="fritzSmartHomeTitle"><span class="mdi mdi-home-thermometer-outline" aria-hidden="true"></span> FRITZ!Box Smart Home</h2><p class="muted">Optional. Ohne Aktivierung werden keine Smart-Home-Geräte abgefragt oder angelegt.</p></div></div>
+          <div id="fritzSmartHomeStatus" class="gateway-status" aria-live="polite">Deaktiviert – keine FRITZ!Box-Smart-Home-Geräte werden abgefragt.</div>
+          <form id="fritzSmartHomeSettingsForm" class="page-form">
+            <label class="presence-enabled-row"><span><strong>Smart-Home-Geräte einbinden</strong><small>Getrennt von der Präsenzerkennung und standardmäßig deaktiviert.</small></span><input id="fritzSmartHomeEnabled" type="checkbox"></label>
+            <div class="page-form-grid">
+              <label class="presence-enabled-row"><span><strong>Heizkörperregler</strong><small>Temperatur und Solltemperatur</small></span><input id="fritzSmartHomeThermostats" type="checkbox" disabled></label>
+              <label class="presence-enabled-row"><span><strong>Steckdosen / Schalter</strong><small>Schaltzustand und Steuerung</small></span><input id="fritzSmartHomeOutlets" type="checkbox" disabled></label>
+              <label class="presence-enabled-row"><span><strong>Leuchten</strong><small>Ein/Aus und Helligkeit, soweit unterstützt</small></span><input id="fritzSmartHomeLights" type="checkbox" disabled></label>
+              <label class="presence-enabled-row"><span><strong>Sensoren</strong><small>Temperatur und Luftfeuchte, soweit verfügbar</small></span><input id="fritzSmartHomeSensors" type="checkbox" disabled></label>
+            </div>
+            <div class="form-actions"><button type="submit"><span class="mdi mdi-content-save-outline" aria-hidden="true"></span>Speichern</button><button id="fritzSmartHomeTestButton" class="secondary" type="button"><span class="mdi mdi-lan-connect" aria-hidden="true"></span>Verbindung testen</button><button id="fritzSmartHomeRefreshButton" class="secondary" type="button"><span class="mdi mdi-sync" aria-hidden="true"></span>Synchronisieren</button></div>
+          </form>
+        </section>
       </article>
       <article class="panel presence-house-panel">
         <div class="panel-head"><div><h2>Hausstatus</h2><p class="muted">Aus allen überwachten Personen erzeugt SALTA zusätzlich eine gemeinsame Hauspräsenz.</p></div><span class="mdi mdi-home-account presence-house-icon" aria-hidden="true"></span></div>
@@ -349,5 +363,6 @@
 <script src="/homekit-qr.js"></script>
 <script src="/diagnostic-export.js"></script>
 <script src="/app.js"></script>
+<script src="/fritzbox-smarthome.js"></script>
 </body>
 </html>
