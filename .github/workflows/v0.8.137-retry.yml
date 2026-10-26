@@ -1,0 +1,69 @@
+name: Validate v0.8.137 retry
+
+on:
+  push:
+    branches:
+      - work/v0.8.137-fritzos-diagnostics
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-and-check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: work/v0.8.137-fritzos-diagnostics
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund --registry=https://registry.npmjs.org/
+      - name: Reuse prepared implementation steps
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path('.github/workflows/v0.8.137-prep.yml').read_text().splitlines()
+          def extract(name, next_name):
+              start=source.index(f'      - name: {name}')
+              end=source.index(f'      - name: {next_name}')
+              run_index=next(i for i in range(start,end) if source[i].strip()=='run: |')
+              lines=[]
+              for line in source[run_index+1:end]:
+                  lines.append(line[10:] if line.startswith('          ') else line)
+              return '\n'.join(lines)+'\n'
+          Path('/tmp/implement.sh').write_text(extract('Implement FRITZ!OS diagnostics','Bump release version'))
+          Path('/tmp/docs.sh').write_text(extract('Update release documentation','Remove temporary preparation workflow'))
+          PY
+          bash /tmp/implement.sh
+          npm run version:set -- 0.8.137
+          bash /tmp/docs.sh
+      - name: Fix release-validator symbol collision
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/validate-release.mjs')
+          text=p.read_text()
+          old='''const fritzBoxSmartHomeSource = read("src/fritzbox-smarthome.ts");
+if (!fritzBoxSmartHomeSource.includes("FRITZBOX_SMARTHOME_FRITZOS_DETECTED") || !fritzBoxSmartHomeSource.includes("fritzOsVersion")) fail("FRITZ!OS Smart Home diagnostics are missing");
+'''
+          new='''const fritzBoxSmartHomeVersionSource = read("src/fritzbox-smarthome.ts");
+if (!fritzBoxSmartHomeVersionSource.includes("FRITZBOX_SMARTHOME_FRITZOS_DETECTED") || !fritzBoxSmartHomeVersionSource.includes("fritzOsVersion")) fail("FRITZ!OS Smart Home diagnostics are missing");
+'''
+          if text.count(old)!=1: raise SystemExit(f'expected one validator addition, found {text.count(old)}')
+          p.write_text(text.replace(old,new,1))
+          PY
+      - name: Remove temporary preparation workflows
+        run: rm .github/workflows/v0.8.137-prep.yml .github/workflows/v0.8.137-retry.yml
+      - name: Full SALTA quality gate
+        run: npm run check
+      - name: Commit validated release tree
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "feat: add FRITZ!OS Smart Home diagnostics"
+          git push origin HEAD:work/v0.8.137-fritzos-diagnostics
