@@ -23,10 +23,13 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Prepare release tree
-        run: node scripts/prepare-v0.8.132.mjs
+        run: |
+          node scripts/prepare-v0.8.132.mjs
+          node scripts/prepare-v0.8.132-i18n.mjs
       - name: Remove temporary preparation files
         run: |
           rm scripts/prepare-v0.8.132.mjs
+          rm scripts/prepare-v0.8.132-i18n.mjs
           rm .github/workflows/v0.8.132-prep.yml
       - name: Full SALTA quality gate
         run: npm run check
