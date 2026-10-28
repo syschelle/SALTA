@@ -48,6 +48,13 @@ describe("HomeKit bridge structure", () => {
     expect(calls.some(call => call.includes("cleanupAccessoryData("))).toBe(true);
   });
 
+  it("logs HomeKit command origin and outcome for device writes", () => {
+    expect(source).toContain('"HOMEKIT_COMMAND_REQUESTED"');
+    expect(source).toContain('"HOMEKIT_COMMAND_SUCCEEDED"');
+    expect(source).toContain('"HOMEKIT_COMMAND_FAILED"');
+    expect(source).toContain('source: "homekit"');
+  });
+
   it("enforces per-device publication and optional HomeKit names", () => {
     expect(source).toMatch(/device\.homekitEnabled/);
     expect(source).toMatch(/device\.hidden/);

@@ -1,8 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.138 update
+## Current v0.8.139 update
 
-v0.8.138 updates vulnerable runtime, validation and test dependencies to patched releases. It includes the FRITZ!OS diagnostics introduced in v0.8.137 and keeps PBKDF2-only FRITZ!Box Smart Home authentication unchanged. No schema migration, credential rewrite or device re-import is required.
+v0.8.139 changes only the HomeKit-to-Shelly switch command path and its diagnostics. Confirmed HomeKit on/off commands no longer wait for a full Shelly re-probe before HomeKit is acknowledged. A response timeout after a HomeKit switch write is recorded as delivery-uncertain and the requested state is held optimistically until the normal Shelly reconciliation loop verifies the device. API, automation and system command paths keep their existing synchronous readback behavior. No schema migration, credential rewrite, HomeKit reset or device re-import is required.
 
 v0.8.120 separates OpenCCU thermostat execution from automation policy. Existing automation records are not migrated or rewritten: every stored sequence step keeps its configured device ID, action, order and individual value.
 

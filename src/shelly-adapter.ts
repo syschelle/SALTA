@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Device, DeviceCommand, ShellyComponentKind } from "./types.js";
 import { DeviceRegistry } from "./registry.js";
-import { getDeviceCredentials } from "./db.js";
+import { getDeviceCredentials, writeSystemLog } from "./db.js";
 import { detectGen1Shelly, detectRpcShellyComponents } from "./shelly-parser.js";
 
 const now = () => new Date().toISOString();
@@ -144,9 +144,9 @@ function digestAuthHeader(challenge: DigestChallenge, username: string, password
   return `Digest ${fields.join(", ")}`;
 }
 
-async function requestJson(url: string, username = "", password = "", method = "GET", body?: unknown): Promise<unknown> {
+async function requestJson(url: string, username = "", password = "", method = "GET", body?: unknown, requestTimeoutMs = timeoutMs): Promise<unknown> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), requestTimeoutMs);
   const requestBody = body === undefined ? undefined : JSON.stringify(body);
   const baseHeaders: Record<string, string> = { accept: "application/json" };
   if (requestBody !== undefined) baseHeaders["content-type"] = "application/json";
@@ -261,6 +261,17 @@ function rpcNamespace(kind: ShellyComponentKind | undefined): string {
 
 function statesEqual(a: Device["state"], b: Device["state"]): boolean {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function optimisticHomeKitSwitchResult(device: Device, command: DeviceCommand, confirmed: boolean): Device {
+  const timestamp = now();
+  const switchedOn = command.capability === "turnOn";
+  return {
+    ...device,
+    reachable: true,
+    state: { ...device.state, on: switchedOn },
+    ...(confirmed ? { lastSeen: timestamp, lastEvent: timestamp } : {})
+  };
 }
 
 export class ShellyAdapter {
@@ -615,51 +626,77 @@ export class ShellyAdapter {
     const credentials = await getDeviceCredentials(device.id);
     const host = `http://${device.host}`;
     const componentId = device.componentId ?? 0;
+    const homeKitSwitchWrite = command.source === "homekit"
+      && device.componentKind === "switch"
+      && (command.capability === "turnOn" || command.capability === "turnOff");
+    const commandResponseTimeoutMs = homeKitSwitchWrite ? 2_000 : timeoutMs;
 
-    if (device.generation !== "gen1") {
-      const namespace = rpcNamespace(device.componentKind);
-      let method = "";
-      const params: Record<string, unknown> = { id: componentId };
-      if (command.capability === "toggle") {
-        method = `${namespace}.Toggle`;
-      } else if (timedTurnOn) {
-        method = "Switch.Set";
-        params.on = true;
-        params.toggle_after = timedSeconds;
-      } else if (command.capability === "turnOn" || command.capability === "turnOff") {
-        method = `${namespace}.Set`;
-        params.on = command.capability === "turnOn";
-      } else if (command.capability === "setBrightness") {
-        method = `${namespace}.Set`;
-        params.on = true;
-        params.brightness = Number(command.value);
-      } else if (["open", "close", "stop"].includes(command.capability)) {
-        method = `Cover.${command.capability.charAt(0).toUpperCase()}${command.capability.slice(1)}`;
-      } else if (command.capability === "setTargetPosition") {
-        const position = Number(command.value);
-        if (!Number.isFinite(position) || position < 0 || position > 100) throw new Error("INVALID_POSITION");
-        method = "Cover.GoToPosition";
-        params.pos = Math.round(position);
+    try {
+      if (device.generation !== "gen1") {
+        const namespace = rpcNamespace(device.componentKind);
+        let method = "";
+        const params: Record<string, unknown> = { id: componentId };
+        if (command.capability === "toggle") {
+          method = `${namespace}.Toggle`;
+        } else if (timedTurnOn) {
+          method = "Switch.Set";
+          params.on = true;
+          params.toggle_after = timedSeconds;
+        } else if (command.capability === "turnOn" || command.capability === "turnOff") {
+          method = `${namespace}.Set`;
+          params.on = command.capability === "turnOn";
+        } else if (command.capability === "setBrightness") {
+          method = `${namespace}.Set`;
+          params.on = true;
+          params.brightness = Number(command.value);
+        } else if (["open", "close", "stop"].includes(command.capability)) {
+          method = `Cover.${command.capability.charAt(0).toUpperCase()}${command.capability.slice(1)}`;
+        } else if (command.capability === "setTargetPosition") {
+          const position = Number(command.value);
+          if (!Number.isFinite(position) || position < 0 || position > 100) throw new Error("INVALID_POSITION");
+          method = "Cover.GoToPosition";
+          params.pos = Math.round(position);
+        } else {
+          throw new Error("CAPABILITY_NOT_SUPPORTED");
+        }
+        await requestJson(`${host}/rpc/${method}`, credentials.username, credentials.password, "POST", params, commandResponseTimeoutMs);
+      } else if (device.type === "windowCovering") {
+        let action = command.capability;
+        if (command.capability === "setTargetPosition") {
+          const position = Number(command.value);
+          if (!Number.isFinite(position) || position < 0 || position > 100) throw new Error("INVALID_POSITION");
+          action = `to_pos&roller_pos=${Math.round(position)}`;
+        }
+        await requestJson(`${host}/roller/${componentId}?go=${action}`, credentials.username, credentials.password, "GET", undefined, commandResponseTimeoutMs);
+      } else if (device.type === "light") {
+        const turn = command.capability === "turnOn" ? "on" : command.capability === "turnOff" ? "off" : command.capability === "toggle" ? "toggle" : "on";
+        const gain = command.capability === "setBrightness" ? `&brightness=${Number(command.value)}` : "";
+        await requestJson(`${host}/light/${componentId}?turn=${turn}${gain}`, credentials.username, credentials.password, "GET", undefined, commandResponseTimeoutMs);
       } else {
-        throw new Error("CAPABILITY_NOT_SUPPORTED");
+        const turn = timedTurnOn ? "on" : command.capability === "turnOn" ? "on" : command.capability === "turnOff" ? "off" : "toggle";
+        const timer = timedTurnOn ? `&timer=${timedSeconds}` : "";
+        await requestJson(`${host}/relay/${componentId}?turn=${turn}${timer}`, credentials.username, credentials.password, "GET", undefined, commandResponseTimeoutMs);
       }
-      await requestJson(`${host}/rpc/${method}`, credentials.username, credentials.password, "POST", params);
-    } else if (device.type === "windowCovering") {
-      let action = command.capability;
-      if (command.capability === "setTargetPosition") {
-        const position = Number(command.value);
-        if (!Number.isFinite(position) || position < 0 || position > 100) throw new Error("INVALID_POSITION");
-        action = `to_pos&roller_pos=${Math.round(position)}`;
-      }
-      await requestJson(`${host}/roller/${componentId}?go=${action}`, credentials.username, credentials.password);
-    } else if (device.type === "light") {
-      const turn = command.capability === "turnOn" ? "on" : command.capability === "turnOff" ? "off" : command.capability === "toggle" ? "toggle" : "on";
-      const gain = command.capability === "setBrightness" ? `&brightness=${Number(command.value)}` : "";
-      await requestJson(`${host}/light/${componentId}?turn=${turn}${gain}`, credentials.username, credentials.password);
-    } else {
-      const turn = timedTurnOn ? "on" : command.capability === "turnOn" ? "on" : command.capability === "turnOff" ? "off" : "toggle";
-      const timer = timedTurnOn ? `&timer=${timedSeconds}` : "";
-      await requestJson(`${host}/relay/${componentId}?turn=${turn}${timer}`, credentials.username, credentials.password);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : String(error);
+      if (!homeKitSwitchWrite || code != "DETECTION_TIMEOUT") throw error;
+      const optimistic = optimisticHomeKitSwitchResult(device, command, false);
+      await this.registry.set(optimistic);
+      await writeSystemLog("warning", "shelly", "SHELLY_HOMEKIT_COMMAND_RESPONSE_TIMEOUT", "Shelly command response timed out after a HomeKit switch write; state will be verified by normal reconciliation", {
+        deviceId: device.id,
+        deviceName: device.name,
+        model: device.model,
+        generation: device.generation,
+        capability: command.capability,
+        requestedState: command.capability === "turnOn"
+      }).catch(() => undefined);
+      return optimistic;
+    }
+
+    if (homeKitSwitchWrite) {
+      const optimistic = optimisticHomeKitSwitchResult(device, command, true);
+      await this.registry.set(optimistic);
+      return optimistic;
     }
 
     return this.refresh(device);

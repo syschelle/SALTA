@@ -215,7 +215,7 @@ export class HomeKitBridge {
     bridge.getService(Service.AccessoryInformation)
       ?.setCharacteristic(Characteristic.Manufacturer, "SALTA")
       .setCharacteristic(Characteristic.Model, "SALTA HomeKit Bridge")
-      .setCharacteristic(Characteristic.FirmwareRevision, "0.8.138")
+      .setCharacteristic(Characteristic.FirmwareRevision, "0.8.139")
       .setCharacteristic(Characteristic.SerialNumber, settings.username.replace(/:/g, ""));
     bridge.on("listening", (port, address) => {
       this.listeningPort = port;
@@ -402,7 +402,7 @@ export class HomeKitBridge {
         ?.setCharacteristic(Characteristic.Manufacturer, "SALTA")
         .setCharacteristic(Characteristic.Model, device.model || `SALTA ${device.source}`)
         .setCharacteristic(Characteristic.SerialNumber, device.macAddress || device.sourceId)
-        .setCharacteristic(Characteristic.FirmwareRevision, device.firmwareVersion || "0.8.138");
+        .setCharacteristic(Characteristic.FirmwareRevision, device.firmwareVersion || "0.8.139");
       const primary = this.addService(accessory, device, serviceType, accessoryName);
       if (!primary) return;
       this.addBatteryService(accessory, device);
@@ -419,8 +419,27 @@ export class HomeKitBridge {
     this.updateBatteryService(accessory, device);
   }
 
-  private command(device: Device, capability: string, value?: string | number | boolean): Promise<void> {
-    return this.commander.command({ deviceId: device.id, capability, value, source: "homekit" }).then(() => undefined);
+  private async command(device: Device, capability: string, value?: string | number | boolean): Promise<void> {
+    const details = {
+      deviceId: device.id,
+      deviceName: device.name,
+      model: device.model,
+      source: device.source,
+      capability,
+      requestedValue: value,
+      currentStateOn: booleanValue(device.state.on)
+    };
+    await writeSystemLog("info", "homekit", "HOMEKIT_COMMAND_REQUESTED", "HomeKit requested a device command", details).catch(() => undefined);
+    try {
+      await this.commander.command({ deviceId: device.id, capability, value, source: "homekit" });
+      await writeSystemLog("info", "homekit", "HOMEKIT_COMMAND_SUCCEEDED", "HomeKit device command completed", details).catch(() => undefined);
+    } catch (error) {
+      await writeSystemLog("warning", "homekit", "HOMEKIT_COMMAND_FAILED", "HomeKit device command failed", {
+        ...details,
+        error: error instanceof Error ? error.message : String(error)
+      }).catch(() => undefined);
+      throw error;
+    }
   }
 
   private switchCommand(device: Device, value: unknown): Promise<void> {

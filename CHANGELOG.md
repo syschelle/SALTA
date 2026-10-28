@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.139 - Reliable HomeKit Shelly switch writes and diagnostics
+
+- Log every HomeKit device command with the target device, requested capability/value and command outcome.
+- Keep HomeKit switch writes responsive by avoiding the synchronous full Shelly re-probe after a confirmed on/off command.
+- Bound HomeKit Shelly switch-command response waiting to two seconds, below the HomeKit slow-write warning window.
+- Treat a Shelly response timeout after a HomeKit on/off write as delivery-uncertain rather than immediately failing the HomeKit characteristic write.
+- Preserve the requested switch state optimistically until the existing Shelly reconciliation loop verifies the authoritative device state.
+- Log delivery-uncertain Shelly HomeKit writes without credentials or secrets.
+- Keep API, automation and system command behavior unchanged, including their existing synchronous readback.
+
 ## 0.8.138 - Security dependency updates
 
 - Upgrade Fastify to the patched 5.12.6 release line.

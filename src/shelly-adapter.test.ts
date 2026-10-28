@@ -4,7 +4,8 @@ const dbMocks = vi.hoisted(() => ({
   deleteDevice: vi.fn(async (): Promise<boolean> => true),
   getDeviceCredentials: vi.fn(async () => ({ username: "", password: "" })),
   setDeviceCredentials: vi.fn(async (): Promise<void> => undefined),
-  upsertDevice: vi.fn(async (): Promise<void> => undefined)
+  upsertDevice: vi.fn(async (): Promise<void> => undefined),
+  writeSystemLog: vi.fn(async (): Promise<void> => undefined)
 }));
 
 vi.mock("./db.js", () => dbMocks);
@@ -399,5 +400,84 @@ describe("ShellyAdapter resilient host polling", () => {
     failStatus = false;
     await adapter.reconcile();
     expect(registry.all().filter(device => device.host === "192.168.1.81").every(device => device.reachable)).toBe(true);
+  });
+});
+
+
+describe("ShellyAdapter HomeKit switch writes", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  function homeKitSwitch() {
+    return {
+      id: "shelly:homekit-test",
+      source: "shelly",
+      sourceId: "TESTMAC",
+      type: "outlet" as const,
+      name: "TV",
+      host: "192.168.1.173",
+      generation: "gen1" as const,
+      model: "SHPLG-S",
+      componentKind: "switch" as const,
+      componentId: 0,
+      reachable: true,
+      state: { on: true, power: 100 },
+      capabilities: ["turnOn", "turnOff", "toggle"],
+      homekitEnabled: true,
+      hidden: false,
+      credentialMode: "inherit" as const,
+      passwordConfigured: false,
+      lastSeen: "2026-10-28T15:00:00.000Z",
+      lastEvent: "2026-10-28T15:00:00.000Z"
+    };
+  }
+
+  it("acknowledges a confirmed HomeKit Gen1 switch write without a synchronous full refresh", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      calls.push(url);
+      if (url.endsWith("/relay/0?turn=off")) return jsonResponse({ ison: false });
+      return jsonResponse({}, 404);
+    }));
+
+    const registry = new DeviceRegistry();
+    registry.hydrate(homeKitSwitch());
+    const adapter = new ShellyAdapter(registry);
+    const result = await adapter.command({ deviceId: "shelly:homekit-test", capability: "turnOff", source: "homekit" });
+
+    expect(result.state.on).toBe(false);
+    expect(registry.get(result.id)?.state.on).toBe(false);
+    expect(calls).toEqual(["http://192.168.1.173/relay/0?turn=off"]);
+  });
+
+  it("treats a HomeKit response timeout as delivery-uncertain instead of failing the HomeKit write", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async (_input: string | URL | Request, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => {
+        const error = new Error("aborted");
+        error.name = "AbortError";
+        reject(error);
+      });
+    })));
+
+    const registry = new DeviceRegistry();
+    registry.hydrate(homeKitSwitch());
+    const adapter = new ShellyAdapter(registry);
+    const command = adapter.command({ deviceId: "shelly:homekit-test", capability: "turnOff", source: "homekit" });
+    await vi.advanceTimersByTimeAsync(2_000);
+    const result = await command;
+
+    expect(result.state.on).toBe(false);
+    expect(result.lastSeen).toBe("2026-10-28T15:00:00.000Z");
+    expect(dbMocks.writeSystemLog).toHaveBeenCalledWith(
+      "warning",
+      "shelly",
+      "SHELLY_HOMEKIT_COMMAND_RESPONSE_TIMEOUT",
+      expect.any(String),
+      expect.objectContaining({ deviceName: "TV", capability: "turnOff", requestedState: false })
+    );
   });
 });
