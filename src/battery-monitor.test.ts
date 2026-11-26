@@ -22,6 +22,14 @@ describe("battery warnings", () => {
     expect(warnings.map(item => item.deviceId)).toEqual(["low", "flag"]);
   });
 
+  it("deduplicates multiple OpenCCU channels of the same low-battery HomeMatic device", () => {
+    const first = { ...device("openccu:BidCos-RF:MEQ123:4", { lowBattery: true }), source: "openccu", macAddress: "MEQ123" };
+    const second = { ...device("openccu:BidCos-RF:MEQ123:2", { lowBattery: true }), source: "openccu", macAddress: "MEQ123" };
+    const warnings = batteryWarnings([first, second], 20);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]?.lowBattery).toBe(true);
+  });
+
   it("sends one aggregated warning and persists its timestamp", async () => {
     const sender = vi.fn(async () => undefined);
     const registry = { all: () => [device("low", { battery: 10 }), device("flag", { lowBattery: true })], on: vi.fn(), off: vi.fn() };

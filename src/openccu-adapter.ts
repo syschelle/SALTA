@@ -12,6 +12,8 @@ import {
   openCcuCatalogFromDescriptions,
   openCcuDeviceFromChannel,
   openCcuDeviceIds,
+  openCcuMaintenanceAddress,
+  mergeOpenCcuMaintenanceValues,
   openCcuObjectName,
   openCcuRpcEndpoint,
   reconciledOpenCcuName,
@@ -724,14 +726,42 @@ export class OpenCcuAdapter {
       if (forceCatalog || !this.catalog.length || Date.now() - this.catalogLoadedAt > catalogRefreshMs) {
         await this.refreshCatalog(client, interfaces);
       }
+      const maintenanceTargetsByDevice = new Map<string, { interfaceName: string; deviceAddress: string; address: string }>();
+      for (const entry of this.catalog) {
+        const address = openCcuMaintenanceAddress(entry.interfaceName, entry.deviceAddress);
+        if (!address) continue;
+        maintenanceTargetsByDevice.set(`${entry.interfaceName}|${entry.deviceAddress}`, {
+          interfaceName: entry.interfaceName,
+          deviceAddress: entry.deviceAddress,
+          address
+        });
+      }
+      const maintenanceTargets = [...maintenanceTargetsByDevice.values()];
+      const maintenanceValues = new Map<string, JsonRecord>();
+      let maintenanceFailures = 0;
+      await mapWithConcurrency(maintenanceTargets, 3, async target => {
+        try {
+          const values = record(await client.call("Interface.getParamset", {
+            interface: target.interfaceName,
+            address: target.address,
+            paramsetKey: "VALUES"
+          }, target.interfaceName));
+          maintenanceValues.set(`${target.interfaceName}|${target.deviceAddress}`, values);
+        } catch {
+          maintenanceFailures += 1;
+        }
+      });
+
       let snapshotFailures = 0;
       const snapshots = await mapWithConcurrency(this.catalog, 3, async entry => {
         try {
-          const values = record(await client.call("Interface.getParamset", {
+          const channelValues = record(await client.call("Interface.getParamset", {
             interface: entry.interfaceName,
             address: entry.channelAddress,
             paramsetKey: "VALUES"
           }, entry.interfaceName));
+          const maintenance = maintenanceValues.get(`${entry.interfaceName}|${entry.deviceAddress}`) ?? {};
+          const values = mergeOpenCcuMaintenanceValues(entry.interfaceName, channelValues, maintenance);
           return openCcuDeviceFromChannel({ ...entry, baseUrl: connection.baseUrl, values });
         } catch {
           snapshotFailures += 1;
@@ -804,6 +834,12 @@ export class OpenCcuAdapter {
           interfaces: eventInterfaces
         });
       });
+      if (maintenanceFailures) {
+        this.log("warning", "OPENCCU_MAINTENANCE_READ_PARTIAL", "Some BidCos-RF maintenance channels could not be read", {
+          failedDevices: maintenanceFailures,
+          maintenanceDevices: maintenanceTargets.length
+        });
+      }
       if (snapshotFailures) {
         this.log("warning", "OPENCCU_CHANNEL_READ_PARTIAL", "Some OpenCCU channels could not be read", {
           failedChannels: snapshotFailures,

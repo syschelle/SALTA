@@ -403,6 +403,13 @@ export function phosconDevicesFromState(baseUrl: string, payload: unknown): Devi
 
 export function gatewayStatus(payload: unknown): PhosconGatewayStatus {
   const config = record(record(payload).config ?? payload);
+  const firmwareVersion = stringValue(config.fwversion);
+  const rfConnected = booleanValue(config.rfconnected);
+  const health = rfConnected === false || firmwareVersion === "0x00000000"
+    ? "radio-disconnected"
+    : rfConnected === true
+      ? "ok"
+      : "unknown";
   return {
     connected: true,
     name: stringValue(config.name),
@@ -410,9 +417,10 @@ export function gatewayStatus(payload: unknown): PhosconGatewayStatus {
     bridgeId: stringValue(config.bridgeid),
     apiVersion: stringValue(config.apiversion),
     softwareVersion: stringValue(config.swversion),
-    firmwareVersion: stringValue(config.fwversion),
+    firmwareVersion,
     zigbeeChannel: numberValue(config.zigbeechannel),
-    rfConnected: booleanValue(config.rfconnected),
+    rfConnected,
+    health,
     lastSync: now()
   };
 }

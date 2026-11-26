@@ -1,18 +1,14 @@
 # SALTA migration paths
 
-## Current v0.8.139 update
+## Current v0.8.140 update
 
-v0.8.139 changes only the HomeKit-to-Shelly switch command path and its diagnostics. Confirmed HomeKit on/off commands no longer wait for a full Shelly re-probe before HomeKit is acknowledged. A response timeout after a HomeKit switch write is recorded as delivery-uncertain and the requested state is held optimistically until the normal Shelly reconciliation loop verifies the device. API, automation and system command paths keep their existing synchronous readback behavior. No schema migration, credential rewrite, HomeKit reset or device re-import is required.
+v0.8.140 adds diagnostics and read-only health enrichment; it does not change stored device IDs, automation records or credentials. Phoscon/deCONZ status now distinguishes REST reachability from Zigbee radio health and exposes the existing firmware/radio/channel fields as an explicit gateway health state.
 
-v0.8.120 separates OpenCCU thermostat execution from automation policy. Existing automation records are not migrated or rewritten: every stored sequence step keeps its configured device ID, action, order and individual value.
+For classic HomeMatic `BidCos-RF` devices, SALTA additionally reads the physical maintenance channel `:0` during normal OpenCCU reconciliation and merges its service values, including `LOWBAT`, into the visible device state. Maintenance channels remain hidden and are not imported as separate devices. HmIP is intentionally not routed through this classic BidCos-specific path.
 
-OpenCCU thermostat commands are routed by technical source/type/capability to the dedicated thermostat controller. The controller reads only the selected device's live OpenCCU channel, plans the requested capability from the device metadata and live state, writes the required native datapoint(s), and verifies the same channel by live readback. Target-temperature execution no longer reads the global SALTA Summer/Winter setting.
+The existing Pushover battery monitor is reused. No new notification credential, database table or schema migration is required.
 
-For a classic `BidCos-RF` thermostat currently represented as OFF at its minimum target, a higher requested target uses one native `MANU_MODE=<requested temperature>` write. Classic thermostats already in Manual or Auto continue to use their discovered target-temperature datapoint, normally `SET_TEMPERATURE`. HmIP continues to use its own discovered datapoints; classic BidCos semantics are not transferred to HmIP.
-
-The OpenCCU Duty Cycle overview field is read-only. It uses `Interface.getDutyCycle`, caches the result for the dashboard and does not modify OpenCCU configuration or radio behavior.
-
-No database schema change, stored-automation rewrite, HomeKit reset, new dependency, mandatory environment variable or deployment-topology change is required.
+No database schema change, stored-automation rewrite, HomeKit reset, Zigbee/HomeMatic re-pair, new dependency, mandatory environment variable or deployment-topology change is required.
 
 The existing PostgreSQL, SALTA runtime and HomeKit data volumes remain compatible. Preserve them during the update and do not use `docker compose down -v`.
 

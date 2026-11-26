@@ -27,6 +27,9 @@ describe("deCONZ and Zigbee frontend", () => {
     expect(html).toContain('<h2>deCONZ-Instanz</h2>');
     expect(html).toContain('>deCONZ-Adresse<input id="phosconBaseUrl"');
     expect(html).toContain('id="deconzUiLink"');
+    expect(script).toContain("gateway.health==='radio-disconnected'");
+    expect(script).toContain("deCONZ ist erreichbar, aber der Zigbee-Funkadapter ist nicht verbunden.");
+    expect(script).toContain("Funk: nicht verbunden");
     expect(html).toContain('target="_blank" rel="noopener noreferrer" hidden');
     expect(html).toContain('deCONZ-Oberfläche öffnen</a>');
     expect(hasFunction(sourceFile, "deconzUiUrl")).toBe(true);
