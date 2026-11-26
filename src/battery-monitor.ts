@@ -43,7 +43,7 @@ export function batteryWarnings(devices: Device[], threshold: number): BatteryWa
 
 function batteryMessage(warnings: BatteryWarningDevice[], threshold: number): string {
   const heading = `${warnings.length} ${warnings.length === 1 ? "Gerät hat" : "Geräte haben"} einen niedrigen Batteriestand (Grenze ${threshold} %).`;
-  const lines = warnings.map(item => `• ${item.name}${item.room ? ` (${item.room})` : ""}: ${item.battery !== undefined ? `${item.battery} %` : "Batteriewarnung aktiv"}`);
+  const lines = warnings.map(item => `• ${item.name}${item.room ? ` (${item.room})` : ""}${item.deviceId.startsWith("openccu:") ? " · OpenCCU/HomeMatic" : ""}: ${item.battery !== undefined ? `${item.battery} %` : "Batteriewarnung aktiv"}`);
   let message = [heading, ...lines].join("\n");
   if (message.length > 1000) message = `${message.slice(0, 997)}…`;
   return message;
