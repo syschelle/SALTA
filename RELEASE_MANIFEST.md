@@ -5,7 +5,7 @@ This manifest is intended for post-push verification before tagging the release.
 ## Production deployment file
 
 ```text
-docker-compose.image.yml  SHA-256  91ffae32df7a4ca8d397bbdde116a53cef45ac42df7de559f3b6c029732aea4c
+docker-compose.image.yml  SHA-256  8723c827e1939decaa2779c6014091dec59d372828ea70a504369630c49e6c62
 ```
 
 Required topology:
