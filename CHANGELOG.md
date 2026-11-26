@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.141 - Daily OpenCCU battery and reachability warnings
+
+- Add a dedicated OpenCCU/HomeMatic Pushover warning channel with a 24-hour repeat interval.
+- Warn when an OpenCCU/HomeMatic device reports a low-battery state or is no longer reachable.
+- Keep reachability and battery reasons explicit; an unreachable device is not automatically attributed to an empty battery.
+- Deduplicate multiple OpenCCU channels of the same physical HomeMatic device into one warning entry.
+- Keep the existing seven-day battery-warning cadence for non-OpenCCU device sources.
+- Persist the OpenCCU warning timestamp separately so daily HomeMatic alerts do not interfere with other battery notifications.
+- Add regression coverage for LOWBAT, unreachable devices, physical-device deduplication and the exact 24-hour repeat boundary.
+
 ## 0.8.140 - deCONZ gateway health and BidCos battery warnings
 
 - Classify Phoscon/deCONZ gateway health independently from REST reachability.
