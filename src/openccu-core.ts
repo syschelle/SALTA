@@ -151,6 +151,15 @@ function normalizedType(snapshot: OpenCcuChannelSnapshot): string {
   return `${snapshot.channelType} ${snapshot.model ?? ""}`.toUpperCase();
 }
 
+export function openCcuMaintenanceAddress(interfaceName: string, deviceAddress: string): string | undefined {
+  const address = deviceAddress.trim();
+  return interfaceName === "BidCos-RF" && address ? `${address}:0` : undefined;
+}
+
+export function mergeOpenCcuMaintenanceValues(interfaceName: string, channelValues: JsonRecord, maintenanceValues: JsonRecord): JsonRecord {
+  return interfaceName === "BidCos-RF" ? { ...maintenanceValues, ...channelValues } : channelValues;
+}
+
 function stateFromCommonValues(values: JsonRecord): DeviceState {
   const state: DeviceState = {};
   const lowBattery = booleanValue(values.LOWBAT ?? values.LOW_BAT);
