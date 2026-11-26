@@ -1,8 +1,8 @@
 # SALTA migration paths
 
-## Current v0.8.140 update
+## Current v0.8.141 update
 
-v0.8.140 adds diagnostics and read-only health enrichment; it does not change stored device IDs, automation records or credentials. Phoscon/deCONZ status now distinguishes REST reachability from Zigbee radio health and exposes the existing firmware/radio/channel fields as an explicit gateway health state.
+v0.8.141 adds diagnostics and read-only health enrichment; it does not change stored device IDs, automation records or credentials. Phoscon/deCONZ status now distinguishes REST reachability from Zigbee radio health and exposes the existing firmware/radio/channel fields as an explicit gateway health state.
 
 For classic HomeMatic `BidCos-RF` devices, SALTA additionally reads the physical maintenance channel `:0` during normal OpenCCU reconciliation and merges its service values, including `LOWBAT`, into the visible device state. Maintenance channels remain hidden and are not imported as separate devices. HmIP is intentionally not routed through this classic BidCos-specific path.
 
