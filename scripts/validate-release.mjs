@@ -220,8 +220,11 @@ if (!climateModeSource.includes('if (mode === "winter") return current === "auto
 if (!climateModeSource.includes('current !== "off"')) fail("Summer thermostat guard must keep enforcing OFF for known non-OFF modes");
 if (!climateModeSource.includes('interfaceName ?? "").trim().toLowerCase() === "virtualdevices"')) fail("Climate mode must exclude OpenCCU VirtualDevices heating groups");
 if (!climateModeSource.includes('const targets = thermostats.filter(device => !thermostatHasMode(device, targetMode))')) fail("Climate mode must avoid rewriting thermostats already in the requested mode");
-if (!batteryMonitorSource.includes("7 * 24 * 60 * 60 * 1000")) fail("Battery warning does not enforce the seven-day notification interval");
-if (!batteryMonitorSource.includes("OpenCCU/HomeMatic")) fail("OpenCCU battery warning source label is missing");
+if (!batteryMonitorSource.includes("const DAY_MS = 24 * 60 * 60 * 1000") || !batteryMonitorSource.includes("const WEEK_MS = 7 * DAY_MS")) fail("Battery warning intervals are incomplete");
+if (!batteryMonitorSource.includes('const OPENCCU_NOTIFICATION_KEY = "openccu-device-warning"') || !batteryMonitorSource.includes("openCcuEligible") || !batteryMonitorSource.includes("now.getTime() - openCcuLastMs >= DAY_MS")) fail("Daily OpenCCU warning cadence is incomplete");
+if (!batteryMonitorSource.includes('device.source !== "openccu"') || !batteryMonitorSource.includes("openCcuWarnings(devices, connection.batteryThreshold)")) fail("OpenCCU warnings are not separated from the generic seven-day battery path");
+if (!batteryMonitorSource.includes("const unreachable = !device.reachable") || !batteryMonitorSource.includes("Batteriewarnung aktiv") || !batteryMonitorSource.includes("nicht erreichbar")) fail("OpenCCU battery/reachability warning reasons are incomplete");
+if (!batteryMonitorSource.includes('"OPENCCU_DEVICE_WARNING_SENT"') || !batteryMonitorSource.includes('"PUSHOVER_OPENCCU_WARNING_FAILED"')) fail("OpenCCU Pushover diagnostics are missing");
 if (!pushoverSource.includes("https://api.pushover.net/1/messages.json")) fail("Pushover message endpoint is missing");
 if (!publicIndex.includes('data-settings-panel="notifications"') || !publicIndex.includes('id="notificationBatteryThreshold"')) fail("Pushover battery warning settings are missing");
 if (!publicIndex.includes('data-settings-panel="general"') || !publicIndex.includes('id="generalDebugLevel"')) fail("General DEBUG-level settings are missing");

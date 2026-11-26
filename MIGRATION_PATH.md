@@ -1,14 +1,14 @@
 # SALTA migration paths
 
-## Current v0.8.140 update
+## Current v0.8.141 update
 
-v0.8.140 adds diagnostics and read-only health enrichment; it does not change stored device IDs, automation records or credentials. Phoscon/deCONZ status now distinguishes REST reachability from Zigbee radio health and exposes the existing firmware/radio/channel fields as an explicit gateway health state.
+v0.8.141 changes only Pushover warning policy for OpenCCU/HomeMatic devices. It adds a dedicated notification-state key and does not change the database schema, stored device IDs, automations, credentials or OpenCCU pairing.
 
-For classic HomeMatic `BidCos-RF` devices, SALTA additionally reads the physical maintenance channel `:0` during normal OpenCCU reconciliation and merges its service values, including `LOWBAT`, into the visible device state. Maintenance channels remain hidden and are not imported as separate devices. HmIP is intentionally not routed through this classic BidCos-specific path.
+OpenCCU/HomeMatic devices are aggregated by physical device address. A device enters the dedicated warning when it reports a low-battery state, a battery percentage at or below the configured Pushover threshold, or `reachable=false`. The OpenCCU warning may repeat after 24 hours while any issue persists. Battery warnings from other sources retain their existing seven-day repeat interval.
 
-The existing Pushover battery monitor is reused. No new notification credential, database table or schema migration is required.
+An unreachable device is reported as unreachable without assuming a battery failure unless SALTA also has a battery warning for that device.
 
-No database schema change, stored-automation rewrite, HomeKit reset, Zigbee/HomeMatic re-pair, new dependency, mandatory environment variable or deployment-topology change is required.
+No database schema change, stored-automation rewrite, HomeKit reset, HomeMatic re-pair, new dependency, mandatory environment variable or deployment-topology change is required.
 
 The existing PostgreSQL, SALTA runtime and HomeKit data volumes remain compatible. Preserve them during the update and do not use `docker compose down -v`.
 

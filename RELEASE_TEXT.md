@@ -1,49 +1,47 @@
-# SALTA v0.8.140
+# SALTA v0.8.141
 
-SALTA v0.8.140 adds explicit deCONZ gateway health diagnostics and makes classic HomeMatic/BidCos low-battery service states available to SALTA's existing Pushover battery monitor.
+SALTA v0.8.141 adds a dedicated daily Pushover warning for OpenCCU/HomeMatic devices that report a battery problem or become unreachable.
 
 ## Changes
 
-- Distinguish a reachable deCONZ REST API from a healthy Zigbee radio.
-- Report deCONZ gateway health as `ok`, `radio-disconnected`, `api-unreachable` or `unknown`.
-- Treat `rfconnected=false` or firmware `0x00000000` as a disconnected Zigbee radio while keeping the REST connection state visible.
-- Expose firmware, radio state and Zigbee channel through the existing Phoscon/deCONZ gateway status API.
-- Show a clear Zigbee radio warning in the SALTA Zigbee page and deCONZ settings status.
-- Write persistent `DECONZ_GATEWAY_HEALTH_WARNING`, `DECONZ_GATEWAY_HEALTH_ERROR` and `DECONZ_GATEWAY_HEALTH_RECOVERED` diagnostics on health transitions.
-- Read the physical maintenance channel `:0` for classic `BidCos-RF` OpenCCU devices.
-- Merge classic HomeMatic `LOWBAT` service state into the visible SALTA device state so the existing battery monitor can send Pushover warnings.
-- Identify OpenCCU/HomeMatic low-battery entries in the aggregated Pushover message.
-- Keep HmIP maintenance handling separate and unchanged.
+- Add a separate OpenCCU/HomeMatic Pushover warning stream with its own 24-hour repeat interval.
+- Include classic HomeMatic devices whose merged maintenance state reports `LOWBAT`.
+- Include OpenCCU devices whose SALTA state is `reachable=false`, even when no current battery value can be read.
+- Keep the warning reason explicit as `Batteriewarnung aktiv`, a reported battery percentage, and/or `nicht erreichbar`.
+- Do not claim that an unreachable device is caused by a depleted battery when OpenCCU does not provide that evidence.
+- Deduplicate multiple OpenCCU channels by physical HomeMatic device address so one thermostat or sensor produces one warning entry.
+- Keep the existing generic battery-warning path and seven-day repeat interval for non-OpenCCU sources.
+- Persist the OpenCCU warning timestamp under its own notification key so daily HomeMatic reminders do not affect other battery notifications.
+- Add `OPENCCU_DEVICE_WARNING_SENT` and `PUSHOVER_OPENCCU_WARNING_FAILED` system-log diagnostics without credentials or Pushover secrets.
 
 ## Root Cause
 
-The deCONZ REST endpoint can remain reachable while the ConBee radio is not initialized. In that state SALTA previously reported the integration as connected because REST and WebSocket communication still worked, even though deCONZ itself reported `rfconnected=false` and could expose firmware as `0x00000000`. The available gateway fields were already parsed, but SALTA did not classify or surface that degraded radio state explicitly.
+v0.8.140 made classic BidCos `LOWBAT` maintenance data available to SALTA, but the existing generic battery monitor still used one shared seven-day repeat interval. That interval is too long for heating devices where a battery or communication problem can leave a thermostat unavailable for an extended period.
 
-SALTA also already had a generic Pushover battery monitor and could map `LOWBAT`/`LOW_BAT` when those values were present on a discovered OpenCCU channel. Classic HomeMatic/BidCos service values such as `LOWBAT` are normally exposed on the physical device maintenance channel `:0`. SALTA intentionally excludes maintenance channels from the visible device catalogue, so the classic BidCos low-battery state was not being read into the visible thermostat or sensor and therefore could not reach the existing battery monitor.
+An additional failure mode exists when a HomeMatic device stops communicating before SALTA can obtain a fresh low-battery value. OpenCCU exposes this through the device maintenance state as `UNREACH`; SALTA already maps that state to `reachable=false`. A battery-only warning therefore cannot cover the important case where the device is simply no longer reachable.
 
-v0.8.140 keeps maintenance channels hidden as devices, but polls the classic `BidCos-RF` physical channel `:0` once per physical device and merges its service values into the visible device state. HmIP is intentionally not routed through this BidCos-specific behavior.
+v0.8.141 separates OpenCCU/HomeMatic monitoring from the generic battery cadence. A physical OpenCCU device is included when it reports a low-battery condition, a battery percentage at or below the configured threshold, or `reachable=false`. The resulting warning is repeated after 24 hours while the condition persists.
 
 ## Compatibility
 
-- Direct upgrade from v0.8.139 is supported.
+- Direct upgrade from v0.8.140 is supported.
 - No database schema migration is required.
 - Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain unchanged.
-- Existing HomeKit pairing is preserved; no reset or re-pair is required.
-- Existing Phoscon/deCONZ API keys and OpenCCU credentials remain unchanged.
-- Existing Zigbee and HomeMatic device IDs, room assignments and automations remain unchanged.
-- No device re-pairing or re-import is required.
+- Existing Pushover credentials and battery threshold remain unchanged.
+- Existing OpenCCU credentials, device IDs, room assignments and automations remain unchanged.
+- No HomeMatic device re-pairing or re-import is required.
+- HmIP maintenance behavior is not inferred from the classic BidCos channel-0 implementation.
 - No new mandatory environment variable, dependency or deployment-topology change is required.
-- HmIP thermostat and maintenance behavior remains unchanged by the BidCos battery addition.
 
 ## Tests
 
-- Regression coverage verifies healthy and radio-disconnected deCONZ gateway classification.
-- Regression coverage verifies that the frontend surfaces a reachable deCONZ instance with a disconnected radio as a warning.
-- Regression coverage verifies that only classic `BidCos-RF` devices derive a maintenance address from physical channel `:0`.
-- Regression coverage verifies that a classic `HM-CC-RT-DN` thermostat receives `lowBattery=true` when its physical maintenance channel reports `LOWBAT=true`.
-- Regression coverage verifies that HmIP channel state is not implicitly merged with the BidCos maintenance path.
-- Regression coverage verifies that multiple channels of one physical OpenCCU device produce one aggregated battery warning.
-- The release validator enforces the deCONZ health and BidCos battery contracts.
+- Regression coverage verifies OpenCCU physical-device deduplication.
+- Regression coverage verifies that an unreachable OpenCCU device is warned even without a `LOWBAT` value.
+- Regression coverage verifies that a healthy reachable OpenCCU device without a battery warning is excluded.
+- Regression coverage verifies the dedicated OpenCCU/HomeMatic Pushover title and warning reasons.
+- Regression coverage verifies that the OpenCCU warning is suppressed before 24 hours and repeats exactly at the 24-hour boundary.
+- Regression coverage verifies that OpenCCU warnings do not use the generic seven-day battery notification path.
+- The release validator enforces the separate daily OpenCCU warning contract.
 - The complete SALTA release validator, JavaScript syntax checks, TypeScript production build, Vitest suite and npm audit must pass in GitHub Actions before release.
 
 ## Production update
