@@ -112,6 +112,8 @@ export interface HueGatewayStatus {
   realtimeLastError?: string;
 }
 
+export type PhosconGatewayHealth = "ok" | "radio-disconnected" | "api-unreachable" | "unknown";
+
 export interface PhosconGatewayStatus {
   connected: boolean;
   name?: string;
@@ -122,6 +124,7 @@ export interface PhosconGatewayStatus {
   firmwareVersion?: string;
   zigbeeChannel?: number;
   rfConnected?: boolean;
+  health?: PhosconGatewayHealth;
   lastSync?: string;
   lastError?: string;
   realtimeConnected?: boolean;
