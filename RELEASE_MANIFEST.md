@@ -1,4 +1,4 @@
-# SALTA v0.8.139 release manifest
+# SALTA v0.8.140 release manifest
 
 This manifest is intended for post-push verification before tagging the release.
 
