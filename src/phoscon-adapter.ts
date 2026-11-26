@@ -93,6 +93,28 @@ export class PhosconAdapter {
     return { ...this.status };
   }
 
+  private reportGatewayHealth(previousHealth: PhosconGatewayStatus["health"], status: PhosconGatewayStatus): void {
+    if (previousHealth === status.health) return;
+    const details = {
+      deviceName: status.deviceName,
+      firmwareVersion: status.firmwareVersion,
+      rfConnected: status.rfConnected,
+      zigbeeChannel: status.zigbeeChannel,
+      health: status.health
+    };
+    if (status.health === "radio-disconnected") {
+      void writeSystemLog("warning", "phoscon", "DECONZ_GATEWAY_HEALTH_WARNING", "deCONZ REST API is reachable but the Zigbee radio is disconnected", details).catch(() => undefined);
+      return;
+    }
+    if (status.health === "api-unreachable") {
+      void writeSystemLog("error", "phoscon", "DECONZ_GATEWAY_HEALTH_ERROR", "deCONZ REST API is unreachable", details).catch(() => undefined);
+      return;
+    }
+    if (status.health === "ok" && (previousHealth === "radio-disconnected" || previousHealth === "api-unreachable")) {
+      void writeSystemLog("info", "phoscon", "DECONZ_GATEWAY_HEALTH_RECOVERED", "deCONZ gateway and Zigbee radio recovered", details).catch(() => undefined);
+    }
+  }
+
   async configure(baseUrlInput: string, apiKey?: string): Promise<PhosconGatewayStatus> {
     const baseUrl = normalizePhosconBaseUrl(baseUrlInput);
     const providedKey = apiKey?.trim();
@@ -103,7 +125,9 @@ export class PhosconAdapter {
     this.configurationGeneration += 1;
     this.requireButtonRecoveryBaseline("configuration-change");
     this.closeWebSocket();
+    const previousHealth = this.status.health;
     this.status = gatewayStatus(configPayload);
+    this.reportGatewayHealth(previousHealth, this.status);
     if (this.reconcileTask) await this.reconcileTask.catch(() => undefined);
     await this.reconcile();
     return this.getStatus();
@@ -485,6 +509,7 @@ export class PhosconAdapter {
         await this.registry.set({ ...existing, reachable: false, lastSeen: now() });
       }
       if (generation === this.configurationGeneration) {
+        const previousHealth = this.status.health;
         this.status = {
           ...gatewayStatus(payload),
           realtimeConnected: this.status.realtimeConnected ?? false,
@@ -493,6 +518,7 @@ export class PhosconAdapter {
           realtimeLastError: this.status.realtimeLastError,
           realtimeFallbackPolling: this.status.realtimeFallbackPolling ?? false
         };
+        this.reportGatewayHealth(previousHealth, this.status);
         this.ensureWebSocket(baseUrl, payload, generation);
         if (recoveryBaseline && this.buttonRecoveryBaselinePending && this.buttonRecoveryEpoch === recoveryEpoch) {
           this.buttonRecoveryBaselinePending = false;
@@ -507,7 +533,9 @@ export class PhosconAdapter {
       if (generation !== this.configurationGeneration) return;
       const message = error instanceof Error ? error.message : "PHOSCON_SYNC_FAILED";
       this.requireButtonRecoveryBaseline("rest-sync-failed");
-      this.status = { ...this.status, connected: false, lastError: message, lastSync: now() };
+      const previousHealth = this.status.health;
+      this.status = { ...this.status, connected: false, health: "api-unreachable", lastError: message, lastSync: now() };
+      this.reportGatewayHealth(previousHealth, this.status);
       for (const existing of this.registry.all().filter(device => device.source === "phoscon")) {
         await this.registry.set({ ...existing, reachable: false, lastSeen: now() });
       }
