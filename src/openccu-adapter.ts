@@ -726,12 +726,17 @@ export class OpenCcuAdapter {
       if (forceCatalog || !this.catalog.length || Date.now() - this.catalogLoadedAt > catalogRefreshMs) {
         await this.refreshCatalog(client, interfaces);
       }
-      const maintenanceTargets = [...new Map(this.catalog
-        .map(entry => {
-          const address = openCcuMaintenanceAddress(entry.interfaceName, entry.deviceAddress);
-          return address ? [`${entry.interfaceName}|${entry.deviceAddress}`, { interfaceName: entry.interfaceName, deviceAddress: entry.deviceAddress, address }] as const : undefined;
-        })
-        .filter((entry): entry is readonly [string, { interfaceName: string; deviceAddress: string; address: string }] => Boolean(entry))).values()];
+      const maintenanceTargetsByDevice = new Map<string, { interfaceName: string; deviceAddress: string; address: string }>();
+      for (const entry of this.catalog) {
+        const address = openCcuMaintenanceAddress(entry.interfaceName, entry.deviceAddress);
+        if (!address) continue;
+        maintenanceTargetsByDevice.set(`${entry.interfaceName}|${entry.deviceAddress}`, {
+          interfaceName: entry.interfaceName,
+          deviceAddress: entry.deviceAddress,
+          address
+        });
+      }
+      const maintenanceTargets = [...maintenanceTargetsByDevice.values()];
       const maintenanceValues = new Map<string, JsonRecord>();
       let maintenanceFailures = 0;
       await mapWithConcurrency(maintenanceTargets, 3, async target => {
