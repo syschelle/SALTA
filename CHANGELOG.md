@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.140 - deCONZ gateway health and BidCos battery warnings
+
+- Classify Phoscon/deCONZ gateway health independently from REST reachability.
+- Report `radio-disconnected` when deCONZ is reachable but `rfconnected=false` or firmware is `0x00000000`.
+- Expose firmware, radio state and Zigbee channel through the existing gateway status API and show a radio warning in the Zigbee/settings UI.
+- Log deCONZ gateway radio failures, API failures and recovery transitions without credentials.
+- Read classic `BidCos-RF` physical maintenance channel `:0` values during OpenCCU reconciliation.
+- Merge classic HomeMatic `LOWBAT` service state into each visible SALTA device for that physical BidCos device.
+- Reuse the existing Pushover battery monitor and seven-day repeat protection; OpenCCU/HomeMatic warnings are identified in the notification text.
+- Keep HmIP maintenance handling separate; v0.8.140 does not infer HmIP battery semantics from the classic BidCos path.
+- Add regression coverage for deCONZ health classification, radio-fault UI state and BidCos channel-0 battery mapping.
+
 ## 0.8.139 - Reliable HomeKit Shelly switch writes and diagnostics
 
 - Log every HomeKit device command with the target device, requested capability/value and command outcome.
