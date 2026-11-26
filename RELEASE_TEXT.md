@@ -1,41 +1,50 @@
-# SALTA v0.8.139
+# SALTA v0.8.140
 
-SALTA v0.8.139 makes HomeKit-controlled Shelly switches resilient to slow or missing HTTP responses and adds the diagnostics needed to identify the origin of unexpected HomeKit switching commands.
+SALTA v0.8.140 adds explicit deCONZ gateway health diagnostics and makes classic HomeMatic/BidCos low-battery service states available to SALTA's existing Pushover battery monitor.
 
 ## Changes
 
-- Add persistent HomeKit command diagnostics for requested, successful and failed device commands, including the target device and requested capability/value.
-- Keep HomeKit Shelly switch writes responsive by acknowledging a confirmed on/off command without waiting for a complete Shelly device re-probe.
-- Use a two-second response wait for HomeKit Shelly on/off commands so a slow Shelly response does not cross HomeKit's slow-write warning window.
-- If a Shelly response times out after a HomeKit on/off write, record the write as delivery-uncertain instead of returning `DETECTION_TIMEOUT` to HomeKit.
-- Hold the requested on/off state optimistically until SALTA's existing Shelly reconciliation loop verifies the authoritative device state.
-- Keep API, automation and system command paths unchanged, including their existing synchronous post-command readback.
+- Distinguish a reachable deCONZ REST API from a healthy Zigbee radio.
+- Report deCONZ gateway health as `ok`, `radio-disconnected`, `api-unreachable` or `unknown`.
+- Treat `rfconnected=false` or firmware `0x00000000` as a disconnected Zigbee radio while keeping the REST connection state visible.
+- Expose firmware, radio state and Zigbee channel through the existing Phoscon/deCONZ gateway status API.
+- Show a clear Zigbee radio warning in the SALTA Zigbee page and deCONZ settings status.
+- Write persistent `DECONZ_GATEWAY_HEALTH_WARNING`, `DECONZ_GATEWAY_HEALTH_ERROR` and `DECONZ_GATEWAY_HEALTH_RECOVERED` diagnostics on health transitions.
+- Read the physical maintenance channel `:0` for classic `BidCos-RF` OpenCCU devices.
+- Merge classic HomeMatic `LOWBAT` service state into the visible SALTA device state so the existing battery monitor can send Pushover warnings.
+- Identify OpenCCU/HomeMatic low-battery entries in the aggregated Pushover message.
+- Keep HmIP maintenance handling separate and unchanged.
 
 ## Root Cause
 
-A diagnostic export from v0.8.138 showed HomeKit `slow-write` warnings for the `On` characteristic of the `TV` accessory followed by `DETECTION_TIMEOUT`. The TV is a Gen1 Shelly Plug S controlled through SALTA's HomeKit bridge.
+The deCONZ REST endpoint can remain reachable while the ConBee radio is not initialized. In that state SALTA previously reported the integration as connected because REST and WebSocket communication still worked, even though deCONZ itself reported `rfconnected=false` and could expose firmware as `0x00000000`. The available gateway fields were already parsed, but SALTA did not classify or surface that degraded radio state explicitly.
 
-SALTA's HomeKit handler awaited the complete Shelly command promise. Shelly HTTP requests used a 3.5-second timeout. A Shelly can physically execute a relay command before SALTA receives the complete HTTP response, so a delayed response can leave the device already switched while HomeKit still receives a timeout. The same synchronous path also performed an immediate full Shelly refresh after a confirmed command.
+SALTA also already had a generic Pushover battery monitor and could map `LOWBAT`/`LOW_BAT` when those values were present on a discovered OpenCCU channel. Classic HomeMatic/BidCos service values such as `LOWBAT` are normally exposed on the physical device maintenance channel `:0`. SALTA intentionally excludes maintenance channels from the visible device catalogue, so the classic BidCos low-battery state was not being read into the visible thermostat or sensor and therefore could not reach the existing battery monitor.
 
-v0.8.139 separates HomeKit acknowledgement from authoritative reconciliation for Shelly switch writes. A confirmed write is acknowledged immediately after the command response. A response timeout is logged as delivery-uncertain and resolved optimistically; SALTA's existing reconciliation loop then verifies the real device state. The new HomeKit command log records whether HomeKit requested `turnOn` or `turnOff`, which makes future unexpected switching events traceable without guessing.
+v0.8.140 keeps maintenance channels hidden as devices, but polls the classic `BidCos-RF` physical channel `:0` once per physical device and merges its service values into the visible device state. HmIP is intentionally not routed through this BidCos-specific behavior.
 
 ## Compatibility
 
-- Direct upgrade from v0.8.138 is supported.
+- Direct upgrade from v0.8.139 is supported.
 - No database schema migration is required.
 - Existing PostgreSQL, SALTA runtime and HomeKit data/volumes remain unchanged.
-- Existing HomeKit pairing is preserved; no HomeKit reset or re-pair is required.
-- Existing Shelly device configuration and credentials remain unchanged.
-- API, automation and system command behavior remains unchanged.
-- No new environment variable or production topology change is required.
+- Existing HomeKit pairing is preserved; no reset or re-pair is required.
+- Existing Phoscon/deCONZ API keys and OpenCCU credentials remain unchanged.
+- Existing Zigbee and HomeMatic device IDs, room assignments and automations remain unchanged.
+- No device re-pairing or re-import is required.
+- No new mandatory environment variable, dependency or deployment-topology change is required.
+- HmIP thermostat and maintenance behavior remains unchanged by the BidCos battery addition.
 
 ## Tests
 
-- Regression coverage verifies that a confirmed HomeKit Gen1 Shelly switch write does not synchronously perform a full `/settings` + `/status` re-probe.
-- Regression coverage verifies that a HomeKit Shelly command response timeout resolves optimistically and logs `SHELLY_HOMEKIT_COMMAND_RESPONSE_TIMEOUT` instead of surfacing `DETECTION_TIMEOUT` to HomeKit.
-- Structural HomeKit coverage verifies requested/succeeded/failed command-origin diagnostics.
-- The complete SALTA release validator, JavaScript syntax checks, TypeScript production build and Vitest suite must pass in GitHub Actions before integration to `main`.
-- `npm audit --audit-level=low` must complete without known npm advisories.
+- Regression coverage verifies healthy and radio-disconnected deCONZ gateway classification.
+- Regression coverage verifies that the frontend surfaces a reachable deCONZ instance with a disconnected radio as a warning.
+- Regression coverage verifies that only classic `BidCos-RF` devices derive a maintenance address from physical channel `:0`.
+- Regression coverage verifies that a classic `HM-CC-RT-DN` thermostat receives `lowBattery=true` when its physical maintenance channel reports `LOWBAT=true`.
+- Regression coverage verifies that HmIP channel state is not implicitly merged with the BidCos maintenance path.
+- Regression coverage verifies that multiple channels of one physical OpenCCU device produce one aggregated battery warning.
+- The release validator enforces the deCONZ health and BidCos battery contracts.
+- The complete SALTA release validator, JavaScript syntax checks, TypeScript production build, Vitest suite and npm audit must pass in GitHub Actions before release.
 
 ## Production update
 
